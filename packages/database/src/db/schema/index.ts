@@ -1,0 +1,30 @@
+import * as organizations from './organizations';
+import * as users from './users';
+import * as customers from './customers';
+import * as products from './products';
+import * as contracts from './contracts';
+import * as contractLineItems from './contract_line_items';
+import * as performanceObligations from './performance_obligations';
+import * as recognitionPatterns from './recognition_patterns';
+import * as revenueSchedules from './revenue_schedules';
+import * as sspEvidence from './ssp_evidence';
+import * as contractSspAllocations from './contract_ssp_allocations';
+import * as revenueJournalEntries from './revenue_journal_entries';
+
+// Note: Relations defined within schema files are automatically picked up by Drizzle
+// when they are imported alongside their corresponding tables.
+
+export const schema = {
+  ...organizations,
+  ...users,
+  ...customers,
+  ...products,
+  ...contracts,
+  ...contractLineItems,
+  ...performanceObligations,
+  ...recognitionPatterns,
+  ...revenueSchedules,
+  ...sspEvidence,
+  ...contractSspAllocations,
+  ...revenueJournalEntries
+};

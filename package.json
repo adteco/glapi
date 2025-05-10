@@ -1,0 +1,33 @@
+{
+  "name": "revenue-recognition-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean",
+    "db:migrate": "turbo run migrate --filter=database",
+    "db:generate": "turbo run generate --filter=database",
+    "db:studio": "turbo run studio --filter=database",
+    "dev:api": "pnpm --filter @glapi/api dev"
+  },
+  "workspaces": [
+    "packages/*",
+    "packages/lambdas/*",
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.4",
+    "turbo": "^1.13.3",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@latest"
+}

@@ -1,0 +1,143 @@
+export const metadata = {
+  title: 'Budget Views API',
+  description: 'Learn how to use the Budget Views API to retrieve project budget views.',
+}
+
+# Budget Views API
+
+The Budget Views API allows you to retrieve budget views for a specific project. Budget views provide structured financial data about a project's budget. {{ className: 'lead' }}
+
+## Get Budget Views
+
+<CodeGroup tag="GET" label="/api/external/budget-views">
+
+```bash
+curl -X GET "https://api.kurrent.com/api/external/budget-views?project_id=123" \
+  -H "x-api-key: your-api-key" \
+  -H "x-organization-id: your-organization-id" \
+  -H "x-company-id: your-company-id"
+```
+
+</CodeGroup>
+
+### Query Parameters
+
+<Properties>
+  <Property name="project_id" type="integer" required>
+    The ID of the project for which to retrieve budget views.
+  </Property>
+</Properties>
+
+### Required Headers
+
+<Properties>
+  <Property name="x-api-key" type="string" required>
+    Your API key for authentication.
+  </Property>
+  <Property name="x-organization-id" type="string" required>
+    The ID of your organization.
+  </Property>
+  <Property name="x-company-id" type="string" required>
+    The ID of the company you're accessing.
+  </Property>
+</Properties>
+
+### Response
+
+<ResponseField name="data" type="array">
+  An array of budget view objects.
+
+  <Expandable title="Budget View Object">
+    <ResponseField name="id" type="integer">
+      The unique identifier for the budget view.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      The name of the budget view.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      A description of the budget view.
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      The date and time when the budget view was created, in ISO 8601 format.
+    </ResponseField>
+    <ResponseField name="updated_at" type="string">
+      The date and time when the budget view was last updated, in ISO 8601 format.
+    </ResponseField>
+    <ResponseField name="project_id" type="integer">
+      The ID of the project that this budget view belongs to.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "id": 123,
+      "name": "Q1 2025 Budget View",
+      "description": "Budget view for Q1 2025",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-15T12:30:45Z",
+      "project_id": 456
+    },
+    {
+      "id": 124,
+      "name": "Q2 2025 Budget View",
+      "description": "Budget view for Q2 2025",
+      "created_at": "2025-04-01T00:00:00Z",
+      "updated_at": "2025-04-10T09:15:30Z",
+      "project_id": 456
+    }
+  ]
+}
+```
+
+### Error Responses
+
+<ResponseField name="error" type="string">
+  A description of the error that occurred.
+</ResponseField>
+
+#### Example Error Response
+
+```json
+{
+  "error": "project_id is required in query parameters"
+}
+```
+
+### Status Codes
+
+<Properties>
+  <Property name="200">
+    The request was successful.
+  </Property>
+  <Property name="400">
+    Bad request - check the error message for details.
+  </Property>
+  <Property name="401">
+    Unauthorized - invalid or missing API key.
+  </Property>
+  <Property name="404">
+    Not found - the organization or project was not found.
+  </Property>
+  <Property name="500">
+    Internal server error.
+  </Property>
+</Properties>
+
+## Related Resources
+
+<div className="not-prose">
+  <Button href="/api/budget-view-snapshots" variant="text" arrow="right">
+    <>Budget View Snapshots API</>
+  </Button>
+</div>
+
+<div className="not-prose">
+  <Button href="/api/budget-view-snapshot" variant="text" arrow="right">
+    <>Budget View Snapshot API</>
+  </Button>
+</div>

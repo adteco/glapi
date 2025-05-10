@@ -1,0 +1,242 @@
+export const metadata = {
+  title: 'Budget View Snapshot API',
+  description: 'Learn how to use the Budget View Snapshot API to retrieve detailed information about a specific budget snapshot.',
+}
+
+# Budget View Snapshot API
+
+The Budget View Snapshot API allows you to retrieve detailed information about a specific budget view snapshot. This endpoint provides comprehensive data about the state of a budget at the time the snapshot was created. {{ className: 'lead' }}
+
+## Get Budget View Snapshot
+
+<CodeGroup tag="GET" label="/api/external/budget-view-snapshot">
+
+```bash
+curl -X GET "https://api.kurrent.com/api/external/budget-view-snapshot?project_id=123&snapshot_id=789" \
+  -H "x-api-key: your-api-key" \
+  -H "x-organization-id: your-organization-id" \
+  -H "x-company-id: your-company-id"
+```
+
+</CodeGroup>
+
+### Query Parameters
+
+<Properties>
+  <Property name="project_id" type="integer" required>
+    The ID of the project that the snapshot belongs to.
+  </Property>
+  <Property name="snapshot_id" type="integer" required>
+    The ID of the specific budget view snapshot to retrieve.
+  </Property>
+</Properties>
+
+### Required Headers
+
+<Properties>
+  <Property name="x-api-key" type="string" required>
+    Your API key for authentication.
+  </Property>
+  <Property name="x-organization-id" type="string" required>
+    The ID of your organization.
+  </Property>
+  <Property name="x-company-id" type="string" required>
+    The ID of the company you're accessing.
+  </Property>
+</Properties>
+
+### Response
+
+<ResponseField name="data" type="object">
+  The budget view snapshot object with detailed information.
+
+  <Expandable title="Budget View Snapshot Object">
+    <ResponseField name="id" type="integer">
+      The unique identifier for the budget view snapshot.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      The name of the snapshot.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      A description of the snapshot.
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      The date and time when the snapshot was created, in ISO 8601 format.
+    </ResponseField>
+    <ResponseField name="budget_view_id" type="integer">
+      The ID of the budget view that this snapshot belongs to.
+    </ResponseField>
+    <ResponseField name="project_id" type="integer">
+      The ID of the project that this snapshot belongs to.
+    </ResponseField>
+    <ResponseField name="created_by" type="object">
+      Information about the user who created the snapshot.
+      <Expandable title="User Object">
+        <ResponseField name="id" type="integer">
+          The unique identifier for the user.
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          The name of the user.
+        </ResponseField>
+        <ResponseField name="email" type="string">
+          The email address of the user.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="line_items" type="array">
+      An array of budget line items included in this snapshot.
+      <Expandable title="Line Item Object">
+        <ResponseField name="id" type="integer">
+          The unique identifier for the line item.
+        </ResponseField>
+        <ResponseField name="code" type="string">
+          The code or identifier for the line item.
+        </ResponseField>
+        <ResponseField name="description" type="string">
+          A description of the line item.
+        </ResponseField>
+        <ResponseField name="original_budget" type="number">
+          The original budgeted amount for this line item.
+        </ResponseField>
+        <ResponseField name="current_budget" type="number">
+          The current budgeted amount for this line item at the time of the snapshot.
+        </ResponseField>
+        <ResponseField name="committed" type="number">
+          The amount committed for this line item at the time of the snapshot.
+        </ResponseField>
+        <ResponseField name="spent" type="number">
+          The amount spent for this line item at the time of the snapshot.
+        </ResponseField>
+        <ResponseField name="projected_total" type="number">
+          The projected total for this line item at the time of the snapshot.
+        </ResponseField>
+        <ResponseField name="variance" type="number">
+          The variance between the current budget and projected total.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="totals" type="object">
+      Summary totals for the entire budget at the time of the snapshot.
+      <Expandable title="Totals Object">
+        <ResponseField name="original_budget" type="number">
+          The total original budgeted amount.
+        </ResponseField>
+        <ResponseField name="current_budget" type="number">
+          The total current budgeted amount.
+        </ResponseField>
+        <ResponseField name="committed" type="number">
+          The total committed amount.
+        </ResponseField>
+        <ResponseField name="spent" type="number">
+          The total spent amount.
+        </ResponseField>
+        <ResponseField name="projected_total" type="number">
+          The total projected amount.
+        </ResponseField>
+        <ResponseField name="variance" type="number">
+          The total variance between current budget and projected total.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "data": {
+    "id": 789,
+    "name": "End of January 2025",
+    "description": "Budget snapshot at the end of January 2025",
+    "created_at": "2025-01-31T23:59:59Z",
+    "budget_view_id": 123,
+    "project_id": 456,
+    "created_by": {
+      "id": 101,
+      "name": "John Doe",
+      "email": "john.doe@example.com"
+    },
+    "line_items": [
+      {
+        "id": 1001,
+        "code": "01-100",
+        "description": "General Requirements",
+        "original_budget": 100000.00,
+        "current_budget": 105000.00,
+        "committed": 95000.00,
+        "spent": 75000.00,
+        "projected_total": 102000.00,
+        "variance": 3000.00
+      },
+      {
+        "id": 1002,
+        "code": "02-200",
+        "description": "Site Construction",
+        "original_budget": 250000.00,
+        "current_budget": 260000.00,
+        "committed": 255000.00,
+        "spent": 200000.00,
+        "projected_total": 265000.00,
+        "variance": -5000.00
+      }
+    ],
+    "totals": {
+      "original_budget": 350000.00,
+      "current_budget": 365000.00,
+      "committed": 350000.00,
+      "spent": 275000.00,
+      "projected_total": 367000.00,
+      "variance": -2000.00
+    }
+  }
+}
+```
+
+### Error Responses
+
+<ResponseField name="error" type="string">
+  A description of the error that occurred.
+</ResponseField>
+
+#### Example Error Response
+
+```json
+{
+  "error": "snapshot_id is required in query parameters"
+}
+```
+
+### Status Codes
+
+<Properties>
+  <Property name="200">
+    The request was successful.
+  </Property>
+  <Property name="400">
+    Bad request - check the error message for details.
+  </Property>
+  <Property name="401">
+    Unauthorized - invalid or missing API key.
+  </Property>
+  <Property name="404">
+    Not found - the organization, project, or snapshot was not found.
+  </Property>
+  <Property name="500">
+    Internal server error.
+  </Property>
+</Properties>
+
+## Related Resources
+
+<div className="not-prose">
+  <Button href="/api/budget-views" variant="text" arrow="right">
+    <>Budget Views API</>
+  </Button>
+</div>
+
+<div className="not-prose">
+  <Button href="/api/budget-view-snapshots" variant="text" arrow="right">
+    <>Budget View Snapshots API</>
+  </Button>
+</div>

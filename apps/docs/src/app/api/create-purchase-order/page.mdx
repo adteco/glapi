@@ -1,0 +1,139 @@
+# Create Purchase Order API
+
+This endpoint allows you to create a new purchase order in Procore.
+
+## Endpoint
+
+```
+POST /api/external/create-purchase-order
+```
+
+## Authentication
+
+All API requests require an API key to be included in the request headers.
+
+```
+x-api-key: your-api-key
+```
+
+## Required Headers
+
+The following headers are required for all requests:
+
+```
+organization-id: your-organization-id
+company-id: your-company-id
+```
+
+## Request Body
+
+The request body should be a JSON object containing the purchase order data.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| project_id | string | Yes | The ID of the project to create the purchase order for |
+| commitment_id | string | Yes | The ID of the commitment to associate with the purchase order |
+| title | string | Yes | The title of the purchase order |
+| vendor_id | number | Yes | The ID of the vendor for the purchase order |
+| status | string | Yes | The status of the purchase order (e.g., "draft", "issued") |
+| line_items | array | Yes | Array of line items for the purchase order |
+
+### Line Item Object
+
+Each line item in the `line_items` array should have the following structure:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| description | string | Yes | Description of the line item |
+| amount | string | Yes | The amount for the line item (as a string) |
+| cost_code_id | number | Yes | The ID of the cost code for the line item |
+| quantity | number | No | The quantity for the line item |
+| unit_cost | string | No | The unit cost for the line item (as a string) |
+
+## Example Request
+
+```bash
+curl -X POST "https://your-domain.com/api/external/create-purchase-order" \
+  -H "x-api-key: your-api-key" \
+  -H "organization-id: your-organization-id" \
+  -H "company-id: your-company-id" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "123456",
+    "commitment_id": "789012",
+    "title": "New Equipment Purchase",
+    "vendor_id": 67890,
+    "status": "draft",
+    "line_items": [
+      {
+        "description": "Heavy Equipment Rental",
+        "amount": "5000.00",
+        "cost_code_id": 22222,
+        "quantity": 1,
+        "unit_cost": "5000.00"
+      }
+    ]
+  }'
+```
+
+## Response Format
+
+A successful response will return a JSON object containing the created purchase order data.
+
+### Success Response (200 OK)
+
+```json
+{
+  "id": 12345,
+  "number": "PO-001",
+  "status": "draft",
+  "title": "New Equipment Purchase",
+  "vendor": {
+    "id": 67890,
+    "name": "Example Vendor"
+  },
+  "original_amount": "5000.00",
+  "revised_amount": "5000.00",
+  "total_amount": "5000.00",
+  "line_items": [
+    {
+      "id": 11111,
+      "description": "Heavy Equipment Rental",
+      "amount": "5000.00",
+      "cost_code": {
+        "id": 22222,
+        "full_code": "01-001",
+        "name": "Example Cost Code"
+      }
+    }
+  ]
+}
+```
+
+### Error Response (400 Bad Request)
+
+```json
+{
+  "error": "Missing required parameter: project_id"
+}
+```
+
+### Error Response (401 Unauthorized)
+
+```json
+{
+  "error": "Invalid API key"
+}
+```
+
+### Error Response (500 Internal Server Error)
+
+```json
+{
+  "error": "Failed to create purchase order"
+}
+```
+
+## Related Resources
+
+- [Project Commitments](/api/project-commitments)

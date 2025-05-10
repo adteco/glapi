@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Local env files
+.env
+.env*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+temp/
+tmp/
+
+# Docker
+docker-compose.override.yml
+
+# AWS
+.aws/
+
+# Supabase
+.supabase/
+
+# Turbo
+.turbo/
+
+# Next.js
+packages/web/.next/
+packages/web/out/
+
+# Drizzle migrations (if they are committed, this might be removed)
+# packages/database/migrations/
+
+**/.claude/settings.local.json

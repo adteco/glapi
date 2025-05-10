@@ -1,0 +1,100 @@
+export const metadata = {
+  title: 'API Reference',
+  description:
+    'Complete reference documentation for the Kurrent API, including authentication, endpoints, and example requests.',
+}
+
+# API Reference
+
+This documentation provides a comprehensive guide to the Kurrent API, including authentication methods, available endpoints, and example requests. Our API follows RESTful principles and uses standard HTTP methods. {{ className: 'lead' }}
+
+<Note>
+  To use the Kurrent API, you will need an API key. Contact your administrator or the support team to obtain your API key.
+</Note>
+
+## Authentication
+
+All API requests require authentication using an API key. The API key should be included in the request headers as `x-api-key`.
+
+```bash
+curl -X GET https://api.kurrent.com/api/external/budget-views?project_id=123 \
+  -H "x-api-key: your-api-key" \
+  -H "x-organization-id: your-organization-id" \
+  -H "x-company-id: your-company-id"
+```
+
+## Required Headers
+
+Most API endpoints require the following headers:
+
+| Header | Description |
+|--------|-------------|
+| `x-api-key` | Your API key for authentication |
+| `x-organization-id` | The ID of your organization |
+| `x-company-id` | The ID of the company you're accessing |
+
+## Response Format
+
+All API responses are returned in JSON format. Successful responses include a `data` field containing the requested information. Error responses include an `error` field with a description of what went wrong.
+
+### Success Response Example
+
+```json
+{
+  "data": [
+    {
+      "id": 123,
+      "name": "Example Resource",
+      // Additional resource properties
+    }
+  ]
+}
+```
+
+### Error Response Example
+
+```json
+{
+  "error": "Invalid or missing API key"
+}
+```
+
+## Available Endpoints
+
+Kurrent offers a variety of endpoints for accessing and managing your data:
+
+- [Prime Contracts](/api/prime-contracts) - Access and manage prime contracts
+- [Prime Contract Details](/api/prime-contract-details) - Get detailed information about specific prime contracts
+- [Budget Views](/api/budget-views) - Access project budget views
+- [Budget View Snapshots](/api/budget-view-snapshots) - Access budget view snapshots for a project
+- [Budget View Snapshot](/api/budget-view-snapshot) - Get detailed information about a specific budget view snapshot
+- [Project Commitments](/api/project-commitments) - Access project commitments from Procore
+- [Create Purchase Order](/api/create-purchase-order) - Create a new purchase order in Procore
+
+## Rate Limits
+
+The API has rate limits to ensure fair usage. Current rate limits are:
+- 100 requests per minute per API key
+- 5,000 requests per day per API key
+
+If you exceed these limits, you will receive a `429 Too Many Requests` response.
+
+## Pagination
+
+For endpoints that return multiple items, results are paginated. You can control pagination using the following query parameters:
+
+- `page`: The page number (default: 1)
+- `limit`: The number of items per page (default: 20, max: 100)
+
+## Errors
+
+The API uses standard HTTP status codes to indicate the success or failure of a request. Common status codes include:
+
+- `200 OK`: The request was successful
+- `400 Bad Request`: The request was invalid or missing required parameters
+- `401 Unauthorized`: Authentication failed or missing API key
+- `404 Not Found`: The requested resource was not found
+- `429 Too Many Requests`: Rate limit exceeded
+- `500 Internal Server Error`: An error occurred on the server
+
+For more detailed information about specific errors, see the [Errors](/errors) documentation.

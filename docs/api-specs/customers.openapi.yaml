@@ -1,0 +1,353 @@
+openapi: 3.0.0
+info:
+  title: Customer API
+  version: v1
+  description: API for managing customers within the Revenue Recognition System.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Customer:
+      type: object
+      required:
+        - id
+        - entityType
+        - email
+        - primarySubsidiaryId
+        - defaultCurrencyId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the customer.
+          readOnly: true
+        entityType:
+          type: string
+          enum: [Customer, Vendor, Employee, Partner] # From entities.entityTypeEnum
+          # default: Customer # This will be set by backend logic based on context or specific endpoint
+          description: Type of entity.
+        companyName:
+          type: string
+          nullable: true
+          description: Company name of the customer.
+        firstName:
+          type: string
+          nullable: true
+          description: First name of the primary contact or individual customer.
+        lastName:
+          type: string
+          nullable: true
+          description: Last name of the primary contact or individual customer.
+        email:
+          type: string
+          format: email
+          description: Email address of the customer (must be unique if entityType is Customer).
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the customer.
+        primarySubsidiaryId:
+          type: string
+          format: uuid
+          description: Identifier for the primary subsidiary associated with this customer.
+        defaultCurrencyId:
+          type: string
+          format: uuid
+          description: Identifier for the default currency for this customer.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the customer was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the customer was last updated.
+          readOnly: true
+
+    NewCustomer:
+      type: object
+      required:
+        - email
+        - primarySubsidiaryId
+        - defaultCurrencyId
+      properties:
+        companyName:
+          type: string
+          nullable: true
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        primarySubsidiaryId:
+          type: string
+          format: uuid
+        defaultCurrencyId:
+          type: string
+          format: uuid
+        # entityType is implicitly 'Customer' for POST /customers and set by the backend
+
+    UpdateCustomer:
+      type: object
+      # For PUT, all non-readonly fields are typically expected.
+      # For PATCH, all fields are optional.
+      # We can use one schema and clarify behavior in description or use separate schemas.
+      # For simplicity, using one for now and assuming PATCH allows partial updates.
+      properties:
+        companyName:
+          type: string
+          nullable: true
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          description: Email address of the customer. Consider implications if changing this (e.g. uniqueness).
+        phone:
+          type: string
+          nullable: true
+        primarySubsidiaryId:
+          type: string
+          format: uuid
+        defaultCurrencyId:
+          type: string
+          format: uuid
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        currentPage:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 10
+
+  parameters:
+    customerId:
+      name: customerId
+      in: path
+      required: true
+      description: Identifier of the customer.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    pageSize:
+      name: pageSize
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /customers:
+    post:
+      summary: Create a new customer
+      tags:
+        - Customers
+      operationId: createCustomer
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Customer object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewCustomer'
+      responses:
+        '201':
+          description: Customer created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409': &ErrorResponse409
+          description: Conflict - Resource already exists (e.g., customer with this email).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all customers
+      tags:
+        - Customers
+      operationId: listCustomers
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+      responses:
+        '200':
+          description: A list of customers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /customers/{customerId}:
+    parameters:
+      - $ref: '#/components/parameters/customerId'
+    get:
+      summary: Get a customer by ID
+      tags:
+        - Customers
+      operationId: getCustomerById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Customer with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a customer (full update)
+      tags:
+        - Customers
+      operationId: updateCustomer
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Customer object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomer' # For PUT, this schema should ideally list all non-readonly fields as required.
+      responses:
+        '200':
+          description: Customer updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    patch:
+      summary: Partially update a customer
+      tags:
+        - Customers
+      operationId: patchCustomer
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Customer object with fields to update.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomer' # For PATCH, all fields in UpdateCustomer are optional.
+      responses:
+        '200':
+          description: Customer updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a customer
+      tags:
+        - Customers
+      operationId: deleteCustomer
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Customer deleted successfully. No content.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500 

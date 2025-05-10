@@ -1,0 +1,25 @@
+{
+  "name": "@glapi/database",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "test:connection": "tsx src/scripts/test-connection.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@types/pg": "^8.15.1",
+    "drizzle-orm": "^0.41.0",
+    "pg": "^8.15.6",
+    "postgres": "^3.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "drizzle-kit": "^0.30.6",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
