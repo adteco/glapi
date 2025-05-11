@@ -8,77 +8,60 @@ import { OrganizationService } from '@glapi/api-service';
  */
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Get the organization ID and Stytch ID from the header
-    const orgId = req.headers['x-organization-id'] as string;
-    const stytchOrgId = req.headers['x-stytch-organization-id'] as string;
-    const userId = req.headers['x-user-id'] as string;
-    
-    // // Log the headers for debugging - EXTREMELY VERBOSE AND CLEAR
-    // console.log('================================================================');
-    // console.log('AUTH MIDDLEWARE - RECEIVED HEADERS:');
-    // console.log('STYTCH ORGANIZATION ID FROM HEADER:', stytchOrgId || 'NOT PROVIDED');
-    // console.log('ORGANIZATION ID FROM HEADER:', orgId || 'NOT PROVIDED');
-    // console.log('USER ID FROM HEADER:', userId || 'NOT PROVIDED');
-    // console.log('REQUEST PATH:', req.path);
-    // console.log('REQUEST METHOD:', req.method);
-    // console.log('ALL HEADERS:', req.headers);
-    // console.log('================================================================');
-    
-    // Use a fixed organization ID for development
-    // This simplifies testing and development
-    const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
-    
-    // Create the organization service
-    const orgService = new OrganizationService();
-    
-    // Find or create a default organization
-    try {
-      const defaultOrg = await orgService.findOrCreateOrganization({
-        organization_id: stytchOrgId || '00000000-0000-0000-0000-000000000001',
-        organization_name: 'Default Organization',
-        organization_slug: 'default-org'
-      });
-      
-      // console.log('================================================================');
-      // console.log('AUTH MIDDLEWARE - ORGANIZATION CONTEXT SET:');
-      // console.log('ORGANIZATION ID:', defaultOrg.id);
-      // console.log('STYTCH ORGANIZATION ID:', defaultOrg.stytchOrgId);
-      // console.log('ORGANIZATION NAME:', defaultOrg.name);
-      // console.log('ORGANIZATION SLUG:', defaultOrg.slug);
-      // console.log('================================================================');
-      
-      // Set the organization context on the request
+    const stytchOrgIdFromHeader = req.headers['x-stytch-organization-id'] as string;
+    const userId = req.headers['x-user-id'] as string; // Keep userId if needed
+
+    console.log(`[AuthMiddleware] Received x-stytch-organization-id: '${stytchOrgIdFromHeader}' for path: ${req.path}`);
+
+    // For development purposes, use a default organization for unauthenticated requests
+    // In production, this would verify the JWT token from Stytch
+    if (!stytchOrgIdFromHeader || stytchOrgIdFromHeader === '00000000-0000-0000-0000-000000000001') {
+      console.log('[AuthMiddleware] No valid organization ID received - using development fallback');
+
+      // Set a development fallback organization context
       (req as any).organizationContext = {
-        organizationId: defaultOrg.id,
-        userId: userId || 'user-default',
-        stytchOrganizationId: stytchOrgId || defaultOrg.stytchOrgId
+        organizationId: 'organization-default-dev',  // Default org ID for development
+        userId: userId || 'user-default-dev',        // Default user ID for development
+        stytchOrganizationId: 'organization-test-6f0cd115-d208-4462-8b0a-d1e8df4568a7' // Test Stytch org ID
       };
-      
-      // Continue to the next middleware/route handler
-      next();
-    } catch (error) {
-      console.error('Error finding/creating organization:', error);
-      
-      if (isDevelopment) {
-        // In development, use a mock context
-        console.log('Using default mock organization context');
-        (req as any).organizationContext = {
-          organizationId: 'org-12345678',
-          userId: userId || 'user-default',
-          stytchOrganizationId: stytchOrgId || '00000000-0000-0000-0000-000000000001'
-        };
-        next();
-      } else {
-        // In production, return an error
-        return res.status(401).json({
-          message: 'Unauthorized - Organization context required'
-        });
-      }
+
+      return next();
     }
-  } catch (error) {
-    console.error('Authentication error:', error);
+
+    const orgService = new OrganizationService();
+    let organization;
+
+    try {
+      organization = await orgService.getOrganizationByStytchId(stytchOrgIdFromHeader);
+    } catch (serviceError) {
+      console.error(`[AuthMiddleware] Error calling getOrganizationByStytchId for ID '${stytchOrgIdFromHeader}':`, serviceError);
+      return res.status(500).json({
+        message: 'Internal Server Error - Failed to query organization by Stytch ID.'
+      });
+    }
+
+    if (!organization) {
+      console.error(`[AuthMiddleware] No organization found for Stytch ID: '${stytchOrgIdFromHeader}'`);
+      return res.status(500).json({
+        message: `Internal Server Error - Organization not found for provided Stytch ID.`
+      });
+    }
+
+    // console.log('[AuthMiddleware] Successfully resolved organization:', organization); // Optional: log resolved org
+
+    // Set the organization context on the request
+    (req as any).organizationContext = {
+      organizationId: organization.id, // Use the ID from the found organization
+      userId: userId || 'user-default', // Keep existing userId logic or refine
+      stytchOrganizationId: organization.stytchOrgId // Use the Stytch ID from the found organization
+    };
+    
+    next();
+
+  } catch (error) { // Catch any other unexpected errors in the middleware itself
+    console.error('[AuthMiddleware] Unexpected error:', error);
     return res.status(500).json({ 
-      message: 'Authentication error' 
+      message: 'Internal Server Error - Unexpected issue in authentication middleware.' 
     });
   }
 };
