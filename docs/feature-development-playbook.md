@@ -87,17 +87,39 @@ This section details the application of the playbook to the "Customer Management
 ### Phase 2: Implementation & Testing (Customer Management)
 
 *   **Service Layer (`packages/api-service`):**
-    *   `CustomerService` (`packages/api-service/src/services/customerService.ts`) implements `createCustomer`, `getCustomerById`, `getAllCustomers`, `updateCustomer`, `deleteCustomer` methods.
-    *   Interacts with the `entities` table in the database via `@glapi/database`.
+    *   `CustomerService` (`packages/api-service/src/services/customer-service.ts`) implements `createCustomer`, `getCustomerById`, `listCustomers`, `updateCustomer`, `deleteCustomer` methods.
+    *   Interacts with the `customers` table in the database via `@glapi/database`.
 *   **API Layer (`apps/api` - Express.js):**
     *   Customer routes defined in `apps/api/src/routes/customerRoutes.ts`.
     *   Uses `CustomerService` to handle business logic.
-    *   Input validation performed using Zod schemas from `customer.types.ts`.
+    *   Input validation performed using Zod schemas from `types/index.ts`.
     *   Decision: A dedicated Express.js application (`apps/api`) was chosen over Next.js API Routes for clearer separation of concerns, independent deployability, and a more direct path to potential future migration to serverless functions.
 *   **Database Migrations:**
-    *   Schema changes for `entities` and related tables (if any) are managed via Drizzle migrations.
+    *   Schema changes for `customers` and related tables are managed via Drizzle migrations.
 
-*(Phases 3 & 4 for Customer Management will be filled in as development progresses)*
+### Phase 3: Documentation & UI/UX Development (Customer Management)
+
+*   **API Implementation:**
+    *   Completed the implementation of all CRUD operations in the Express.js API:
+        *   `POST /api/v1/customers`: Create a new customer.
+        *   `GET /api/v1/customers`: List all customers with pagination, filtering, and sorting.
+        *   `GET /api/v1/customers/:id`: Retrieve a specific customer.
+        *   `PUT /api/v1/customers/:id`: Full update of a customer.
+        *   `PATCH /api/v1/customers/:id`: Partial update of a customer.
+        *   `DELETE /api/v1/customers/:id`: Delete a customer.
+    *   API routes validate incoming requests using Zod schemas and provide appropriate error responses.
+    *   Created test scripts to verify API functionality using cURL commands.
+*   **API Documentation:**
+    *   The OpenAPI specification has been verified against the implementation.
+    *   Ensuring all endpoints, request/response formats, and error cases are accurately documented.
+*   **Next Steps:**
+    *   Development of the UI components in the Next.js application to consume these APIs.
+    *   Implementation of authentication middleware to secure the API endpoints.
+    *   Integration of the APIs with the UI components.
+
+### Phase 4: Review & Merge (Customer Management)
+
+*   **Pending:** Will be completed after UI implementation and thorough testing.
 
 ## Future Considerations
 

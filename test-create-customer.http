@@ -1,0 +1,30 @@
+### Create a test customer
+POST http://localhost:3001/api/v1/customers
+Content-Type: application/json
+x-stytch-organization-id: 00000000-0000-0000-0000-000000000001
+
+{
+  "companyName": "Test Company",
+  "customerId": "TEST001",
+  "contactEmail": "test@example.com",
+  "contactPhone": "123-456-7890",
+  "status": "active",
+  "organizationId": "3a089ae1-8d1a-4e55-af27-9f9c164d3db9",
+  "billingAddress": {
+    "street": "123 Test St",
+    "city": "Test City",
+    "state": "TS",
+    "postalCode": "12345",
+    "country": "TestLand"
+  }
+}
+
+### List all customers
+GET http://localhost:3001/api/v1/customers
+Content-Type: application/json
+x-stytch-organization-id: 00000000-0000-0000-0000-000000000001
+
+### Get a specific customer (replace ID with actual customer ID)
+GET http://localhost:3001/api/v1/customers/customer-id-goes-here
+Content-Type: application/json
+x-stytch-organization-id: 00000000-0000-0000-0000-000000000001
