@@ -1,0 +1,386 @@
+openapi: 3.0.0
+info:
+  title: Subsidiary API
+  version: v1
+  description: API for managing subsidiaries within the Revenue Recognition System.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Subsidiary:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - code
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the subsidiary.
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Identifier for the organization that owns this subsidiary.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the subsidiary.
+        code:
+          type: string
+          description: Unique code identifier for the subsidiary within an organization.
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the subsidiary.
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Identifier for the parent subsidiary, if any.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the subsidiary is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the subsidiary was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the subsidiary was last updated.
+          readOnly: true
+
+    NewSubsidiary:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+          description: Name of the subsidiary.
+        code:
+          type: string
+          description: Unique code identifier for the subsidiary within an organization.
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the subsidiary.
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Identifier for the parent subsidiary, if any.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the subsidiary is active.
+
+    UpdateSubsidiary:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the subsidiary.
+        code:
+          type: string
+          description: Unique code identifier for the subsidiary within an organization.
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the subsidiary.
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Identifier for the parent subsidiary, if any.
+        isActive:
+          type: boolean
+          description: Whether the subsidiary is active.
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+
+  parameters:
+    subsidiaryId:
+      name: id
+      in: path
+      required: true
+      description: Identifier of the subsidiary.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+    orderBy:
+      name: orderBy
+      in: query
+      description: Field to order results by.
+      required: false
+      schema:
+        type: string
+        enum: [name, code, createdAt]
+        default: name
+    orderDirection:
+      name: orderDirection
+      in: query
+      description: Direction to order results.
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    isActive:
+      name: isActive
+      in: query
+      description: Filter by active status.
+      required: false
+      schema:
+        type: boolean
+    parentId:
+      name: parentId
+      in: query
+      description: Filter by parent subsidiary ID. Use 'null' for top-level subsidiaries.
+      required: false
+      schema:
+        type: string
+        format: uuid
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    StytchOrgHeader:
+      type: apiKey
+      in: header
+      name: x-stytch-organization-id
+      description: Stytch organization ID header for multi-tenancy
+
+security:
+  - BearerAuth: []
+  - StytchOrgHeader: []
+
+paths:
+  /subsidiaries:
+    post:
+      summary: Create a new subsidiary
+      tags:
+        - Subsidiaries
+      operationId: createSubsidiary
+      requestBody:
+        description: Subsidiary object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewSubsidiary'
+      responses:
+        '201':
+          description: Subsidiary created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsidiary'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409': &ErrorResponse409
+          description: Conflict - Resource already exists (e.g., subsidiary with this code).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all subsidiaries
+      tags:
+        - Subsidiaries
+      operationId: listSubsidiaries
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/orderBy'
+        - $ref: '#/components/parameters/orderDirection'
+        - $ref: '#/components/parameters/isActive'
+        - $ref: '#/components/parameters/parentId'
+      responses:
+        '200':
+          description: A list of subsidiaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subsidiary'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /subsidiaries/{id}:
+    parameters:
+      - $ref: '#/components/parameters/subsidiaryId'
+    get:
+      summary: Get a subsidiary by ID
+      tags:
+        - Subsidiaries
+      operationId: getSubsidiaryById
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subsidiary:
+                    $ref: '#/components/schemas/Subsidiary'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Subsidiary with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a subsidiary
+      tags:
+        - Subsidiaries
+      operationId: updateSubsidiary
+      requestBody:
+        description: Subsidiary object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubsidiary'
+      responses:
+        '200':
+          description: Subsidiary updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subsidiary:
+                    $ref: '#/components/schemas/Subsidiary'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a subsidiary
+      tags:
+        - Subsidiaries
+      operationId: deleteSubsidiary
+      responses:
+        '200':
+          description: Subsidiary deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Subsidiary deleted successfully"
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+
+  /subsidiaries/children/{id}:
+    parameters:
+      - $ref: '#/components/parameters/subsidiaryId'
+    get:
+      summary: Get all child subsidiaries of a parent
+      tags:
+        - Subsidiaries
+      operationId: getChildSubsidiaries
+      responses:
+        '200':
+          description: A list of child subsidiaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subsidiary'
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
