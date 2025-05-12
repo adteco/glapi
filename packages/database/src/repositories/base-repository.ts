@@ -7,7 +7,7 @@ import { db } from '../db';
  */
 export abstract class BaseRepository {
   protected db: NodePgDatabase;
-  
+
   constructor() {
     this.db = db;
   }
@@ -33,7 +33,8 @@ export abstract class BaseRepository {
           this.db.eq(table.organizationId, organizationId)
         )
       );
-    
+
     return result[0]?.count > 0;
   }
+}
 }
