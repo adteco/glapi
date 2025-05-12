@@ -14,6 +14,7 @@ Our development process follows these key principles:
 * **Clear Communication:** Document decisions, edge cases, and implementation details.
 * **Consistent Patterns:** Follow established patterns for similar features.
 * **Organization Context Awareness:** All entities belong to an organization context.
+* **Separation of Concerns:** Maintain clear separation between data access, business logic, and presentation layers.
 
 ## Development Phases
 
@@ -26,7 +27,7 @@ Our development process follows these key principles:
    * Define expected behavior and validation rules.
 
 2. **Data Modeling:**
-   * Define or update necessary database schemas (`packages/database`).
+   * Define or update necessary database schemas (`packages/database/src/schema`).
    * Consider multi-tenancy design (each entity belongs to an organization context).
    * Design relationships between entities (foreign keys, etc.).
    * Define data transfer objects (DTOs) and validation schemas (using Zod in `packages/api-service/src/types`).
@@ -47,8 +48,23 @@ Our development process follows these key principles:
 
 ### Phase 2: Implementation (Backend)
 
-1. **Service Layer Development:**
-   * Implement the core business logic within the `packages/api-service` package.
+1. **Repository Layer Development:**
+   * Implement data access logic in the `packages/database/src/repositories` directory.
+   * Create a dedicated repository class (e.g., `SubsidiaryRepository`) with standard methods:
+     * `findById`: Retrieve a specific entity by ID.
+     * `findAll`: List entities with pagination and filtering.
+     * `create`: Create a new entity record.
+     * `update`: Update an entity record.
+     * `delete`: Delete an entity record.
+   * All repositories should:
+     * Extend the `BaseRepository` class.
+     * Interact directly with the database using Drizzle ORM.
+     * Include organization context filtering in all queries.
+     * Handle data formatting and transformation.
+     * Return properly structured data objects.
+
+2. **Service Layer Development:**
+   * Implement the core business logic within the `packages/api-service/src/services` package.
    * Create a dedicated service class (e.g., `SubsidiaryService`) with standard methods:
      * `create{Entity}`: Create a new entity record.
      * `get{Entity}ById`: Retrieve a specific entity by ID.
@@ -57,13 +73,13 @@ Our development process follows these key principles:
      * `delete{Entity}`: Delete an entity record.
    * Services should:
      * Accept and verify an organization context for multi-tenancy.
-     * Interact with the database (`@glapi/database`).
+     * Use repositories for data access (NOT direct database queries).
      * Validate inputs using Zod schemas.
      * Handle business logic including relationships and constraints.
      * Return structured data that matches the API contract.
    * Write unit tests for the service layer.
 
-2. **API Layer Development:**
+3. **API Layer Development:**
    * Implement the HTTP interface in the dedicated API application (`apps/api` using Express.js).
    * Create a dedicated route file (e.g., `apps/api/src/routes/subsidiaryRoutes.ts`).
    * API route handlers should:
@@ -80,7 +96,7 @@ Our development process follows these key principles:
    * Apply authentication and authorization middleware.
    * Write integration tests for the API endpoints.
 
-3. **Database Migrations:**
+4. **Database Migrations:**
    * Generate and apply database migrations using Drizzle Kit.
    * Commands:
      * `pnpm run db:generate`: Generate migration files.
@@ -145,13 +161,13 @@ Our development process follows these key principles:
 1. **API Documentation:**
    * **OpenAPI Specification:**
      * Create or update the OpenAPI spec file in `docs/api-specs/{entity}.openapi.yaml`
-     * Follow the established pattern from `customers.openapi.yaml`
+     * Follow the established pattern from existing specs (e.g., `subsidiaries.openapi.yaml`)
      * Include:
        * Schema definitions for the entity (`Entity`, `NewEntity`, `UpdateEntity`)
        * All CRUD endpoints with proper request/response formats
        * Query parameters for filtering, sorting, and pagination
        * Error responses for all possible failure scenarios
-       * Security scheme definition (typically JWT bearer auth)
+       * Security scheme definition (typically auth headers)
      * Validate the spec using a tool like Swagger Editor or Redocly
 
    * **Next.js Documentation Site (`/apps/docs`):**
@@ -160,9 +176,9 @@ Our development process follows these key principles:
        * Overview of the entity and its purpose
        * Entity schema and field descriptions
        * Available endpoints with request/response examples
-       * Common use cases and examples
+       * Common use cases and code examples
        * Relationship with other entities
-       * Code examples in multiple languages (JavaScript, Python, etc.)
+       * Error codes and troubleshooting
      * Update the navigation in `/apps/docs/src/app/api/page.mdx` to include the new entity
      * Ensure the documentation is accessible and well-formatted
 
@@ -186,6 +202,41 @@ Our development process follows these key principles:
 
 ## Implementation Patterns
 
+### Repository Pattern
+
+The Repository pattern provides a clean separation between data access logic and business logic:
+
+1. **Repository Structure:**
+   * Each entity has its own repository class extending `BaseRepository`.
+   * Repositories handle all direct database interactions via Drizzle ORM.
+   * Example location: `packages/database/src/repositories/{entity}-repository.ts`
+
+2. **Standard Methods:**
+   * `findById`: Retrieve a single entity with organization context.
+   * `findAll`: List entities with filtering, pagination, and organization context.
+   * `create`: Insert a new entity.
+   * `update`: Update an existing entity.
+   * `delete`: Delete an entity.
+   * Custom methods for specialized queries.
+
+3. **Example Repository Method:**
+   ```typescript
+   async findById(id: string, organizationId: string) {
+     const [result] = await this.db
+       .select()
+       .from(entities)
+       .where(
+         and(
+           eq(entities.id, id),
+           eq(entities.organizationId, organizationId)
+         )
+       )
+       .limit(1);
+     
+     return result || null;
+   }
+   ```
+
 ### Organization Context Handling
 
 All entities must operate within an organization context:
@@ -197,18 +248,27 @@ All entities must operate within an organization context:
 
 2. **Service Layer:**
    * Require organization context in service constructors.
-   * All database queries should filter by organization ID.
+   * Pass organization context to repository methods.
    * Example:
      ```typescript
-     const results = await db.select()
-       .from(customers)
-       .where(eq(customers.organizationId, this.context.organizationId))
+     const organizationId = this.requireOrganizationContext();
+     const result = await this.entityRepository.findById(id, organizationId);
+     ```
+
+3. **Repository Layer:**
+   * Include organization ID in all query filters.
+   * Example:
+     ```typescript
+     const results = await this.db
+       .select()
+       .from(entities)
+       .where(eq(entities.organizationId, organizationId))
        .orderBy(...)
        .limit(...)
        .offset(...);
      ```
 
-3. **Frontend:**
+4. **Frontend:**
    * Store Stytch organization ID in session.
    * Include organization ID in all API requests.
    * If no organization ID is available, redirect to login.
@@ -282,10 +342,11 @@ For each new entity type (e.g., subsidiary, department, location, class), ensure
 ### Backend
 - [ ] Database schema defined in `packages/database/src/schema/{entity}.ts`
 - [ ] Database migrations generated and applied
+- [ ] Repository layer implemented in `packages/database/src/repositories/{entity}-repository.ts`
 - [ ] Zod validation schemas created in `packages/api-service/src/types/{entity}.types.ts`
 - [ ] Service layer implemented with CRUD operations in `packages/api-service/src/services/{entity}-service.ts`
 - [ ] API routes implemented in `apps/api/src/routes/{entity}Routes.ts`
-- [ ] Unit tests for service layer
+- [ ] Unit tests for repository and service layers
 - [ ] Integration tests for API endpoints
 - [ ] Authorization checks implemented
 
@@ -307,24 +368,29 @@ For each new entity type (e.g., subsidiary, department, location, class), ensure
 - [ ] Example requests and responses documented
 - [ ] Relationship with other entities documented
 
-## Lessons Learned from Customer Implementation
+## Lessons Learned from Implementation
 
-1. **Session Management:**
+1. **Separation of Concerns:**
+   * Keep data access (repositories), business logic (services), and API endpoints (routes) clearly separated.
+   * Services should never contain direct database queries; use repositories instead.
+   * Repositories handle data formatting and transformation.
+
+2. **Session Management:**
    * Consistently access organization ID using the same path (`session?.organization_id`).
    * Do not provide fallback to placeholder or invalid IDs.
    * Log session data for debugging during development.
 
-2. **API Response Format:**
+3. **API Response Format:**
    * Wrap single entity responses in a named object (e.g., `{ customer: {...} }`).
    * Maintain consistent response formats across endpoints.
    * Return detailed error messages with actionable information.
 
-3. **Organization Context:**
+4. **Organization Context:**
    * All API endpoints must validate and use organization context.
    * All database queries must filter by organization ID.
    * Use a consistent approach to extract and pass organization context.
 
-4. **Frontend Data Fetching:**
+5. **Frontend Data Fetching:**
    * Handle loading states explicitly to prevent UI flashes.
    * Implement error boundaries for failed data fetching.
    * Use consistent patterns for data fetching and state management.
@@ -337,20 +403,81 @@ The following section outlines the implementation plan for the "Subsidiaries" en
 
 ```typescript
 // packages/database/src/schema/subsidiaries.ts
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
-import { createId } from '@paralleldrive/cuid2';
+import { pgTable, uuid, varchar, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { organizations } from './organizations';
 
-export const subsidiaries = sqliteTable('subsidiaries', {
-  id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull(),
-  name: text('name').notNull(),
-  code: text('code').notNull(),
-  description: text('description'),
-  parentId: text('parent_id').references(() => subsidiaries.id), // Self-reference for hierarchy
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+export const subsidiaries = pgTable('subsidiaries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  code: varchar('code', { length: 50 }).notNull(),
+  description: varchar('description', { length: 1000 }),
+  parentId: uuid('parent_id').references(() => subsidiaries.id),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
+```
+
+### Repository Layer
+
+```typescript
+// packages/database/src/repositories/subsidiary-repository.ts
+import { and, eq, sql } from 'drizzle-orm';
+import { BaseRepository } from './base-repository';
+import { subsidiaries } from '../db/schema/subsidiaries';
+
+export class SubsidiaryRepository extends BaseRepository {
+  async findById(id: string, organizationId: string) {
+    const [result] = await this.db
+      .select()
+      .from(subsidiaries)
+      .where(
+        and(
+          eq(subsidiaries.id, id),
+          eq(subsidiaries.organizationId, organizationId)
+        )
+      )
+      .limit(1);
+    
+    return result || null;
+  }
+  
+  async findAll(
+    organizationId: string, 
+    pagination: { page?: number; limit?: number; orderBy?: string; orderDirection?: string },
+    filters: { isActive?: boolean; parentId?: string | null }
+  ) {
+    // Implementation details...
+  }
+  
+  // Other methods: create, update, delete, etc.
+}
+```
+
+### Service Layer
+
+```typescript
+// packages/api-service/src/services/subsidiary-service.ts
+import { SubsidiaryRepository } from '@glapi/database/src/repositories/subsidiary-repository';
+import { BaseService } from './base-service';
+import { ServiceError } from '../types';
+
+export class SubsidiaryService extends BaseService {
+  private subsidiaryRepository: SubsidiaryRepository;
+  
+  constructor(context = {}) {
+    super(context);
+    this.subsidiaryRepository = new SubsidiaryRepository();
+  }
+  
+  async getSubsidiaryById(id: string) {
+    const organizationId = this.requireOrganizationContext();
+    return await this.subsidiaryRepository.findById(id, organizationId);
+  }
+  
+  // Other methods...
+}
 ```
 
 ### API Endpoints
@@ -360,8 +487,7 @@ export const subsidiaries = sqliteTable('subsidiaries', {
 POST /api/v1/subsidiaries           // Create a new subsidiary
 GET /api/v1/subsidiaries            // List all subsidiaries (paginated, filtered)
 GET /api/v1/subsidiaries/{id}       // Get a specific subsidiary
-PUT /api/v1/subsidiaries/{id}       // Update a subsidiary (full update)
-PATCH /api/v1/subsidiaries/{id}     // Update a subsidiary (partial update)
+PUT /api/v1/subsidiaries/{id}       // Update a subsidiary
 DELETE /api/v1/subsidiaries/{id}    // Delete a subsidiary
 ```
 
@@ -376,178 +502,6 @@ DELETE /api/v1/subsidiaries/{id}    // Delete a subsidiary
 
 ### Documentation Examples
 
-#### OpenAPI Specification (docs/api-specs/subsidiaries.openapi.yaml)
-
-```yaml
-openapi: 3.0.0
-info:
-  title: Subsidiaries API
-  version: v1
-  description: API for managing subsidiaries within the Revenue Recognition System.
-
-servers:
-  - url: http://localhost:3000/api # Placeholder for local development
-
-components:
-  schemas:
-    Subsidiary:
-      type: object
-      required:
-        - id
-        - organizationId
-        - name
-        - code
-        - createdAt
-        - updatedAt
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Unique identifier for the subsidiary.
-          readOnly: true
-        organizationId:
-          type: string
-          format: uuid
-          description: ID of the organization this subsidiary belongs to.
-          readOnly: true
-        name:
-          type: string
-          description: Name of the subsidiary.
-        code:
-          type: string
-          description: Unique code for the subsidiary (used in accounting systems).
-        description:
-          type: string
-          nullable: true
-          description: Optional description of the subsidiary.
-        parentId:
-          type: string
-          format: uuid
-          nullable: true
-          description: ID of the parent subsidiary if this is a sub-subsidiary.
-        isActive:
-          type: boolean
-          default: true
-          description: Whether the subsidiary is active.
-        createdAt:
-          type: string
-          format: date-time
-          description: Timestamp of when the subsidiary was created.
-          readOnly: true
-        updatedAt:
-          type: string
-          format: date-time
-          description: Timestamp of when the subsidiary was last updated.
-          readOnly: true
-
-    NewSubsidiary:
-      type: object
-      required:
-        - name
-        - code
-      properties:
-        name:
-          type: string
-        code:
-          type: string
-        description:
-          type: string
-          nullable: true
-        parentId:
-          type: string
-          format: uuid
-          nullable: true
-        isActive:
-          type: boolean
-          default: true
-
-    # Other schemas and paths would follow the pattern from customers.openapi.yaml
-```
-
-#### MDX Documentation (apps/docs/src/app/api/subsidiaries/page.mdx)
-
-```mdx
-# Subsidiaries API
-
-This guide covers the API endpoints for managing subsidiaries in the Revenue Recognition System.
-
-## Overview
-
-Subsidiaries represent distinct business units within an organization. They are used to track financial information separately for different parts of the business.
-
-## Schema
-
-| Field        | Type      | Description                                                | Required |
-|--------------|-----------|------------------------------------------------------------|---------|
-| id           | UUID      | Unique identifier (system-generated)                       | Read-only|
-| organizationId | UUID    | Organization this subsidiary belongs to                    | Read-only|
-| name         | String    | Name of the subsidiary                                     | Yes     |
-| code         | String    | Unique code for the subsidiary                             | Yes     |
-| description  | String    | Optional description                                       | No      |
-| parentId     | UUID      | Parent subsidiary (for hierarchical structures)            | No      |
-| isActive     | Boolean   | Whether the subsidiary is active (default: true)           | No      |
-| createdAt    | DateTime  | When the record was created                                | Read-only|
-| updatedAt    | DateTime  | When the record was last updated                           | Read-only|
-
-## Endpoints
-
-### Create Subsidiary
-
-Create a new subsidiary within your organization.
-
-<Endpoint method="POST" path="/api/v1/subsidiaries" />
-
-#### Request
-
-<RequestExample>
-```json
-{
-  "name": "West Coast Operations",
-  "code": "WCO",
-  "description": "Subsidiary handling west coast sales and operations",
-  "isActive": true
-}
-```
-</RequestExample>
-
-#### Response
-
-<ResponseExample>
-```json
-{
-  "subsidiary": {
-    "id": "f67f0ea2-77bd-4578-8c76-0116d473cc27",
-    "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
-    "name": "West Coast Operations",
-    "code": "WCO",
-    "description": "Subsidiary handling west coast sales and operations",
-    "parentId": null,
-    "isActive": true,
-    "createdAt": "2025-05-11T12:33:59.048Z",
-    "updatedAt": "2025-05-11T12:33:59.048Z"
-  }
-}
-```
-</ResponseExample>
-
-### List Subsidiaries
-
-Retrieve a paginated list of subsidiaries in your organization.
-
-<Endpoint method="GET" path="/api/v1/subsidiaries" />
-
-#### Query Parameters
-
-| Parameter      | Type    | Description                                           | Default |
-|----------------|---------|-------------------------------------------------------|---------|
-| page           | Integer | Page number for pagination                            | 1       |
-| limit          | Integer | Number of items per page                              | 10      |
-| orderBy        | String  | Field to sort by (name, code, createdAt)              | name    |
-| orderDirection | String  | Sort direction (asc, desc)                            | asc     |
-| isActive       | Boolean | Filter by active status                               | -       |
-| parentId       | UUID    | Filter by parent subsidiary                           | -       |
-
-// Additional endpoints and examples would follow...
-```
+Refer to the documentation in `/apps/docs/src/app/api/subsidiaries/page.mdx` for comprehensive documentation of the subsidiaries API, including examples of requests, responses, and error handling.
 
 By following this playbook, we can ensure a consistent, maintainable, and scalable approach to implementing new entities in the Revenue Recognition System.
