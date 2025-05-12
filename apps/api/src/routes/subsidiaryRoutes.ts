@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
-import { CustomerService, NewCustomerSchema } from '@glapi/api-service';
+import { SubsidiaryService, NewSubsidiarySchema, UpdateSubsidiarySchema } from '@glapi/api-service';
 
 const router: Router = express.Router();
 
@@ -22,37 +22,38 @@ const getServiceContext = (req: Request) => {
   return context;
 };
 
-// POST /customers - Create a new customer
+// POST /subsidiaries - Create a new subsidiary
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Get context from the request (set by auth middleware)
     const context = getServiceContext(req);
 
-    console.log('Creating customer with context:', context);
+    console.log('Creating subsidiary with context:', context);
     console.log('Request body:', req.body);
 
     // Validate request body against schema
-    const parsedData = NewCustomerSchema.safeParse({
+    const parsedData = NewSubsidiarySchema.safeParse({
       ...req.body,
       organizationId: context.organizationId
     });
 
     if (!parsedData.success) {
       return res.status(400).json({
-        message: 'Invalid customer data',
+        message: 'Invalid subsidiary data',
         errors: parsedData.error.errors
       });
     }
 
     // Initialize the service with the context
-    const customerService = new CustomerService(context);
+    const subsidiaryService = new SubsidiaryService(context);
 
-    // Create the customer
-    const result = await customerService.createCustomer(parsedData.data);
+    // Create the subsidiary
+    const result = await subsidiaryService.createSubsidiary(parsedData.data);
 
-    return res.status(201).json(result);
+    // Return wrapped in 'subsidiary' property for consistency
+    return res.status(201).json({ subsidiary: result });
   } catch (error) {
-    console.error('Error creating customer:', error);
+    console.error('Error creating subsidiary:', error);
     // Check if it's a ServiceError
     if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
       const serviceError = error as any;
@@ -71,24 +72,31 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// GET /customers - List all customers with pagination and filtering
+// GET /subsidiaries - List all subsidiaries with pagination and filtering
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Get context from the request
     const context = getServiceContext(req);
 
-    // Initialize the customer service
-    const customerService = new CustomerService(context);
+    // Initialize the subsidiary service
+    const subsidiaryService = new SubsidiaryService(context);
 
     // Parse query parameters
     const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
-    const orderBy = req.query.orderBy as 'companyName' | 'createdAt' || 'companyName';
+    const orderBy = req.query.orderBy as 'name' | 'createdAt' || 'name';
     const orderDirection = req.query.orderDirection as 'asc' | 'desc' || 'asc';
-    const status = req.query.status as string;
+    
+    // Parse boolean and optional filters
+    const isActive = req.query.isActive !== undefined ? 
+      req.query.isActive === 'true' : undefined;
+    
+    const parentId = req.query.parentId === 'null' ? 
+      null : 
+      (req.query.parentId as string || undefined);
 
-    // Enhanced logging for listing customers
-    console.log('[CustomerRoutes:List] Attempting to list customers with resolved context:', {
+    // Enhanced logging for listing subsidiaries
+    console.log('[SubsidiaryRoutes:List] Attempting to list subsidiaries with resolved context:', {
       organizationId: context.organizationId,
       stytchOrganizationId: context.stytchOrganizationId,
       userId: context.userId,
@@ -101,23 +109,24 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         limit,
         orderBy,
         orderDirection,
-        status
+        isActive,
+        parentId
       }
     });
 
-    // Use the service to list customers
-    const result = await customerService.listCustomers(
+    // Use the service to list subsidiaries
+    const result = await subsidiaryService.listSubsidiaries(
       { page, limit },
       orderBy,
       orderDirection,
-      { status }
+      { isActive, parentId }
     );
 
-    console.log('Customers found:', result.data.length, 'total:', result.total);
+    console.log('Subsidiaries found:', result.data.length, 'total:', result.total);
 
     return res.status(200).json(result);
   } catch (error) {
-    console.error('Error listing customers:', error);
+    console.error('Error listing subsidiaries:', error);
     // Check if it's a ServiceError
     if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
       const serviceError = error as any;
@@ -136,7 +145,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// GET /customers/:id - Get a customer by ID
+// GET /subsidiaries/:id - Get a subsidiary by ID
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -145,8 +154,8 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     const context = getServiceContext(req);
 
     // Log full details for debugging
-    console.log('CustomerRoutes:getById - Request parameters:', {
-      customerId: id,
+    console.log('SubsidiaryRoutes:getById - Request parameters:', {
+      subsidiaryId: id,
       context: JSON.stringify(context),
       headers: {
         stytchOrgId: req.headers['x-stytch-organization-id'],
@@ -155,19 +164,19 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
       originalUrl: req.originalUrl
     });
 
-    // Initialize the customer service
-    const customerService = new CustomerService(context);
+    // Initialize the subsidiary service
+    const subsidiaryService = new SubsidiaryService(context);
 
-    // Get the customer by ID
-    const result = await customerService.getCustomerById(id);
+    // Get the subsidiary by ID
+    const result = await subsidiaryService.getSubsidiaryById(id);
 
     // Log whether we found a result
-    console.log(`CustomerRoutes:getById - Result for ID "${id}":`, result ? 'Customer found' : 'Customer NOT found');
+    console.log(`SubsidiaryRoutes:getById - Result for ID "${id}":`, result ? 'Subsidiary found' : 'Subsidiary NOT found');
 
-    // If the customer doesn't exist, return 404
+    // If the subsidiary doesn't exist, return 404
     if (!result) {
       return res.status(404).json({
-        message: `Customer with ID "${id}" not found`,
+        message: `Subsidiary with ID "${id}" not found`,
         debug: {
           requestedId: id,
           organizationId: context.organizationId,
@@ -176,10 +185,10 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
       });
     }
 
-    // Make sure to wrap the customer in a 'customer' property to match frontend expectations
-    return res.status(200).json({ customer: result });
+    // Make sure to wrap the subsidiary in a 'subsidiary' property to match frontend expectations
+    return res.status(200).json({ subsidiary: result });
   } catch (error) {
-    console.error('Error getting customer:', error);
+    console.error('Error getting subsidiary:', error);
     // Check if it's a ServiceError
     if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
       const serviceError = error as any;
@@ -198,7 +207,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// PUT /customers/:id - Update a customer
+// PUT /subsidiaries/:id - Update a subsidiary
 router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -206,23 +215,25 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     // Get context from the request
     const context = getServiceContext(req);
 
-    // Initialize the customer service
-    const customerService = new CustomerService(context);
-
-    // Get the customer to ensure it exists
-    const existingCustomer = await customerService.getCustomerById(id);
-    if (!existingCustomer) {
-      return res.status(404).json({
-        message: `Customer with ID "${id}" not found`
+    // Validate request body
+    const parsedData = UpdateSubsidiarySchema.safeParse(req.body);
+    if (!parsedData.success) {
+      return res.status(400).json({
+        message: 'Invalid subsidiary data',
+        errors: parsedData.error.errors
       });
     }
 
-    // Update the customer
-    const result = await customerService.updateCustomer(id, req.body);
+    // Initialize the subsidiary service
+    const subsidiaryService = new SubsidiaryService(context);
 
-    return res.status(200).json(result);
+    // Update the subsidiary
+    const result = await subsidiaryService.updateSubsidiary(id, parsedData.data);
+
+    // Return wrapped in 'subsidiary' property for consistency
+    return res.status(200).json({ subsidiary: result });
   } catch (error) {
-    console.error('Error updating customer:', error);
+    console.error('Error updating subsidiary:', error);
     // Check if it's a ServiceError
     if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
       const serviceError = error as any;
@@ -241,7 +252,7 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// DELETE /customers/:id - Delete a customer
+// DELETE /subsidiaries/:id - Delete a subsidiary
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -249,18 +260,18 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     // Get context from the request
     const context = getServiceContext(req);
 
-    // Initialize the customer service
-    const customerService = new CustomerService(context);
+    // Initialize the subsidiary service
+    const subsidiaryService = new SubsidiaryService(context);
 
-    // Delete the customer
-    await customerService.deleteCustomer(id);
+    // Delete the subsidiary
+    await subsidiaryService.deleteSubsidiary(id);
 
     return res.status(200).json({
       success: true,
-      message: 'Customer deleted successfully'
+      message: 'Subsidiary deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting customer:', error);
+    console.error('Error deleting subsidiary:', error);
     // Check if it's a ServiceError
     if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
       const serviceError = error as any;

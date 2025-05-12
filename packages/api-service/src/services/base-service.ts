@@ -1,8 +1,6 @@
-import { db } from '@glapi/database';
 import { PaginationParams, PaginatedResult, ServiceContext, ServiceError } from '../types';
 
 export abstract class BaseService {
-  protected db = db;
   protected context: ServiceContext;
 
   constructor(context: ServiceContext = {}) {
