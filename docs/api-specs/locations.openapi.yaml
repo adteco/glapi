@@ -1,0 +1,443 @@
+openapi: 3.0.0
+info:
+  title: Locations API
+  version: v1
+  description: API for managing locations within the Revenue Recognition System.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Location:
+      type: object
+      required:
+        - id
+        - organizationId
+        - subsidiaryId
+        - name
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the location.
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Organization this location belongs to.
+          readOnly: true
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this location belongs to.
+        name:
+          type: string
+          description: Name of the location.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the location (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the location.
+        addressLine1:
+          type: string
+          nullable: true
+          description: First line of the address.
+        addressLine2:
+          type: string
+          nullable: true
+          description: Second line of the address.
+        city:
+          type: string
+          nullable: true
+          description: City of the location.
+        stateProvince:
+          type: string
+          nullable: true
+          description: State or province of the location.
+        postalCode:
+          type: string
+          nullable: true
+          description: Postal code of the location.
+        countryCode:
+          type: string
+          nullable: true
+          description: ISO 2-letter country code.
+          pattern: '^[A-Z]{2}$'
+          example: 'US'
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the location is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the location was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the location was last updated.
+          readOnly: true
+
+    NewLocation:
+      type: object
+      required:
+        - subsidiaryId
+        - name
+      properties:
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this location belongs to.
+        name:
+          type: string
+          description: Name of the location.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the location (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the location.
+        addressLine1:
+          type: string
+          nullable: true
+          description: First line of the address.
+        addressLine2:
+          type: string
+          nullable: true
+          description: Second line of the address.
+        city:
+          type: string
+          nullable: true
+          description: City of the location.
+        stateProvince:
+          type: string
+          nullable: true
+          description: State or province of the location.
+        postalCode:
+          type: string
+          nullable: true
+          description: Postal code of the location.
+        countryCode:
+          type: string
+          nullable: true
+          description: ISO 2-letter country code.
+          pattern: '^[A-Z]{2}$'
+          example: 'US'
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the location is active.
+
+    UpdateLocation:
+      type: object
+      properties:
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this location belongs to.
+        name:
+          type: string
+          description: Name of the location.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the location (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the location.
+        addressLine1:
+          type: string
+          nullable: true
+          description: First line of the address.
+        addressLine2:
+          type: string
+          nullable: true
+          description: Second line of the address.
+        city:
+          type: string
+          nullable: true
+          description: City of the location.
+        stateProvince:
+          type: string
+          nullable: true
+          description: State or province of the location.
+        postalCode:
+          type: string
+          nullable: true
+          description: Postal code of the location.
+        countryCode:
+          type: string
+          nullable: true
+          description: ISO 2-letter country code.
+          pattern: '^[A-Z]{2}$'
+          example: 'US'
+        isActive:
+          type: boolean
+          description: Whether the location is active.
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        currentPage:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 10
+
+  parameters:
+    locationId:
+      name: locationId
+      in: path
+      required: true
+      description: Identifier of the location.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    pageSize:
+      name: pageSize
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+    sortField:
+      name: sortField
+      in: query
+      description: Field to sort by (name, code, city, createdAt).
+      required: false
+      schema:
+        type: string
+        default: name
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Order direction (asc, desc).
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    subsidiaryId:
+      name: subsidiaryId
+      in: query
+      description: Filter by subsidiary ID.
+      required: false
+      schema:
+        type: string
+        format: uuid
+    countryCode:
+      name: countryCode
+      in: query
+      description: Filter by ISO 2-letter country code.
+      required: false
+      schema:
+        type: string
+        pattern: '^[A-Z]{2}$'
+        example: 'US'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /locations:
+    post:
+      summary: Create a new location
+      tags:
+        - Locations
+      operationId: createLocation
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Location object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewLocation'
+      responses:
+        '201':
+          description: Location created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409': &ErrorResponse409
+          description: Conflict - Resource already exists (e.g., location with this code).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all locations
+      tags:
+        - Locations
+      operationId: listLocations
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/sortField'
+        - $ref: '#/components/parameters/sortOrder'
+        - $ref: '#/components/parameters/subsidiaryId'
+        - $ref: '#/components/parameters/countryCode'
+      responses:
+        '200':
+          description: A list of locations.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /locations/{locationId}:
+    parameters:
+      - $ref: '#/components/parameters/locationId'
+    get:
+      summary: Get a location by ID
+      tags:
+        - Locations
+      operationId: getLocationById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: '#/components/schemas/Location'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Location with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a location
+      tags:
+        - Locations
+      operationId: updateLocation
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Location object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocation'
+      responses:
+        '200':
+          description: Location updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a location
+      tags:
+        - Locations
+      operationId: deleteLocation
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Location deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Location deleted successfully
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500

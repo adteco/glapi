@@ -1,0 +1,355 @@
+openapi: 3.0.0
+info:
+  title: Departments API
+  version: v1
+  description: API for managing departments within the Revenue Recognition System.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Department:
+      type: object
+      required:
+        - id
+        - organizationId
+        - subsidiaryId
+        - name
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the department.
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Organization this department belongs to.
+          readOnly: true
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this department belongs to.
+        name:
+          type: string
+          description: Name of the department.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the department (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the department.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the department is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the department was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the department was last updated.
+          readOnly: true
+
+    NewDepartment:
+      type: object
+      required:
+        - subsidiaryId
+        - name
+      properties:
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this department belongs to.
+        name:
+          type: string
+          description: Name of the department.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the department (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the department.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the department is active.
+
+    UpdateDepartment:
+      type: object
+      properties:
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this department belongs to.
+        name:
+          type: string
+          description: Name of the department.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the department (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the department.
+        isActive:
+          type: boolean
+          description: Whether the department is active.
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        currentPage:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 10
+
+  parameters:
+    departmentId:
+      name: departmentId
+      in: path
+      required: true
+      description: Identifier of the department.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    pageSize:
+      name: pageSize
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+    sortField:
+      name: sortField
+      in: query
+      description: Field to sort by (name, code, createdAt).
+      required: false
+      schema:
+        type: string
+        default: name
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Order direction (asc, desc).
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    subsidiaryId:
+      name: subsidiaryId
+      in: query
+      description: Filter by subsidiary ID.
+      required: false
+      schema:
+        type: string
+        format: uuid
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /departments:
+    post:
+      summary: Create a new department
+      tags:
+        - Departments
+      operationId: createDepartment
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Department object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewDepartment'
+      responses:
+        '201':
+          description: Department created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409': &ErrorResponse409
+          description: Conflict - Resource already exists (e.g., department with this code).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all departments
+      tags:
+        - Departments
+      operationId: listDepartments
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/sortField'
+        - $ref: '#/components/parameters/sortOrder'
+        - $ref: '#/components/parameters/subsidiaryId'
+      responses:
+        '200':
+          description: A list of departments.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Department'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /departments/{departmentId}:
+    parameters:
+      - $ref: '#/components/parameters/departmentId'
+    get:
+      summary: Get a department by ID
+      tags:
+        - Departments
+      operationId: getDepartmentById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  department:
+                    $ref: '#/components/schemas/Department'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Department with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a department
+      tags:
+        - Departments
+      operationId: updateDepartment
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Department object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDepartment'
+      responses:
+        '200':
+          description: Department updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a department
+      tags:
+        - Departments
+      operationId: deleteDepartment
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Department deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Department deleted successfully
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500

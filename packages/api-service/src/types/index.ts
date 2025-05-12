@@ -4,3 +4,4 @@ export * from './organization.types';
 export * from './customer.types';
 export * from './user.types';
 export * from './subsidiary.types';
+export * from './accounting-dimensions';
