@@ -10,6 +10,12 @@ import * as revenueSchedules from './revenue_schedules';
 import * as sspEvidence from './ssp_evidence';
 import * as contractSspAllocations from './contract_ssp_allocations';
 import * as revenueJournalEntries from './revenue_journal_entries';
+import * as departments from './departments';
+import * as locations from './locations';
+import * as classes from './classes';
+import * as subsidiaries from './subsidiaries';
+import * as currencies from './currencies';
+import * as transactionLines from './transactionLines';
 
 // Note: Relations defined within schema files are automatically picked up by Drizzle
 // when they are imported alongside their corresponding tables.
@@ -26,5 +32,11 @@ export const schema = {
   ...revenueSchedules,
   ...sspEvidence,
   ...contractSspAllocations,
-  ...revenueJournalEntries
+  ...revenueJournalEntries,
+  ...departments,
+  ...locations,
+  ...classes,
+  ...subsidiaries,
+  ...currencies,
+  ...transactionLines
 };

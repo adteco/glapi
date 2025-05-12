@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import customerRoutes from './routes/customerRoutes'; // Import customer routes
 import organizationRoutes from './routes/organizationRoutes'; // Import organization routes
+import departmentRoutes from './routes/departmentRoutes'; // Import department routes
+import locationRoutes from './routes/locationRoutes'; // Import location routes
+import classRoutes from './routes/classRoutes'; // Import class routes
 import { authMiddleware } from './middleware/auth'; // Import the auth middleware
 
 // Load environment variables from .env file at the monorepo root
@@ -38,6 +41,9 @@ app.use('/api/v1', authMiddleware);
 // Mount API routes
 app.use('/api/v1/customers', customerRoutes);
 app.use('/api/v1/organizations', organizationRoutes);
+app.use('/api/v1/departments', departmentRoutes);
+app.use('/api/v1/locations', locationRoutes);
+app.use('/api/v1/classes', classRoutes);
 
 // Error handling middleware (simple example)
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
