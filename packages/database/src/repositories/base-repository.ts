@@ -37,4 +37,3 @@ export abstract class BaseRepository {
     return result[0]?.count > 0;
   }
 }
-}
