@@ -1,0 +1,355 @@
+openapi: 3.0.0
+info:
+  title: Classes API
+  version: v1
+  description: API for managing classes within the Revenue Recognition System. Classes are used for categorizing transactions for reporting purposes.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Class:
+      type: object
+      required:
+        - id
+        - organizationId
+        - subsidiaryId
+        - name
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the class.
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Organization this class belongs to.
+          readOnly: true
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this class belongs to.
+        name:
+          type: string
+          description: Name of the class.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the class (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the class.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the class is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the class was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the class was last updated.
+          readOnly: true
+
+    NewClass:
+      type: object
+      required:
+        - subsidiaryId
+        - name
+      properties:
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this class belongs to.
+        name:
+          type: string
+          description: Name of the class.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the class (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the class.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the class is active.
+
+    UpdateClass:
+      type: object
+      properties:
+        subsidiaryId:
+          type: string
+          format: uuid
+          description: Subsidiary this class belongs to.
+        name:
+          type: string
+          description: Name of the class.
+        code:
+          type: string
+          nullable: true
+          description: Unique code for the class (within the organization).
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the class.
+        isActive:
+          type: boolean
+          description: Whether the class is active.
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        currentPage:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 10
+
+  parameters:
+    classId:
+      name: classId
+      in: path
+      required: true
+      description: Identifier of the class.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    pageSize:
+      name: pageSize
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+    sortField:
+      name: sortField
+      in: query
+      description: Field to sort by (name, code, createdAt).
+      required: false
+      schema:
+        type: string
+        default: name
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Order direction (asc, desc).
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    subsidiaryId:
+      name: subsidiaryId
+      in: query
+      description: Filter by subsidiary ID.
+      required: false
+      schema:
+        type: string
+        format: uuid
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /classes:
+    post:
+      summary: Create a new class
+      tags:
+        - Classes
+      operationId: createClass
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Class object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewClass'
+      responses:
+        '201':
+          description: Class created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Class'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409': &ErrorResponse409
+          description: Conflict - Resource already exists (e.g., class with this code).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all classes
+      tags:
+        - Classes
+      operationId: listClasses
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/sortField'
+        - $ref: '#/components/parameters/sortOrder'
+        - $ref: '#/components/parameters/subsidiaryId'
+      responses:
+        '200':
+          description: A list of classes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Class'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /classes/{classId}:
+    parameters:
+      - $ref: '#/components/parameters/classId'
+    get:
+      summary: Get a class by ID
+      tags:
+        - Classes
+      operationId: getClassById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  class:
+                    $ref: '#/components/schemas/Class'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Class with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a class
+      tags:
+        - Classes
+      operationId: updateClass
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Class object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClass'
+      responses:
+        '200':
+          description: Class updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Class'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a class
+      tags:
+        - Classes
+      operationId: deleteClass
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Class deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Class deleted successfully
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500

@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Export accounting dimension schemas
+export * from './accounting-dimensions';
+
 // Organization
 export const organizationSchema = z.object({
   id: z.string().uuid().optional(),

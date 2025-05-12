@@ -1,0 +1,147 @@
+import { BaseService } from './base-service';
+import { 
+  Department, 
+  CreateDepartmentInput, 
+  UpdateDepartmentInput, 
+  PaginationParams, 
+  PaginatedResult,
+  ServiceError
+} from '../types';
+import { departmentRepository } from '@glapi/database/src/repositories';
+
+export class DepartmentService extends BaseService {
+  /**
+   * Get a list of departments for the current organization
+   */
+  async listDepartments(
+    params: PaginationParams = {},
+    sortField: string = 'name',
+    sortOrder: 'asc' | 'desc' = 'asc',
+    filters: { subsidiaryId?: string } = {}
+  ): Promise<PaginatedResult<Department>> {
+    const organizationId = this.requireOrganizationContext();
+    const { page, limit } = this.getPaginationParams(params);
+    
+    // If subsidiaryId filter is provided, use findBySubsidiary
+    if (filters.subsidiaryId) {
+      const departments = await departmentRepository.findBySubsidiary(
+        filters.subsidiaryId, 
+        organizationId
+      );
+      
+      // Manual pagination for the subsidiary filter case
+      const startIdx = (page - 1) * limit;
+      const endIdx = startIdx + limit;
+      const paginatedDepartments = departments.slice(startIdx, endIdx);
+      
+      return this.createPaginatedResult(
+        paginatedDepartments, 
+        departments.length, 
+        page, 
+        limit
+      );
+    }
+    
+    // Regular paginated query
+    const result = await departmentRepository.findAll(
+      organizationId,
+      page,
+      limit,
+      sortField,
+      sortOrder
+    );
+    
+    return {
+      data: result.departments,
+      total: result.totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(result.totalCount / limit)
+    };
+  }
+  
+  /**
+   * Get a department by ID
+   */
+  async getDepartmentById(id: string): Promise<Department | null> {
+    const organizationId = this.requireOrganizationContext();
+    return departmentRepository.findById(id, organizationId);
+  }
+  
+  /**
+   * Create a new department
+   */
+  async createDepartment(data: CreateDepartmentInput): Promise<Department> {
+    const organizationId = this.requireOrganizationContext();
+    
+    // Validate that the organization ID matches the context
+    if (data.organizationId !== organizationId) {
+      throw new ServiceError(
+        'OrganizationId must match the current context',
+        'INVALID_ORGANIZATION_ID',
+        400
+      );
+    }
+    
+    // Create the department
+    return departmentRepository.create(data);
+  }
+  
+  /**
+   * Update an existing department
+   */
+  async updateDepartment(id: string, data: UpdateDepartmentInput): Promise<Department> {
+    const organizationId = this.requireOrganizationContext();
+    
+    // Check if department exists and belongs to the organization
+    const existing = await this.getDepartmentById(id);
+    if (!existing) {
+      throw new ServiceError(
+        `Department with ID "${id}" not found`,
+        'DEPARTMENT_NOT_FOUND',
+        404
+      );
+    }
+    
+    // Update the department
+    const updated = await departmentRepository.update(id, data, organizationId);
+    
+    if (!updated) {
+      throw new ServiceError(
+        `Failed to update department with ID "${id}"`,
+        'UPDATE_FAILED',
+        500
+      );
+    }
+    
+    return updated;
+  }
+  
+  /**
+   * Delete a department
+   */
+  async deleteDepartment(id: string): Promise<void> {
+    const organizationId = this.requireOrganizationContext();
+    
+    // Check if department exists and belongs to the organization
+    const existing = await this.getDepartmentById(id);
+    if (!existing) {
+      throw new ServiceError(
+        `Department with ID "${id}" not found`,
+        'DEPARTMENT_NOT_FOUND',
+        404
+      );
+    }
+    
+    // Delete the department
+    const success = await departmentRepository.delete(id, organizationId);
+    
+    if (!success) {
+      throw new ServiceError(
+        `Failed to delete department with ID "${id}"`,
+        'DELETE_FAILED',
+        500
+      );
+    }
+  }
+}
