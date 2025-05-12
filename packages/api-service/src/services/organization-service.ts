@@ -1,37 +1,31 @@
-import { eq } from 'drizzle-orm';
 import { BaseService } from './base-service';
 import { 
   Organization, 
   CreateOrganizationInput, 
   ServiceError 
 } from '../types';
-import { organizations } from '@glapi/database/src/db/schema/organizations';
+import { OrganizationRepository } from '@glapi/database/src/repositories/organization-repository';
 
 export class OrganizationService extends BaseService {
+  private organizationRepository: OrganizationRepository;
+  
+  constructor(context = {}) {
+    super(context);
+    this.organizationRepository = new OrganizationRepository();
+  }
+  
   /**
    * Get organization by Stytch organization ID
    */
   async getOrganizationByStytchId(stytchOrgId: string): Promise<Organization | null> {
-    const [result] = await this.db
-      .select()
-      .from(organizations)
-      .where(eq(organizations.stytchOrgId, stytchOrgId))
-      .limit(1);
-    
-    return result || null;
+    return await this.organizationRepository.findByStytchId(stytchOrgId);
   }
   
   /**
    * Get organization by ID
    */
   async getOrganizationById(id: string): Promise<Organization | null> {
-    const [result] = await this.db
-      .select()
-      .from(organizations)
-      .where(eq(organizations.id, id))
-      .limit(1);
-    
-    return result || null;
+    return await this.organizationRepository.findById(id);
   }
   
   /**
@@ -39,7 +33,7 @@ export class OrganizationService extends BaseService {
    */
   async createOrganization(data: CreateOrganizationInput): Promise<Organization> {
     // Check if organization with this Stytch ID already exists
-    const existing = await this.getOrganizationByStytchId(data.stytchOrgId);
+    const existing = await this.organizationRepository.findByStytchId(data.stytchOrgId);
     if (existing) {
       throw new ServiceError(
         `Organization with Stytch ID "${data.stytchOrgId}" already exists`,
@@ -49,12 +43,7 @@ export class OrganizationService extends BaseService {
     }
     
     // Check if slug is already in use
-    const [slugExists] = await this.db
-      .select({ id: organizations.id })
-      .from(organizations)
-      .where(eq(organizations.slug, data.slug))
-      .limit(1);
-    
+    const slugExists = await this.organizationRepository.findBySlug(data.slug);
     if (slugExists) {
       throw new ServiceError(
         `Organization with slug "${data.slug}" already exists`,
@@ -63,31 +52,8 @@ export class OrganizationService extends BaseService {
       );
     }
     
-    // Prepare settings as jsonb if present
-    const settings = data.settings ? 
-      (typeof data.settings === 'string' ? 
-        data.settings : 
-        JSON.stringify(data.settings)) : 
-      null;
-    
     // Create the organization
-    const [result] = await this.db
-      .insert(organizations)
-      .values({
-        ...data,
-        settings,
-      })
-      .returning();
-    
-    // Convert settings back to object if needed
-    return {
-      ...result,
-      settings: result.settings ? 
-        (typeof result.settings === 'string' ? 
-          JSON.parse(result.settings) : 
-          result.settings) : 
-        undefined
-    };
+    return await this.organizationRepository.create(data);
   }
   
   /**
@@ -95,7 +61,7 @@ export class OrganizationService extends BaseService {
    */
   async updateOrganization(id: string, data: Partial<Organization>): Promise<Organization> {
     // Verify organization exists
-    const existing = await this.getOrganizationById(id);
+    const existing = await this.organizationRepository.findById(id);
     if (!existing) {
       throw new ServiceError(
         `Organization with ID "${id}" not found`,
@@ -106,12 +72,7 @@ export class OrganizationService extends BaseService {
     
     // If updating slug, check it's not already in use
     if (data.slug && data.slug !== existing.slug) {
-      const [slugExists] = await this.db
-        .select({ id: organizations.id })
-        .from(organizations)
-        .where(eq(organizations.slug, data.slug))
-        .limit(1);
-      
+      const slugExists = await this.organizationRepository.findBySlug(data.slug);
       if (slugExists) {
         throw new ServiceError(
           `Organization with slug "${data.slug}" already exists`,
@@ -121,26 +82,8 @@ export class OrganizationService extends BaseService {
       }
     }
     
-    // Prepare settings as jsonb if present
-    let settings = undefined;
-    if (data.settings !== undefined) {
-      settings = data.settings ? 
-        (typeof data.settings === 'string' ? 
-          data.settings : 
-          JSON.stringify(data.settings)) : 
-        null;
-    }
-    
     // Update the organization
-    const [result] = await this.db
-      .update(organizations)
-      .set({
-        ...data,
-        settings,
-        updatedAt: new Date()
-      })
-      .where(eq(organizations.id, id))
-      .returning();
+    const result = await this.organizationRepository.update(id, data);
     
     if (!result) {
       throw new ServiceError(
@@ -150,15 +93,7 @@ export class OrganizationService extends BaseService {
       );
     }
     
-    // Convert settings back to object if needed
-    return {
-      ...result,
-      settings: result.settings ? 
-        (typeof result.settings === 'string' ? 
-          JSON.parse(result.settings) : 
-          result.settings) : 
-        undefined
-    };
+    return result;
   }
   
   /**
@@ -170,7 +105,7 @@ export class OrganizationService extends BaseService {
     organization_slug: string;
   }): Promise<Organization> {
     // Check if organization already exists
-    const existing = await this.getOrganizationByStytchId(stytchOrgData.organization_id);
+    const existing = await this.organizationRepository.findByStytchId(stytchOrgData.organization_id);
     if (existing) {
       return existing;
     }

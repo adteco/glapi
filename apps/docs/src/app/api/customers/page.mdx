@@ -1,0 +1,458 @@
+export const metadata = {
+  title: 'Customers API',
+  description:
+    'API reference for managing customers within the Revenue Recognition System.',
+}
+
+# Customers API
+
+This guide covers the API endpoints for managing customers in the Revenue Recognition System. Customers are entities with which your organization conducts business transactions, typically for the purpose of revenue recognition and financial reporting. {{ className: 'lead' }}
+
+<Note>
+  All customer data is isolated by organization context, ensuring that each organization can only access and modify its own customer records.
+</Note>
+
+## Schema
+
+| Field          | Type      | Description                                         | Required |
+|----------------|-----------|-----------------------------------------------------|---------| 
+| id             | UUID      | Unique identifier (system-generated)                | Read-only|
+| organizationId | UUID      | Organization this customer belongs to               | Read-only|
+| companyName    | String    | Name of the customer company                        | Yes     |
+| customerId     | String    | Unique customer identifier/code                     | Yes     |
+| contactEmail   | String    | Primary contact email address                       | No      |
+| contactPhone   | String    | Primary contact phone number                        | No      |
+| billingAddress | Object    | Billing address details (see below)                 | No      |
+| status         | String    | Customer status: 'active', 'inactive', or 'archived'| Yes     |
+| createdAt      | DateTime  | When the record was created                         | Read-only|
+| updatedAt      | DateTime  | When the record was last updated                    | Read-only|
+
+### Billing Address Object
+
+| Field          | Type      | Description                                         | Required |
+|----------------|-----------|-----------------------------------------------------|---------| 
+| street         | String    | Street address                                      | No      |
+| city           | String    | City                                                | No      |
+| state          | String    | State or province                                   | No      |
+| postalCode     | String    | Postal or ZIP code                                  | No      |
+| country        | String    | Country (default: 'US')                             | No      |
+
+## Authentication
+
+All customer API endpoints require authentication with a valid session. The session must include an organization context, which determines which customers are visible and modifiable. Organization context is provided through the `x-stytch-organization-id` header.
+
+## Endpoints
+
+### Create Customer
+
+Create a new customer within your organization.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="POST /api/v1/customers" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Request Body
+
+    <Properties>
+      <Property name="companyName" type="string" required>
+        Name of the customer company
+      </Property>
+      <Property name="customerId" type="string" required>
+        Unique customer identifier within your organization
+      </Property>
+      <Property name="contactEmail" type="string">
+        Primary contact email address
+      </Property>
+      <Property name="contactPhone" type="string">
+        Primary contact phone number
+      </Property>
+      <Property name="billingAddress" type="object">
+        Billing address details
+      </Property>
+      <Property name="status" type="string" default="active">
+        Customer status: 'active', 'inactive', or 'archived'
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X POST https://api.example.com/api/v1/customers \
+      -H "Content-Type: application/json" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2" \
+      -d '{
+        "companyName": "Acme Corporation",
+        "customerId": "ACME001",
+        "contactEmail": "contact@acme.com",
+        "contactPhone": "555-123-4567",
+        "billingAddress": {
+          "street": "123 Main St",
+          "city": "San Francisco",
+          "state": "CA",
+          "postalCode": "94105",
+          "country": "US"
+        },
+        "status": "active"
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "customer": {
+        "id": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+        "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+        "companyName": "Acme Corporation",
+        "customerId": "ACME001",
+        "contactEmail": "contact@acme.com",
+        "contactPhone": "555-123-4567",
+        "billingAddress": {
+          "street": "123 Main St",
+          "city": "San Francisco",
+          "state": "CA",
+          "postalCode": "94105",
+          "country": "US"
+        },
+        "status": "active",
+        "createdAt": "2025-05-11T12:33:59.048Z",
+        "updatedAt": "2025-05-11T12:33:59.048Z"
+      }
+    }
+    ```
+  </Col>
+</Row>
+
+### List Customers
+
+Retrieve a paginated list of customers in your organization.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/customers" />
+    </Properties>
+
+    #### Query Parameters
+
+    <Properties>
+      <Property name="page" type="number" default="1">
+        Page number for pagination
+      </Property>
+      <Property name="limit" type="number" default="10">
+        Number of items per page (max: 100)
+      </Property>
+      <Property name="orderBy" type="string" default="companyName">
+        Field to sort by (companyName, customerId, createdAt)
+      </Property>
+      <Property name="orderDirection" type="string" default="asc">
+        Sort direction (asc, desc)
+      </Property>
+      <Property name="status" type="string">
+        Filter by status (active, inactive, archived)
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET "https://api.example.com/api/v1/customers?page=1&limit=10&status=active" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "data": [
+        {
+          "id": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+          "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+          "companyName": "Acme Corporation",
+          "customerId": "ACME001",
+          "contactEmail": "contact@acme.com",
+          "contactPhone": "555-123-4567",
+          "billingAddress": {
+            "street": "123 Main St",
+            "city": "San Francisco",
+            "state": "CA",
+            "postalCode": "94105",
+            "country": "US"
+          },
+          "status": "active",
+          "createdAt": "2025-05-11T12:33:59.048Z",
+          "updatedAt": "2025-05-11T12:33:59.048Z"
+        },
+        {
+          "id": "b72e9d34-2b14-4c5a-9fb2-e8a713b42c65",
+          "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+          "companyName": "Globex Corporation",
+          "customerId": "GLOBEX002",
+          "contactEmail": "info@globex.com",
+          "contactPhone": "555-987-6543",
+          "billingAddress": {
+            "street": "456 Market St",
+            "city": "New York",
+            "state": "NY",
+            "postalCode": "10001",
+            "country": "US"
+          },
+          "status": "active",
+          "createdAt": "2025-05-10T15:22:31.452Z",
+          "updatedAt": "2025-05-10T15:22:31.452Z"
+        }
+      ],
+      "total": 12,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 2
+    }
+    ```
+  </Col>
+</Row>
+
+### Get Customer
+
+Retrieve a specific customer by ID.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/customers/{id}" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the customer to retrieve
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET https://api.example.com/api/v1/customers/d45f8e21-3ab2-4389-9e0d-9c12654b8e7a \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "customer": {
+        "id": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+        "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+        "companyName": "Acme Corporation",
+        "customerId": "ACME001",
+        "contactEmail": "contact@acme.com",
+        "contactPhone": "555-123-4567",
+        "billingAddress": {
+          "street": "123 Main St",
+          "city": "San Francisco",
+          "state": "CA",
+          "postalCode": "94105",
+          "country": "US"
+        },
+        "status": "active",
+        "createdAt": "2025-05-11T12:33:59.048Z",
+        "updatedAt": "2025-05-11T12:33:59.048Z"
+      }
+    }
+    ```
+  </Col>
+</Row>
+
+### Update Customer
+
+Update an existing customer.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="PUT /api/v1/customers/{id}" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the customer to update
+      </Property>
+    </Properties>
+
+    #### Request Body
+
+    <Properties>
+      <Property name="companyName" type="string">
+        Name of the customer company
+      </Property>
+      <Property name="customerId" type="string">
+        Unique customer identifier
+      </Property>
+      <Property name="contactEmail" type="string">
+        Primary contact email address
+      </Property>
+      <Property name="contactPhone" type="string">
+        Primary contact phone number
+      </Property>
+      <Property name="billingAddress" type="object">
+        Billing address details
+      </Property>
+      <Property name="status" type="string">
+        Customer status: 'active', 'inactive', or 'archived'
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X PUT https://api.example.com/api/v1/customers/d45f8e21-3ab2-4389-9e0d-9c12654b8e7a \
+      -H "Content-Type: application/json" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2" \
+      -d '{
+        "companyName": "Acme Corporation International",
+        "contactEmail": "global@acme.com",
+        "status": "active"
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "customer": {
+        "id": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+        "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+        "companyName": "Acme Corporation International",
+        "customerId": "ACME001",
+        "contactEmail": "global@acme.com",
+        "contactPhone": "555-123-4567",
+        "billingAddress": {
+          "street": "123 Main St",
+          "city": "San Francisco",
+          "state": "CA",
+          "postalCode": "94105",
+          "country": "US"
+        },
+        "status": "active",
+        "createdAt": "2025-05-11T12:33:59.048Z",
+        "updatedAt": "2025-05-11T14:45:22.183Z"
+      }
+    }
+    ```
+  </Col>
+</Row>
+
+### Delete Customer
+
+Delete a customer.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="DELETE /api/v1/customers/{id}" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the customer to delete
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X DELETE https://api.example.com/api/v1/customers/d45f8e21-3ab2-4389-9e0d-9c12654b8e7a \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "success": true,
+      "message": "Customer deleted successfully"
+    }
+    ```
+  </Col>
+</Row>
+
+## Error Responses
+
+The API returns standard HTTP status codes and error messages in a consistent format.
+
+```json
+{
+  "message": "Error description",
+  "code": "ERROR_CODE",
+  "details": { ... }
+}
+```
+
+Common errors include:
+
+| Status Code | Error Code | Description |
+|-------------|------------|-------------|
+| 400 | VALIDATION_ERROR | Request data failed validation |
+| 400 | DUPLICATE_CUSTOMER_ID | A customer with the provided customerId already exists |
+| 401 | MISSING_ORGANIZATION_CONTEXT | Organization context is required for this operation |
+| 404 | CUSTOMER_NOT_FOUND | The requested customer was not found |
+| 500 | UPDATE_FAILED | Failed to update the customer record |
+
+## Best Practices
+
+### Customer Status Management
+
+The `status` field allows you to track the lifecycle of customer relationships:
+
+- `active`: Currently active business relationship
+- `inactive`: Temporarily inactive, but expected to resume
+- `archived`: No longer active and not expected to resume
+
+Instead of deleting customers, consider changing their status to `archived` to maintain historical data for reporting and audit purposes.
+
+### Customer IDs
+
+The `customerId` field is intended to be a human-readable, business-meaningful identifier, often matching the customer ID in your accounting or CRM system. This is separate from the system-generated UUID in the `id` field.
+
+Example customer ID formats:
+- Account numbers: `ACCT-12345`
+- Abbreviations: `ACME-CORP`
+- Region-based: `US-WEST-001`
+
+## Code Example
+
+Here's an example of how to use the customers API with the client library:
+
+```typescript
+import { apiClient } from '@/lib/db-adapter';
+
+// List all active customers
+async function listActiveCustomers() {
+  try {
+    const result = await apiClient.customers.list({
+      status: 'active',
+      orderBy: 'companyName',
+      orderDirection: 'asc'
+    });
+    
+    console.log(`Found ${result.total} active customers`);
+    return result.data;
+  } catch (error) {
+    console.error('Error listing customers:', error);
+    throw error;
+  }
+}
+
+// Create a new customer
+async function createCustomer(data) {
+  try {
+    const result = await apiClient.customers.create({
+      companyName: data.companyName,
+      customerId: data.customerId,
+      contactEmail: data.contactEmail,
+      contactPhone: data.contactPhone,
+      billingAddress: data.billingAddress,
+      status: 'active'
+    });
+    
+    console.log('Customer created:', result.customer);
+    return result.customer;
+  } catch (error) {
+    console.error('Error creating customer:', error);
+    throw error;
+  }
+}
+```
