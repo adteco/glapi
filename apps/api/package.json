@@ -25,7 +25,6 @@
     "@types/node": "^20.12.12",
     "eslint": "^8.57.0",
     "prettier": "^3.2.5",
-    "prettier-config-custom": "workspace:*",
     "tsc-alias": "^1.8.10",
     "tsconfig-custom": "workspace:*",
     "tsx": "^4.11.0",
