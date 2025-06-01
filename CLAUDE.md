@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This repository contains a monorepo for the GLAPI project, which appears to be a revenue recognition system using Stytch for authentication. The project is structured using Turborepo and pnpm workspaces, with several key applications and packages:
+This repository contains a monorepo for the GLAPI project, which is a revenue recognition system with an accounting dimensions API. The project is structured using Turborepo and pnpm workspaces, with three main applications and several packages:
 
-- **apps/docs**: Documentation site built with Next.js 
-- **apps/web**: Web application built with Next.js using Stytch for authentication
-- **packages/api-service**: API service for interacting with backend services
-- **packages/business**: Business logic layer
-- **packages/database**: Database access layer using Drizzle ORM
+- **apps/api**: Express.js REST API server with authentication middleware
+- **apps/docs**: Documentation site built with Next.js and MDX for API documentation  
+- **apps/web**: Web application built with Next.js using Stytch for authentication and shadcn/ui components
+- **packages/api-service**: Service layer with business logic for customers, organizations, and accounting dimensions
+- **packages/business**: Core business logic and transaction handling
+- **packages/database**: Database access layer using Drizzle ORM with PostgreSQL schemas
 
 ## Common Commands
 
@@ -26,6 +27,7 @@ pnpm dev
 # Start development servers for specific workspaces
 pnpm --filter web dev
 pnpm --filter docs dev
+pnpm dev:api  # Start the Express API server only
 ```
 
 ### Building
@@ -58,54 +60,57 @@ pnpm --filter web type-check
 ### Database Operations
 
 ```bash
+# Generate database schemas from schema files
+pnpm db:generate
+
 # Run database migrations
 pnpm db:migrate
 
-# Generate database schemas
-pnpm db:generate
-
-# Open Drizzle Studio
-pnpm db:studio
+# Test database connection
+pnpm --filter database test:connection
 ```
 
 ## Architecture
 
 The project follows a monorepo structure using Turborepo for task orchestration and pnpm for package management:
 
-1. **Web Application (apps/web)**:
+1. **API Server (apps/api)**:
+   - Express.js REST API with CORS support
+   - Route handlers for customers, organizations, classes, departments, locations, subsidiaries
+   - Authentication middleware
+   - Uses packages/api-service for business logic
+
+2. **Web Application (apps/web)**:
    - Next.js application with App Router
    - Stytch for authentication and user management
-   - Client-side application for user interactions
+   - shadcn/ui components with Radix UI primitives
+   - Forms with react-hook-form and zod validation
+   - CRUD interfaces for accounting dimensions
 
-2. **Documentation (apps/docs)**:
+3. **Documentation (apps/docs)**:
    - Next.js with MDX for API documentation
    - Tailwind CSS for styling
-   - Search capabilities with FlexSearch
+   - API endpoint documentation for all accounting dimensions
 
-3. **API Service (packages/api-service)**:
-   - Service layer for API interactions
-   - Customer and Organization services
+4. **API Service Layer (packages/api-service)**:
+   - Service classes for each accounting dimension (customers, organizations, etc.)
+   - Type definitions for all entities
    - Stytch utilities for authentication
-
-4. **Business Logic (packages/business)**:
-   - Core business logic and domain models
-   - Transaction handling
+   - Base service pattern for common CRUD operations
 
 5. **Database Layer (packages/database)**:
-   - Drizzle ORM for database access
-   - Schema definitions for various entities:
-     - Contracts and Contract Line Items
-     - Customers and Organizations
-     - Revenue Schedules and Journal Entries
-     - Performance Obligations
-     - Users and authentication
+   - Drizzle ORM with PostgreSQL
+   - Repository pattern for data access
+   - Schema definitions for accounting dimensions and revenue recognition entities
+   - Migration scripts and database connection utilities
 
-The application follows a layered architecture with separation between UI, business logic, and data access. The database schema suggests a focus on revenue recognition, contract management, and performance obligation tracking.
+The system is designed around accounting dimensions (customers, organizations, subsidiaries, departments, locations, classes) with a focus on revenue recognition, contract management, and performance obligation tracking. The API follows RESTful conventions with consistent patterns across all dimension endpoints.
 
 ## Development Notes
 
 - The project uses TypeScript throughout for type safety
-- Tailwind CSS is used for styling in the web and docs applications
-- Next.js App Router is used for routing in both web apps
-- Configuration for various tools is in their respective package directories
-- The database schema includes entities for a complete revenue recognition system
+- Zod is used for runtime validation across API and web layers
+- The API server uses Express.js with middleware for authentication and CORS
+- Repository and service patterns provide consistent data access and business logic
+- All accounting dimensions follow the same CRUD pattern for consistency
+- Tests can be run on individual packages with `pnpm --filter <package> test`
