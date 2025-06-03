@@ -8,6 +8,11 @@ import departmentRoutes from './routes/departmentRoutes'; // Import department r
 import locationRoutes from './routes/locationRoutes'; // Import location routes
 import classRoutes from './routes/classRoutes'; // Import class routes
 import glRoutes from './routes/gl.router'; // Import General Ledger routes
+import vendorRoutes from './routes/vendorRoutes'; // Import vendor routes
+import employeeRoutes from './routes/employeeRoutes'; // Import employee routes
+import leadRoutes from './routes/leadRoutes'; // Import lead routes
+import prospectRoutes from './routes/prospectRoutes'; // Import prospect routes
+import contactRoutes from './routes/contactRoutes'; // Import contact routes
 import { clerkAuthMiddleware } from './middleware/clerk-auth'; // Import the Clerk auth middleware
 
 // Load environment variables from .env file at the monorepo root
@@ -48,6 +53,11 @@ app.use('/api/v1/departments', departmentRoutes);
 app.use('/api/v1/locations', locationRoutes);
 app.use('/api/v1/classes', classRoutes);
 app.use('/api/v1/gl', glRoutes); // Mount General Ledger routes
+app.use('/api/v1/vendors', vendorRoutes);
+app.use('/api/v1/employees', employeeRoutes);
+app.use('/api/v1/leads', leadRoutes);
+app.use('/api/v1/prospects', prospectRoutes);
+app.use('/api/v1/contacts', contactRoutes);
 
 // Error handling middleware (simple example)
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

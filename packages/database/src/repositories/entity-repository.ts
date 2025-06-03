@@ -579,18 +579,11 @@ export class EntityRepository extends BaseRepository {
     isActive?: boolean;
     searchTerm?: string;
   }) {
-    let query = this.db
-      .select({ count: entities.id })
-      .from(entities)
-      .where(
-        and(
-          eq(entities.organizationId, organizationId),
-          or(...types.map(type => arrayContains(entities.entityTypes, [type])))
-        )
-      );
+    const conditions: any[] = [
+      eq(entities.organizationId, organizationId),
+      or(...types.map(type => arrayContains(entities.entityTypes, [type])))
+    ];
 
-    const conditions = [];
-    
     if (filters?.parentEntityId !== undefined) {
       conditions.push(
         filters.parentEntityId === null 
@@ -618,13 +611,11 @@ export class EntityRepository extends BaseRepository {
       );
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    const result = await query;
+    const result = await this.db
+      .select({ count: sql`COUNT(*)` })
+      .from(entities)
+      .where(and(...conditions));
+    
     return result[0]?.count || 0;
   }
 }
-
-export const entityRepository = new EntityRepository();
