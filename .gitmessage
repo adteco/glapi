@@ -1,0 +1,20 @@
+# <type>(<scope>): <subject>
+
+# <body>
+
+# <footer>
+
+# Type: feat, fix, docs, style, refactor, perf, test, chore, build, ci
+# Scope: api, web, database, docs, etc.
+# Subject: imperative mood, lowercase, no period at end
+# Body: explain what and why, not how
+# Footer: reference issues, breaking changes
+
+# Example:
+# feat(api): add customer export endpoint
+#
+# - Add new GET /api/v1/customers/export endpoint
+# - Support CSV and JSON formats
+# - Include pagination for large datasets
+#
+# Closes #123

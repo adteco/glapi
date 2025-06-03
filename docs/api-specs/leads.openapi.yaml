@@ -1,0 +1,556 @@
+openapi: 3.0.0
+info:
+  title: Leads API
+  version: v1
+  description: API for managing leads within the Revenue Recognition System. Leads represent potential customers who have shown interest but haven't yet made a purchase.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Lead:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - status
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the lead.
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Organization this lead belongs to.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the lead (company or individual).
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the lead.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the lead.
+        company:
+          type: string
+          nullable: true
+          description: Company name if the lead is associated with a company.
+        source:
+          type: string
+          nullable: true
+          description: Source of the lead (e.g., website, referral, trade show).
+        status:
+          type: string
+          enum: [new, contacted, qualified, unqualified, converted]
+          default: new
+          description: Current status of the lead.
+        score:
+          type: integer
+          nullable: true
+          description: Lead score indicating quality/likelihood to convert.
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the user this lead is assigned to.
+        lastContactedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the lead was last contacted.
+        notes:
+          type: string
+          nullable: true
+          description: Additional notes about the lead.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for storing additional lead-specific data.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the lead is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the lead was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the lead was last updated.
+          readOnly: true
+
+    NewLead:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the lead (company or individual).
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the lead.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the lead.
+        company:
+          type: string
+          nullable: true
+          description: Company name if the lead is associated with a company.
+        source:
+          type: string
+          nullable: true
+          description: Source of the lead.
+        status:
+          type: string
+          enum: [new, contacted, qualified, unqualified]
+          default: new
+          description: Initial status of the lead.
+        score:
+          type: integer
+          nullable: true
+          description: Initial lead score.
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the user to assign this lead to.
+        notes:
+          type: string
+          nullable: true
+          description: Initial notes about the lead.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for storing additional lead-specific data.
+
+    UpdateLead:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the lead.
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the lead.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the lead.
+        company:
+          type: string
+          nullable: true
+          description: Company name.
+        source:
+          type: string
+          nullable: true
+          description: Source of the lead.
+        status:
+          type: string
+          enum: [new, contacted, qualified, unqualified, converted]
+          description: Status of the lead.
+        score:
+          type: integer
+          nullable: true
+          description: Lead score.
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the assigned user.
+        lastContactedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the lead was last contacted.
+        notes:
+          type: string
+          nullable: true
+          description: Notes about the lead.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields.
+        isActive:
+          type: boolean
+          description: Whether the lead is active.
+
+    LeadScoreStats:
+      type: object
+      properties:
+        averageScore:
+          type: number
+          format: float
+          description: Average score across all leads.
+        scoreDistribution:
+          type: object
+          description: Distribution of leads by score ranges.
+          properties:
+            low:
+              type: integer
+              description: Number of leads with low scores (0-33).
+            medium:
+              type: integer
+              description: Number of leads with medium scores (34-66).
+            high:
+              type: integer
+              description: Number of leads with high scores (67-100).
+        topScorers:
+          type: array
+          description: Top scoring leads.
+          items:
+            $ref: '#/components/schemas/Lead'
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalPages:
+          type: integer
+          example: 10
+
+  parameters:
+    leadId:
+      name: id
+      in: path
+      required: true
+      description: Identifier of the lead.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+    sortField:
+      name: sortField
+      in: query
+      description: Field to sort by.
+      required: false
+      schema:
+        type: string
+        default: createdAt
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Sort order (asc or desc).
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+    source:
+      name: source
+      in: path
+      required: true
+      description: Lead source to filter by.
+      schema:
+        type: string
+    assigneeId:
+      name: assigneeId
+      in: path
+      required: true
+      description: ID of the user to filter leads by.
+      schema:
+        type: string
+        format: uuid
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /leads:
+    post:
+      summary: Create a new lead
+      tags:
+        - Leads
+      operationId: createLead
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Lead object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewLead'
+      responses:
+        '201':
+          description: Lead created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all leads
+      tags:
+        - Leads
+      operationId: listLeads
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sortField'
+        - $ref: '#/components/parameters/sortOrder'
+      responses:
+        '200':
+          description: A list of leads.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Lead'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /leads/{id}:
+    parameters:
+      - $ref: '#/components/parameters/leadId'
+    get:
+      summary: Get a lead by ID
+      tags:
+        - Leads
+      operationId: getLeadById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Lead with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a lead
+      tags:
+        - Leads
+      operationId: updateLead
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Lead object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLead'
+      responses:
+        '200':
+          description: Lead updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a lead
+      tags:
+        - Leads
+      operationId: deleteLead
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Lead deleted successfully. No content.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+
+  /leads/{id}/convert-to-customer:
+    parameters:
+      - $ref: '#/components/parameters/leadId'
+    post:
+      summary: Convert a lead to a customer
+      tags:
+        - Leads
+      operationId: convertLeadToCustomer
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lead converted to customer successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId:
+                    type: string
+                    format: uuid
+                    description: ID of the newly created customer.
+                  customer:
+                    type: object
+                    description: The newly created customer object.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '409':
+          description: Conflict - Lead has already been converted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+
+  /leads/by-source/{source}:
+    parameters:
+      - $ref: '#/components/parameters/source'
+    get:
+      summary: Find leads by source
+      tags:
+        - Leads
+      operationId: getLeadsBySource
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of leads from the specified source.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Lead'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /leads/assigned-to/{assigneeId}:
+    parameters:
+      - $ref: '#/components/parameters/assigneeId'
+    get:
+      summary: Find leads by assignee
+      tags:
+        - Leads
+      operationId: getLeadsByAssignee
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of leads assigned to the specified user.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Lead'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /leads/stats/scoring:
+    get:
+      summary: Get lead scoring statistics
+      tags:
+        - Leads
+      operationId: getLeadScoreStats
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lead scoring statistics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadScoreStats'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500

@@ -1,0 +1,653 @@
+openapi: 3.0.0
+info:
+  title: Employee API
+  version: v1
+  description: API for managing employees within the Revenue Recognition System.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Employee:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - entityTypes
+        - status
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the employee.
+          readOnly: true
+        organizationId:
+          type: string
+          description: Identifier for the organization this employee belongs to.
+          readOnly: true
+        name:
+          type: string
+          description: Full name of the employee.
+        displayName:
+          type: string
+          nullable: true
+          description: Display name for the employee.
+        code:
+          type: string
+          nullable: true
+          description: Employee code or identifier.
+        entityTypes:
+          type: array
+          items:
+            type: string
+            enum: [Employee]
+          description: Entity types (always includes 'Employee').
+          readOnly: true
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the employee.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the employee.
+        website:
+          type: string
+          format: uri
+          nullable: true
+          description: Personal website URL.
+        address:
+          $ref: '#/components/schemas/Address'
+        parentEntityId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent entity identifier.
+        primaryContactId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Primary contact identifier.
+        taxId:
+          type: string
+          nullable: true
+          description: Tax identification number.
+        description:
+          type: string
+          nullable: true
+          description: Description of the employee.
+        notes:
+          type: string
+          nullable: true
+          description: Additional notes about the employee.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for additional data.
+          additionalProperties: true
+        metadata:
+          $ref: '#/components/schemas/EmployeeMetadata'
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+          description: Status of the employee.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the employee is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the employee was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the employee was last updated.
+          readOnly: true
+
+    NewEmployee:
+      type: object
+      required:
+        - name
+        - entityTypes
+      properties:
+        name:
+          type: string
+          description: Full name of the employee.
+        displayName:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        entityTypes:
+          type: array
+          items:
+            type: string
+            enum: [Employee]
+          description: Entity types (must include 'Employee').
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        address:
+          $ref: '#/components/schemas/Address'
+        parentEntityId:
+          type: string
+          format: uuid
+          nullable: true
+        primaryContactId:
+          type: string
+          format: uuid
+          nullable: true
+        taxId:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        customFields:
+          type: object
+          nullable: true
+          additionalProperties: true
+        metadata:
+          $ref: '#/components/schemas/EmployeeMetadata'
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateEmployee:
+      type: object
+      properties:
+        name:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        entityTypes:
+          type: array
+          items:
+            type: string
+            enum: [Employee]
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        address:
+          $ref: '#/components/schemas/Address'
+        parentEntityId:
+          type: string
+          format: uuid
+          nullable: true
+        primaryContactId:
+          type: string
+          format: uuid
+          nullable: true
+        taxId:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        customFields:
+          type: object
+          nullable: true
+          additionalProperties: true
+        metadata:
+          $ref: '#/components/schemas/EmployeeMetadata'
+        status:
+          type: string
+          enum: [active, inactive, archived]
+        isActive:
+          type: boolean
+
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        addressee:
+          type: string
+          nullable: true
+        companyName:
+          type: string
+          nullable: true
+        attention:
+          type: string
+          nullable: true
+        phoneNumber:
+          type: string
+          nullable: true
+        line1:
+          type: string
+          nullable: true
+        line2:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        stateProvince:
+          type: string
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+        countryCode:
+          type: string
+          minLength: 2
+          maxLength: 2
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code.
+
+    EmployeeMetadata:
+      type: object
+      properties:
+        employeeId:
+          type: string
+          description: Internal employee ID or badge number.
+        department:
+          type: string
+          description: Department the employee belongs to.
+        title:
+          type: string
+          description: Job title of the employee.
+        reportsTo:
+          type: string
+          format: uuid
+          description: ID of the employee's manager.
+        startDate:
+          type: string
+          format: date
+          description: Employment start date.
+        endDate:
+          type: string
+          format: date
+          description: Employment end date (if applicable).
+        employmentType:
+          type: string
+          enum: [full-time, part-time, contractor, intern]
+          description: Type of employment.
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+              path:
+                type: array
+                items:
+                  type: string
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+
+  parameters:
+    employeeId:
+      name: id
+      in: path
+      required: true
+      description: Identifier of the employee.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    orderBy:
+      name: orderBy
+      in: query
+      description: Field to order results by.
+      required: false
+      schema:
+        type: string
+        enum: [name, createdAt, updatedAt]
+        default: name
+    orderDirection:
+      name: orderDirection
+      in: query
+      description: Order direction.
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    status:
+      name: status
+      in: query
+      description: Filter by status.
+      required: false
+      schema:
+        type: string
+        enum: [active, inactive, archived]
+    search:
+      name: search
+      in: query
+      description: Search term to filter results.
+      required: false
+      schema:
+        type: string
+    isActive:
+      name: isActive
+      in: query
+      description: Filter by active status.
+      required: false
+      schema:
+        type: boolean
+    department:
+      name: department
+      in: path
+      required: true
+      description: Department name.
+      schema:
+        type: string
+    managerId:
+      name: managerId
+      in: path
+      required: true
+      description: Manager's employee ID.
+      schema:
+        type: string
+        format: uuid
+    employeeIdParam:
+      name: employeeId
+      in: path
+      required: true
+      description: Employee's internal ID or badge number.
+      schema:
+        type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /employees:
+    post:
+      summary: Create a new employee
+      tags:
+        - Employees
+      operationId: createEmployee
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Employee object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewEmployee'
+      responses:
+        '201':
+          description: Employee created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all employees
+      tags:
+        - Employees
+      operationId: listEmployees
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/orderBy'
+        - $ref: '#/components/parameters/orderDirection'
+        - $ref: '#/components/parameters/status'
+        - $ref: '#/components/parameters/search'
+        - $ref: '#/components/parameters/isActive'
+      responses:
+        '200':
+          description: A list of employees.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Employee'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /employees/{id}:
+    parameters:
+      - $ref: '#/components/parameters/employeeId'
+    get:
+      summary: Get an employee by ID
+      tags:
+        - Employees
+      operationId: getEmployeeById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Employee with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update an employee
+      tags:
+        - Employees
+      operationId: updateEmployee
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Employee object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmployee'
+      responses:
+        '200':
+          description: Employee updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete an employee
+      tags:
+        - Employees
+      operationId: deleteEmployee
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Employee deleted successfully. No content.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+
+  /employees/department/{department}:
+    parameters:
+      - $ref: '#/components/parameters/department'
+    get:
+      summary: Find employees by department
+      tags:
+        - Employees
+      operationId: getEmployeesByDepartment
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of employees in the specified department.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Employee'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /employees/reports-to/{managerId}:
+    parameters:
+      - $ref: '#/components/parameters/managerId'
+    get:
+      summary: Find direct reports for a manager
+      tags:
+        - Employees
+      operationId: getDirectReports
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of employees who report to the specified manager.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Employee'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /employees/by-employee-id/{employeeId}:
+    parameters:
+      - $ref: '#/components/parameters/employeeIdParam'
+    get:
+      summary: Find employee by internal employee ID
+      tags:
+        - Employees
+      operationId: getEmployeeByEmployeeId
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500

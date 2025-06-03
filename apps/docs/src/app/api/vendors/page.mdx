@@ -1,0 +1,670 @@
+export const metadata = {
+  title: 'Vendors API',
+  description:
+    'API reference for managing vendors within the Revenue Recognition System.',
+}
+
+# Vendors API
+
+This guide covers the API endpoints for managing vendors in the Revenue Recognition System. Vendors represent suppliers or service providers that your organization does business with. They are essential for tracking purchases, expenses, and vendor relationships. {{ className: 'lead' }}
+
+<Note>
+  Vendor records support unique identification through both vendor codes and tax identification numbers (EIN), helping prevent duplicate entries and ensuring accurate financial tracking.
+</Note>
+
+## Schema
+
+| Field              | Type      | Description                                         | Required |
+|--------------------|-----------|-----------------------------------------------------|---------| 
+| id                 | UUID      | Unique identifier (system-generated)                | Read-only|
+| organizationId     | UUID      | Organization this vendor belongs to                 | Read-only|
+| name               | String    | Name of the vendor                                  | Yes     |
+| displayName        | String    | Display name for the vendor                         | No      |
+| code               | String    | Unique vendor code within the organization          | No      |
+| email              | String    | Email address of the vendor                         | No      |
+| phone              | String    | Phone number of the vendor                          | No      |
+| website            | String    | Website URL of the vendor                           | No      |
+| taxId              | String    | Tax identification number (EIN)                     | No      |
+| addressLine1       | String    | First line of the vendor's address                  | No      |
+| addressLine2       | String    | Second line of the vendor's address                 | No      |
+| city               | String    | City of the vendor                                  | No      |
+| stateProvince      | String    | State or province of the vendor                     | No      |
+| postalCode         | String    | Postal code of the vendor                           | No      |
+| countryCode        | String    | Country code of the vendor                          | No      |
+| primaryContactName | String    | Name of the primary contact at the vendor           | No      |
+| primaryContactEmail| String    | Email of the primary contact                        | No      |
+| primaryContactPhone| String    | Phone number of the primary contact                 | No      |
+| paymentTerms       | String    | Payment terms for the vendor (e.g., Net 30)        | No      |
+| preferredCurrencyId| UUID      | Preferred currency for transactions                 | No      |
+| status             | String    | Status: 'active', 'inactive', 'suspended', 'archived' | Yes   |
+| notes              | String    | Additional notes about the vendor                   | No      |
+| customFields       | Object    | Custom fields for additional vendor-specific data   | No      |
+| isActive           | Boolean   | Whether the vendor is active (default: true)        | Yes     |
+| createdAt          | DateTime  | When the record was created                         | Read-only|
+| updatedAt          | DateTime  | When the record was last updated                    | Read-only|
+
+## Authentication
+
+All vendor API endpoints require authentication with a valid JWT token. The token should be included in the Authorization header as a Bearer token. Organization context is automatically determined from the authenticated session.
+
+## Endpoints
+
+### Create Vendor
+
+Create a new vendor within your organization.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="POST /vendors" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Request Body
+
+    <Properties>
+      <Property name="name" type="string" required>
+        Name of the vendor
+      </Property>
+      <Property name="displayName" type="string">
+        Display name for the vendor
+      </Property>
+      <Property name="code" type="string">
+        Unique vendor code within the organization
+      </Property>
+      <Property name="email" type="string">
+        Email address of the vendor
+      </Property>
+      <Property name="phone" type="string">
+        Phone number of the vendor
+      </Property>
+      <Property name="website" type="string">
+        Website URL of the vendor
+      </Property>
+      <Property name="taxId" type="string">
+        Tax identification number (EIN)
+      </Property>
+      <Property name="addressLine1" type="string">
+        First line of the vendor's address
+      </Property>
+      <Property name="addressLine2" type="string">
+        Second line of the vendor's address
+      </Property>
+      <Property name="city" type="string">
+        City of the vendor
+      </Property>
+      <Property name="stateProvince" type="string">
+        State or province of the vendor
+      </Property>
+      <Property name="postalCode" type="string">
+        Postal code of the vendor
+      </Property>
+      <Property name="countryCode" type="string">
+        Country code of the vendor
+      </Property>
+      <Property name="primaryContactName" type="string">
+        Name of the primary contact
+      </Property>
+      <Property name="primaryContactEmail" type="string">
+        Email of the primary contact
+      </Property>
+      <Property name="primaryContactPhone" type="string">
+        Phone number of the primary contact
+      </Property>
+      <Property name="paymentTerms" type="string">
+        Payment terms for the vendor
+      </Property>
+      <Property name="preferredCurrencyId" type="string (UUID)">
+        Preferred currency for transactions
+      </Property>
+      <Property name="notes" type="string">
+        Initial notes about the vendor
+      </Property>
+      <Property name="customFields" type="object">
+        Custom fields for additional vendor-specific data
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X POST https://api.example.com/vendors \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer your_jwt_token" \
+      -d '{
+        "name": "Office Supplies Co",
+        "displayName": "Office Supplies",
+        "code": "VEND-001",
+        "email": "orders@officesupplies.com",
+        "phone": "555-123-4567",
+        "website": "https://officesupplies.com",
+        "taxId": "12-3456789",
+        "addressLine1": "123 Supply Street",
+        "addressLine2": "Suite 100",
+        "city": "San Francisco",
+        "stateProvince": "CA",
+        "postalCode": "94105",
+        "countryCode": "US",
+        "primaryContactName": "Jane Smith",
+        "primaryContactEmail": "jane@officesupplies.com",
+        "primaryContactPhone": "555-123-4568",
+        "paymentTerms": "Net 30",
+        "notes": "Preferred vendor for office supplies",
+        "customFields": {
+          "accountNumber": "ACC-12345",
+          "deliveryMethod": "standard"
+        }
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "f67f0ea2-77bd-4578-8c76-0116d473cc27",
+      "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+      "name": "Office Supplies Co",
+      "displayName": "Office Supplies",
+      "code": "VEND-001",
+      "email": "orders@officesupplies.com",
+      "phone": "555-123-4567",
+      "website": "https://officesupplies.com",
+      "taxId": "12-3456789",
+      "addressLine1": "123 Supply Street",
+      "addressLine2": "Suite 100",
+      "city": "San Francisco",
+      "stateProvince": "CA",
+      "postalCode": "94105",
+      "countryCode": "US",
+      "primaryContactName": "Jane Smith",
+      "primaryContactEmail": "jane@officesupplies.com",
+      "primaryContactPhone": "555-123-4568",
+      "paymentTerms": "Net 30",
+      "preferredCurrencyId": null,
+      "status": "active",
+      "notes": "Preferred vendor for office supplies",
+      "customFields": {
+        "accountNumber": "ACC-12345",
+        "deliveryMethod": "standard"
+      },
+      "isActive": true,
+      "createdAt": "2025-05-11T12:33:59.048Z",
+      "updatedAt": "2025-05-11T12:33:59.048Z"
+    }
+    ```
+  </Col>
+</Row>
+
+### List Vendors
+
+Retrieve a paginated list of vendors in your organization.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /vendors" />
+    </Properties>
+
+    #### Query Parameters
+
+    <Properties>
+      <Property name="page" type="number" default="1">
+        Page number for pagination
+      </Property>
+      <Property name="limit" type="number" default="10">
+        Number of items per page
+      </Property>
+      <Property name="sortField" type="string" default="name">
+        Field to sort by
+      </Property>
+      <Property name="sortOrder" type="string" default="asc">
+        Sort order (asc, desc)
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET "https://api.example.com/vendors?page=1&limit=10" \
+      -H "Authorization: Bearer your_jwt_token"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "data": [
+        {
+          "id": "f67f0ea2-77bd-4578-8c76-0116d473cc27",
+          "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+          "name": "Office Supplies Co",
+          "displayName": "Office Supplies",
+          "code": "VEND-001",
+          "email": "orders@officesupplies.com",
+          "phone": "555-123-4567",
+          "website": "https://officesupplies.com",
+          "taxId": "12-3456789",
+          "addressLine1": "123 Supply Street",
+          "addressLine2": "Suite 100",
+          "city": "San Francisco",
+          "stateProvince": "CA",
+          "postalCode": "94105",
+          "countryCode": "US",
+          "primaryContactName": "Jane Smith",
+          "primaryContactEmail": "jane@officesupplies.com",
+          "primaryContactPhone": "555-123-4568",
+          "paymentTerms": "Net 30",
+          "preferredCurrencyId": null,
+          "status": "active",
+          "notes": "Preferred vendor for office supplies",
+          "customFields": {
+            "accountNumber": "ACC-12345",
+            "deliveryMethod": "standard"
+          },
+          "isActive": true,
+          "createdAt": "2025-05-11T12:33:59.048Z",
+          "updatedAt": "2025-05-11T12:33:59.048Z"
+        }
+      ],
+      "total": 15,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 2
+    }
+    ```
+  </Col>
+</Row>
+
+### Get Vendor
+
+Retrieve a specific vendor by ID.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /vendors/{id}" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the vendor to retrieve
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET https://api.example.com/vendors/f67f0ea2-77bd-4578-8c76-0116d473cc27 \
+      -H "Authorization: Bearer your_jwt_token"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "f67f0ea2-77bd-4578-8c76-0116d473cc27",
+      "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+      "name": "Office Supplies Co",
+      "displayName": "Office Supplies",
+      "code": "VEND-001",
+      "email": "orders@officesupplies.com",
+      "phone": "555-123-4567",
+      "website": "https://officesupplies.com",
+      "taxId": "12-3456789",
+      "addressLine1": "123 Supply Street",
+      "addressLine2": "Suite 100",
+      "city": "San Francisco",
+      "stateProvince": "CA",
+      "postalCode": "94105",
+      "countryCode": "US",
+      "primaryContactName": "Jane Smith",
+      "primaryContactEmail": "jane@officesupplies.com",
+      "primaryContactPhone": "555-123-4568",
+      "paymentTerms": "Net 30",
+      "preferredCurrencyId": null,
+      "status": "active",
+      "notes": "Preferred vendor for office supplies",
+      "customFields": {
+        "accountNumber": "ACC-12345",
+        "deliveryMethod": "standard"
+      },
+      "isActive": true,
+      "createdAt": "2025-05-11T12:33:59.048Z",
+      "updatedAt": "2025-05-11T12:33:59.048Z"
+    }
+    ```
+  </Col>
+</Row>
+
+### Update Vendor
+
+Update an existing vendor.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="PUT /vendors/{id}" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the vendor to update
+      </Property>
+    </Properties>
+
+    #### Request Body
+
+    All fields from the create endpoint can be updated, plus:
+
+    <Properties>
+      <Property name="status" type="string">
+        Status: 'active', 'inactive', 'suspended', or 'archived'
+      </Property>
+      <Property name="isActive" type="boolean">
+        Whether the vendor is active
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X PUT https://api.example.com/vendors/f67f0ea2-77bd-4578-8c76-0116d473cc27 \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer your_jwt_token" \
+      -d '{
+        "displayName": "Office Supplies Inc",
+        "paymentTerms": "Net 45",
+        "primaryContactName": "John Doe",
+        "primaryContactEmail": "john@officesupplies.com",
+        "status": "active"
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "f67f0ea2-77bd-4578-8c76-0116d473cc27",
+      "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+      "name": "Office Supplies Co",
+      "displayName": "Office Supplies Inc",
+      "code": "VEND-001",
+      "email": "orders@officesupplies.com",
+      "phone": "555-123-4567",
+      "website": "https://officesupplies.com",
+      "taxId": "12-3456789",
+      "addressLine1": "123 Supply Street",
+      "addressLine2": "Suite 100",
+      "city": "San Francisco",
+      "stateProvince": "CA",
+      "postalCode": "94105",
+      "countryCode": "US",
+      "primaryContactName": "John Doe",
+      "primaryContactEmail": "john@officesupplies.com",
+      "primaryContactPhone": "555-123-4568",
+      "paymentTerms": "Net 45",
+      "preferredCurrencyId": null,
+      "status": "active",
+      "notes": "Preferred vendor for office supplies",
+      "customFields": {
+        "accountNumber": "ACC-12345",
+        "deliveryMethod": "standard"
+      },
+      "isActive": true,
+      "createdAt": "2025-05-11T12:33:59.048Z",
+      "updatedAt": "2025-05-11T14:45:22.183Z"
+    }
+    ```
+  </Col>
+</Row>
+
+### Delete Vendor
+
+Delete a vendor.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="DELETE /vendors/{id}" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the vendor to delete
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X DELETE https://api.example.com/vendors/f67f0ea2-77bd-4578-8c76-0116d473cc27 \
+      -H "Authorization: Bearer your_jwt_token"
+    ```
+
+    ```text {{ title: 'Response' }}
+    204 No Content
+    ```
+  </Col>
+</Row>
+
+### Find Vendor by EIN
+
+Retrieve a vendor by their tax identification number (EIN).
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /vendors/by-ein/{ein}" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="ein" type="string" required>
+        Tax identification number (EIN) to search for
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET https://api.example.com/vendors/by-ein/12-3456789 \
+      -H "Authorization: Bearer your_jwt_token"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "f67f0ea2-77bd-4578-8c76-0116d473cc27",
+      "organizationId": "ba3b8cdf-efc1-4a60-88be-ac203d263fe2",
+      "name": "Office Supplies Co",
+      "displayName": "Office Supplies",
+      "code": "VEND-001",
+      "email": "orders@officesupplies.com",
+      "phone": "555-123-4567",
+      "website": "https://officesupplies.com",
+      "taxId": "12-3456789",
+      "addressLine1": "123 Supply Street",
+      "addressLine2": "Suite 100",
+      "city": "San Francisco",
+      "stateProvince": "CA",
+      "postalCode": "94105",
+      "countryCode": "US",
+      "primaryContactName": "Jane Smith",
+      "primaryContactEmail": "jane@officesupplies.com",
+      "primaryContactPhone": "555-123-4568",
+      "paymentTerms": "Net 30",
+      "preferredCurrencyId": null,
+      "status": "active",
+      "notes": "Preferred vendor for office supplies",
+      "customFields": {
+        "accountNumber": "ACC-12345",
+        "deliveryMethod": "standard"
+      },
+      "isActive": true,
+      "createdAt": "2025-05-11T12:33:59.048Z",
+      "updatedAt": "2025-05-11T12:33:59.048Z"
+    }
+    ```
+  </Col>
+</Row>
+
+## Error Responses
+
+The API returns standard HTTP status codes and error messages in a consistent format.
+
+```json
+{
+  "error": "Error description",
+  "details": [
+    {
+      "message": "Specific error detail"
+    }
+  ]
+}
+```
+
+Common errors include:
+
+| Status Code | Error | Description |
+|-------------|-------|-------------|
+| 400 | Bad Request | Invalid input data or validation error |
+| 401 | Unauthorized | Missing or invalid authentication token |
+| 404 | Not Found | Vendor with the specified ID not found |
+| 409 | Conflict | Vendor with this code or EIN already exists |
+| 500 | Internal Server Error | Server error occurred |
+
+## Vendor Management
+
+### Vendor Status
+
+The `status` field allows you to track the vendor relationship lifecycle:
+
+- `active` - Currently active vendor relationship
+- `inactive` - Temporarily inactive, but may resume
+- `suspended` - Vendor suspended due to issues (e.g., compliance, quality)
+- `archived` - No longer active and not expected to resume
+
+### Vendor Codes
+
+The `code` field is intended to be a human-readable, business-meaningful identifier, often matching the vendor ID in your accounting system. This is separate from the system-generated UUID in the `id` field.
+
+Example vendor code formats:
+- Sequential: `VEND-001`, `VEND-002`
+- Category-based: `TECH-001`, `SUPPLY-002`
+- Location-based: `US-VEND-001`, `EU-VEND-001`
+
+### Tax Identification
+
+The `taxId` field stores the vendor's tax identification number (EIN in the US). This helps:
+- Prevent duplicate vendor entries
+- Ensure compliance with tax reporting requirements
+- Facilitate 1099 and other tax form generation
+
+### Payment Terms
+
+Common payment terms include:
+- `Due on Receipt` - Payment due immediately
+- `Net 10` - Payment due within 10 days
+- `Net 30` - Payment due within 30 days
+- `Net 45` - Payment due within 45 days
+- `Net 60` - Payment due within 60 days
+- `2/10 Net 30` - 2% discount if paid within 10 days, otherwise due in 30 days
+
+## Best Practices
+
+### Vendor Onboarding
+
+1. **Unique Identification**: Always check for existing vendors by EIN before creating duplicates
+2. **Complete Information**: Collect complete vendor information including tax ID and payment terms
+3. **Contact Details**: Maintain accurate primary contact information for communication
+4. **Address Verification**: Ensure vendor addresses are complete and accurate for payments
+
+### Data Management
+
+1. **Regular Updates**: Keep vendor information current, especially contact details
+2. **Status Tracking**: Use status field to reflect current vendor relationship
+3. **Custom Fields**: Use custom fields for industry-specific vendor data
+4. **Audit Trail**: The system automatically tracks created and updated timestamps
+
+### Security Considerations
+
+1. **Tax ID Protection**: Handle tax identification numbers securely
+2. **Access Control**: Limit vendor data access to authorized personnel
+3. **Data Validation**: Validate email addresses and phone numbers
+4. **Duplicate Prevention**: Check for existing vendors before creating new records
+
+## Code Example
+
+Here's an example of how to use the vendors API with JavaScript:
+
+```javascript
+// Create a new vendor
+async function createVendor(vendorData) {
+  const response = await fetch('https://api.example.com/vendors', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getAuthToken()}`
+    },
+    body: JSON.stringify({
+      name: vendorData.name,
+      code: vendorData.code,
+      email: vendorData.email,
+      phone: vendorData.phone,
+      taxId: vendorData.taxId,
+      addressLine1: vendorData.address1,
+      city: vendorData.city,
+      stateProvince: vendorData.state,
+      postalCode: vendorData.zip,
+      countryCode: vendorData.country || 'US',
+      paymentTerms: vendorData.paymentTerms || 'Net 30',
+      status: 'active'
+    })
+  });
+
+  if (!response.ok) {
+    if (response.status === 409) {
+      throw new Error('Vendor with this code or EIN already exists');
+    }
+    throw new Error('Failed to create vendor');
+  }
+
+  return await response.json();
+}
+
+// Check if vendor exists by EIN
+async function findVendorByEIN(ein) {
+  const response = await fetch(
+    `https://api.example.com/vendors/by-ein/${encodeURIComponent(ein)}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`
+      }
+    }
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error('Failed to search vendor');
+  }
+
+  return await response.json();
+}
+
+// Update vendor status
+async function updateVendorStatus(vendorId, status) {
+  const response = await fetch(`https://api.example.com/vendors/${vendorId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getAuthToken()}`
+    },
+    body: JSON.stringify({
+      status: status,
+      isActive: status === 'active'
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update vendor status');
+  }
+
+  return await response.json();
+}
+```

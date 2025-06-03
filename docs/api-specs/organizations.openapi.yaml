@@ -1,0 +1,244 @@
+openapi: 3.0.0
+info:
+  title: Organizations API
+  version: v1
+  description: API for managing organizations within the Revenue Recognition System. Organizations represent the top-level entities that own all data in the system.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Organization:
+      type: object
+      required:
+        - id
+        - stytchOrganizationId
+        - name
+        - slug
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the organization.
+          readOnly: true
+        stytchOrganizationId:
+          type: string
+          description: Stytch organization ID for authentication.
+        name:
+          type: string
+          description: Name of the organization.
+        slug:
+          type: string
+          description: URL-friendly slug for the organization.
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: URL of the organization's logo.
+        settings:
+          type: object
+          nullable: true
+          description: Organization-specific settings.
+          properties:
+            defaultCurrency:
+              type: string
+              description: Default currency code for the organization.
+            fiscalYearStart:
+              type: string
+              format: date
+              description: Start date of the fiscal year.
+            timezone:
+              type: string
+              description: Default timezone for the organization.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the organization is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the organization was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the organization was last updated.
+          readOnly: true
+
+    NewOrganization:
+      type: object
+      required:
+        - organization_id
+        - organization_name
+        - organization_slug
+      properties:
+        organization_id:
+          type: string
+          description: Stytch organization ID.
+        organization_name:
+          type: string
+          description: Name of the organization.
+        organization_slug:
+          type: string
+          description: URL-friendly slug for the organization.
+
+    OrganizationLookupResponse:
+      type: object
+      required:
+        - organization
+      properties:
+        organization:
+          $ref: '#/components/schemas/Organization'
+        isNew:
+          type: boolean
+          description: Indicates if the organization was newly created.
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          nullable: true
+        details:
+          type: object
+          nullable: true
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalPages:
+          type: integer
+          example: 10
+
+  parameters:
+    organizationId:
+      name: organizationId
+      in: path
+      required: true
+      description: Identifier of the organization.
+      schema:
+        type: string
+        format: uuid
+    stytchOrgId:
+      name: stytchOrgId
+      in: query
+      required: true
+      description: Stytch organization ID to look up.
+      schema:
+        type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /organizations:
+    get:
+      summary: List all organizations
+      tags:
+        - Organizations
+      operationId: listOrganizations
+      security:
+        - BearerAuth: []
+      description: Get all organizations. In production, this would require admin privileges.
+      responses:
+        '200':
+          description: A list of organizations.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /organizations/lookup:
+    get:
+      summary: Lookup organization by Stytch ID
+      tags:
+        - Organizations
+      operationId: lookupOrganization
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/stytchOrgId'
+      description: Look up an organization by its Stytch organization ID. If not found, creates a new organization.
+      responses:
+        '200':
+          description: Organization found or created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationLookupResponse'
+        '400':
+          description: Bad Request - Missing required parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /organizations/default:
+    get:
+      summary: Get default organization
+      tags:
+        - Organizations
+      operationId: getDefaultOrganization
+      security:
+        - BearerAuth: []
+      description: Get or create a default organization for development purposes.
+      responses:
+        '200':
+          description: Default organization retrieved or created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organization:
+                    $ref: '#/components/schemas/Organization'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500

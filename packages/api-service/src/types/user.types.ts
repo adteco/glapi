@@ -6,7 +6,7 @@ export const userSchema = z.object({
   email: z.string().email(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1, 'Organization ID is required'),
   role: z.enum(['admin', 'user']).default('user'),
   settings: z.record(z.any()).optional(),
   isActive: z.boolean().default(true),

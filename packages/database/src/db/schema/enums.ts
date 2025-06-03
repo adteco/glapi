@@ -6,6 +6,9 @@ export const entityTypeEnum = pgEnum('entity_type_enum', [
   'Vendor',
   'Employee',
   'Partner',
+  'Lead',
+  'Prospect',
+  'Contact',
 ]);
 
 // Enum for cost estimate types, used in transaction lines
@@ -31,6 +34,16 @@ export const timeEntryBilledStatusEnum = pgEnum('time_entry_billed_status_enum',
   'NotBilled',
   'Billed',
   'NonBillable',
+]);
+
+// Enum for Account Categories for General Ledger
+export const accountCategoryEnum = pgEnum('account_category_enum', [
+  'Asset',
+  'Liability',
+  'Equity',
+  'Revenue',
+  'COGS', // Cost of Goods Sold
+  'Expense',
 ]);
 
 // Add other shared enums here as your schema evolves 

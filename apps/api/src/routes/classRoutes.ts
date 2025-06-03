@@ -3,30 +3,38 @@ import { ClassService, NewClassSchema } from '@glapi/api-service';
 
 const router: Router = express.Router();
 
+// Extend Request to include organizationContext
+interface AuthenticatedRequest extends Request {
+  organizationContext?: {
+    organizationId: string;
+    userId: string;
+    clerkOrganizationId?: string;
+  };
+}
+
 // Helper to get organization context from request
-const getServiceContext = (req: Request) => {
-  const context = (req as any).organizationContext;
-
-  if (!context || !context.organizationId) {
-    console.warn('Organization context not found in request - using development fallback');
-
-    // Return a development fallback context when none is available
-    return {
-      organizationId: 'organization-default-dev',
-      userId: 'user-default-dev',
-      stytchOrganizationId: 'organization-test-6f0cd115-d208-4462-8b0a-d1e8df4568a7'
-    };
+const getServiceContext = (req: AuthenticatedRequest) => {
+  if (!req.organizationContext?.organizationId) {
+    return null;
   }
 
-  console.log('Using organization context:', context);
-  return context;
+  // Map the Clerk organization context to the service context format
+  return {
+    organizationId: req.organizationContext.organizationId,
+    userId: req.organizationContext.userId,
+    stytchOrganizationId: req.organizationContext.clerkOrganizationId || req.organizationContext.organizationId
+  };
 };
 
 // POST /classes - Create a new class
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     // Get context from the request (set by auth middleware)
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     console.log('Creating class with context:', context);
     console.log('Request body:', req.body);
@@ -72,10 +80,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /classes - List all classes with pagination and filtering
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Initialize the class service
     const classService = new ClassService(context);
@@ -137,12 +149,16 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /classes/:id - Get a class by ID
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Log full details for debugging
     console.log('ClassRoutes:getById - Request parameters:', {
@@ -199,12 +215,16 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // PUT /classes/:id - Update a class
-router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Initialize the class service
     const classService = new ClassService(context);
@@ -242,12 +262,16 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // DELETE /classes/:id - Delete a class
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Initialize the class service
     const classService = new ClassService(context);

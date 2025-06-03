@@ -1,0 +1,842 @@
+openapi: 3.0.0
+info:
+  title: Contact API
+  version: v1
+  description: API for managing contacts within the Revenue Recognition System.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Contact:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - entityTypes
+        - status
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the contact.
+          readOnly: true
+        organizationId:
+          type: string
+          description: Organization ID the contact belongs to.
+          readOnly: true
+        name:
+          type: string
+          description: Full name of the contact.
+        displayName:
+          type: string
+          nullable: true
+          description: Display name for the contact.
+        code:
+          type: string
+          nullable: true
+          description: Optional code identifier for the contact.
+        entityTypes:
+          type: array
+          items:
+            type: string
+            enum: [Customer, Vendor, Employee, Partner, Lead, Prospect, Contact]
+          description: Types of entity (always includes 'Contact' for contacts).
+          readOnly: true
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the contact.
+        phone:
+          type: string
+          nullable: true
+          description: Primary phone number of the contact.
+        website:
+          type: string
+          format: uri
+          nullable: true
+          description: Website URL of the contact.
+        address:
+          $ref: '#/components/schemas/Address'
+        parentEntityId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the parent entity (e.g., company) this contact belongs to.
+        primaryContactId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the primary contact (if this is a company entity).
+        taxId:
+          type: string
+          nullable: true
+          description: Tax identification number.
+        description:
+          type: string
+          nullable: true
+          description: Brief description of the contact.
+        notes:
+          type: string
+          nullable: true
+          description: Additional notes about the contact.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for the contact.
+          additionalProperties: true
+        metadata:
+          $ref: '#/components/schemas/ContactMetadata'
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+          description: Status of the contact.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the contact is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the contact was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the contact was last updated.
+          readOnly: true
+
+    ContactMetadata:
+      type: object
+      nullable: true
+      properties:
+        title:
+          type: string
+          nullable: true
+          description: Job title of the contact.
+        department:
+          type: string
+          nullable: true
+          description: Department the contact belongs to.
+        reportsTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the contact this person reports to.
+        mobilePhone:
+          type: string
+          nullable: true
+          description: Mobile phone number.
+        workPhone:
+          type: string
+          nullable: true
+          description: Work phone number.
+        preferredContactMethod:
+          type: string
+          enum: [email, phone, mobile]
+          nullable: true
+          description: Preferred method of contact.
+
+    Address:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        addressee:
+          type: string
+          nullable: true
+        companyName:
+          type: string
+          nullable: true
+        attention:
+          type: string
+          nullable: true
+        phoneNumber:
+          type: string
+          nullable: true
+        line1:
+          type: string
+          nullable: true
+        line2:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        stateProvince:
+          type: string
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+        countryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          nullable: true
+          description: Two-letter ISO country code.
+
+    NewContact:
+      type: object
+      required:
+        - name
+        - entityTypes
+      properties:
+        name:
+          type: string
+          description: Full name of the contact.
+        displayName:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        entityTypes:
+          type: array
+          items:
+            type: string
+            enum: [Contact]
+          description: Entity types (should include 'Contact' for contacts).
+          default: [Contact]
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        address:
+          $ref: '#/components/schemas/Address'
+        parentEntityId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the parent entity (e.g., company) this contact belongs to.
+        taxId:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        customFields:
+          type: object
+          nullable: true
+          additionalProperties: true
+        metadata:
+          $ref: '#/components/schemas/ContactMetadata'
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateContact:
+      type: object
+      properties:
+        name:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        address:
+          $ref: '#/components/schemas/Address'
+        parentEntityId:
+          type: string
+          format: uuid
+          nullable: true
+        taxId:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        customFields:
+          type: object
+          nullable: true
+          additionalProperties: true
+        metadata:
+          $ref: '#/components/schemas/ContactMetadata'
+        status:
+          type: string
+          enum: [active, inactive, archived]
+        isActive:
+          type: boolean
+
+    ContactListResponse:
+      type: object
+      required:
+        - data
+        - total
+        - page
+        - limit
+        - totalPages
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contact'
+        total:
+          type: integer
+          description: Total number of contacts.
+        page:
+          type: integer
+          description: Current page number.
+        limit:
+          type: integer
+          description: Number of items per page.
+        totalPages:
+          type: integer
+          description: Total number of pages.
+
+    SetPrimaryContactResponse:
+      type: object
+      required:
+        - contact
+        - company
+      properties:
+        contact:
+          $ref: '#/components/schemas/Contact'
+        company:
+          type: object
+          description: The updated company entity with the new primary contact.
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+          description: Additional error details (e.g., validation errors).
+
+  parameters:
+    contactId:
+      name: id
+      in: path
+      required: true
+      description: Identifier of the contact.
+      schema:
+        type: string
+        format: uuid
+    companyId:
+      name: companyId
+      in: path
+      required: true
+      description: Identifier of the company.
+      schema:
+        type: string
+        format: uuid
+    department:
+      name: department
+      in: path
+      required: true
+      description: Department name.
+      schema:
+        type: string
+    contactMethod:
+      name: method
+      in: path
+      required: true
+      description: Preferred contact method.
+      schema:
+        type: string
+        enum: [email, phone, mobile]
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    orderBy:
+      name: orderBy
+      in: query
+      description: Field to order by.
+      required: false
+      schema:
+        type: string
+        enum: [name, createdAt, updatedAt]
+        default: name
+    orderDirection:
+      name: orderDirection
+      in: query
+      description: Order direction.
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    status:
+      name: status
+      in: query
+      description: Filter by status.
+      required: false
+      schema:
+        type: string
+        enum: [active, inactive, archived]
+    search:
+      name: search
+      in: query
+      description: Search query string.
+      required: false
+      schema:
+        type: string
+    parentEntityId:
+      name: parentEntityId
+      in: query
+      description: Filter by parent entity ID.
+      required: false
+      schema:
+        type: string
+        format: uuid
+    isActive:
+      name: isActive
+      in: query
+      description: Filter by active status.
+      required: false
+      schema:
+        type: boolean
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /contacts:
+    post:
+      summary: Create a new contact
+      tags:
+        - Contacts
+      operationId: createContact
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Contact object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewContact'
+      responses:
+        '201':
+          description: Contact created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '400':
+          description: Bad Request - Invalid input data or validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all contacts
+      tags:
+        - Contacts
+      operationId: listContacts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/orderBy'
+        - $ref: '#/components/parameters/orderDirection'
+        - $ref: '#/components/parameters/status'
+        - $ref: '#/components/parameters/search'
+        - $ref: '#/components/parameters/parentEntityId'
+        - $ref: '#/components/parameters/isActive'
+      responses:
+        '200':
+          description: A list of contacts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactListResponse'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/hierarchy:
+    get:
+      summary: Get contact hierarchy
+      description: Returns a hierarchy map showing which contacts report to whom.
+      tags:
+        - Contacts
+      operationId: getContactHierarchy
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Contact hierarchy map.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Contact'
+                description: Map where keys are contact IDs and values are arrays of contacts who report to them.
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/contactId'
+    get:
+      summary: Get a contact by ID
+      tags:
+        - Contacts
+      operationId: getContactById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found - Contact with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update a contact
+      tags:
+        - Contacts
+      operationId: updateContact
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Contact object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContact'
+      responses:
+        '200':
+          description: Contact updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '400':
+          description: Bad Request - Invalid input data or validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found - Contact with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete a contact
+      tags:
+        - Contacts
+      operationId: deleteContact
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Contact deleted successfully. No content.
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found - Contact with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/company/{companyId}:
+    parameters:
+      - $ref: '#/components/parameters/companyId'
+    get:
+      summary: Find contacts by company
+      description: Get all contacts associated with a specific company/entity.
+      tags:
+        - Contacts
+      operationId: findContactsByCompany
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of contacts for the company.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contact'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/department/{department}:
+    parameters:
+      - $ref: '#/components/parameters/department'
+    get:
+      summary: Find contacts by department
+      description: Get all contacts in a specific department.
+      tags:
+        - Contacts
+      operationId: findContactsByDepartment
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of contacts in the department.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contact'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/{id}/set-primary/{companyId}:
+    parameters:
+      - $ref: '#/components/parameters/contactId'
+      - $ref: '#/components/parameters/companyId'
+    post:
+      summary: Set contact as primary for a company
+      description: Designate this contact as the primary contact for a specific company.
+      tags:
+        - Contacts
+      operationId: setPrimaryContact
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Contact set as primary successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPrimaryContactResponse'
+        '400':
+          description: Bad Request - Contact does not belong to the specified company.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found - Contact or company not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/contact-method/{method}:
+    parameters:
+      - $ref: '#/components/parameters/contactMethod'
+    get:
+      summary: Find contacts by preferred contact method
+      description: Get all contacts with a specific preferred contact method.
+      tags:
+        - Contacts
+      operationId: findContactsByContactMethod
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of contacts with the specified contact method.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contact'
+        '400':
+          description: Bad Request - Invalid contact method.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

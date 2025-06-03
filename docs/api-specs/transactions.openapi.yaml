@@ -1,0 +1,943 @@
+openapi: 3.0.0
+info:
+  title: Business Transactions API
+  version: 1.0.0
+  description: API for managing business transactions (Sales Orders, Invoices, Purchase Orders, etc.)
+servers:
+  - url: /api/v1
+tags:
+  - name: transactions
+    description: Business transaction operations
+paths:
+  /transactions:
+    get:
+      tags:
+        - transactions
+      summary: List business transactions
+      operationId: listTransactions
+      parameters:
+        - name: type
+          in: query
+          description: Filter by transaction type
+          schema:
+            type: string
+            enum: [SO, CI, CP, PO, VB, BP]
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [DRAFT, PENDING_APPROVAL, APPROVED, POSTED, PAID, CLOSED, CANCELLED]
+        - name: entity_id
+          in: query
+          description: Filter by customer/vendor ID
+          schema:
+            type: integer
+        - name: from_date
+          in: query
+          description: Filter by transaction date (from)
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          description: Filter by transaction date (to)
+          schema:
+            type: string
+            format: date
+        - name: subsidiary_id
+          in: query
+          description: Filter by subsidiary
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransactionSummary'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - transactions
+      summary: Create a new business transaction
+      operationId: createTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionCreate'
+      responses:
+        '201':
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /transactions/{id}:
+    get:
+      tags:
+        - transactions
+      summary: Get a specific transaction
+      operationId: getTransaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+        - name: expand
+          in: query
+          description: Expand related data
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [lines, gl_entries, relationships, audit_trail]
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: '#/components/schemas/Transaction'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - transactions
+      summary: Update a transaction
+      operationId: updateTransaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionUpdate'
+      responses:
+        '200':
+          description: Transaction updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - transactions
+      summary: Delete a transaction
+      operationId: deleteTransaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Transaction deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transaction cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transactions/{id}/actions:
+    get:
+      tags:
+        - transactions
+      summary: Get available actions for a transaction
+      operationId: getTransactionActions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Available actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        action:
+                          type: string
+                          enum: [approve, reject, post, void, reverse, close]
+                        available:
+                          type: boolean
+                        reason:
+                          type: string
+                          description: Why action is not available
+                        required_role:
+                          type: string
+                          description: Role required for this action
+
+  /transactions/{id}/actions/{action}:
+    post:
+      tags:
+        - transactions
+      summary: Perform an action on a transaction
+      operationId: performTransactionAction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+        - name: action
+          in: path
+          required: true
+          description: Action to perform
+          schema:
+            type: string
+            enum: [approve, reject, post, void, reverse, close]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for action (required for reject, void, reverse)
+                effective_date:
+                  type: string
+                  format: date
+                  description: Date action takes effect
+                notes:
+                  type: string
+                  description: Additional notes
+      responses:
+        '200':
+          description: Action performed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: '#/components/schemas/Transaction'
+                  gl_entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GLEntrySummary'
+                    description: GL entries created (if applicable)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Action not allowed in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transactions/{id}/lines:
+    get:
+      tags:
+        - transactions
+      summary: Get transaction lines
+      operationId: getTransactionLines
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Transaction lines
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lines:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransactionLine'
+    post:
+      tags:
+        - transactions
+      summary: Add a line to transaction
+      operationId: addTransactionLine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionLineCreate'
+      responses:
+        '201':
+          description: Line added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line:
+                    $ref: '#/components/schemas/TransactionLine'
+
+  /transactions/{id}/lines/{lineId}:
+    put:
+      tags:
+        - transactions
+      summary: Update a transaction line
+      operationId: updateTransactionLine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+        - name: lineId
+          in: path
+          required: true
+          description: Line ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionLineUpdate'
+      responses:
+        '200':
+          description: Line updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line:
+                    $ref: '#/components/schemas/TransactionLine'
+    delete:
+      tags:
+        - transactions
+      summary: Delete a transaction line
+      operationId: deleteTransactionLine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: integer
+        - name: lineId
+          in: path
+          required: true
+          description: Line ID
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Line deleted
+
+components:
+  schemas:
+    TransactionType:
+      type: string
+      enum: [SO, CI, CP, CM, CR, PO, IR, VB, BP, BC, OP, RFQ, ES, CT, PS, TE, ER, PI, SS, SI, SC, SX, IA, IT, AS]
+      description: |
+        Transaction type codes:
+        - SO: Sales Order
+        - CI: Customer Invoice
+        - CP: Customer Payment
+        - CM: Credit Memo
+        - CR: Customer Refund
+        - PO: Purchase Order
+        - IR: Item Receipt
+        - VB: Vendor Bill
+        - BP: Bill Payment
+        - BC: Bill Credit
+        - OP: Opportunity
+        - RFQ: Request for Quote
+        - ES: Estimate
+        - CT: Contract
+        - PS: Project Setup
+        - TE: Time Entry
+        - ER: Expense Report
+        - PI: Project Invoice
+        - SS: Subscription Setup
+        - SI: Subscription Invoice
+        - SC: Subscription Change
+        - SX: Subscription Cancellation
+        - IA: Inventory Adjustment
+        - IT: Inventory Transfer
+        - AS: Assembly
+
+    TransactionStatus:
+      type: string
+      enum: [DRAFT, PENDING_APPROVAL, APPROVED, POSTED, PAID, CLOSED, CANCELLED]
+
+    TransactionSummary:
+      type: object
+      required:
+        - id
+        - transaction_number
+        - transaction_type
+        - status
+        - transaction_date
+        - total_amount
+      properties:
+        id:
+          type: integer
+        transaction_number:
+          type: string
+        transaction_type:
+          $ref: '#/components/schemas/TransactionType'
+        subsidiary_id:
+          type: integer
+        entity_id:
+          type: integer
+        entity_type:
+          type: string
+          enum: [CUSTOMER, VENDOR, EMPLOYEE]
+        entity_name:
+          type: string
+        transaction_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/TransactionStatus'
+        total_amount:
+          type: number
+          format: decimal
+        currency_code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        memo:
+          type: string
+
+    Transaction:
+      allOf:
+        - $ref: '#/components/schemas/TransactionSummary'
+        - type: object
+          properties:
+            terms_id:
+              type: integer
+            exchange_rate:
+              type: number
+              format: decimal
+            subtotal_amount:
+              type: number
+              format: decimal
+            tax_amount:
+              type: number
+              format: decimal
+            discount_amount:
+              type: number
+              format: decimal
+            base_total_amount:
+              type: number
+              format: decimal
+            external_reference:
+              type: string
+            ship_date:
+              type: string
+              format: date
+            shipped_via:
+              type: string
+            tracking_number:
+              type: string
+            billing_address:
+              $ref: '#/components/schemas/Address'
+            shipping_address:
+              $ref: '#/components/schemas/Address'
+            sales_rep_id:
+              type: integer
+            department_id:
+              type: integer
+            class_id:
+              type: integer
+            location_id:
+              type: integer
+            project_id:
+              type: integer
+            parent_transaction_id:
+              type: integer
+            gl_transaction_id:
+              type: integer
+            created_by:
+              type: integer
+            created_date:
+              type: string
+              format: date-time
+            modified_by:
+              type: integer
+            modified_date:
+              type: string
+              format: date-time
+            approved_by:
+              type: integer
+            approved_date:
+              type: string
+              format: date-time
+            posted_date:
+              type: string
+              format: date-time
+            lines:
+              type: array
+              items:
+                $ref: '#/components/schemas/TransactionLine'
+            gl_entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/GLEntrySummary'
+            relationships:
+              type: array
+              items:
+                $ref: '#/components/schemas/TransactionRelationship'
+
+    TransactionCreate:
+      type: object
+      required:
+        - transaction_type
+        - subsidiary_id
+        - entity_id
+        - entity_type
+        - transaction_date
+        - currency_code
+      properties:
+        transaction_type:
+          $ref: '#/components/schemas/TransactionType'
+        subsidiary_id:
+          type: integer
+        entity_id:
+          type: integer
+        entity_type:
+          type: string
+          enum: [CUSTOMER, VENDOR, EMPLOYEE]
+        transaction_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        terms_id:
+          type: integer
+        currency_code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        exchange_rate:
+          type: number
+          format: decimal
+        memo:
+          type: string
+        external_reference:
+          type: string
+        ship_date:
+          type: string
+          format: date
+        shipped_via:
+          type: string
+        tracking_number:
+          type: string
+        billing_address_id:
+          type: integer
+        shipping_address_id:
+          type: integer
+        sales_rep_id:
+          type: integer
+        department_id:
+          type: integer
+        class_id:
+          type: integer
+        location_id:
+          type: integer
+        project_id:
+          type: integer
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionLineCreate'
+
+    TransactionUpdate:
+      type: object
+      properties:
+        transaction_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        terms_id:
+          type: integer
+        currency_code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        exchange_rate:
+          type: number
+          format: decimal
+        memo:
+          type: string
+        external_reference:
+          type: string
+        ship_date:
+          type: string
+          format: date
+        shipped_via:
+          type: string
+        tracking_number:
+          type: string
+        billing_address_id:
+          type: integer
+        shipping_address_id:
+          type: integer
+        sales_rep_id:
+          type: integer
+        department_id:
+          type: integer
+        class_id:
+          type: integer
+        location_id:
+          type: integer
+        project_id:
+          type: integer
+
+    TransactionLine:
+      type: object
+      required:
+        - line_id
+        - line_number
+        - line_type
+        - description
+        - line_amount
+      properties:
+        line_id:
+          type: integer
+        line_number:
+          type: integer
+        line_type:
+          type: string
+          enum: [ITEM, SERVICE, DISCOUNT, TAX, SHIPPING]
+        item_id:
+          type: integer
+        description:
+          type: string
+        quantity:
+          type: number
+          format: decimal
+        unit_of_measure:
+          type: string
+        unit_price:
+          type: number
+          format: decimal
+        discount_percent:
+          type: number
+          format: decimal
+        discount_amount:
+          type: number
+          format: decimal
+        line_amount:
+          type: number
+          format: decimal
+        tax_code_id:
+          type: integer
+        tax_amount:
+          type: number
+          format: decimal
+        total_line_amount:
+          type: number
+          format: decimal
+        account_id:
+          type: integer
+        class_id:
+          type: integer
+        department_id:
+          type: integer
+        location_id:
+          type: integer
+        project_id:
+          type: integer
+
+    TransactionLineCreate:
+      type: object
+      required:
+        - line_type
+        - description
+      properties:
+        line_type:
+          type: string
+          enum: [ITEM, SERVICE, DISCOUNT, TAX, SHIPPING]
+        item_id:
+          type: integer
+        description:
+          type: string
+        quantity:
+          type: number
+          format: decimal
+        unit_of_measure:
+          type: string
+        unit_price:
+          type: number
+          format: decimal
+        discount_percent:
+          type: number
+          format: decimal
+        discount_amount:
+          type: number
+          format: decimal
+        tax_code_id:
+          type: integer
+        account_id:
+          type: integer
+        class_id:
+          type: integer
+        department_id:
+          type: integer
+        location_id:
+          type: integer
+        project_id:
+          type: integer
+
+    TransactionLineUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+        quantity:
+          type: number
+          format: decimal
+        unit_price:
+          type: number
+          format: decimal
+        discount_percent:
+          type: number
+          format: decimal
+        discount_amount:
+          type: number
+          format: decimal
+        tax_code_id:
+          type: integer
+        account_id:
+          type: integer
+        class_id:
+          type: integer
+        department_id:
+          type: integer
+        location_id:
+          type: integer
+        project_id:
+          type: integer
+
+    TransactionRelationship:
+      type: object
+      properties:
+        relationship_id:
+          type: integer
+        parent_transaction_id:
+          type: integer
+        child_transaction_id:
+          type: integer
+        relationship_type:
+          type: string
+          enum: [FULFILLMENT, PAYMENT, CREDIT, RETURN]
+        applied_amount:
+          type: number
+          format: decimal
+        created_date:
+          type: string
+          format: date-time
+
+    GLEntrySummary:
+      type: object
+      properties:
+        transaction_id:
+          type: integer
+        transaction_number:
+          type: string
+        posting_date:
+          type: string
+          format: date
+        total_debit:
+          type: number
+          format: decimal
+        total_credit:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [DRAFT, POSTED, REVERSED]
+
+    Address:
+      type: object
+      properties:
+        address_id:
+          type: integer
+        line1:
+          type: string
+        line2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
