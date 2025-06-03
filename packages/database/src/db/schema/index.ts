@@ -1,6 +1,5 @@
 import * as organizations from './organizations';
 import * as users from './users';
-import * as customers from './customers';
 import * as products from './products';
 import * as contracts from './contracts';
 import * as contractLineItems from './contract_line_items';
@@ -16,6 +15,9 @@ import * as classes from './classes';
 import * as subsidiaries from './subsidiaries';
 import * as currencies from './currencies';
 import * as transactionLines from './transactionLines';
+import * as accounts from './accounts';
+import * as entities from './entities';
+import * as addresses from './addresses';
 
 // Note: Relations defined within schema files are automatically picked up by Drizzle
 // when they are imported alongside their corresponding tables.
@@ -23,7 +25,6 @@ import * as transactionLines from './transactionLines';
 export const schema = {
   ...organizations,
   ...users,
-  ...customers,
   ...products,
   ...contracts,
   ...contractLineItems,
@@ -38,5 +39,8 @@ export const schema = {
   ...classes,
   ...subsidiaries,
   ...currencies,
-  ...transactionLines
+  ...transactionLines,
+  ...accounts,
+  ...entities,
+  ...addresses
 };

@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Base schema for accounting dimensions with common fields
 const accountingDimensionBaseSchema = z.object({
   id: z.string().uuid().optional(),
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1, 'Organization ID is required'),
   subsidiaryId: z.string().uuid(),
   name: z.string().min(1, 'Name is required'),
   code: z.string().optional(),

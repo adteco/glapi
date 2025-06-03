@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Application } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import customerRoutes from './routes/customerRoutes'; // Import customer routes
@@ -7,12 +7,13 @@ import subsidiaryRoutes from './routes/subsidiaryRoutes'; // Import subsidiary r
 import departmentRoutes from './routes/departmentRoutes'; // Import department routes
 import locationRoutes from './routes/locationRoutes'; // Import location routes
 import classRoutes from './routes/classRoutes'; // Import class routes
-import { authMiddleware } from './middleware/auth'; // Import the auth middleware
+import glRoutes from './routes/gl.router'; // Import General Ledger routes
+import { clerkAuthMiddleware } from './middleware/clerk-auth'; // Import the Clerk auth middleware
 
 // Load environment variables from .env file at the monorepo root
 dotenv.config({ path: '../../.env' });
 
-const app = express();
+const app: Application = express();
 const port = process.env.API_PORT || 3001;
 
 // CORS configuration for allowing the web app to access the API
@@ -37,7 +38,7 @@ app.get('/health', (req: Request, res: Response) => {
 
 // Apply auth middleware to API routes
 // We add it here explicitly instead of in the individual route files
-app.use('/api/v1', authMiddleware);
+app.use('/api/v1', clerkAuthMiddleware);
 
 // Mount API routes
 app.use('/api/v1/customers', customerRoutes);
@@ -46,6 +47,7 @@ app.use('/api/v1/subsidiaries', subsidiaryRoutes);
 app.use('/api/v1/departments', departmentRoutes);
 app.use('/api/v1/locations', locationRoutes);
 app.use('/api/v1/classes', classRoutes);
+app.use('/api/v1/gl', glRoutes); // Mount General Ledger routes
 
 // Error handling middleware (simple example)
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
