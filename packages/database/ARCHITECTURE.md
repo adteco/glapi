@@ -43,8 +43,21 @@ This package should be imported by other packages/apps that need database access
 typescript
 import { db, projects } from '@kurrent/database'
 
+## Row-Level Security Architecture
+
+The system implements row-level security (RLS) through application-level enforcement:
+
+1. **Organization Isolation**: Every major table has an `organization_id` column that links records to a specific organization
+2. **Authentication**: Clerk provides the authenticated user's organization ID in the JWT token
+3. **Repository Pattern**: All repository methods require and filter by `organization_id` to ensure data isolation
+4. **Service Layer**: Services validate that the organization context matches before any operations
+5. **No Direct Database Access**: All queries go through the repository layer which enforces organization filtering
+
+This ensures complete data isolation between organizations - users can only see and modify data belonging to their organization.
+
 ## Future Considerations
 - Connection pooling configuration
 - Read replicas support
 - Migration automation
 - Backup strategies
+- Database-level RLS policies (as an additional security layer)

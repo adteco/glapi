@@ -3,7 +3,7 @@ import { addressSchema } from './common.types';
 
 export const customerSchema = z.object({
   id: z.string().uuid().optional(),
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1, 'Organization ID is required'),
   companyName: z.string(),
   customerId: z.string(),
   contactEmail: z.string().email().optional(),

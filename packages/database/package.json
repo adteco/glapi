@@ -8,7 +8,9 @@
     "test:connection": "tsx src/scripts/test-connection.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "seed:test-org": "tsx src/seed-test-org.ts",
+    "run:entities-migration": "tsx src/scripts/run-entities-migration.ts"
   },
   "dependencies": {
     "@types/pg": "^8.15.1",
