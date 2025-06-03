@@ -1,0 +1,563 @@
+openapi: 3.0.0
+info:
+  title: Prospects API
+  version: v1
+  description: API for managing prospects within the Revenue Recognition System. Prospects represent potential customers who have been identified but haven't yet been qualified.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Prospect:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - status
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the prospect.
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Organization this prospect belongs to.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the prospect (company or individual).
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the prospect.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the prospect.
+        company:
+          type: string
+          nullable: true
+          description: Company name if the prospect is associated with a company.
+        industry:
+          type: string
+          nullable: true
+          description: Industry of the prospect.
+        estimatedRevenue:
+          type: number
+          format: float
+          nullable: true
+          description: Estimated annual revenue of the prospect.
+        employeeCount:
+          type: integer
+          nullable: true
+          description: Number of employees at the prospect's company.
+        status:
+          type: string
+          enum: [researching, contacted, evaluating, qualified, unqualified, converted]
+          default: researching
+          description: Current status of the prospect.
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the user this prospect is assigned to.
+        lastContactedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the prospect was last contacted.
+        notes:
+          type: string
+          nullable: true
+          description: Additional notes about the prospect.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for storing additional prospect-specific data.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the prospect is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the prospect was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the prospect was last updated.
+          readOnly: true
+
+    NewProspect:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the prospect (company or individual).
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the prospect.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the prospect.
+        company:
+          type: string
+          nullable: true
+          description: Company name if the prospect is associated with a company.
+        industry:
+          type: string
+          nullable: true
+          description: Industry of the prospect.
+        estimatedRevenue:
+          type: number
+          format: float
+          nullable: true
+          description: Estimated annual revenue.
+        employeeCount:
+          type: integer
+          nullable: true
+          description: Number of employees.
+        status:
+          type: string
+          enum: [researching, contacted, evaluating]
+          default: researching
+          description: Initial status of the prospect.
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the user to assign this prospect to.
+        notes:
+          type: string
+          nullable: true
+          description: Initial notes about the prospect.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for storing additional prospect-specific data.
+
+    UpdateProspect:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the prospect.
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the prospect.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the prospect.
+        company:
+          type: string
+          nullable: true
+          description: Company name.
+        industry:
+          type: string
+          nullable: true
+          description: Industry of the prospect.
+        estimatedRevenue:
+          type: number
+          format: float
+          nullable: true
+          description: Estimated annual revenue.
+        employeeCount:
+          type: integer
+          nullable: true
+          description: Number of employees.
+        status:
+          type: string
+          enum: [researching, contacted, evaluating, qualified, unqualified, converted]
+          description: Status of the prospect.
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the assigned user.
+        lastContactedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the prospect was last contacted.
+        notes:
+          type: string
+          nullable: true
+          description: Notes about the prospect.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields.
+        isActive:
+          type: boolean
+          description: Whether the prospect is active.
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalPages:
+          type: integer
+          example: 10
+
+  parameters:
+    prospectId:
+      name: id
+      in: path
+      required: true
+      description: Identifier of the prospect.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+    sortField:
+      name: sortField
+      in: query
+      description: Field to sort by.
+      required: false
+      schema:
+        type: string
+        default: createdAt
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Sort order (asc or desc).
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+    industry:
+      name: industry
+      in: path
+      required: true
+      description: Industry to filter prospects by.
+      schema:
+        type: string
+    minRevenue:
+      name: minRevenue
+      in: query
+      required: false
+      description: Minimum revenue threshold for high-value prospects.
+      schema:
+        type: number
+        format: float
+        default: 1000000
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /prospects:
+    post:
+      summary: Create a new prospect
+      tags:
+        - Prospects
+      operationId: createProspect
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Prospect object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewProspect'
+      responses:
+        '201':
+          description: Prospect created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prospect'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all prospects
+      tags:
+        - Prospects
+      operationId: listProspects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sortField'
+        - $ref: '#/components/parameters/sortOrder'
+      responses:
+        '200':
+          description: A list of prospects.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Prospect'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /prospects/{id}:
+    parameters:
+      - $ref: '#/components/parameters/prospectId'
+    get:
+      summary: Get a prospect by ID
+      tags:
+        - Prospects
+      operationId: getProspectById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prospect'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Prospect with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a prospect
+      tags:
+        - Prospects
+      operationId: updateProspect
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Prospect object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProspect'
+      responses:
+        '200':
+          description: Prospect updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prospect'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a prospect
+      tags:
+        - Prospects
+      operationId: deleteProspect
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Prospect deleted successfully. No content.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+
+  /prospects/{id}/convert-to-lead:
+    parameters:
+      - $ref: '#/components/parameters/prospectId'
+    post:
+      summary: Convert a prospect to a lead
+      tags:
+        - Prospects
+      operationId: convertProspectToLead
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Prospect converted to lead successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leadId:
+                    type: string
+                    format: uuid
+                    description: ID of the newly created lead.
+                  lead:
+                    type: object
+                    description: The newly created lead object.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '409':
+          description: Conflict - Prospect has already been converted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+
+  /prospects/{id}/convert-to-customer:
+    parameters:
+      - $ref: '#/components/parameters/prospectId'
+    post:
+      summary: Convert a prospect to a customer
+      tags:
+        - Prospects
+      operationId: convertProspectToCustomer
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Prospect converted to customer successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId:
+                    type: string
+                    format: uuid
+                    description: ID of the newly created customer.
+                  customer:
+                    type: object
+                    description: The newly created customer object.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '409':
+          description: Conflict - Prospect has already been converted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+
+  /prospects/by-industry/{industry}:
+    parameters:
+      - $ref: '#/components/parameters/industry'
+    get:
+      summary: Find prospects by industry
+      tags:
+        - Prospects
+      operationId: getProspectsByIndustry
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of prospects in the specified industry.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Prospect'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /prospects/high-value:
+    get:
+      summary: Find high-value prospects
+      tags:
+        - Prospects
+      operationId: getHighValueProspects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/minRevenue'
+      responses:
+        '200':
+          description: A list of high-value prospects.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Prospect'
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500

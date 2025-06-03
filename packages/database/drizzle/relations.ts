@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { organizations, users, subsidiaries, revenueRecognitionPatterns, products, contracts, contractSspAllocations, contractLineItems, revenueJournalEntries, performanceObligations, revenueSchedules, activityCodes, transactionLines, classes, departments, locations, taxCodes, unitsOfMeasure, entities, sspEvidence } from "./schema";
+import { organizations, users, subsidiaries, addresses, entities, revenueRecognitionPatterns, products, contracts, contractSspAllocations, contractLineItems, revenueJournalEntries, performanceObligations, revenueSchedules, activityCodes, transactionLines, classes, departments, locations, taxCodes, unitsOfMeasure, sspEvidence } from "./schema";
 
 export const usersRelations = relations(users, ({one}) => ({
 	organization: one(organizations, {
@@ -22,6 +22,34 @@ export const subsidiariesRelations = relations(subsidiaries, ({one, many}) => ({
 	subsidiaries: many(subsidiaries, {
 		relationName: "subsidiaries_parentId_subsidiaries_id"
 	}),
+}));
+
+export const entitiesRelations = relations(entities, ({one, many}) => ({
+	address: one(addresses, {
+		fields: [entities.addressId],
+		references: [addresses.id]
+	}),
+	entity_parentEntityId: one(entities, {
+		fields: [entities.parentEntityId],
+		references: [entities.id],
+		relationName: "entities_parentEntityId_entities_id"
+	}),
+	entities_parentEntityId: many(entities, {
+		relationName: "entities_parentEntityId_entities_id"
+	}),
+	entity_primaryContactId: one(entities, {
+		fields: [entities.primaryContactId],
+		references: [entities.id],
+		relationName: "entities_primaryContactId_entities_id"
+	}),
+	entities_primaryContactId: many(entities, {
+		relationName: "entities_primaryContactId_entities_id"
+	}),
+	contracts: many(contracts),
+}));
+
+export const addressesRelations = relations(addresses, ({many}) => ({
+	entities: many(entities),
 }));
 
 export const productsRelations = relations(products, ({one, many}) => ({
@@ -180,26 +208,6 @@ export const taxCodesRelations = relations(taxCodes, ({many}) => ({
 
 export const unitsOfMeasureRelations = relations(unitsOfMeasure, ({many}) => ({
 	transactionLines: many(transactionLines),
-}));
-
-export const entitiesRelations = relations(entities, ({one, many}) => ({
-	contracts: many(contracts),
-	entity_parentEntityId: one(entities, {
-		fields: [entities.parentEntityId],
-		references: [entities.id],
-		relationName: "entities_parentEntityId_entities_id"
-	}),
-	entities_parentEntityId: many(entities, {
-		relationName: "entities_parentEntityId_entities_id"
-	}),
-	entity_primaryContactId: one(entities, {
-		fields: [entities.primaryContactId],
-		references: [entities.id],
-		relationName: "entities_primaryContactId_entities_id"
-	}),
-	entities_primaryContactId: many(entities, {
-		relationName: "entities_primaryContactId_entities_id"
-	}),
 }));
 
 export const sspEvidenceRelations = relations(sspEvidence, ({one}) => ({

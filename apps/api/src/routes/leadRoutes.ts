@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getServiceContext } from '../middleware/clerk-auth';
-import { leadService, EntityListQuerySchema, CreateEntitySchema, UpdateEntitySchema } from '@repo/api-service';
+import { leadService, EntityListQuerySchema, CreateEntitySchema, UpdateEntitySchema } from '@glapi/api-service';
 import { z } from 'zod';
 
 const router = Router();

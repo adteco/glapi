@@ -1,0 +1,575 @@
+openapi: 3.0.0
+info:
+  title: Vendors API
+  version: v1
+  description: API for managing vendors within the Revenue Recognition System. Vendors represent suppliers or service providers that the organization does business with.
+
+servers:
+  # We'll add server URLs here once we know where the API will be hosted (e.g., AWS API Gateway)
+  - url: http://localhost:3000/api # Placeholder for local development
+
+components:
+  schemas:
+    Vendor:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - status
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the vendor.
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Organization this vendor belongs to.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the vendor.
+        displayName:
+          type: string
+          nullable: true
+          description: Display name for the vendor.
+        code:
+          type: string
+          nullable: true
+          description: Unique vendor code within the organization.
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the vendor.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the vendor.
+        website:
+          type: string
+          format: uri
+          nullable: true
+          description: Website URL of the vendor.
+        taxId:
+          type: string
+          nullable: true
+          description: Tax identification number (EIN).
+        addressLine1:
+          type: string
+          nullable: true
+          description: First line of the vendor's address.
+        addressLine2:
+          type: string
+          nullable: true
+          description: Second line of the vendor's address.
+        city:
+          type: string
+          nullable: true
+          description: City of the vendor.
+        stateProvince:
+          type: string
+          nullable: true
+          description: State or province of the vendor.
+        postalCode:
+          type: string
+          nullable: true
+          description: Postal code of the vendor.
+        countryCode:
+          type: string
+          nullable: true
+          description: Country code of the vendor.
+        primaryContactName:
+          type: string
+          nullable: true
+          description: Name of the primary contact at the vendor.
+        primaryContactEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Email of the primary contact.
+        primaryContactPhone:
+          type: string
+          nullable: true
+          description: Phone number of the primary contact.
+        paymentTerms:
+          type: string
+          nullable: true
+          description: Payment terms for the vendor (e.g., Net 30).
+        preferredCurrencyId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Preferred currency for transactions with this vendor.
+        status:
+          type: string
+          enum: [active, inactive, suspended, archived]
+          default: active
+          description: Current status of the vendor.
+        notes:
+          type: string
+          nullable: true
+          description: Additional notes about the vendor.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for storing additional vendor-specific data.
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the vendor is active.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the vendor was created.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the vendor was last updated.
+          readOnly: true
+
+    NewVendor:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the vendor.
+        displayName:
+          type: string
+          nullable: true
+          description: Display name for the vendor.
+        code:
+          type: string
+          nullable: true
+          description: Unique vendor code within the organization.
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the vendor.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the vendor.
+        website:
+          type: string
+          format: uri
+          nullable: true
+          description: Website URL of the vendor.
+        taxId:
+          type: string
+          nullable: true
+          description: Tax identification number (EIN).
+        addressLine1:
+          type: string
+          nullable: true
+          description: First line of the vendor's address.
+        addressLine2:
+          type: string
+          nullable: true
+          description: Second line of the vendor's address.
+        city:
+          type: string
+          nullable: true
+          description: City of the vendor.
+        stateProvince:
+          type: string
+          nullable: true
+          description: State or province of the vendor.
+        postalCode:
+          type: string
+          nullable: true
+          description: Postal code of the vendor.
+        countryCode:
+          type: string
+          nullable: true
+          description: Country code of the vendor.
+        primaryContactName:
+          type: string
+          nullable: true
+          description: Name of the primary contact.
+        primaryContactEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Email of the primary contact.
+        primaryContactPhone:
+          type: string
+          nullable: true
+          description: Phone number of the primary contact.
+        paymentTerms:
+          type: string
+          nullable: true
+          description: Payment terms for the vendor.
+        preferredCurrencyId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Preferred currency for transactions.
+        notes:
+          type: string
+          nullable: true
+          description: Initial notes about the vendor.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields for storing additional vendor-specific data.
+
+    UpdateVendor:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the vendor.
+        displayName:
+          type: string
+          nullable: true
+          description: Display name for the vendor.
+        code:
+          type: string
+          nullable: true
+          description: Unique vendor code.
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address of the vendor.
+        phone:
+          type: string
+          nullable: true
+          description: Phone number of the vendor.
+        website:
+          type: string
+          format: uri
+          nullable: true
+          description: Website URL of the vendor.
+        taxId:
+          type: string
+          nullable: true
+          description: Tax identification number (EIN).
+        addressLine1:
+          type: string
+          nullable: true
+          description: First line of the vendor's address.
+        addressLine2:
+          type: string
+          nullable: true
+          description: Second line of the vendor's address.
+        city:
+          type: string
+          nullable: true
+          description: City of the vendor.
+        stateProvince:
+          type: string
+          nullable: true
+          description: State or province of the vendor.
+        postalCode:
+          type: string
+          nullable: true
+          description: Postal code of the vendor.
+        countryCode:
+          type: string
+          nullable: true
+          description: Country code of the vendor.
+        primaryContactName:
+          type: string
+          nullable: true
+          description: Name of the primary contact.
+        primaryContactEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Email of the primary contact.
+        primaryContactPhone:
+          type: string
+          nullable: true
+          description: Phone number of the primary contact.
+        paymentTerms:
+          type: string
+          nullable: true
+          description: Payment terms for the vendor.
+        preferredCurrencyId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Preferred currency for transactions.
+        status:
+          type: string
+          enum: [active, inactive, suspended, archived]
+          description: Status of the vendor.
+        notes:
+          type: string
+          nullable: true
+          description: Notes about the vendor.
+        customFields:
+          type: object
+          nullable: true
+          description: Custom fields.
+        isActive:
+          type: boolean
+          description: Whether the vendor is active.
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalPages:
+          type: integer
+          example: 10
+
+  parameters:
+    vendorId:
+      name: id
+      in: path
+      required: true
+      description: Identifier of the vendor.
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        default: 10
+    sortField:
+      name: sortField
+      in: query
+      description: Field to sort by.
+      required: false
+      schema:
+        type: string
+        default: name
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Sort order (asc or desc).
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    ein:
+      name: ein
+      in: path
+      required: true
+      description: Tax identification number (EIN) to search for.
+      schema:
+        type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /vendors:
+    post:
+      summary: Create a new vendor
+      tags:
+        - Vendors
+      operationId: createVendor
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Vendor object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewVendor'
+      responses:
+        '201':
+          description: Vendor created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vendor'
+        '400': &ErrorResponse400
+          description: Bad Request - Invalid input data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &ErrorResponse401
+          description: Unauthorized - Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - Vendor with this code or EIN already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &ErrorResponse500
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List all vendors
+      tags:
+        - Vendors
+      operationId: listVendors
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sortField'
+        - $ref: '#/components/parameters/sortOrder'
+      responses:
+        '200':
+          description: A list of vendors.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vendor'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401': *ErrorResponse401
+        '500': *ErrorResponse500
+
+  /vendors/{id}:
+    parameters:
+      - $ref: '#/components/parameters/vendorId'
+    get:
+      summary: Get a vendor by ID
+      tags:
+        - Vendors
+      operationId: getVendorById
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vendor'
+        '401': *ErrorResponse401
+        '404': &ErrorResponse404
+          description: Not Found - Vendor with the specified ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    put:
+      summary: Update a vendor
+      tags:
+        - Vendors
+      operationId: updateVendor
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Vendor object with updated fields.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVendor'
+      responses:
+        '200':
+          description: Vendor updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vendor'
+        '400': *ErrorResponse400
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '409':
+          description: Conflict - Another vendor with this code or EIN already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *ErrorResponse500
+    delete:
+      summary: Delete a vendor
+      tags:
+        - Vendors
+      operationId: deleteVendor
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Vendor deleted successfully. No content.
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500
+
+  /vendors/by-ein/{ein}:
+    parameters:
+      - $ref: '#/components/parameters/ein'
+    get:
+      summary: Find a vendor by EIN
+      tags:
+        - Vendors
+      operationId: getVendorByEIN
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Vendor found with the specified EIN.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vendor'
+        '401': *ErrorResponse401
+        '404': *ErrorResponse404
+        '500': *ErrorResponse500

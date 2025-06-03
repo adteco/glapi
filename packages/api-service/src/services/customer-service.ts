@@ -65,14 +65,16 @@ export class CustomerService extends BaseService {
       );
     }
     
-    // Check if customer ID already exists in this organization
-    const existing = await this.customerRepository.findByCustomerId(data.customerId, organizationId);
-    if (existing) {
-      throw new ServiceError(
-        `Customer with ID "${data.customerId}" already exists in this organization`,
-        'DUPLICATE_CUSTOMER_ID',
-        400
-      );
+    // Check if customer ID already exists in this organization (only if customerId is provided)
+    if (data.customerId) {
+      const existing = await this.customerRepository.findByCustomerId(data.customerId, organizationId);
+      if (existing) {
+        throw new ServiceError(
+          `Customer with ID "${data.customerId}" already exists in this organization`,
+          'DUPLICATE_CUSTOMER_ID',
+          400
+        );
+      }
     }
     
     // Create the customer

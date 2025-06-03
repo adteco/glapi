@@ -218,7 +218,7 @@ const NewPageSidebar = () => {
                   <ul className="mt-1 space-y-1">
                     <li>
                       {/* @ts-ignore */}
-                      <Link href="/lists/customers" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/customers') ? activeLinkClass : inactiveLinkClass}`}>
+                      <Link href="/relationships/customers" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/customers') ? activeLinkClass : inactiveLinkClass}`}>
                         {/* @ts-ignore */}
                         <UsersIcon className={`h-3 w-3 opacity-75`} />
                         <span>Customers</span>
@@ -226,7 +226,7 @@ const NewPageSidebar = () => {
                     </li>
                     <li>
                       {/* @ts-ignore */}
-                      <Link href="/lists/vendors" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/vendors') ? activeLinkClass : inactiveLinkClass}`}>
+                      <Link href="/relationships/vendors" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/vendors') ? activeLinkClass : inactiveLinkClass}`}>
                         {/* @ts-ignore */}
                         <BriefcaseIcon className={`h-3 w-3 opacity-75`} />
                         <span>Vendors</span>
@@ -234,7 +234,7 @@ const NewPageSidebar = () => {
                     </li>
                     <li>
                       {/* @ts-ignore */}
-                      <Link href="/lists/employees" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/employees') ? activeLinkClass : inactiveLinkClass}`}>
+                      <Link href="/relationships/employees" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/employees') ? activeLinkClass : inactiveLinkClass}`}>
                         {/* @ts-ignore */}
                         <UsersIconComponent className={`h-3 w-3 opacity-75`} />
                         <span>Employees</span>
@@ -242,7 +242,7 @@ const NewPageSidebar = () => {
                     </li>
                     <li>
                       {/* @ts-ignore */}
-                      <Link href="/lists/leads" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/leads') ? activeLinkClass : inactiveLinkClass}`}>
+                      <Link href="/relationships/leads" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/leads') ? activeLinkClass : inactiveLinkClass}`}>
                         {/* @ts-ignore */}
                         <TicketIcon className={`h-3 w-3 opacity-75`} />
                         <span>Leads</span>
@@ -250,10 +250,18 @@ const NewPageSidebar = () => {
                     </li>
                     <li>
                       {/* @ts-ignore */}
-                      <Link href="/lists/prospects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/prospects') ? activeLinkClass : inactiveLinkClass}`}>
+                      <Link href="/relationships/prospects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/prospects') ? activeLinkClass : inactiveLinkClass}`}>
                         {/* @ts-ignore */}
                         <ShieldIcon className={`h-3 w-3 opacity-75`} />
                         <span>Prospects</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/relationships/contacts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/contacts') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <UsersIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Contacts</span>
                       </Link>
                     </li>
                   </ul>

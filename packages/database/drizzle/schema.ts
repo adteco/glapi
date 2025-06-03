@@ -1,4 +1,4 @@
-import { pgTable, unique, uuid, varchar, numeric, boolean, timestamp, foreignKey, jsonb, text, uniqueIndex, integer, date, type AnyPgColumn, index, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, uuid, text, timestamp, unique, varchar, numeric, boolean, foreignKey, jsonb, uniqueIndex, integer, index, date, type AnyPgColumn, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accountCategoryEnum = pgEnum("account_category_enum", ['Asset', 'Liability', 'Equity', 'Revenue', 'COGS', 'Expense'])
@@ -21,6 +21,23 @@ export const sspAllocationMethod = pgEnum("ssp_allocation_method", ['observable_
 export const sspSource = pgEnum("ssp_source", ['internal_analysis', 'third_party_pricing', 'observable_evidence'])
 export const timeEntryBilledStatusEnum = pgEnum("time_entry_billed_status_enum", ['NotBilled', 'Billed', 'NonBillable'])
 
+
+export const addresses = pgTable("addresses", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	organizationId: text("organization_id").notNull(),
+	addressee: text(),
+	companyName: text("company_name"),
+	attention: text(),
+	phoneNumber: text("phone_number"),
+	line1: text(),
+	line2: text(),
+	city: text(),
+	stateProvince: text("state_province"),
+	postalCode: text("postal_code"),
+	countryCode: text("country_code"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
 
 export const taxCodes = pgTable("tax_codes", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -177,6 +194,52 @@ export const activityCodes = pgTable("activity_codes", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
 	unique("activity_codes_code_unique").on(table.code),
+]);
+
+export const entities = pgTable("entities", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	organizationId: text("organization_id").notNull(),
+	name: text().notNull(),
+	displayName: text("display_name"),
+	code: text(),
+	entityTypes: text("entity_types").array().notNull(),
+	email: text(),
+	phone: text(),
+	website: text(),
+	parentEntityId: uuid("parent_entity_id"),
+	primaryContactId: uuid("primary_contact_id"),
+	taxId: text("tax_id"),
+	description: text(),
+	notes: text(),
+	customFields: jsonb("custom_fields"),
+	metadata: jsonb(),
+	status: text().default('active').notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	addressId: uuid("address_id"),
+}, (table) => [
+	index("entities_email_idx").using("btree", table.email.asc().nullsLast().op("text_ops")),
+	index("entities_org_id_idx").using("btree", table.organizationId.asc().nullsLast().op("text_ops")),
+	index("entities_parent_idx").using("btree", table.parentEntityId.asc().nullsLast().op("uuid_ops")),
+	index("entities_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops"), table.isActive.asc().nullsLast().op("text_ops")),
+	index("entities_types_idx").using("btree", table.entityTypes.asc().nullsLast().op("array_ops")),
+	foreignKey({
+			columns: [table.addressId],
+			foreignColumns: [addresses.id],
+			name: "entities_address_id_addresses_id_fk"
+		}),
+	foreignKey({
+			columns: [table.parentEntityId],
+			foreignColumns: [table.id],
+			name: "entities_parent_entity_id_entities_id_fk"
+		}),
+	foreignKey({
+			columns: [table.primaryContactId],
+			foreignColumns: [table.id],
+			name: "entities_primary_contact_id_entities_id_fk"
+		}),
+	unique("entities_org_code_unique").on(table.organizationId, table.code),
 ]);
 
 export const products = pgTable("products", {
@@ -393,52 +456,6 @@ export const performanceObligations = pgTable("performance_obligations", {
 			foreignColumns: [contractLineItems.id],
 			name: "performance_obligations_contract_line_item_id_contract_line_ite"
 		}),
-]);
-
-export const entities = pgTable("entities", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	organizationId: text("organization_id").notNull(),
-	name: text().notNull(),
-	displayName: text("display_name"),
-	code: text(),
-	entityTypes: text("entity_types").array().notNull(),
-	email: text(),
-	phone: text(),
-	website: text(),
-	addressLine1: text("address_line_1"),
-	addressLine2: text("address_line_2"),
-	city: text(),
-	stateProvince: text("state_province"),
-	postalCode: text("postal_code"),
-	countryCode: text("country_code"),
-	parentEntityId: uuid("parent_entity_id"),
-	primaryContactId: uuid("primary_contact_id"),
-	taxId: text("tax_id"),
-	description: text(),
-	notes: text(),
-	customFields: jsonb("custom_fields"),
-	metadata: jsonb(),
-	status: text().default('active').notNull(),
-	isActive: boolean("is_active").default(true).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("entities_email_idx").using("btree", table.email.asc().nullsLast().op("text_ops")),
-	index("entities_org_id_idx").using("btree", table.organizationId.asc().nullsLast().op("text_ops")),
-	index("entities_parent_idx").using("btree", table.parentEntityId.asc().nullsLast().op("uuid_ops")),
-	index("entities_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops"), table.isActive.asc().nullsLast().op("text_ops")),
-	index("entities_types_idx").using("btree", table.entityTypes.asc().nullsLast().op("array_ops")),
-	foreignKey({
-			columns: [table.parentEntityId],
-			foreignColumns: [table.id],
-			name: "entities_parent_entity_id_entities_id_fk"
-		}),
-	foreignKey({
-			columns: [table.primaryContactId],
-			foreignColumns: [table.id],
-			name: "entities_primary_contact_id_entities_id_fk"
-		}),
-	unique("entities_org_code_unique").on(table.organizationId, table.code),
 ]);
 
 export const sspEvidence = pgTable("ssp_evidence", {

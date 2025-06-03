@@ -12,9 +12,9 @@ const getServiceContext = (req: Request) => {
 
     // Return a development fallback context when none is available
     return {
-      organizationId: '3a089ae1-8d1a-4e55-af27-9f9c164d3db9', // Use valid UUID format
-      userId: 'f7d5e791-1b71-4860-b076-6114ce2a17dd', // Use valid UUID format
-      stytchOrganizationId: 'organization-test-6f0cd115-d208-4462-8b0a-d1e8df4568a7'
+      organizationId: 'org_development', // Match clerk-auth middleware fallback
+      userId: 'user_development', // Match clerk-auth middleware fallback
+      clerkOrganizationId: 'org_development'
     };
   }
 
