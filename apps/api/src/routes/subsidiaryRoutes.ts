@@ -3,30 +3,38 @@ import { SubsidiaryService, NewSubsidiarySchema, UpdateSubsidiarySchema } from '
 
 const router: Router = express.Router();
 
+// Extend Request to include organizationContext
+interface AuthenticatedRequest extends Request {
+  organizationContext?: {
+    organizationId: string;
+    userId: string;
+    clerkOrganizationId?: string;
+  };
+}
+
 // Helper to get organization context from request
-const getServiceContext = (req: Request) => {
-  const context = (req as any).organizationContext;
-
-  if (!context || !context.organizationId) {
-    console.warn('Organization context not found in request - using development fallback');
-
-    // Return a development fallback context when none is available
-    return {
-      organizationId: '3a089ae1-8d1a-4e55-af27-9f9c164d3db9', // Use valid UUID format
-      userId: 'f7d5e791-1b71-4860-b076-6114ce2a17dd', // Use valid UUID format
-      stytchOrganizationId: 'organization-test-6f0cd115-d208-4462-8b0a-d1e8df4568a7'
-    };
+const getServiceContext = (req: AuthenticatedRequest) => {
+  if (!req.organizationContext?.organizationId) {
+    return null;
   }
 
-  console.log('Using organization context:', context);
-  return context;
+  // Map the Clerk organization context to the service context format
+  return {
+    organizationId: req.organizationContext.organizationId,
+    userId: req.organizationContext.userId,
+    stytchOrganizationId: req.organizationContext.clerkOrganizationId || req.organizationContext.organizationId
+  };
 };
 
 // POST /subsidiaries - Create a new subsidiary
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     // Get context from the request (set by auth middleware)
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     console.log('Creating subsidiary with context:', context);
     console.log('Request body:', req.body);
@@ -73,10 +81,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /subsidiaries - List all subsidiaries with pagination and filtering
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Initialize the subsidiary service
     const subsidiaryService = new SubsidiaryService(context);
@@ -146,12 +158,16 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /subsidiaries/:id - Get a subsidiary by ID
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Log full details for debugging
     console.log('SubsidiaryRoutes:getById - Request parameters:', {
@@ -208,12 +224,16 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // PUT /subsidiaries/:id - Update a subsidiary
-router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Validate request body
     const parsedData = UpdateSubsidiarySchema.safeParse(req.body);
@@ -253,12 +273,16 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // DELETE /subsidiaries/:id - Delete a subsidiary
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
     // Get context from the request
     const context = getServiceContext(req);
+    
+    if (!context) {
+      return res.status(401).json({ error: 'Organization ID not found in session.' });
+    }
 
     // Initialize the subsidiary service
     const subsidiaryService = new SubsidiaryService(context);

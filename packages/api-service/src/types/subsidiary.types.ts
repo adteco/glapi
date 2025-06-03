@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 export const subsidiarySchema = z.object({
   id: z.string().uuid().optional(),
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1, 'Organization ID is required'),
   name: z.string().min(1, 'Name is required'),
-  code: z.string().min(1, 'Code is required'),
+  code: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   parentId: z.string().uuid().optional().nullable(),
   isActive: z.boolean().default(true),

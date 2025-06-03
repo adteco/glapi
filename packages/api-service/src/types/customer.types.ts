@@ -3,10 +3,10 @@ import { addressSchema } from './common.types';
 
 export const customerSchema = z.object({
   id: z.string().uuid().optional(),
-  organizationId: z.string().uuid(),
-  companyName: z.string(),
-  customerId: z.string(),
-  contactEmail: z.string().email().optional(),
+  organizationId: z.string().min(1, 'Organization ID is required'),
+  companyName: z.string().min(1, 'Company name is required'),
+  customerId: z.string().optional(), // Make customerId optional
+  contactEmail: z.string().email().optional().or(z.literal('')),
   contactPhone: z.string().optional(),
   billingAddress: addressSchema.optional(),
   status: z.enum(['active', 'inactive', 'archived']).default('active'),

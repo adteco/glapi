@@ -1,0 +1,644 @@
+export const metadata = {
+  title: 'GL Reports API',
+  description:
+    'API reference for GL reporting including trial balance, account activity, and general ledger queries.',
+}
+
+# GL Reports API
+
+This guide covers the API endpoints for generating financial reports from the General Ledger. The reporting API provides access to trial balance, account activity, general ledger details, and other financial reports essential for accounting and financial analysis. {{ className: 'lead' }}
+
+<Note>
+  All reports respect organization and subsidiary isolation, with additional filtering capabilities by accounting dimensions (class, department, location).
+</Note>
+
+## Report Types
+
+The GL Reports API provides several types of financial reports:
+
+- **Trial Balance**: Summary of all account balances for a specific period
+- **Account Activity**: Detailed transaction history for specific accounts
+- **General Ledger**: Complete journal entry details with flexible filtering
+- **GL Transaction Queries**: Direct access to GL transactions and lines
+
+## Authentication
+
+All reporting endpoints require authentication with organization context via the `x-stytch-organization-id` header. Reports are automatically filtered to show only data accessible to the authenticated organization.
+
+## Trial Balance Report
+
+### Get Trial Balance
+
+Generate a trial balance report showing account balances for a specific period.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/reports/trial-balance" />
+    </Properties>
+
+    #### Query Parameters
+
+    <Properties>
+      <Property name="periodId" type="string (UUID)" required>
+        Accounting period ID
+      </Property>
+      <Property name="subsidiaryId" type="string (UUID)">
+        Filter by subsidiary
+      </Property>
+      <Property name="includeInactive" type="boolean" default="false">
+        Include inactive accounts
+      </Property>
+      <Property name="classId" type="string (UUID)">
+        Filter by class dimension
+      </Property>
+      <Property name="departmentId" type="string (UUID)">
+        Filter by department dimension
+      </Property>
+      <Property name="locationId" type="string (UUID)">
+        Filter by location dimension
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET "https://api.example.com/api/v1/gl/reports/trial-balance?periodId=period-123&subsidiaryId=sub-456" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "periodName": "June 2025",
+      "subsidiaryName": "Main Operations",
+      "asOfDate": "2025-06-30",
+      "entries": [
+        {
+          "accountId": "acc-11000",
+          "accountNumber": "11000",
+          "accountName": "Bank - Operating Account",
+          "accountType": "Asset",
+          "debitBalance": 125000.00,
+          "creditBalance": 0.00,
+          "netBalance": 125000.00,
+          "periodActivity": {
+            "debits": 85000.00,
+            "credits": 45000.00,
+            "net": 40000.00
+          },
+          "ytdActivity": {
+            "debits": 485000.00,
+            "credits": 360000.00,
+            "net": 125000.00
+          }
+        },
+        {
+          "accountId": "acc-12000",
+          "accountNumber": "12000",
+          "accountName": "Accounts Receivable",
+          "accountType": "Asset",
+          "debitBalance": 75000.00,
+          "creditBalance": 0.00,
+          "netBalance": 75000.00,
+          "periodActivity": {
+            "debits": 120000.00,
+            "credits": 95000.00,
+            "net": 25000.00
+          },
+          "ytdActivity": {
+            "debits": 620000.00,
+            "credits": 545000.00,
+            "net": 75000.00
+          }
+        },
+        {
+          "accountId": "acc-21000",
+          "accountNumber": "21000",
+          "accountName": "Accounts Payable",
+          "accountType": "Liability",
+          "debitBalance": 0.00,
+          "creditBalance": 35000.00,
+          "netBalance": -35000.00,
+          "periodActivity": {
+            "debits": 40000.00,
+            "credits": 55000.00,
+            "net": -15000.00
+          },
+          "ytdActivity": {
+            "debits": 240000.00,
+            "credits": 275000.00,
+            "net": -35000.00
+          }
+        }
+      ],
+      "totals": {
+        "totalDebits": 200000.00,
+        "totalCredits": 35000.00,
+        "difference": 0.00
+      }
+    }
+    ```
+  </Col>
+</Row>
+
+## Account Activity Report
+
+### Get Account Activity
+
+Retrieve detailed transaction history for a specific account.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/reports/account-activity" />
+    </Properties>
+
+    #### Query Parameters
+
+    <Properties>
+      <Property name="accountId" type="string (UUID)" required>
+        Account ID to query
+      </Property>
+      <Property name="dateFrom" type="string" required>
+        Start date (YYYY-MM-DD)
+      </Property>
+      <Property name="dateTo" type="string" required>
+        End date (YYYY-MM-DD)
+      </Property>
+      <Property name="subsidiaryId" type="string (UUID)">
+        Filter by subsidiary
+      </Property>
+      <Property name="classId" type="string (UUID)">
+        Filter by class dimension
+      </Property>
+      <Property name="departmentId" type="string (UUID)">
+        Filter by department dimension
+      </Property>
+      <Property name="locationId" type="string (UUID)">
+        Filter by location dimension
+      </Property>
+      <Property name="page" type="number" default="1">
+        Page number for pagination
+      </Property>
+      <Property name="limit" type="number" default="50">
+        Number of items per page
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET "https://api.example.com/api/v1/gl/reports/account-activity?accountId=acc-11000&dateFrom=2025-06-01&dateTo=2025-06-30&page=1&limit=10" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "data": [
+        {
+          "date": "2025-06-01",
+          "transactionNumber": "GL-2025-000456",
+          "description": "Customer payment - Invoice INV-2025-000123",
+          "reference": "Payment #12345",
+          "debitAmount": 6480.00,
+          "creditAmount": 0.00,
+          "runningBalance": 131480.00,
+          "glTransactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+          "sourceTransactionId": "tx-123e4567-e89b-12d3-a456-426614174000"
+        },
+        {
+          "date": "2025-06-02",
+          "transactionNumber": "GL-2025-000457",
+          "description": "Vendor payment - Office supplies",
+          "reference": "Check #5678",
+          "debitAmount": 0.00,
+          "creditAmount": 850.00,
+          "runningBalance": 130630.00,
+          "glTransactionId": "gl-567e8901-e89b-12d3-a456-426614174000",
+          "sourceTransactionId": "tx-234e5678-e89b-12d3-a456-426614174000"
+        },
+        {
+          "date": "2025-06-03",
+          "transactionNumber": "GL-2025-000458",
+          "description": "Bank fees",
+          "reference": "Monthly service charge",
+          "debitAmount": 0.00,
+          "creditAmount": 25.00,
+          "runningBalance": 130605.00,
+          "glTransactionId": "gl-678e9012-e89b-12d3-a456-426614174000",
+          "sourceTransactionId": null
+        }
+      ],
+      "total": 47,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 5
+    }
+    ```
+  </Col>
+</Row>
+
+## General Ledger Report
+
+### Get General Ledger
+
+Retrieve detailed GL entries with flexible filtering and grouping options.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/reports/general-ledger" />
+    </Properties>
+
+    #### Query Parameters
+
+    <Properties>
+      <Property name="subsidiaryId" type="string (UUID)">
+        Filter by subsidiary
+      </Property>
+      <Property name="periodId" type="string (UUID)">
+        Filter by accounting period
+      </Property>
+      <Property name="dateFrom" type="string">
+        Start date (YYYY-MM-DD)
+      </Property>
+      <Property name="dateTo" type="string">
+        End date (YYYY-MM-DD)
+      </Property>
+      <Property name="accountIds" type="string">
+        Comma-separated list of account IDs
+      </Property>
+      <Property name="includeAdjustments" type="boolean" default="false">
+        Include adjustment entries
+      </Property>
+      <Property name="groupBy" type="string">
+        Group results by 'account', 'date', or 'transaction'
+      </Property>
+      <Property name="page" type="number" default="1">
+        Page number for pagination
+      </Property>
+      <Property name="limit" type="number" default="100">
+        Number of items per page
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET "https://api.example.com/api/v1/gl/reports/general-ledger?dateFrom=2025-06-01&dateTo=2025-06-30&groupBy=transaction&limit=5" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "data": [
+        {
+          "glTransactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+          "transactionNumber": "GL-2025-000456",
+          "transactionDate": "2025-06-01",
+          "postingDate": "2025-06-01",
+          "description": "Customer payment - Invoice INV-2025-000123",
+          "accountId": "acc-11000",
+          "accountNumber": "11000",
+          "accountName": "Bank - Operating Account",
+          "debitAmount": 6480.00,
+          "creditAmount": 0.00,
+          "reference1": "Payment #12345",
+          "reference2": "Customer: Acme Corporation",
+          "classId": null,
+          "departmentId": null,
+          "locationId": null
+        },
+        {
+          "glTransactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+          "transactionNumber": "GL-2025-000456",
+          "transactionDate": "2025-06-01",
+          "postingDate": "2025-06-01",
+          "description": "Customer payment - Invoice INV-2025-000123",
+          "accountId": "acc-12000",
+          "accountNumber": "12000",
+          "accountName": "Accounts Receivable",
+          "debitAmount": 0.00,
+          "creditAmount": 6480.00,
+          "reference1": "Payment #12345",
+          "reference2": "Customer: Acme Corporation",
+          "classId": null,
+          "departmentId": null,
+          "locationId": null
+        }
+      ],
+      "total": 94,
+      "page": 1,
+      "limit": 5,
+      "totalPages": 19
+    }
+    ```
+  </Col>
+</Row>
+
+## GL Transaction Queries
+
+### List GL Transactions
+
+Retrieve a list of GL transactions with filtering options.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/gl-transactions" />
+    </Properties>
+
+    #### Query Parameters
+
+    <Properties>
+      <Property name="subsidiaryId" type="string (UUID)">
+        Filter by subsidiary
+      </Property>
+      <Property name="periodId" type="string (UUID)">
+        Filter by accounting period
+      </Property>
+      <Property name="status" type="string">
+        Filter by status (DRAFT, PENDING, POSTED, REVERSED)
+      </Property>
+      <Property name="transactionType" type="string">
+        Filter by type (JOURNAL, POSTING, REVERSAL, CLOSING)
+      </Property>
+      <Property name="dateFrom" type="string">
+        Start date filter
+      </Property>
+      <Property name="dateTo" type="string">
+        End date filter
+      </Property>
+      <Property name="sourceTransactionId" type="string">
+        Filter by source business transaction
+      </Property>
+      <Property name="page" type="number" default="1">
+        Page number
+      </Property>
+      <Property name="limit" type="number" default="20">
+        Items per page
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET "https://api.example.com/api/v1/gl/gl-transactions?status=POSTED&transactionType=POSTING&limit=5" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "data": [
+        {
+          "id": "gl-456e7890-e89b-12d3-a456-426614174000",
+          "transactionNumber": "GL-2025-000456",
+          "subsidiaryId": "sub-123e4567-e89b-12d3-a456-426614174000",
+          "transactionDate": "2025-06-01",
+          "postingDate": "2025-06-01",
+          "periodId": "period-789e0123-e89b-12d3-a456-426614174000",
+          "transactionType": "POSTING",
+          "sourceSystem": "AUTO",
+          "sourceTransactionId": "tx-123e4567-e89b-12d3-a456-426614174000",
+          "description": "Auto-posted from INV-2025-000123",
+          "baseCurrencyCode": "USD",
+          "totalDebitAmount": 6480.00,
+          "totalCreditAmount": 6480.00,
+          "status": "POSTED",
+          "autoGenerated": true,
+          "createdDate": "2025-06-01T14:35:00.000Z",
+          "postedDate": "2025-06-01T14:35:00.000Z"
+        }
+      ],
+      "total": 156,
+      "page": 1,
+      "limit": 5,
+      "totalPages": 32
+    }
+    ```
+  </Col>
+</Row>
+
+### Get GL Transaction Details
+
+Retrieve detailed information about a specific GL transaction.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/gl-transactions/{id}" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        GL transaction ID
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET https://api.example.com/api/v1/gl/gl-transactions/gl-456e7890-e89b-12d3-a456-426614174000 \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "gl-456e7890-e89b-12d3-a456-426614174000",
+      "transactionNumber": "GL-2025-000456",
+      "subsidiaryId": "sub-123e4567-e89b-12d3-a456-426614174000",
+      "transactionDate": "2025-06-01",
+      "postingDate": "2025-06-01",
+      "periodId": "period-789e0123-e89b-12d3-a456-426614174000",
+      "transactionType": "POSTING",
+      "sourceSystem": "AUTO",
+      "sourceTransactionId": "tx-123e4567-e89b-12d3-a456-426614174000",
+      "sourceTransactionType": "BUSINESS_TRANSACTION",
+      "description": "Auto-posted from INV-2025-000123",
+      "referenceNumber": "INV-2025-000123",
+      "baseCurrencyCode": "USD",
+      "totalDebitAmount": 6480.00,
+      "totalCreditAmount": 6480.00,
+      "status": "POSTED",
+      "autoGenerated": true,
+      "createdBy": "user-abc123",
+      "createdDate": "2025-06-01T14:35:00.000Z",
+      "postedBy": "user-abc123",
+      "postedDate": "2025-06-01T14:35:00.000Z",
+      "versionNumber": 1
+    }
+    ```
+  </Col>
+</Row>
+
+### Get GL Transaction Lines
+
+Retrieve the line items for a specific GL transaction.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/gl-transactions/{id}/lines" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        GL transaction ID
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET https://api.example.com/api/v1/gl/gl-transactions/gl-456e7890-e89b-12d3-a456-426614174000/lines \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    [
+      {
+        "id": "gl-line-001",
+        "transactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+        "lineNumber": 1,
+        "accountId": "acc-41000",
+        "classId": null,
+        "departmentId": null,
+        "locationId": null,
+        "subsidiaryId": "sub-123e4567-e89b-12d3-a456-426614174000",
+        "debitAmount": 0.00,
+        "creditAmount": 6000.00,
+        "currencyCode": "USD",
+        "exchangeRate": 1.0,
+        "baseDebitAmount": 0.00,
+        "baseCreditAmount": 6000.00,
+        "description": "Consulting services - May 2025",
+        "reference1": "INV-2025-000123",
+        "reference2": "Consulting services - May 2025",
+        "projectId": null,
+        "createdDate": "2025-06-01T14:35:00.000Z"
+      },
+      {
+        "id": "gl-line-002",
+        "transactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+        "lineNumber": 2,
+        "accountId": "acc-21500",
+        "classId": null,
+        "departmentId": null,
+        "locationId": null,
+        "subsidiaryId": "sub-123e4567-e89b-12d3-a456-426614174000",
+        "debitAmount": 0.00,
+        "creditAmount": 480.00,
+        "currencyCode": "USD",
+        "exchangeRate": 1.0,
+        "baseDebitAmount": 0.00,
+        "baseCreditAmount": 480.00,
+        "description": "Sales Tax",
+        "reference1": "INV-2025-000123",
+        "reference2": "Sales Tax",
+        "projectId": null,
+        "createdDate": "2025-06-01T14:35:00.000Z"
+      },
+      {
+        "id": "gl-line-003",
+        "transactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+        "lineNumber": 3,
+        "accountId": "acc-12000",
+        "classId": null,
+        "departmentId": null,
+        "locationId": null,
+        "subsidiaryId": "sub-123e4567-e89b-12d3-a456-426614174000",
+        "debitAmount": 6480.00,
+        "creditAmount": 0.00,
+        "currencyCode": "USD",
+        "exchangeRate": 1.0,
+        "baseDebitAmount": 6480.00,
+        "baseCreditAmount": 0.00,
+        "description": "Accounts Receivable",
+        "reference1": "INV-2025-000123",
+        "reference2": "Customer: Acme Corporation",
+        "projectId": null,
+        "createdDate": "2025-06-01T14:35:00.000Z"
+      }
+    ]
+    ```
+  </Col>
+</Row>
+
+## Error Responses
+
+Common errors for reporting endpoints:
+
+| Status Code | Error Code | Description |
+|-------------|------------|-------------|
+| 400 | MISSING_REQUIRED_PARAMETERS | Required query parameters missing |
+| 400 | INVALID_DATE_RANGE | Invalid or illogical date range |
+| 401 | MISSING_ORGANIZATION_CONTEXT | Organization context required |
+| 403 | INSUFFICIENT_PERMISSIONS | User lacks reporting permissions |
+| 404 | PERIOD_NOT_FOUND | Accounting period not found |
+| 404 | ACCOUNT_NOT_FOUND | Account not found |
+
+## Best Practices
+
+### Performance Optimization
+
+- **Date Ranges**: Use narrow date ranges for large datasets
+- **Pagination**: Use appropriate page sizes (50-100 for detailed reports)
+- **Filtering**: Apply subsidiary and account filters to reduce data volume
+- **Caching**: Cache period and account reference data
+
+### Report Design
+
+- **Trial Balance**: Always verify that debits equal credits
+- **Account Activity**: Include running balances for account reconciliation
+- **General Ledger**: Use transaction grouping for better readability
+- **Dimensions**: Filter by class/department/location for segment reporting
+
+### Integration Tips
+
+```typescript
+import { GlReportingService } from '@glapi/api-service';
+
+// Generate month-end trial balance
+async function generateTrialBalance(periodId: string, subsidiaryId?: string) {
+  const service = new GlReportingService({
+    organizationId: 'your-org-id',
+    userId: 'current-user-id'
+  });
+
+  const trialBalance = await service.getTrialBalance({
+    periodId,
+    subsidiaryId,
+    includeInactive: false
+  });
+
+  // Verify the trial balance is in balance
+  if (Math.abs(trialBalance.totals.difference) > 0.01) {
+    throw new Error('Trial balance is out of balance!');
+  }
+
+  return trialBalance;
+}
+
+// Export account activity to CSV
+async function exportAccountActivity(accountId: string, dateFrom: string, dateTo: string) {
+  const service = new GlReportingService({
+    organizationId: 'your-org-id',
+    userId: 'current-user-id'
+  });
+
+  let allEntries = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const result = await service.getAccountActivity(
+      { accountId, dateFrom, dateTo },
+      { page, limit: 100 }
+    );
+
+    allEntries.push(...result.data);
+    hasMore = page < result.totalPages;
+    page++;
+  }
+
+  return convertToCSV(allEntries);
+}
+```
