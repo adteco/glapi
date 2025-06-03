@@ -1,4 +1,4 @@
-import { entityRepository } from '@repo/database';
+import { entityRepository } from '@glapi/database';
 import { 
   EntityType, 
   CreateEntityInput, 

@@ -18,9 +18,18 @@ import * as transactionLines from './transactionLines';
 import * as accounts from './accounts';
 import * as entities from './entities';
 import * as addresses from './addresses';
+import * as transactionTypes from './transaction-types';
+import * as glTransactions from './gl-transactions';
+import * as accountingPeriods from './accounting-periods';
+import * as rlsAccessControl from './rls-access-control';
+import * as taxCodes from './tax-codes';
+import * as activityCodes from './activity-codes';
 
 // Note: Relations defined within schema files are automatically picked up by Drizzle
 // when they are imported alongside their corresponding tables.
+
+// Temporarily comment out GL tables to test
+import * as testGl from './test-gl';
 
 export const schema = {
   ...organizations,
@@ -42,5 +51,13 @@ export const schema = {
   ...transactionLines,
   ...accounts,
   ...entities,
-  ...addresses
+  ...addresses,
+  ...testGl,
+  // Temporarily disabled due to Drizzle version issues
+  // ...transactionTypes,
+  // ...glTransactions,
+  // ...accountingPeriods,
+  // ...rlsAccessControl,
+  // ...taxCodes,
+  // ...activityCodes
 };

@@ -89,3 +89,21 @@ export const clerkAuthMiddleware = async (req: AuthenticatedRequest, res: Respon
     });
   }
 };
+
+/**
+ * Helper function to get service context from authenticated request
+ */
+export const getServiceContext = async (req: AuthenticatedRequest) => {
+  const context = req.organizationContext;
+  
+  if (!context || !context.organizationId) {
+    // Return development fallback if no context
+    return {
+      organizationId: 'org_development',
+      userId: 'user_development',
+      clerkOrganizationId: 'org_development'
+    };
+  }
+  
+  return context;
+};

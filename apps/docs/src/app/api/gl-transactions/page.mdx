@@ -1,0 +1,502 @@
+export const metadata = {
+  title: 'GL Transactions API',
+  description:
+    'API reference for managing business transactions and GL posting in the Revenue Recognition System.',
+}
+
+# GL Transactions API
+
+This guide covers the API endpoints for managing business transactions and GL posting in the Revenue Recognition System. Business transactions represent commercial activities (sales orders, invoices, purchase orders) that generate accounting entries when posted to the General Ledger. {{ className: 'lead' }}
+
+<Note>
+  All transaction data is isolated by organization and subsidiary context, ensuring proper multi-tenant security and accurate financial reporting.
+</Note>
+
+## Business Transaction Schema
+
+| Field              | Type      | Description                                         | Required |
+|--------------------|-----------|-----------------------------------------------------|----------|
+| id                 | UUID      | Unique identifier (system-generated)               | Read-only|
+| transactionNumber  | String    | Auto-generated transaction number                   | Read-only|
+| transactionTypeId  | UUID      | Type of transaction (sales order, invoice, etc.)   | Yes      |
+| subsidiaryId       | UUID      | Subsidiary this transaction belongs to              | Yes      |
+| entityId           | UUID      | Customer/Vendor ID (polymorphic)                   | No       |
+| entityType         | String    | 'CUSTOMER', 'VENDOR', 'EMPLOYEE'                   | No       |
+| transactionDate    | Date      | Date of the transaction                             | Yes      |
+| dueDate            | Date      | Payment due date                                    | No       |
+| currencyCode       | String    | ISO currency code (e.g., 'USD')                    | Yes      |
+| exchangeRate       | Decimal   | Exchange rate to base currency                      | No       |
+| subtotalAmount     | Decimal   | Amount before tax and discount                      | Auto     |
+| taxAmount          | Decimal   | Total tax amount                                    | Auto     |
+| discountAmount     | Decimal   | Total discount amount                               | Auto     |
+| totalAmount        | Decimal   | Final total amount                                  | Auto     |
+| status             | String    | Transaction status (see status flow below)         | Yes      |
+| memo               | String    | Transaction description/memo                        | No       |
+| lines              | Array     | Transaction line items (see schema below)          | Yes      |
+
+### Transaction Status Flow
+
+Business transactions follow a defined status workflow:
+
+- `DRAFT` → `PENDING_APPROVAL` → `APPROVED` → `POSTED` → `PAID` → `CLOSED`
+- Alternative paths: `DRAFT` → `CANCELLED`, `POSTED` → `REVERSED`
+
+### Transaction Line Schema
+
+| Field              | Type      | Description                                         | Required |
+|--------------------|-----------|-----------------------------------------------------|----------|
+| lineNumber         | Integer   | Line sequence number                                | Yes      |
+| lineType           | String    | 'ITEM', 'SERVICE', 'DISCOUNT', 'TAX', 'SHIPPING'  | Yes      |
+| description        | String    | Line item description                               | Yes      |
+| quantity           | Decimal   | Quantity of items/hours                             | Yes      |
+| unitPrice          | Decimal   | Price per unit                                      | Yes      |
+| lineAmount         | Decimal   | Extended amount (quantity × unitPrice)              | Auto     |
+| taxCodeId          | UUID      | Tax code for this line                              | No       |
+| taxAmount          | Decimal   | Tax amount for this line                            | Auto     |
+| accountId          | UUID      | GL account for posting                              | No       |
+| classId            | UUID      | Class dimension                                     | No       |
+| departmentId       | UUID      | Department dimension                                | No       |
+| locationId         | UUID      | Location dimension                                  | No       |
+
+## Authentication
+
+All GL transaction endpoints require authentication with organization context. Use the `x-stytch-organization-id` header for organization-level access.
+
+## Endpoints
+
+### Create Business Transaction
+
+Create a new business transaction with line items.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="POST /api/v1/gl/transactions" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Request Body
+
+    <Properties>
+      <Property name="transaction" type="object" required>
+        Business transaction header data
+      </Property>
+      <Property name="lines" type="array" required>
+        Array of transaction line items
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X POST https://api.example.com/api/v1/gl/transactions \
+      -H "Content-Type: application/json" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2" \
+      -d '{
+        "transaction": {
+          "transactionTypeId": "550e8400-e29b-41d4-a716-446655440000",
+          "subsidiaryId": "660e8400-e29b-41d4-a716-446655440000",
+          "entityId": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+          "entityType": "CUSTOMER",
+          "transactionDate": "2025-06-03",
+          "dueDate": "2025-07-03",
+          "currencyCode": "USD",
+          "exchangeRate": "1.0",
+          "status": "DRAFT",
+          "memo": "Monthly service invoice"
+        },
+        "lines": [
+          {
+            "lineNumber": 1,
+            "lineType": "SERVICE",
+            "description": "Consulting services - May 2025",
+            "quantity": "40.0",
+            "unitPrice": "150.00",
+            "lineAmount": "6000.00",
+            "taxCodeId": "770e8400-e29b-41d4-a716-446655440000",
+            "accountId": "880e8400-e29b-41d4-a716-446655440000"
+          },
+          {
+            "lineNumber": 2,
+            "lineType": "TAX",
+            "description": "Sales Tax",
+            "quantity": "1.0",
+            "unitPrice": "480.00",
+            "lineAmount": "480.00",
+            "accountId": "990e8400-e29b-41d4-a716-446655440000"
+          }
+        ]
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "tx-123e4567-e89b-12d3-a456-426614174000",
+      "transactionNumber": "INV-2025-000123",
+      "transactionTypeId": "550e8400-e29b-41d4-a716-446655440000",
+      "subsidiaryId": "660e8400-e29b-41d4-a716-446655440000",
+      "entityId": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+      "entityType": "CUSTOMER",
+      "transactionDate": "2025-06-03",
+      "dueDate": "2025-07-03",
+      "currencyCode": "USD",
+      "exchangeRate": "1.0",
+      "subtotalAmount": "6000.00",
+      "taxAmount": "480.00",
+      "discountAmount": "0.00",
+      "totalAmount": "6480.00",
+      "baseTotalAmount": "6480.00",
+      "status": "DRAFT",
+      "memo": "Monthly service invoice",
+      "createdDate": "2025-06-03T14:30:00.000Z",
+      "modifiedDate": "2025-06-03T14:30:00.000Z"
+    }
+    ```
+  </Col>
+</Row>
+
+### List Business Transactions
+
+Retrieve a paginated list of business transactions.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/transactions" />
+    </Properties>
+
+    #### Query Parameters
+
+    <Properties>
+      <Property name="page" type="number" default="1">
+        Page number for pagination
+      </Property>
+      <Property name="limit" type="number" default="20">
+        Number of items per page (max: 100)
+      </Property>
+      <Property name="subsidiaryId" type="string">
+        Filter by subsidiary
+      </Property>
+      <Property name="transactionTypeId" type="string">
+        Filter by transaction type
+      </Property>
+      <Property name="status" type="string">
+        Filter by status
+      </Property>
+      <Property name="entityId" type="string">
+        Filter by customer/vendor
+      </Property>
+      <Property name="dateFrom" type="string">
+        Filter by date range (start)
+      </Property>
+      <Property name="dateTo" type="string">
+        Filter by date range (end)
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET "https://api.example.com/api/v1/gl/transactions?page=1&limit=10&status=POSTED" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "data": [
+        {
+          "id": "tx-123e4567-e89b-12d3-a456-426614174000",
+          "transactionNumber": "INV-2025-000123",
+          "transactionTypeId": "550e8400-e29b-41d4-a716-446655440000",
+          "entityId": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+          "entityType": "CUSTOMER",
+          "transactionDate": "2025-06-03",
+          "totalAmount": "6480.00",
+          "status": "POSTED",
+          "memo": "Monthly service invoice",
+          "createdDate": "2025-06-03T14:30:00.000Z"
+        }
+      ],
+      "total": 25,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 3
+    }
+    ```
+  </Col>
+</Row>
+
+### Get Business Transaction
+
+Retrieve a specific business transaction by ID.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="GET /api/v1/gl/transactions/{id}" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the transaction to retrieve
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X GET https://api.example.com/api/v1/gl/transactions/tx-123e4567-e89b-12d3-a456-426614174000 \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2"
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "tx-123e4567-e89b-12d3-a456-426614174000",
+      "transactionNumber": "INV-2025-000123",
+      "transactionTypeId": "550e8400-e29b-41d4-a716-446655440000",
+      "subsidiaryId": "660e8400-e29b-41d4-a716-446655440000",
+      "entityId": "d45f8e21-3ab2-4389-9e0d-9c12654b8e7a",
+      "entityType": "CUSTOMER",
+      "transactionDate": "2025-06-03",
+      "dueDate": "2025-07-03",
+      "currencyCode": "USD",
+      "exchangeRate": "1.0",
+      "subtotalAmount": "6000.00",
+      "taxAmount": "480.00",
+      "discountAmount": "0.00",
+      "totalAmount": "6480.00",
+      "baseTotalAmount": "6480.00",
+      "status": "POSTED",
+      "memo": "Monthly service invoice",
+      "glTransactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+      "createdDate": "2025-06-03T14:30:00.000Z",
+      "modifiedDate": "2025-06-03T14:35:00.000Z",
+      "postedDate": "2025-06-03T14:35:00.000Z"
+    }
+    ```
+  </Col>
+</Row>
+
+## Transaction Actions
+
+### Post Transaction to GL
+
+Post an approved business transaction to the General Ledger.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="POST /api/v1/gl/transactions/{id}/post" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Path Parameters
+
+    <Properties>
+      <Property name="id" type="string (UUID)" required>
+        ID of the transaction to post
+      </Property>
+    </Properties>
+
+    #### Request Body
+
+    <Properties>
+      <Property name="postingDate" type="string">
+        Posting date (defaults to today)
+      </Property>
+      <Property name="overrideChecks" type="boolean">
+        Override posting validation checks
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X POST https://api.example.com/api/v1/gl/transactions/tx-123e4567-e89b-12d3-a456-426614174000/post \
+      -H "Content-Type: application/json" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2" \
+      -d '{
+        "postingDate": "2025-06-03",
+        "overrideChecks": false
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "tx-123e4567-e89b-12d3-a456-426614174000",
+      "status": "POSTED",
+      "glTransactionId": "gl-456e7890-e89b-12d3-a456-426614174000",
+      "postedDate": "2025-06-03T14:35:00.000Z",
+      "message": "Transaction posted successfully to GL"
+    }
+    ```
+  </Col>
+</Row>
+
+### Reverse Transaction
+
+Reverse a posted transaction by creating offsetting GL entries.
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="POST /api/v1/gl/transactions/{id}/reverse" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Request Body
+
+    <Properties>
+      <Property name="reversalReason" type="string" required>
+        Reason for the reversal
+      </Property>
+      <Property name="reversalDate" type="string">
+        Date of reversal (defaults to today)
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X POST https://api.example.com/api/v1/gl/transactions/tx-123e4567-e89b-12d3-a456-426614174000/reverse \
+      -H "Content-Type: application/json" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2" \
+      -d '{
+        "reversalReason": "Customer billing error - duplicate invoice",
+        "reversalDate": "2025-06-04"
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "tx-123e4567-e89b-12d3-a456-426614174000",
+      "status": "REVERSED",
+      "reversalTransactionId": "gl-789e0123-e89b-12d3-a456-426614174000",
+      "reversalReason": "Customer billing error - duplicate invoice",
+      "reversalDate": "2025-06-04T15:20:00.000Z",
+      "message": "Transaction reversed successfully"
+    }
+    ```
+  </Col>
+</Row>
+
+### Approve Transaction
+
+Approve a transaction for posting (requires appropriate permissions).
+
+<Row>
+  <Col>
+    <Properties>
+      <Property name="Endpoint" type="POST /api/v1/gl/transactions/{id}/approve" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Request Body
+
+    <Properties>
+      <Property name="approvalComment" type="string">
+        Optional approval comment
+      </Property>
+    </Properties>
+  </Col>
+  <Col sticky>
+    ```bash {{ title: 'Request' }}
+    curl -X POST https://api.example.com/api/v1/gl/transactions/tx-123e4567-e89b-12d3-a456-426614174000/approve \
+      -H "Content-Type: application/json" \
+      -H "x-stytch-organization-id: ba3b8cdf-efc1-4a60-88be-ac203d263fe2" \
+      -d '{
+        "approvalComment": "Approved - standard monthly service invoice"
+      }'
+    ```
+
+    ```json {{ title: 'Response' }}
+    {
+      "id": "tx-123e4567-e89b-12d3-a456-426614174000",
+      "status": "APPROVED",
+      "approvedBy": "user-456e7890-e89b-12d3-a456-426614174000",
+      "approvedDate": "2025-06-03T14:32:00.000Z",
+      "message": "Transaction approved successfully"
+    }
+    ```
+  </Col>
+</Row>
+
+## Error Responses
+
+The API returns standard HTTP status codes and error messages:
+
+```json
+{
+  "message": "Error description",
+  "code": "ERROR_CODE",
+  "details": { ... }
+}
+```
+
+Common errors include:
+
+| Status Code | Error Code | Description |
+|-------------|------------|-------------|
+| 400 | VALIDATION_ERROR | Request data failed validation |
+| 400 | TRANSACTION_NOT_BALANCED | Transaction debits don't equal credits |
+| 400 | INVALID_STATUS_TRANSITION | Cannot change from current status |
+| 401 | MISSING_ORGANIZATION_CONTEXT | Organization context required |
+| 403 | INSUFFICIENT_PERMISSIONS | User lacks required permissions |
+| 404 | TRANSACTION_NOT_FOUND | Transaction not found |
+| 409 | ALREADY_POSTED | Transaction already posted to GL |
+
+## Best Practices
+
+### Transaction Design
+
+- **Line Item Structure**: Use descriptive line items with proper accounting dimensions
+- **Status Management**: Follow the defined status workflow for proper controls
+- **Currency Handling**: Always specify exchange rates for foreign currency transactions
+- **Posting Rules**: Ensure posting rules are configured for all transaction types
+
+### Performance Optimization
+
+- **Pagination**: Use appropriate page sizes for large result sets
+- **Filtering**: Apply date ranges and status filters to reduce data volume
+- **Caching**: Cache transaction types and other reference data
+
+### Security Considerations
+
+- **Approval Workflow**: Implement proper approval controls before posting
+- **Audit Trail**: All transaction changes are automatically logged
+- **Reversals**: Use reversals instead of deletions for posted transactions
+
+## Integration Examples
+
+```typescript
+import { GlTransactionService } from '@glapi/api-service';
+
+// Create and post a service invoice
+async function createServiceInvoice(customerId: string, serviceData: any) {
+  const service = new GlTransactionService({ 
+    organizationId: 'your-org-id',
+    userId: 'current-user-id'
+  });
+
+  // Create transaction
+  const transaction = await service.createBusinessTransaction({
+    transaction: {
+      transactionTypeId: 'service-invoice-type-id',
+      entityId: customerId,
+      entityType: 'CUSTOMER',
+      transactionDate: new Date().toISOString().split('T')[0],
+      currencyCode: 'USD',
+      status: 'DRAFT'
+    },
+    lines: serviceData.lines
+  });
+
+  // Approve and post
+  await service.approveTransaction({ 
+    transactionId: transaction.id 
+  });
+  
+  const posted = await service.postTransaction({ 
+    transactionId: transaction.id 
+  });
+
+  return posted;
+}
+```

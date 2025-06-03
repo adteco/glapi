@@ -1,5 +1,12 @@
-import express, { Router, Request, Response } from 'express';
+import express, { Router, Request, Response, NextFunction } from 'express';
 import { accountRepository } from '@glapi/database';
+import { 
+  GlTransactionService, 
+  GlReportingService,
+  createBusinessTransactionSchema,
+  updateBusinessTransactionSchema,
+  ServiceError
+} from '@glapi/api-service';
 
 // Extend Request to include organizationContext
 interface AuthenticatedRequest extends Request {
@@ -11,6 +18,25 @@ interface AuthenticatedRequest extends Request {
 }
 
 const router: Router = express.Router();
+
+// Helper to get organization context from request
+const getServiceContext = (req: Request) => {
+  const context = (req as any).organizationContext;
+
+  if (!context || !context.organizationId) {
+    console.warn('Organization context not found in request - using development fallback');
+
+    // Return a development fallback context when none is available
+    return {
+      organizationId: 'org_development', // Match clerk-auth middleware fallback
+      userId: 'user_development', // Match clerk-auth middleware fallback
+      stytchOrganizationId: 'org_development'
+    };
+  }
+
+  console.log('Using organization context:', context);
+  return context;
+};
 
 const defaultAccounts = [
   // ASSETS (10000-19999) - SUMMARY ACCOUNT
@@ -287,5 +313,510 @@ router.delete(
     }
   }
 );
+
+// BUSINESS TRANSACTIONS ROUTES
+
+// POST /api/v1/gl/transactions - Create a new business transaction
+router.post('/transactions', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const context = getServiceContext(req);
+    console.log('Creating business transaction with context:', context);
+
+    // Validate request body
+    const parsedData = createBusinessTransactionSchema.safeParse(req.body);
+    if (!parsedData.success) {
+      return res.status(400).json({
+        message: 'Invalid transaction data',
+        errors: parsedData.error.errors
+      });
+    }
+
+    const glTransactionService = new GlTransactionService(context);
+    const result = await glTransactionService.createBusinessTransaction(parsedData.data);
+
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error('Error creating business transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GET /api/v1/gl/transactions - List business transactions
+router.get('/transactions', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const context = getServiceContext(req);
+    
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const subsidiaryId = req.query.subsidiaryId as string;
+    const transactionTypeId = req.query.transactionTypeId as string;
+    const status = req.query.status as string;
+    const entityId = req.query.entityId as string;
+    const dateFrom = req.query.dateFrom as string;
+    const dateTo = req.query.dateTo as string;
+
+    const glTransactionService = new GlTransactionService(context);
+    const result = await glTransactionService.listBusinessTransactions(
+      { page, limit },
+      { subsidiaryId, transactionTypeId, status, entityId, dateFrom, dateTo }
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error listing business transactions:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GET /api/v1/gl/transactions/:id - Get a business transaction by ID
+router.get('/transactions/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+
+    const glTransactionService = new GlTransactionService(context);
+    const result = await glTransactionService.getBusinessTransactionById(id);
+
+    if (!result) {
+      return res.status(404).json({
+        message: `Business transaction with ID "${id}" not found`
+      });
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error getting business transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// PUT /api/v1/gl/transactions/:id - Update a business transaction
+router.put('/transactions/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+
+    // Validate request body
+    const parsedData = updateBusinessTransactionSchema.safeParse(req.body);
+    if (!parsedData.success) {
+      return res.status(400).json({
+        message: 'Invalid transaction data',
+        errors: parsedData.error.errors
+      });
+    }
+
+    const glTransactionService = new GlTransactionService(context);
+    const result = await glTransactionService.updateBusinessTransaction(id, parsedData.data);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error updating business transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// DELETE /api/v1/gl/transactions/:id - Delete a business transaction
+router.delete('/transactions/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+
+    const glTransactionService = new GlTransactionService(context);
+    await glTransactionService.deleteBusinessTransaction(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Business transaction deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting business transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// TRANSACTION ACTIONS
+
+// POST /api/v1/gl/transactions/:id/post - Post a transaction to GL
+router.post('/transactions/:id/post', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+    const { postingDate, overrideChecks } = req.body;
+
+    const glTransactionService = new GlTransactionService(context);
+    const result = await glTransactionService.postTransaction({
+      transactionId: id,
+      postingDate,
+      overrideChecks
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error posting transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// POST /api/v1/gl/transactions/:id/reverse - Reverse a posted transaction
+router.post('/transactions/:id/reverse', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+    const { reversalDate, reversalReason } = req.body;
+
+    if (!reversalReason) {
+      return res.status(400).json({
+        message: 'Reversal reason is required'
+      });
+    }
+
+    const glTransactionService = new GlTransactionService(context);
+    const result = await glTransactionService.reverseTransaction({
+      transactionId: id,
+      reversalDate,
+      reversalReason
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error reversing transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// POST /api/v1/gl/transactions/:id/approve - Approve a transaction
+router.post('/transactions/:id/approve', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+    const { approvalComment } = req.body;
+
+    const glTransactionService = new GlTransactionService(context);
+    const result = await glTransactionService.approveTransaction({
+      transactionId: id,
+      approvalComment
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error approving transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GL REPORTING ROUTES
+
+// GET /api/v1/gl/reports/trial-balance - Get trial balance report
+router.get('/reports/trial-balance', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const context = getServiceContext(req);
+    const { periodId, subsidiaryId, includeInactive, classId, departmentId, locationId } = req.query;
+
+    if (!periodId) {
+      return res.status(400).json({
+        message: 'Period ID is required for trial balance'
+      });
+    }
+
+    const glReportingService = new GlReportingService(context);
+    const result = await glReportingService.getTrialBalance({
+      periodId: periodId as string,
+      subsidiaryId: subsidiaryId as string,
+      includeInactive: includeInactive === 'true',
+      classId: classId as string,
+      departmentId: departmentId as string,
+      locationId: locationId as string
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error generating trial balance:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GET /api/v1/gl/reports/account-activity - Get account activity
+router.get('/reports/account-activity', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const context = getServiceContext(req);
+    const { accountId, subsidiaryId, dateFrom, dateTo, classId, departmentId, locationId } = req.query;
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+
+    if (!accountId || !dateFrom || !dateTo) {
+      return res.status(400).json({
+        message: 'Account ID, date from, and date to are required'
+      });
+    }
+
+    const glReportingService = new GlReportingService(context);
+    const result = await glReportingService.getAccountActivity(
+      {
+        accountId: accountId as string,
+        subsidiaryId: subsidiaryId as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        classId: classId as string,
+        departmentId: departmentId as string,
+        locationId: locationId as string
+      },
+      { page, limit }
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error getting account activity:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GET /api/v1/gl/reports/general-ledger - Get general ledger
+router.get('/reports/general-ledger', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const context = getServiceContext(req);
+    const { subsidiaryId, periodId, dateFrom, dateTo, accountIds, includeAdjustments, groupBy } = req.query;
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+
+    const glReportingService = new GlReportingService(context);
+    const result = await glReportingService.getGeneralLedger(
+      {
+        subsidiaryId: subsidiaryId as string,
+        periodId: periodId as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        accountIds: accountIds ? (accountIds as string).split(',') : undefined,
+        includeAdjustments: includeAdjustments === 'true',
+        groupBy: groupBy as 'account' | 'date' | 'transaction'
+      },
+      { page, limit }
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error getting general ledger:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GET /api/v1/gl/gl-transactions - List GL transactions
+router.get('/gl-transactions', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const context = getServiceContext(req);
+    
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const subsidiaryId = req.query.subsidiaryId as string;
+    const periodId = req.query.periodId as string;
+    const status = req.query.status as string;
+    const transactionType = req.query.transactionType as string;
+    const dateFrom = req.query.dateFrom as string;
+    const dateTo = req.query.dateTo as string;
+    const sourceTransactionId = req.query.sourceTransactionId as string;
+
+    const glReportingService = new GlReportingService(context);
+    const result = await glReportingService.listGlTransactions(
+      { page, limit },
+      { subsidiaryId, periodId, status, transactionType, dateFrom, dateTo, sourceTransactionId }
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error listing GL transactions:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GET /api/v1/gl/gl-transactions/:id - Get GL transaction details
+router.get('/gl-transactions/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+
+    const glReportingService = new GlReportingService(context);
+    const result = await glReportingService.getGlTransactionById(id);
+
+    if (!result) {
+      return res.status(404).json({
+        message: `GL transaction with ID "${id}" not found`
+      });
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error getting GL transaction:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+// GET /api/v1/gl/gl-transactions/:id/lines - Get GL transaction lines
+router.get('/gl-transactions/:id/lines', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const context = getServiceContext(req);
+
+    const glReportingService = new GlReportingService(context);
+    const result = await glReportingService.getGlTransactionLines(id);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error getting GL transaction lines:', error);
+    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+      const serviceError = error as ServiceError;
+      return res.status(serviceError.statusCode).json({
+        message: serviceError.message,
+        code: serviceError.code,
+        details: serviceError.details
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ message: error.message });
+    }
+    next(error);
+  }
+});
 
 export default router;
