@@ -6,6 +6,13 @@ import {
   PaginatedResult,
   ServiceError
 } from '../types';
+import { glReportingRepository } from '@glapi/database/repositories';
+import type { 
+  GlTransactionPaginationParams, 
+  GlTransactionFilters,
+  AccountActivityFilters,
+  TrialBalanceFilters 
+} from '@glapi/database/repositories/gl-reporting-repository';
 
 export interface TrialBalanceRequest {
   subsidiaryId?: string;
@@ -119,17 +126,32 @@ export class GlReportingService extends BaseService {
       );
     }
 
-    // TODO: Implement trial balance generation
-    // 1. Get all accounts for the subsidiary/organization
-    // 2. Get account balances for the specified period
-    // 3. Calculate running totals and validate balance
-    // 4. Format response
-    
-    throw new ServiceError(
-      'Trial balance not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const filters: TrialBalanceFilters = {
+        periodId: request.periodId,
+        subsidiaryId: request.subsidiaryId,
+        includeInactive: request.includeInactive,
+        classId: request.classId,
+        departmentId: request.departmentId,
+        locationId: request.locationId,
+      };
+      
+      const result = await glReportingRepository.getTrialBalance(filters, organizationId);
+      
+      return {
+        periodName: result.periodName,
+        subsidiaryName: result.subsidiaryName,
+        asOfDate: result.asOfDate,
+        entries: result.entries,
+        totals: result.totals,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to generate trial balance: ${error.message}`,
+        'TRIAL_BALANCE_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -158,17 +180,50 @@ export class GlReportingService extends BaseService {
       );
     }
 
-    // TODO: Implement account activity query
-    // 1. Get GL transaction lines for the account and date range
-    // 2. Apply subsidiary and dimension filters
-    // 3. Calculate running balance
-    // 4. Return paginated results
-    
-    throw new ServiceError(
-      'Account activity not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const filters: AccountActivityFilters = {
+        accountId: request.accountId,
+        subsidiaryId: request.subsidiaryId,
+        dateFrom: request.dateFrom,
+        dateTo: request.dateTo,
+        classId: request.classId,
+        departmentId: request.departmentId,
+        locationId: request.locationId,
+      };
+      
+      const result = await glReportingRepository.getAccountActivity(
+        filters,
+        organizationId,
+        {
+          page: params.page,
+          limit: params.limit,
+        }
+      );
+      
+      return {
+        data: result.data.map(entry => ({
+          date: entry.date,
+          transactionNumber: entry.transactionNumber,
+          description: entry.description,
+          reference: entry.reference,
+          debitAmount: entry.debitAmount,
+          creditAmount: entry.creditAmount,
+          runningBalance: entry.runningBalance,
+          glTransactionId: entry.glTransactionId,
+          sourceTransactionId: entry.sourceTransactionId,
+        })),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to get account activity: ${error.message}`,
+        'ACCOUNT_ACTIVITY_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -180,17 +235,56 @@ export class GlReportingService extends BaseService {
   ): Promise<PaginatedResult<GeneralLedgerEntry>> {
     const organizationId = this.requireOrganizationContext();
     
-    // TODO: Implement general ledger query
-    // 1. Build query based on filters
-    // 2. Join with accounts table for account details
-    // 3. Apply organization/subsidiary filtering
-    // 4. Return paginated results
-    
-    throw new ServiceError(
-      'General ledger not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const filters = {
+        subsidiaryId: request.subsidiaryId,
+        periodId: request.periodId,
+        dateFrom: request.dateFrom,
+        dateTo: request.dateTo,
+        accountIds: request.accountIds,
+        includeAdjustments: request.includeAdjustments,
+        groupBy: request.groupBy,
+      };
+      
+      const result = await glReportingRepository.getGeneralLedger(
+        filters,
+        organizationId,
+        {
+          page: params.page,
+          limit: params.limit,
+        }
+      );
+      
+      return {
+        data: result.data.map(entry => ({
+          glTransactionId: entry.glTransactionId,
+          transactionNumber: entry.transactionNumber,
+          transactionDate: entry.transactionDate,
+          postingDate: entry.postingDate,
+          description: entry.description,
+          accountId: entry.accountId,
+          accountNumber: entry.accountNumber,
+          accountName: entry.accountName,
+          debitAmount: entry.debitAmount,
+          creditAmount: entry.creditAmount,
+          reference1: entry.reference1,
+          reference2: entry.reference2,
+          classId: entry.classId,
+          departmentId: entry.departmentId,
+          locationId: entry.locationId,
+        })),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to get general ledger: ${error.message}`,
+        'GENERAL_LEDGER_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -199,12 +293,42 @@ export class GlReportingService extends BaseService {
   async getGlTransactionById(id: string): Promise<GlTransaction | null> {
     const organizationId = this.requireOrganizationContext();
     
-    // TODO: Implement repository call with subsidiary filtering
-    throw new ServiceError(
-      'Get GL transaction not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const result = await glReportingRepository.findGlTransactionById(id, organizationId);
+      
+      if (!result) {
+        return null;
+      }
+      
+      return {
+        id: result.id,
+        transactionNumber: result.transactionNumber,
+        subsidiaryId: result.subsidiaryId,
+        periodId: result.periodId,
+        transactionDate: result.transactionDate,
+        postingDate: result.postingDate,
+        transactionType: result.transactionType,
+        sourceTransactionId: result.sourceTransactionId,
+        description: result.description,
+        totalDebitAmount: result.totalDebitAmount,
+        totalCreditAmount: result.totalCreditAmount,
+        currencyCode: result.currencyCode,
+        status: result.status,
+        isReversed: result.isReversed,
+        reversalTransactionId: result.reversalTransactionId,
+        createdBy: result.createdBy,
+        createdDate: result.createdDate,
+        modifiedBy: result.modifiedBy,
+        modifiedDate: result.modifiedDate,
+        auditTrail: result.auditTrail,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to get GL transaction: ${error.message}`,
+        'GL_TRANSACTION_RETRIEVAL_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -213,15 +337,35 @@ export class GlReportingService extends BaseService {
   async getGlTransactionLines(transactionId: string): Promise<GlTransactionLine[]> {
     const organizationId = this.requireOrganizationContext();
     
-    // TODO: Implement repository call
-    // 1. Validate transaction belongs to organization
-    // 2. Get transaction lines
-    
-    throw new ServiceError(
-      'Get GL transaction lines not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const result = await glReportingRepository.getGlTransactionLines(transactionId, organizationId);
+      
+      return result.map(line => ({
+        id: line.id,
+        transactionId: line.transactionId,
+        lineNumber: line.lineNumber,
+        accountId: line.accountId,
+        subsidiaryId: line.subsidiaryId,
+        classId: line.classId,
+        departmentId: line.departmentId,
+        locationId: line.locationId,
+        debitAmount: line.debitAmount,
+        creditAmount: line.creditAmount,
+        description: line.description,
+        reference1: line.reference1,
+        reference2: line.reference2,
+        entityId: line.entityId,
+        entityType: line.entityType,
+        createdBy: line.createdBy,
+        createdDate: line.createdDate,
+      }));
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to get GL transaction lines: ${error.message}`,
+        'GL_TRANSACTION_LINES_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -241,12 +385,65 @@ export class GlReportingService extends BaseService {
   ): Promise<PaginatedResult<GlTransaction>> {
     const organizationId = this.requireOrganizationContext();
     
-    // TODO: Implement repository call with organization/subsidiary filtering
-    throw new ServiceError(
-      'List GL transactions not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const paginationParams: GlTransactionPaginationParams = {
+        page: params.page,
+        limit: params.limit,
+        orderBy: 'transactionDate',
+        orderDirection: 'desc',
+      };
+      
+      const glFilters: GlTransactionFilters = {
+        subsidiaryId: filters.subsidiaryId,
+        periodId: filters.periodId,
+        status: filters.status,
+        transactionType: filters.transactionType,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        sourceTransactionId: filters.sourceTransactionId,
+      };
+      
+      const result = await glReportingRepository.findAllGlTransactions(
+        organizationId,
+        paginationParams,
+        glFilters
+      );
+      
+      return {
+        data: result.data.map(tx => ({
+          id: tx.id,
+          transactionNumber: tx.transactionNumber,
+          subsidiaryId: tx.subsidiaryId,
+          periodId: tx.periodId,
+          transactionDate: tx.transactionDate,
+          postingDate: tx.postingDate,
+          transactionType: tx.transactionType,
+          sourceTransactionId: tx.sourceTransactionId,
+          description: tx.description,
+          totalDebitAmount: tx.totalDebitAmount,
+          totalCreditAmount: tx.totalCreditAmount,
+          currencyCode: tx.currencyCode,
+          status: tx.status,
+          isReversed: tx.isReversed,
+          reversalTransactionId: tx.reversalTransactionId,
+          createdBy: tx.createdBy,
+          createdDate: tx.createdDate,
+          modifiedBy: tx.modifiedBy,
+          modifiedDate: tx.modifiedDate,
+          auditTrail: tx.auditTrail,
+        })),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to list GL transactions: ${error.message}`,
+        'GL_TRANSACTIONS_LIST_FAILED',
+        500
+      );
+    }
   }
 
   /**
