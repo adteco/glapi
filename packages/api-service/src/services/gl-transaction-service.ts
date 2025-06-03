@@ -15,6 +15,11 @@ import {
   ServiceError
 } from '../types';
 import { SubsidiaryService } from './subsidiary-service';
+import { glTransactionRepository } from '@glapi/database/repositories';
+import type { 
+  BusinessTransactionPaginationParams, 
+  BusinessTransactionFilters 
+} from '@glapi/database/repositories/gl-transaction-repository';
 
 export class GlTransactionService extends BaseService {
   private subsidiaryService: SubsidiaryService;
@@ -109,7 +114,7 @@ export class GlTransactionService extends BaseService {
     const discountAmount = data.lines.reduce((sum, line) => sum + Number(line.discountAmount || 0), 0);
     const totalAmount = subtotalAmount + taxAmount - discountAmount;
     
-    const transactionData: CreateBusinessTransactionInput = {
+    const transactionData = {
       ...data.transaction,
       transactionNumber,
       subsidiaryId,
@@ -122,17 +127,60 @@ export class GlTransactionService extends BaseService {
       status: data.transaction.status || 'DRAFT',
     };
 
-    // TODO: Implement database operations
-    // This would use a repository to:
-    // 1. Create the business transaction
-    // 2. Create the transaction lines
-    // 3. If status is POSTED, generate GL entries
-    
-    throw new ServiceError(
-      'Business transaction creation not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      // Create the business transaction
+      const result = await glTransactionRepository.create(transactionData, organizationId);
+      
+      // Create transaction lines if provided
+      if (data.lines && data.lines.length > 0) {
+        const linesWithTransactionId = data.lines.map((line, index) => ({
+          ...line,
+          businessTransactionId: result.id,
+          lineNumber: index + 1,
+        }));
+        
+        await glTransactionRepository.createTransactionLines(linesWithTransactionId, organizationId);
+      }
+      
+      // Return the created transaction
+      return {
+        id: result.id,
+        transactionNumber: result.transactionNumber,
+        transactionTypeId: result.transactionTypeId,
+        subsidiaryId: result.subsidiaryId,
+        entityId: result.entityId,
+        entityType: result.entityType,
+        transactionDate: result.transactionDate,
+        dueDate: result.dueDate,
+        termsId: result.termsId,
+        currencyCode: result.currencyCode,
+        exchangeRate: result.exchangeRate,
+        subtotalAmount: result.subtotalAmount,
+        taxAmount: result.taxAmount,
+        discountAmount: result.discountAmount,
+        totalAmount: result.totalAmount,
+        baseTotalAmount: result.baseTotalAmount,
+        memo: result.memo,
+        externalReference: result.externalReference,
+        status: result.status,
+        workflowStatus: result.workflowStatus,
+        glTransactionId: result.glTransactionId,
+        createdBy: result.createdBy,
+        createdDate: result.createdDate,
+        modifiedBy: result.modifiedBy,
+        modifiedDate: result.modifiedDate,
+        approvedBy: result.approvedBy,
+        approvedDate: result.approvedDate,
+        postedDate: result.postedDate,
+        versionNumber: result.versionNumber,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to create business transaction: ${error.message}`,
+        'CREATION_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -164,12 +212,51 @@ export class GlTransactionService extends BaseService {
   async getBusinessTransactionById(id: string): Promise<BusinessTransaction | null> {
     const organizationId = this.requireOrganizationContext();
     
-    // TODO: Implement repository call with subsidiary filtering
-    throw new ServiceError(
-      'Get business transaction not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const result = await glTransactionRepository.findById(id, organizationId);
+      
+      if (!result) {
+        return null;
+      }
+      
+      return {
+        id: result.id,
+        transactionNumber: result.transactionNumber,
+        transactionTypeId: result.transactionTypeId,
+        subsidiaryId: result.subsidiaryId,
+        entityId: result.entityId,
+        entityType: result.entityType,
+        transactionDate: result.transactionDate,
+        dueDate: result.dueDate,
+        termsId: result.termsId,
+        currencyCode: result.currencyCode,
+        exchangeRate: result.exchangeRate,
+        subtotalAmount: result.subtotalAmount,
+        taxAmount: result.taxAmount,
+        discountAmount: result.discountAmount,
+        totalAmount: result.totalAmount,
+        baseTotalAmount: result.baseTotalAmount,
+        memo: result.memo,
+        externalReference: result.externalReference,
+        status: result.status,
+        workflowStatus: result.workflowStatus,
+        glTransactionId: result.glTransactionId,
+        createdBy: result.createdBy,
+        createdDate: result.createdDate,
+        modifiedBy: result.modifiedBy,
+        modifiedDate: result.modifiedDate,
+        approvedBy: result.approvedBy,
+        approvedDate: result.approvedDate,
+        postedDate: result.postedDate,
+        versionNumber: result.versionNumber,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to get business transaction: ${error.message}`,
+        'RETRIEVAL_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -188,12 +275,74 @@ export class GlTransactionService extends BaseService {
   ): Promise<PaginatedResult<BusinessTransaction>> {
     const organizationId = this.requireOrganizationContext();
     
-    // TODO: Implement repository call with organization/subsidiary filtering
-    throw new ServiceError(
-      'List business transactions not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      const paginationParams: BusinessTransactionPaginationParams = {
+        page: params.page,
+        limit: params.limit,
+        orderBy: 'transactionDate',
+        orderDirection: 'desc',
+      };
+      
+      const transactionFilters: BusinessTransactionFilters = {
+        subsidiaryId: filters.subsidiaryId,
+        transactionTypeId: filters.transactionTypeId,
+        status: filters.status,
+        entityId: filters.entityId,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+      };
+      
+      const result = await glTransactionRepository.findAll(
+        organizationId,
+        paginationParams,
+        transactionFilters
+      );
+      
+      return {
+        data: result.data.map(tx => ({
+          id: tx.id,
+          transactionNumber: tx.transactionNumber,
+          transactionTypeId: tx.transactionTypeId,
+          subsidiaryId: tx.subsidiaryId,
+          entityId: tx.entityId,
+          entityType: tx.entityType,
+          transactionDate: tx.transactionDate,
+          totalAmount: tx.totalAmount,
+          status: tx.status,
+          memo: tx.memo,
+          createdDate: tx.createdDate,
+          // Add other required fields with defaults
+          dueDate: null,
+          termsId: null,
+          currencyCode: 'USD',
+          exchangeRate: '1',
+          subtotalAmount: '0',
+          taxAmount: '0',
+          discountAmount: '0',
+          baseTotalAmount: tx.totalAmount,
+          externalReference: null,
+          workflowStatus: null,
+          glTransactionId: null,
+          createdBy: null,
+          modifiedBy: null,
+          modifiedDate: null,
+          approvedBy: null,
+          approvedDate: null,
+          postedDate: null,
+          versionNumber: 1,
+        })),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
+    } catch (error) {
+      throw new ServiceError(
+        `Failed to list business transactions: ${error.message}`,
+        'LIST_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -245,17 +394,60 @@ export class GlTransactionService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
     
-    // TODO: Implement approval logic
-    // 1. Validate transaction is in PENDING_APPROVAL status
-    // 2. Check user has approval permissions
-    // 3. Update transaction status to APPROVED
-    // 4. Add approval audit trail
-    
-    throw new ServiceError(
-      'Transaction approval not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      // Get the transaction to validate current status
+      const transaction = await this.getBusinessTransactionById(request.transactionId);
+      if (!transaction) {
+        throw new ServiceError(
+          'Transaction not found',
+          'TRANSACTION_NOT_FOUND',
+          404
+        );
+      }
+      
+      // Validate transaction can be approved
+      if (transaction.status !== 'PENDING_APPROVAL') {
+        throw new ServiceError(
+          `Transaction cannot be approved from status: ${transaction.status}`,
+          'INVALID_STATUS_TRANSITION',
+          400
+        );
+      }
+      
+      // Update transaction status to APPROVED
+      const result = await glTransactionRepository.updateStatus(
+        request.transactionId,
+        'APPROVED',
+        userId,
+        organizationId
+      );
+      
+      if (!result) {
+        throw new ServiceError(
+          'Failed to approve transaction',
+          'APPROVAL_FAILED',
+          500
+        );
+      }
+      
+      return {
+        ...transaction,
+        status: result.status,
+        approvedBy: result.approvedBy,
+        approvedDate: result.approvedDate,
+        modifiedBy: result.modifiedBy,
+        modifiedDate: result.modifiedDate,
+      };
+    } catch (error) {
+      if (error instanceof ServiceError) {
+        throw error;
+      }
+      throw new ServiceError(
+        `Failed to approve transaction: ${error.message}`,
+        'APPROVAL_FAILED',
+        500
+      );
+    }
   }
 
   /**
@@ -264,15 +456,37 @@ export class GlTransactionService extends BaseService {
   async deleteBusinessTransaction(id: string): Promise<void> {
     const organizationId = this.requireOrganizationContext();
     
-    // TODO: Implement deletion logic
-    // 1. Validate transaction exists and belongs to organization
-    // 2. Validate transaction is in DRAFT status
-    // 3. Delete transaction lines and transaction
-    
-    throw new ServiceError(
-      'Transaction deletion not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+    try {
+      // Get the transaction to validate current status
+      const transaction = await this.getBusinessTransactionById(id);
+      if (!transaction) {
+        throw new ServiceError(
+          'Transaction not found',
+          'TRANSACTION_NOT_FOUND',
+          404
+        );
+      }
+      
+      // Validate transaction can be deleted
+      if (transaction.status !== 'DRAFT') {
+        throw new ServiceError(
+          `Transaction cannot be deleted from status: ${transaction.status}`,
+          'INVALID_STATUS_FOR_DELETION',
+          400
+        );
+      }
+      
+      // Delete the transaction (repository handles lines via cascade)
+      await glTransactionRepository.delete(id, organizationId);
+    } catch (error) {
+      if (error instanceof ServiceError) {
+        throw error;
+      }
+      throw new ServiceError(
+        `Failed to delete transaction: ${error.message}`,
+        'DELETION_FAILED',
+        500
+      );
+    }
   }
 }
