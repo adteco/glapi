@@ -99,14 +99,12 @@ export default function LeadsPage() {
         body: JSON.stringify({
           name: formData.name,
           displayName: formData.displayName || undefined,
-          code: formData.code || undefined,
           entityTypes: ['Lead'],
           email: formData.email || undefined,
           phone: formData.phone || undefined,
           website: formData.website || undefined,
           status: formData.status,
           isActive: true,
-          description: formData.description || undefined,
           metadata: {
             source: formData.metadata.source || undefined,
             industry: formData.metadata.industry || undefined,

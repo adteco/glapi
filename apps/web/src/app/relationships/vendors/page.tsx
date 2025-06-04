@@ -682,7 +682,7 @@ export default function VendorsPage() {
               Update vendor information
             </DialogDescription>
           </DialogHeader>
-          <VendorForm />
+          <VendorForm formData={formData} setFormData={setFormData} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel

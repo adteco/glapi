@@ -90,7 +90,7 @@ export default function LocationsPage() {
   const { getToken, orgId } = useAuth();
 
   const form = useForm<LocationFormValues>({
-    resolver: zodResolver(locationFormSchema),
+    // resolver: zodResolver(locationFormSchema),
     defaultValues: {
       name: "",
       code: "",
