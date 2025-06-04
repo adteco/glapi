@@ -14,7 +14,7 @@ export const EntityTypeEnum = z.enum([
 export type EntityType = z.infer<typeof EntityTypeEnum>;
 
 // Address schema
-export const AddressSchema = z.object({
+export const EntityAddressSchema = z.object({
   id: z.string().uuid().optional(),
   addressee: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
@@ -28,7 +28,7 @@ export const AddressSchema = z.object({
   countryCode: z.string().length(2).optional().nullable(),
 });
 
-export type Address = z.infer<typeof AddressSchema>;
+export type EntityAddress = z.infer<typeof EntityAddressSchema>;
 
 // Base entity schema (common fields)
 export const BaseEntitySchema = z.object({
@@ -41,7 +41,7 @@ export const BaseEntitySchema = z.object({
   email: z.string().email().optional().nullable(),
   phone: z.string().optional().nullable(),
   website: z.string().url().optional().nullable(),
-  address: AddressSchema.optional().nullable(),
+  address: EntityAddressSchema.optional().nullable(),
   parentEntityId: z.string().uuid().optional().nullable(),
   primaryContactId: z.string().uuid().optional().nullable(),
   taxId: z.string().optional().nullable(),

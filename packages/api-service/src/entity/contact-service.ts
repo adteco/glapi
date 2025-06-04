@@ -9,6 +9,25 @@ import {
 } from './types';
 
 export class ContactService extends EntityService {
+  
+  /**
+   * Transform database entity to match expected types
+   */
+  protected transformEntity(entity: any): BaseEntity {
+    return {
+      ...entity,
+      createdAt: entity.createdAt instanceof Date ? entity.createdAt.toISOString() : entity.createdAt,
+      updatedAt: entity.updatedAt instanceof Date ? entity.updatedAt.toISOString() : entity.updatedAt,
+    };
+  }
+
+  /**
+   * Transform array of database entities
+   */
+  protected transformEntities(entities: any[]): BaseEntity[] {
+    return entities.map(entity => this.transformEntity(entity));
+  }
+
   /**
    * List all contacts
    */
@@ -71,9 +90,10 @@ export class ContactService extends EntityService {
     );
     
     // Filter by department in metadata
-    return contacts.filter(c => 
+    const filtered = contacts.filter(c => 
       (c.metadata as ContactMetadata)?.department === department
-    ) as BaseEntity[];
+    );
+    return this.transformEntities(filtered);
   }
   
   /**
@@ -104,8 +124,8 @@ export class ContactService extends EntityService {
     }
     
     return {
-      contact: contact as BaseEntity,
-      company: company as BaseEntity,
+      contact: this.transformEntity(contact),
+      company: this.transformEntity(company),
     };
   }
   
@@ -125,9 +145,10 @@ export class ContactService extends EntityService {
     );
     
     // Filter by preferred contact method in metadata
-    return contacts.filter(c => 
+    const filtered = contacts.filter(c => 
       (c.metadata as ContactMetadata)?.preferredContactMethod === method
-    ) as BaseEntity[];
+    );
+    return this.transformEntities(filtered);
   }
   
   /**
@@ -151,7 +172,7 @@ export class ContactService extends EntityService {
       const reportsTo = (contact.metadata as ContactMetadata)?.reportsTo;
       if (reportsTo) {
         const reports = hierarchy.get(reportsTo) || [];
-        reports.push(contact as BaseEntity);
+        reports.push(this.transformEntity(contact));
         hierarchy.set(reportsTo, reports);
       }
     });

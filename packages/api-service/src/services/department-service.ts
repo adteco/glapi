@@ -7,9 +7,26 @@ import {
   PaginatedResult,
   ServiceError
 } from '../types';
-import { departmentRepository } from '@glapi/database/src/repositories';
+import { departmentRepository } from '@glapi/database';
 
 export class DepartmentService extends BaseService {
+  /**
+   * Transform database department to service layer type
+   */
+  private transformDepartment(dbDepartment: any): Department {
+    return {
+      id: dbDepartment.id,
+      organizationId: dbDepartment.organizationId,
+      subsidiaryId: dbDepartment.subsidiaryId,
+      name: dbDepartment.name,
+      code: dbDepartment.departmentCode,
+      description: dbDepartment.description || undefined,
+      isActive: dbDepartment.status === 'active',
+      createdAt: dbDepartment.createdAt || new Date(),
+      updatedAt: dbDepartment.updatedAt || new Date(),
+    };
+  }
+
   /**
    * Get a list of departments for the current organization
    */
@@ -35,7 +52,7 @@ export class DepartmentService extends BaseService {
       const paginatedDepartments = departments.slice(startIdx, endIdx);
       
       return this.createPaginatedResult(
-        paginatedDepartments, 
+        paginatedDepartments.map(d => this.transformDepartment(d)), 
         departments.length, 
         page, 
         limit
@@ -52,7 +69,7 @@ export class DepartmentService extends BaseService {
     );
     
     return {
-      data: result.departments,
+      data: result.departments.map(d => this.transformDepartment(d)),
       total: result.totalCount,
       page,
       limit,
@@ -65,7 +82,8 @@ export class DepartmentService extends BaseService {
    */
   async getDepartmentById(id: string): Promise<Department | null> {
     const organizationId = this.requireOrganizationContext();
-    return departmentRepository.findById(id, organizationId);
+    const department = await departmentRepository.findById(id, organizationId);
+    return department ? this.transformDepartment(department) : null;
   }
   
   /**
@@ -84,7 +102,8 @@ export class DepartmentService extends BaseService {
     }
     
     // Create the department
-    return departmentRepository.create(data);
+    const department = await departmentRepository.create(data);
+    return this.transformDepartment(department);
   }
   
   /**
@@ -114,7 +133,7 @@ export class DepartmentService extends BaseService {
       );
     }
     
-    return updated;
+    return this.transformDepartment(updated);
   }
   
   /**

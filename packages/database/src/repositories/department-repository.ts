@@ -36,27 +36,26 @@ export class DepartmentRepository extends BaseRepository {
     
     const totalCount = Number(countResult[0]?.count || 0);
     
+    // Determine sort column
+    let sortColumn;
+    if (sortField === 'name') {
+      sortColumn = departments.name;
+    } else if (sortField === 'code') {
+      sortColumn = departments.code;
+    } else if (sortField === 'createdAt') {
+      sortColumn = departments.createdAt;
+    } else {
+      sortColumn = departments.name; // default
+    }
+    
     // Get sorted results with pagination
-    let query = this.db
+    const result = await this.db
       .select()
       .from(departments)
       .where(eq(departments.organizationId, organizationId))
+      .orderBy(sortOrder === 'desc' ? desc(sortColumn) : asc(sortColumn))
       .limit(limit)
       .offset(offset);
-    
-    // Handle sorting
-    if (sortField in departments) {
-      const sortColumn = departments[sortField as keyof typeof departments];
-      query = sortOrder === 'desc' 
-        ? query.orderBy(desc(sortColumn))
-        : query.orderBy(asc(sortColumn));
-    } else {
-      query = sortOrder === 'desc'
-        ? query.orderBy(desc(departments.name))
-        : query.orderBy(asc(departments.name));
-    }
-    
-    const result = await query;
     
     return {
       departments: result,
@@ -175,7 +174,7 @@ export class DepartmentRepository extends BaseRepository {
       return false;
     }
     
-    const result = await this.db
+    await this.db
       .delete(departments)
       .where(
         and(

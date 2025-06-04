@@ -69,7 +69,7 @@ const accountFormSchema = z.object({
   accountName: z.string().min(1, "Account name is required").max(255),
   accountCategory: z.enum(['Asset', 'Liability', 'Equity', 'Revenue', 'COGS', 'Expense']),
   description: z.string().max(1000).optional().nullable(),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean().optional(),
   parentAccountNumber: z.string().optional(),
 });
 

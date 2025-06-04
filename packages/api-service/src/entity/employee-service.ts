@@ -9,6 +9,25 @@ import {
 } from './types';
 
 export class EmployeeService extends EntityService {
+  
+  /**
+   * Transform database entity to match expected types
+   */
+  protected transformEntity(entity: any): BaseEntity {
+    return {
+      ...entity,
+      createdAt: entity.createdAt instanceof Date ? entity.createdAt.toISOString() : entity.createdAt,
+      updatedAt: entity.updatedAt instanceof Date ? entity.updatedAt.toISOString() : entity.updatedAt,
+    };
+  }
+
+  /**
+   * Transform array of database entities
+   */
+  protected transformEntities(entities: any[]): BaseEntity[] {
+    return entities.map(entity => this.transformEntity(entity));
+  }
+
   /**
    * List all employees
    */
@@ -56,9 +75,10 @@ export class EmployeeService extends EntityService {
     );
     
     // Filter by department in metadata
-    return employees.filter(e => 
+    const filtered = employees.filter(e => 
       (e.metadata as EmployeeMetadata)?.department === department
-    ) as BaseEntity[];
+    );
+    return this.transformEntities(filtered);
   }
   
   /**
@@ -77,9 +97,10 @@ export class EmployeeService extends EntityService {
     );
     
     // Filter by reportsTo in metadata
-    return employees.filter(e => 
+    const filtered = employees.filter(e => 
       (e.metadata as EmployeeMetadata)?.reportsTo === managerId
-    ) as BaseEntity[];
+    );
+    return this.transformEntities(filtered);
   }
   
   /**
@@ -103,7 +124,7 @@ export class EmployeeService extends EntityService {
       (e.metadata as EmployeeMetadata)?.employeeId === employeeId
     );
     
-    return employee as BaseEntity || null;
+    return employee ? this.transformEntity(employee) : null;
   }
 }
 

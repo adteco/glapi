@@ -12,11 +12,30 @@ export class EntityService {
   protected repository = entityRepository;
   
   /**
+   * Transform database entity to match expected types
+   */
+  protected transformEntity(entity: any): BaseEntity {
+    if (!entity) return entity;
+    return {
+      ...entity,
+      createdAt: entity.createdAt instanceof Date ? entity.createdAt.toISOString() : entity.createdAt,
+      updatedAt: entity.updatedAt instanceof Date ? entity.updatedAt.toISOString() : entity.updatedAt,
+    };
+  }
+
+  /**
+   * Transform array of database entities
+   */
+  protected transformEntities(entities: any[]): BaseEntity[] {
+    return entities.map(entity => this.transformEntity(entity));
+  }
+  
+  /**
    * Find entity by ID
    */
   async findById(id: string, organizationId: string): Promise<BaseEntity | null> {
     const entity = await this.repository.findById(id, organizationId);
-    return entity as BaseEntity | null;
+    return this.transformEntity(entity);
   }
   
   /**
@@ -24,7 +43,7 @@ export class EntityService {
    */
   async findByCode(code: string, organizationId: string): Promise<BaseEntity | null> {
     const entity = await this.repository.findByCode(code, organizationId);
-    return entity as BaseEntity | null;
+    return this.transformEntity(entity);
   }
   
   /**
@@ -66,7 +85,7 @@ export class EntityService {
     );
     
     return {
-      data: entities as BaseEntity[],
+      data: this.transformEntities(entities),
       total: Number(total),
       page,
       limit,
@@ -88,7 +107,7 @@ export class EntityService {
       entityTypes,
     });
     
-    return entity as BaseEntity;
+    return this.transformEntity(entity);
   }
   
   /**
@@ -105,7 +124,7 @@ export class EntityService {
       throw new Error('Entity not found');
     }
     
-    return entity as BaseEntity;
+    return this.transformEntity(entity);
   }
   
   /**
@@ -124,7 +143,7 @@ export class EntityService {
     entityType: EntityType
   ): Promise<BaseEntity> {
     const entity = await this.repository.addEntityType(id, organizationId, entityType);
-    return entity as BaseEntity;
+    return this.transformEntity(entity);
   }
   
   /**
@@ -136,7 +155,7 @@ export class EntityService {
     entityType: EntityType
   ): Promise<BaseEntity> {
     const entity = await this.repository.removeEntityType(id, organizationId, entityType);
-    return entity as BaseEntity;
+    return this.transformEntity(entity);
   }
   
   /**
@@ -147,7 +166,7 @@ export class EntityService {
     organizationId: string
   ): Promise<BaseEntity[]> {
     const contacts = await this.repository.findContactsForEntity(entityId, organizationId);
-    return contacts as BaseEntity[];
+    return this.transformEntities(contacts);
   }
 }
 

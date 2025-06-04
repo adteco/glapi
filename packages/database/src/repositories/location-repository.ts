@@ -36,27 +36,26 @@ export class LocationRepository extends BaseRepository {
     
     const totalCount = Number(countResult[0]?.count || 0);
     
+    // Determine sort column
+    let sortColumn;
+    if (sortField === 'name') {
+      sortColumn = locations.name;
+    } else if (sortField === 'code') {
+      sortColumn = locations.code;
+    } else if (sortField === 'createdAt') {
+      sortColumn = locations.createdAt;
+    } else {
+      sortColumn = locations.name; // default
+    }
+    
     // Get sorted results with pagination
-    let query = this.db
+    const result = await this.db
       .select()
       .from(locations)
       .where(eq(locations.organizationId, organizationId))
+      .orderBy(sortOrder === 'desc' ? desc(sortColumn) : asc(sortColumn))
       .limit(limit)
       .offset(offset);
-    
-    // Handle sorting
-    if (sortField in locations) {
-      const sortColumn = locations[sortField as keyof typeof locations];
-      query = sortOrder === 'desc' 
-        ? query.orderBy(desc(sortColumn))
-        : query.orderBy(asc(sortColumn));
-    } else {
-      query = sortOrder === 'desc'
-        ? query.orderBy(desc(locations.name))
-        : query.orderBy(asc(locations.name));
-    }
-    
-    const result = await query;
     
     return {
       locations: result,
@@ -149,7 +148,6 @@ export class LocationRepository extends BaseRepository {
       .update(locations)
       .set({
         ...location,
-        updatedAt: new Date()
       })
       .where(
         and(
@@ -175,7 +173,7 @@ export class LocationRepository extends BaseRepository {
       return false;
     }
     
-    const result = await this.db
+    await this.db
       .delete(locations)
       .where(
         and(

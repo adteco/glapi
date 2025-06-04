@@ -1,9 +1,25 @@
 import { Router } from 'express';
 import { getServiceContext } from '../middleware/clerk-auth';
-import { vendorService, EntityListQuerySchema, CreateEntitySchema, UpdateEntitySchema } from '@glapi/api-service';
+import { 
+  vendorService, 
+  EntityListQuerySchema, 
+  CreateEntitySchema, 
+  UpdateEntitySchema,
+  VendorMetadataSchema 
+} from '@glapi/api-service';
 import { z } from 'zod';
 
-const router = Router();
+const router: Router = Router();
+
+// Define a Zod schema for creating a vendor, using the specific VendorMetadataSchema
+const CreateVendorPayloadSchema = CreateEntitySchema.omit({ metadata: true }).extend({
+  metadata: VendorMetadataSchema.optional()
+});
+
+// Define a Zod schema for updating a vendor, using the specific VendorMetadataSchema
+const UpdateVendorPayloadSchema = UpdateEntitySchema.omit({ metadata: true }).extend({
+  metadata: VendorMetadataSchema.optional()
+});
 
 // List vendors
 router.get('/', async (req, res, next) => {
@@ -16,9 +32,9 @@ router.get('/', async (req, res, next) => {
       query
     );
     
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -34,9 +50,9 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Vendor not found' });
     }
     
-    res.json(vendor);
+    return res.json(vendor);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -44,19 +60,19 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
-    const data = CreateEntitySchema.parse(req.body);
+    const data = CreateVendorPayloadSchema.parse(req.body);
     
     const vendor = await vendorService.createVendor(
       context.organizationId,
       data
     );
     
-    res.status(201).json(vendor);
+    return res.status(201).json(vendor);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -65,7 +81,7 @@ router.put('/:id', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
     const { id } = req.params;
-    const data = UpdateEntitySchema.parse(req.body);
+    const data = UpdateVendorPayloadSchema.parse(req.body);
     
     const vendor = await vendorService.updateVendor(
       id,
@@ -73,12 +89,12 @@ router.put('/:id', async (req, res, next) => {
       data
     );
     
-    res.json(vendor);
+    return res.json(vendor);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -90,27 +106,30 @@ router.delete('/:id', async (req, res, next) => {
     
     await vendorService.delete(id, context.organizationId);
     
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Find vendor by EIN
-router.get('/by-ein/:ein', async (req, res, next) => {
+router.get('/ein/:ein', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
     const { ein } = req.params;
     
-    const vendor = await vendorService.findByEIN(ein, context.organizationId);
+    const vendor = await vendorService.findByEIN(
+      ein,
+      context.organizationId
+    );
     
     if (!vendor) {
       return res.status(404).json({ error: 'Vendor not found' });
     }
     
-    res.json(vendor);
+    return res.json(vendor);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

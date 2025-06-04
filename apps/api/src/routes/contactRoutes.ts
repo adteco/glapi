@@ -1,9 +1,25 @@
 import { Router } from 'express';
 import { getServiceContext } from '../middleware/clerk-auth';
-import { contactService, EntityListQuerySchema, CreateEntitySchema, UpdateEntitySchema } from '@glapi/api-service';
+import { 
+  contactService, 
+  EntityListQuerySchema, 
+  CreateEntitySchema, // Base schema for creation
+  UpdateEntitySchema, // Base schema for updates
+  ContactMetadataSchema // Specific metadata schema for contacts
+} from '@glapi/api-service';
 import { z } from 'zod';
 
-const router = Router();
+const router: Router = Router();
+
+// Define a Zod schema for creating a contact, using the specific ContactMetadataSchema
+const CreateContactPayloadSchema = CreateEntitySchema.omit({ metadata: true }).extend({
+  metadata: ContactMetadataSchema.optional() 
+});
+
+// Define a Zod schema for updating a contact, using the specific ContactMetadataSchema
+const UpdateContactPayloadSchema = UpdateEntitySchema.omit({ metadata: true }).extend({
+  metadata: ContactMetadataSchema.optional()
+});
 
 // List contacts
 router.get('/', async (req, res, next) => {
@@ -16,9 +32,9 @@ router.get('/', async (req, res, next) => {
       query
     );
     
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -34,9 +50,9 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Contact not found' });
     }
     
-    res.json(contact);
+    return res.json(contact);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -44,19 +60,20 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
-    const data = CreateEntitySchema.parse(req.body);
+    // Use the new schema for parsing
+    const data = CreateContactPayloadSchema.parse(req.body);
     
     const contact = await contactService.createContact(
       context.organizationId,
       data
     );
     
-    res.status(201).json(contact);
+    return res.status(201).json(contact);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -65,7 +82,8 @@ router.put('/:id', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
     const { id } = req.params;
-    const data = UpdateEntitySchema.parse(req.body);
+    // Use the new schema for parsing
+    const data = UpdateContactPayloadSchema.parse(req.body);
     
     const contact = await contactService.updateContact(
       id,
@@ -73,12 +91,12 @@ router.put('/:id', async (req, res, next) => {
       data
     );
     
-    res.json(contact);
+    return res.json(contact);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -90,9 +108,9 @@ router.delete('/:id', async (req, res, next) => {
     
     await contactService.delete(id, context.organizationId);
     
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -107,9 +125,9 @@ router.get('/company/:companyId', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json({ data: contacts });
+    return res.json({ data: contacts });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -124,9 +142,9 @@ router.get('/department/:department', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json({ data: contacts });
+    return res.json({ data: contacts });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -142,9 +160,9 @@ router.post('/:id/set-primary/:companyId', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -163,9 +181,9 @@ router.get('/contact-method/:method', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json({ data: contacts });
+    return res.json({ data: contacts });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -184,9 +202,9 @@ router.get('/hierarchy', async (req, res, next) => {
       hierarchyObj[key] = value;
     });
     
-    res.json(hierarchyObj);
+    return res.json(hierarchyObj);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

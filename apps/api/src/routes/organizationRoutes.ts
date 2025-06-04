@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { OrganizationService } from '@glapi/api-service';
 
-const router = Router();
+const router: Router = Router();
 
 // Helper to get organization context from request
 const getServiceContext = (req: Request) => {
@@ -82,7 +82,7 @@ router.get('/lookup', async (req: Request, res: Response, next: NextFunction) =>
  * GET /api/v1/organizations/default
  * Get the default organization for development
  */
-router.get('/default', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/default', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     // Initialize the organization service
     const orgService = new OrganizationService();

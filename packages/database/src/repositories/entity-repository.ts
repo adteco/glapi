@@ -1,7 +1,7 @@
 import { BaseRepository } from './base-repository';
 import { entities } from '../db/schema/entities';
 import { addresses } from '../db/schema/addresses';
-import { eq, and, or, ilike, inArray, arrayContains, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, ilike, arrayContains, desc, asc, sql, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 // Validation schemas
@@ -24,8 +24,8 @@ const AddressSchema = z.object({
 const NewEntitySchema = z.object({
   organizationId: z.string(),
   name: z.string(),
-  displayName: z.string().optional(),
-  code: z.string().optional(),
+  displayName: z.string().optional().nullable(),
+  code: z.string().optional().nullable(),
   entityTypes: z.array(EntityTypeSchema),
   email: z.string().email().optional().nullable(),
   phone: z.string().optional().nullable(),
@@ -184,7 +184,52 @@ export class EntityRepository extends BaseRepository {
       orderDirection?: 'asc' | 'desc';
     }
   ) {
-    let query = this.db
+    const baseConditions = [
+      eq(entities.organizationId, organizationId),
+      // Check if any of the requested types are in the entity's types array
+      or(...types.map(type => arrayContains(entities.entityTypes, [type])))
+    ];
+
+    // Apply additional filters
+    const additionalConditions = [];
+    
+    if (options?.parentEntityId !== undefined) {
+      additionalConditions.push(
+        options.parentEntityId === null 
+          ? isNull(entities.parentEntityId)
+          : eq(entities.parentEntityId, options.parentEntityId)
+      );
+    }
+
+    if (options?.status) {
+      additionalConditions.push(eq(entities.status, options.status));
+    }
+
+    if (options?.isActive !== undefined) {
+      additionalConditions.push(eq(entities.isActive, options.isActive));
+    }
+
+    if (options?.searchTerm) {
+      additionalConditions.push(
+        or(
+          ilike(entities.name, `%${options.searchTerm}%`),
+          ilike(entities.displayName, `%${options.searchTerm}%`),
+          ilike(entities.email, `%${options.searchTerm}%`),
+          ilike(entities.code, `%${options.searchTerm}%`)
+        )
+      );
+    }
+
+    const allConditions = additionalConditions.length > 0 
+      ? and(...baseConditions, ...additionalConditions) 
+      : and(...baseConditions);
+
+    // Apply ordering
+    const orderColumn = options?.orderBy === 'createdAt' ? entities.createdAt 
+                      : options?.orderBy === 'updatedAt' ? entities.updatedAt 
+                      : entities.name;
+    
+    const baseQuery = this.db
       .select({
         id: entities.id,
         organizationId: entities.organizationId,
@@ -227,66 +272,21 @@ export class EntityRepository extends BaseRepository {
       })
       .from(entities)
       .leftJoin(addresses, eq(entities.addressId, addresses.id))
-      .where(
-        and(
-          eq(entities.organizationId, organizationId),
-          // Check if any of the requested types are in the entity's types array
-          or(...types.map(type => arrayContains(entities.entityTypes, [type])))
-        )
+      .where(allConditions)
+      .orderBy(
+        options?.orderDirection === 'desc' ? desc(orderColumn) : asc(orderColumn)
       );
 
-    // Apply additional filters
-    const conditions = [];
-    
-    if (options?.parentEntityId !== undefined) {
-      conditions.push(
-        options.parentEntityId === null 
-          ? eq(entities.parentEntityId, null)
-          : eq(entities.parentEntityId, options.parentEntityId)
-      );
+    // Apply pagination by building a complete chain
+    if (options?.limit && options?.offset) {
+      return await baseQuery.limit(options.limit).offset(options.offset);
+    } else if (options?.limit) {
+      return await baseQuery.limit(options.limit);
+    } else if (options?.offset) {
+      return await baseQuery.offset(options.offset);
     }
 
-    if (options?.status) {
-      conditions.push(eq(entities.status, options.status));
-    }
-
-    if (options?.isActive !== undefined) {
-      conditions.push(eq(entities.isActive, options.isActive));
-    }
-
-    if (options?.searchTerm) {
-      conditions.push(
-        or(
-          ilike(entities.name, `%${options.searchTerm}%`),
-          ilike(entities.displayName, `%${options.searchTerm}%`),
-          ilike(entities.email, `%${options.searchTerm}%`),
-          ilike(entities.code, `%${options.searchTerm}%`)
-        )
-      );
-    }
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    // Apply ordering
-    const orderColumn = options?.orderBy === 'createdAt' ? entities.createdAt 
-                      : options?.orderBy === 'updatedAt' ? entities.updatedAt 
-                      : entities.name;
-    
-    query = query.orderBy(
-      options?.orderDirection === 'desc' ? desc(orderColumn) : asc(orderColumn)
-    );
-
-    // Apply pagination
-    if (options?.limit) {
-      query = query.limit(options.limit);
-    }
-    if (options?.offset) {
-      query = query.offset(options.offset);
-    }
-
-    return await query;
+    return await baseQuery;
   }
 
   async findContactsForEntity(entityId: string, organizationId: string) {
@@ -399,6 +399,9 @@ export class EntityRepository extends BaseRepository {
     // Extract address from data if provided
     const { address, ...entityData } = data;
     
+    // Create update data object with proper typing
+    const updateData: any = { ...entityData };
+    
     // Handle address update if provided
     if (address !== undefined) {
       if (address && (address.line1 || address.city)) {
@@ -439,22 +442,22 @@ export class EntityRepository extends BaseRepository {
             })
             .returning();
           
-          entityData.addressId = addressResult.id;
+          updateData.addressId = addressResult.id;
         }
       } else if (existing.addressId) {
         // Delete existing address if empty address provided
         await this.db
           .delete(addresses)
           .where(eq(addresses.id, existing.addressId));
-        entityData.addressId = null;
+        updateData.addressId = null;
       }
     }
     
     // Ensure parent entity belongs to same organization if provided
-    if (entityData.parentEntityId) {
+    if (updateData.parentEntityId) {
       const parentExists = await this.belongsToOrganization(
         entities,
-        entityData.parentEntityId,
+        updateData.parentEntityId,
         organizationId
       );
       
@@ -464,10 +467,10 @@ export class EntityRepository extends BaseRepository {
     }
 
     // Ensure primary contact belongs to same organization if provided
-    if (entityData.primaryContactId) {
+    if (updateData.primaryContactId) {
       const contactExists = await this.belongsToOrganization(
         entities,
-        entityData.primaryContactId,
+        updateData.primaryContactId,
         organizationId
       );
       
@@ -476,11 +479,10 @@ export class EntityRepository extends BaseRepository {
       }
     }
 
-    const [result] = await this.db
+    await this.db
       .update(entities)
       .set({
-        ...entityData,
-        updatedAt: new Date(),
+        ...updateData,
       })
       .where(
         and(
@@ -547,7 +549,7 @@ export class EntityRepository extends BaseRepository {
       return entity;
     }
 
-    const updatedTypes = [...entity.entityTypes, type];
+    const updatedTypes = [...entity.entityTypes, type] as EntityType[];
     
     return await this.update(id, organizationId, {
       entityTypes: updatedTypes,
@@ -560,7 +562,7 @@ export class EntityRepository extends BaseRepository {
       throw new Error('Entity not found');
     }
 
-    const updatedTypes = entity.entityTypes.filter(t => t !== type);
+    const updatedTypes = entity.entityTypes.filter(t => t !== type) as EntityType[];
     
     // Ensure at least one type remains
     if (updatedTypes.length === 0) {
@@ -587,7 +589,7 @@ export class EntityRepository extends BaseRepository {
     if (filters?.parentEntityId !== undefined) {
       conditions.push(
         filters.parentEntityId === null 
-          ? eq(entities.parentEntityId, null)
+          ? isNull(entities.parentEntityId)
           : eq(entities.parentEntityId, filters.parentEntityId)
       );
     }

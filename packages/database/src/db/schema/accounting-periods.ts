@@ -1,5 +1,7 @@
-import { pgTable, text, boolean, timestamp, uniqueIndex, date, uuid, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, uniqueIndex, date, uuid, integer, decimal } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { subsidiaries } from './subsidiaries';
+import { users } from './users';
 
 export const accountingPeriods = pgTable('accounting_periods', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -21,19 +23,6 @@ export const accountingPeriods = pgTable('accounting_periods', {
   dateRangeIdx: uniqueIndex('idx_periods_date_range').on(table.startDate, table.endDate),
 }));
 
-export const accountingPeriodsRelations = relations(accountingPeriods, ({ one, many }) => ({
-  subsidiary: one(subsidiaries, {
-    fields: [accountingPeriods.subsidiaryId],
-    references: [subsidiaries.id],
-  }),
-  closedByUser: one(users, {
-    fields: [accountingPeriods.closedBy],
-    references: [users.id],
-  }),
-  glTransactions: many(glTransactions),
-  glAccountBalances: many(glAccountBalances),
-}));
-
 export const exchangeRates = pgTable('exchange_rates', {
   id: uuid('id').defaultRandom().primaryKey(),
   fromCurrency: text('from_currency').notNull(),
@@ -46,17 +35,19 @@ export const exchangeRates = pgTable('exchange_rates', {
   currencyDateIdx: uniqueIndex('idx_exchange_rates_currency_date').on(table.fromCurrency, table.toCurrency, table.rateDate, table.rateType),
 }));
 
+// Relations will be defined separately to avoid circular dependencies
+export const accountingPeriodsRelations = relations(accountingPeriods, ({ one }) => ({
+  subsidiary: one(subsidiaries, {
+    fields: [accountingPeriods.subsidiaryId],
+    references: [subsidiaries.id],
+  }),
+  closedByUser: one(users, {
+    fields: [accountingPeriods.closedBy],
+    references: [users.id],
+  }),
+  // glTransactions and glAccountBalances relations should be defined in their respective files
+}));
+
 export const exchangeRatesRelations = relations(exchangeRates, ({ }) => ({
   // No direct relations
 }));
-
-// Import references
-import { decimal } from 'drizzle-orm/pg-core';
-import { subsidiaries } from './subsidiaries';
-import { users } from './users';
-// Forward references - will be imported in other files to avoid circular dependencies
-export type GlTransactions = typeof glTransactions;
-export type GlAccountBalances = typeof glAccountBalances;
-// These will be defined in gl-transactions.ts
-const glTransactions = {} as any;
-const glAccountBalances = {} as any;
