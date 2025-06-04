@@ -10,6 +10,8 @@ const isPublicRoute = createRouteMatcher([
   '/privacy-policy(.*)',
   '/terms-of-service(.*)',
   '/security(.*)',
+  '/pricing(.*)',
+  '/product(.*)',
   // Add any other public routes here, e.g., landing page, public API routes
   // '/', // If your landing page is public
 ]);
