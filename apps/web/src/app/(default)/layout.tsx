@@ -1,33 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "../globals.css";
-import { ClerkProvider } from '@clerk/nextjs';
-import { dark } from "@clerk/themes";
-import { ConditionalLayout } from "@/components/ConditionalLayout";
-import { Toaster } from 'sonner';
-
-const inter = Inter({ subsets: ["latin"] });
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: "GLAPI App", // Updated title
-  description: "API First General Ledger", // Updated description
+  title: "GLAPI",
+  description: "API First General Ledger",
 };
 
-export default function RootLayout({
+export default function DefaultLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={{ baseTheme: dark }}>
-      <html lang="en" className="dark" suppressHydrationWarning>
-        <body className={`${inter.className} bg-background text-foreground`}>
-          <ConditionalLayout>
-            {children}
-          </ConditionalLayout>
-          <Toaster richColors closeButton position="top-right" />
-        </body>
-      </html>
-    </ClerkProvider>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 text-white">
+      <Header />
+      {children}
+      <Footer />
+    </div>
   );
 }

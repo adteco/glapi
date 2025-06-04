@@ -1,11 +1,9 @@
 import React from 'react';
 import { Metadata } from 'next'
-import HeroPrivacyPolicy from './hero-privacy-policy'
-import PrivacyPolicyContent from './privacy-policy-content'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy - Adteco',
-  description: 'Learn about Adteco\'s privacy practices.',
+  title: 'Privacy Policy - GLAPI',
+  description: 'Learn about GLAPI\'s privacy practices.',
 }
 
 export default function PrivacyPolicyPage() {
@@ -26,29 +24,30 @@ export default function PrivacyPolicyPage() {
             <div className="prose prose-lg prose-invert max-w-none">
 
               <h2 id="welcome">Welcome!</h2>
-              <p>Welcome to Adteco! We hope you will enjoy and appreciate visiting or using our Website or using our Services. This Privacy Policy (the "Policy") tells you about who we are, what personal data we collect, and what we do with it while you visit the Website, use the Services, or otherwise interact with us. The Policy also explains your privacy and data rights under the law.</p>
+              <p>Welcome to GLAPI! We hope you will enjoy and appreciate visiting or using our Website or using our Services. This Privacy Policy (the "Policy") tells you about who we are, what personal data we collect, and what we do with it while you visit the Website, use the Services, or otherwise interact with us. The Policy also explains your privacy and data rights under the law.</p>
               <p>Please read this Policy carefully. By using our Website or Services, you agree to be bound by this Policy.</p>
               <p>References to "you" or "your" are to you as an individual using our website or otherwise contacting us.</p>
 
               <h2 id="terms">Some important terms</h2>
               <ul>
-                <li><strong>Data Protection Laws:</strong> Laws designed to protect your personal data and privacy where you live. These may include GDPR (Europe), CCPA (California), PIPEDA (Canada), AU Privacy Act (Australia), NZ Privacy Act (New Zealand), POPIA (South Africa), UK GDPR & DPA (United Kingdom), and others. Adteco is committed to adhering to applicable Data Protection laws.</li>
+                <li><strong>Data Protection Laws:</strong> Laws designed to protect your personal data and privacy where you live. These may include GDPR (Europe), CCPA (California), PIPEDA (Canada), AU Privacy Act (Australia), NZ Privacy Act (New Zealand), POPIA (South Africa), UK GDPR & DPA (United Kingdom), and others. GLAPI is committed to adhering to applicable Data Protection laws.</li>
                 <li><strong>Personal data:</strong> Information about an individual from which that person can be identified (e.g., name, email, online identifier). This includes "personal information" under various laws.</li>
               </ul>
               <p>Other terms may be found in our Terms of Service.</p>
 
               <h2 id="about-us">About us</h2>
-              <p>Adteco refers to Adteco, LLC, a US-based company, and any relevant subsidiaries or affiliates within the Adteco group responsible for processing your data. Adteco, LLC is the primary controller responsible for this Website.</p>
-              <p>Under GDPR and POPIA, Adteco acts as a "data controller" or "responsible party," meaning we collect personal data and determine how it's processed. When we process data because you use our services through one of our customers (e.g., as their employee or client), we act as a "data processor" on their behalf. In such cases, refer to our customer's privacy policy.</p>
+              <p>GLAPI refers to GLAPI, LLC, a US-based company, and any relevant subsidiaries or affiliates within the GLAPI group responsible for processing your data. GLAPI, LLC is the primary controller responsible for this Website.</p>
+              <p>Under GDPR and POPIA, GLAPI acts as a "data controller" or "responsible party," meaning we collect personal data and determine how it's processed. When we process data because you use our services through one of our customers (e.g., as their employee or client), we act as a "data processor" on their behalf. In such cases, refer to our customer's privacy policy.</p>
 
               <h2 id="contacting-us">Contacting us</h2>
               <p>For privacy-related questions or to exercise your rights, contact:</p>
-              <p><strong>Adteco Privacy Contact</strong><br />
-              Email: <a href="mailto:privacy@adteco.com">privacy@adteco.com</a> {/* TODO: Confirm/create this email */}</p>
+              <p><strong>GLAPI Privacy Contact</strong><br />
+              Email: <a href="mailto:privacy@glapi.com">privacy@glapi.com</a></p>
               <p>Mailing Address:<br />
-              {/* TODO: Add Adteco's mailing address */}
-              [Adteco Mailing Address Here]</p>
-              <p>For questions about the Website or Services, email <a href="mailto:support@adteco.com">support@adteco.com</a>.</p>
+              GLAPI<br />
+              Privacy Department<br />
+              United States</p>
+              <p>For questions about the Website or Services, email <a href="mailto:support@glapi.com">support@glapi.com</a>.</p>
 
               <h2 id="your-rights">Your legal rights</h2>
               <p>Depending on your location and applicable Data Protection Laws (like GDPR, CCPA, etc.), you may have rights including:</p>
@@ -61,7 +60,7 @@ export default function PrivacyPolicyPage() {
                 <li><strong>Data portability:</strong> Request transfer of your data in a machine-readable format.</li>
                 <li><strong>Withdraw consent:</strong> Withdraw consent where processing relies on it (this doesn't affect past processing).</li>
                 <li><strong>Be notified:</strong> Be informed about data collection and breaches.</li>
-                <li><strong>Opt-out:</strong> Opt out of marketing or the sale/sharing of your data (Adteco does not sell your personal data).</li>
+                <li><strong>Opt-out:</strong> Opt out of marketing or the sale/sharing of your data (GLAPI does not sell your personal data).</li>
                 <li><strong>Non-discrimination:</strong> Not be discriminated against for exercising privacy rights.</li>
                 <li><strong>Complain:</strong> Lodge a complaint with a supervisory authority.</li>
               </ul>
@@ -107,7 +106,7 @@ export default function PrivacyPolicyPage() {
                 <li>Making service recommendations based on your usage.</li>
               </ul>
               <p>Failure to provide necessary data may prevent us from fulfilling contracts (e.g., providing services).</p>
-              <p>Financial Data for billing is handled by secure Payment Processors (e.g., Stripe) and not stored on Adteco servers.</p>
+              <p>Financial Data for billing is handled by secure Payment Processors (e.g., Stripe) and not stored on GLAPI servers.</p>
 
               <h2 id="change-purpose">Change of purpose</h2>
               <p>We only use your data for the purposes collected, unless we reasonably consider a need for another compatible reason. We will notify you and explain the legal basis if using data for an unrelated purpose. We may process data without knowledge or consent where required/permitted by law.</p>
@@ -121,7 +120,7 @@ export default function PrivacyPolicyPage() {
               <h2 id="data-transfers">Who we transfer your personal data to</h2>
               <p>We may share data with:</p>
               <ul>
-                <li><strong>Internal Adteco entities:</strong> For operational purposes.</li>
+                <li><strong>Internal GLAPI entities:</strong> For operational purposes.</li>
                 <li><strong>External third parties:</strong>
                   <ul>
                     <li>Professional advisers (lawyers, auditors, insurers).</li>
@@ -146,7 +145,7 @@ export default function PrivacyPolicyPage() {
               </ul>
 
               <h2 id="international-transfers">Transfer of personal data outside of your region</h2>
-              <p>Sharing data within Adteco or with third parties may involve transferring data internationally (e.g., outside the EEA, UK, South Africa). We ensure similar protection by using safeguards like:</p>
+              <p>Sharing data within GLAPI or with third parties may involve transferring data internationally (e.g., outside the EEA, UK, South Africa). We ensure similar protection by using safeguards like:</p>
               <ul>
                 <li>Transferring to countries deemed adequate by relevant authorities.</li>
                 <li>Using Standard Contractual Clauses (SCCs) or other approved mechanisms where adequacy decisions don't exist.</li>
