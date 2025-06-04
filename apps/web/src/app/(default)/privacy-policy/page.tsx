@@ -14,9 +14,9 @@ export default function PrivacyPolicyPage() {
 
           {/* Page header */}
           <div className="max-w-3xl mx-auto text-center pb-12 md:pb-16">
-            <h1 className="h1 text-5xl md:text-6xl font-extrabold leading-tighter tracking-tighter mb-4" data-aos="zoom-y-out">Privacy Policy</h1>
+            <h1 className="h1">Privacy Policy</h1>
             <p className="text-xl text-gray-400 mb-2">We take your privacy and protection of personal data very seriously.</p>
-            <p className="text-sm text-gray-500">Last updated: December 12, 2024</p> {/* TODO: Update date dynamically or manually */}
+            <p className="text-sm text-gray-500">Last updated: December 12, 2024</p>
           </div>
 
           {/* Content */}
