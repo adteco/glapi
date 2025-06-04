@@ -7,6 +7,8 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)', // Matches /sign-in and /sign-in/*
   '/sign-up(.*)', // Matches /sign-up and /sign-up/*
   '/api/clerk-webhook(.*)', // Example: if you have a Clerk webhook
+  '/privacy-policy(.*)',
+  '/terms-of-service(.*)',
   // Add any other public routes here, e.g., landing page, public API routes
   // '/', // If your landing page is public
 ]);
