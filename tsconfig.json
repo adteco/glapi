@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "downlevelIteration": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@glapi/*": ["./packages/*/src"],
+      "@glapi/database": ["./packages/database/src"],
+      "@glapi/database/*": ["./packages/database/src/*"],
+      "@glapi/api-service": ["./packages/api-service/src"],
+      "@glapi/api-service/*": ["./packages/api-service/src/*"]
+    }
+  },
+  "references": [
+    {
+      "path": "./packages/database"
+    },
+    {
+      "path": "./packages/api-service"
+    },
+    {
+      "path": "./packages/business"
+    },
+    {
+      "path": "./apps/api"
+    },
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./apps/docs"
+    }
+  ]
+}

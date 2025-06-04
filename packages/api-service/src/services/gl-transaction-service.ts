@@ -7,6 +7,7 @@ import {
   UpdateBusinessTransactionInput,
   CreateBusinessTransactionLineInput,
   UpdateBusinessTransactionLineInput,
+  CreateGlTransactionLineInput,
   PostTransactionRequest,
   ReverseTransactionRequest,
   ApproveTransactionRequest,
@@ -15,11 +16,16 @@ import {
   ServiceError
 } from '../types';
 import { SubsidiaryService } from './subsidiary-service';
-import { glTransactionRepository } from '@glapi/database/repositories';
+import { glTransactionRepository } from '@glapi/database';
 import type { 
   BusinessTransactionPaginationParams, 
   BusinessTransactionFilters 
-} from '@glapi/database/repositories/gl-transaction-repository';
+} from '@glapi/database';
+
+// Define types for lines that are prepared but not yet finalized with transaction/line numbers
+// These types omit fields that are added just before database insertion.
+type PreparedBusinessLine = Omit<CreateBusinessTransactionLineInput, 'businessTransactionId' | 'lineNumber'>;
+type PreparedGlLine = Omit<CreateGlTransactionLineInput, 'transactionId' | 'lineNumber'>;
 
 export class GlTransactionService extends BaseService {
   private subsidiaryService: SubsidiaryService;
@@ -27,6 +33,43 @@ export class GlTransactionService extends BaseService {
   constructor(context = {}) {
     super(context);
     this.subsidiaryService = new SubsidiaryService(context);
+  }
+
+  /**
+   * Transform database business transaction to service layer type
+   */
+  private transformBusinessTransaction(dbTransaction: any): BusinessTransaction {
+    return {
+      id: dbTransaction.id,
+      transactionNumber: dbTransaction.transactionNumber,
+      transactionTypeId: dbTransaction.transactionTypeId,
+      subsidiaryId: dbTransaction.subsidiaryId,
+      entityId: dbTransaction.entityId || undefined,
+      entityType: dbTransaction.entityType || undefined,
+      transactionDate: dbTransaction.transactionDate,
+      dueDate: dbTransaction.dueDate || undefined,
+      termsId: dbTransaction.termsId || undefined,
+      currencyCode: dbTransaction.currencyCode,
+      exchangeRate: dbTransaction.exchangeRate,
+      subtotalAmount: dbTransaction.subtotalAmount,
+      taxAmount: dbTransaction.taxAmount,
+      discountAmount: dbTransaction.discountAmount,
+      totalAmount: dbTransaction.totalAmount,
+      baseTotalAmount: dbTransaction.baseTotalAmount,
+      memo: dbTransaction.memo || undefined,
+      externalReference: dbTransaction.externalReference || undefined,
+      status: dbTransaction.status as 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'POSTED' | 'PAID' | 'CLOSED' | 'CANCELLED',
+      workflowStatus: dbTransaction.workflowStatus || undefined,
+      glTransactionId: dbTransaction.glTransactionId || undefined,
+      createdBy: dbTransaction.createdBy || undefined,
+      createdDate: dbTransaction.createdDate || undefined,
+      modifiedBy: dbTransaction.modifiedBy || undefined,
+      modifiedDate: dbTransaction.modifiedDate || undefined,
+      approvedBy: dbTransaction.approvedBy || undefined,
+      approvedDate: dbTransaction.approvedDate || undefined,
+      postedDate: dbTransaction.postedDate || undefined,
+      versionNumber: dbTransaction.versionNumber,
+    };
   }
 
   /**
@@ -51,7 +94,7 @@ export class GlTransactionService extends BaseService {
       );
     }
     
-    return subsidiaries.data[0].id;
+    return subsidiaries.data[0].id as string;
   }
 
   /**
@@ -65,9 +108,66 @@ export class GlTransactionService extends BaseService {
   }
 
   /**
+   * Helper to map incoming line data to a structure suitable for CreateBusinessTransactionLineInput,
+   * ensuring required fields for creation are present and applying defaults.
+   */
+  private mapToCreateLineInput(line: CreateBusinessTransactionLineInput | UpdateBusinessTransactionLineInput): PreparedBusinessLine {
+    // These fields are essential for creating a line and are assumed to be present in the input
+    // for a create operation. If they can be legitimately missing, further validation or error handling
+    // would be needed higher up or this function would need to throw.
+    if (line.lineType === undefined || line.description === undefined || line.lineAmount === undefined || line.totalLineAmount === undefined) {
+      throw new ServiceError('Essential line data (lineType, description, lineAmount, totalLineAmount) is missing for creation.', 'INVALID_LINE_DATA', 400);
+    }
+
+    return {
+      lineType: line.lineType, 
+      description: line.description,
+      lineAmount: line.lineAmount,
+      totalLineAmount: line.totalLineAmount,
+
+      // Apply defaults for fields that have them in businessTransactionLineSchema
+      quantity: line.quantity !== undefined ? line.quantity : '0',
+      unitPrice: line.unitPrice !== undefined ? line.unitPrice : '0',
+      discountPercent: line.discountPercent !== undefined ? line.discountPercent : '0',
+      discountAmount: line.discountAmount !== undefined ? line.discountAmount : '0',
+      taxAmount: line.taxAmount !== undefined ? line.taxAmount : '0',
+      billableFlag: line.billableFlag !== undefined ? line.billableFlag : true,
+      quantityReceived: line.quantityReceived !== undefined ? line.quantityReceived : '0',
+      quantityBilled: line.quantityBilled !== undefined ? line.quantityBilled : '0',
+      quantityShipped: line.quantityShipped !== undefined ? line.quantityShipped : '0',
+      costAmount: line.costAmount !== undefined ? line.costAmount : '0',
+
+      // Optional fields from the schema
+      itemId: line.itemId,
+      unitOfMeasure: line.unitOfMeasure,
+      taxCodeId: line.taxCodeId,
+      accountId: line.accountId,
+      classId: line.classId,
+      departmentId: line.departmentId,
+      locationId: line.locationId,
+      projectId: line.projectId,
+      jobId: line.jobId,
+      activityCodeId: line.activityCodeId,
+      billingRate: line.billingRate,
+      hoursWorked: line.hoursWorked,
+      employeeId: line.employeeId,
+      workDate: line.workDate,
+      parentLineId: line.parentLineId,
+      marginAmount: line.marginAmount,
+      serialNumbers: line.serialNumbers,
+      lotNumbers: line.lotNumbers,
+      estimatedHours: line.estimatedHours,
+      hourlyRate: line.hourlyRate,
+      costEstimate: line.costEstimate,
+      notes: line.notes,
+      customFields: line.customFields,
+    };
+  }
+
+  /**
    * Validate that debit and credit amounts balance
    */
-  private validateBalances(lines: (CreateBusinessTransactionLineInput | CreateGlTransactionLineInput)[]): void {
+  private validateBalances(lines: (PreparedBusinessLine | PreparedGlLine)[]): void {
     let totalDebits = 0;
     let totalCredits = 0;
 
@@ -105,13 +205,16 @@ export class GlTransactionService extends BaseService {
     // Generate transaction number
     const transactionNumber = await this.generateTransactionNumber('BT', subsidiaryId);
     
+    // Prepare lines to conform to CreateBusinessTransactionLineInput structure
+    const preparedLines = data.lines.map(line => this.mapToCreateLineInput(line));    
+    
     // Validate transaction balances
-    this.validateBalances(data.lines);
+    this.validateBalances(preparedLines);
     
     // Calculate totals from lines
-    const subtotalAmount = data.lines.reduce((sum, line) => sum + Number(line.lineAmount || 0), 0);
-    const taxAmount = data.lines.reduce((sum, line) => sum + Number(line.taxAmount || 0), 0);
-    const discountAmount = data.lines.reduce((sum, line) => sum + Number(line.discountAmount || 0), 0);
+    const subtotalAmount = preparedLines.reduce((sum, line) => sum + Number(line.lineAmount || 0), 0);
+    const taxAmount = preparedLines.reduce((sum, line) => sum + Number(line.taxAmount || 0), 0);
+    const discountAmount = preparedLines.reduce((sum, line) => sum + Number(line.discountAmount || 0), 0);
     const totalAmount = subtotalAmount + taxAmount - discountAmount;
     
     const transactionData = {
@@ -132,8 +235,8 @@ export class GlTransactionService extends BaseService {
       const result = await glTransactionRepository.create(transactionData, organizationId);
       
       // Create transaction lines if provided
-      if (data.lines && data.lines.length > 0) {
-        const linesWithTransactionId = data.lines.map((line, index) => ({
+      if (preparedLines && preparedLines.length > 0) {
+        const linesWithTransactionId = preparedLines.map((line, index) => ({
           ...line,
           businessTransactionId: result.id,
           lineNumber: index + 1,
@@ -143,40 +246,10 @@ export class GlTransactionService extends BaseService {
       }
       
       // Return the created transaction
-      return {
-        id: result.id,
-        transactionNumber: result.transactionNumber,
-        transactionTypeId: result.transactionTypeId,
-        subsidiaryId: result.subsidiaryId,
-        entityId: result.entityId,
-        entityType: result.entityType,
-        transactionDate: result.transactionDate,
-        dueDate: result.dueDate,
-        termsId: result.termsId,
-        currencyCode: result.currencyCode,
-        exchangeRate: result.exchangeRate,
-        subtotalAmount: result.subtotalAmount,
-        taxAmount: result.taxAmount,
-        discountAmount: result.discountAmount,
-        totalAmount: result.totalAmount,
-        baseTotalAmount: result.baseTotalAmount,
-        memo: result.memo,
-        externalReference: result.externalReference,
-        status: result.status,
-        workflowStatus: result.workflowStatus,
-        glTransactionId: result.glTransactionId,
-        createdBy: result.createdBy,
-        createdDate: result.createdDate,
-        modifiedBy: result.modifiedBy,
-        modifiedDate: result.modifiedDate,
-        approvedBy: result.approvedBy,
-        approvedDate: result.approvedDate,
-        postedDate: result.postedDate,
-        versionNumber: result.versionNumber,
-      };
+      return this.transformBusinessTransaction(result);
     } catch (error) {
       throw new ServiceError(
-        `Failed to create business transaction: ${error.message}`,
+        `Failed to create business transaction: ${error instanceof Error ? error.message : String(error)}`,
         'CREATION_FAILED',
         500
       );
@@ -219,40 +292,10 @@ export class GlTransactionService extends BaseService {
         return null;
       }
       
-      return {
-        id: result.id,
-        transactionNumber: result.transactionNumber,
-        transactionTypeId: result.transactionTypeId,
-        subsidiaryId: result.subsidiaryId,
-        entityId: result.entityId,
-        entityType: result.entityType,
-        transactionDate: result.transactionDate,
-        dueDate: result.dueDate,
-        termsId: result.termsId,
-        currencyCode: result.currencyCode,
-        exchangeRate: result.exchangeRate,
-        subtotalAmount: result.subtotalAmount,
-        taxAmount: result.taxAmount,
-        discountAmount: result.discountAmount,
-        totalAmount: result.totalAmount,
-        baseTotalAmount: result.baseTotalAmount,
-        memo: result.memo,
-        externalReference: result.externalReference,
-        status: result.status,
-        workflowStatus: result.workflowStatus,
-        glTransactionId: result.glTransactionId,
-        createdBy: result.createdBy,
-        createdDate: result.createdDate,
-        modifiedBy: result.modifiedBy,
-        modifiedDate: result.modifiedDate,
-        approvedBy: result.approvedBy,
-        approvedDate: result.approvedDate,
-        postedDate: result.postedDate,
-        versionNumber: result.versionNumber,
-      };
+      return this.transformBusinessTransaction(result);
     } catch (error) {
       throw new ServiceError(
-        `Failed to get business transaction: ${error.message}`,
+        `Failed to get business transaction: ${error instanceof Error ? error.message : String(error)}`,
         'RETRIEVAL_FAILED',
         500
       );
@@ -299,38 +342,7 @@ export class GlTransactionService extends BaseService {
       );
       
       return {
-        data: result.data.map(tx => ({
-          id: tx.id,
-          transactionNumber: tx.transactionNumber,
-          transactionTypeId: tx.transactionTypeId,
-          subsidiaryId: tx.subsidiaryId,
-          entityId: tx.entityId,
-          entityType: tx.entityType,
-          transactionDate: tx.transactionDate,
-          totalAmount: tx.totalAmount,
-          status: tx.status,
-          memo: tx.memo,
-          createdDate: tx.createdDate,
-          // Add other required fields with defaults
-          dueDate: null,
-          termsId: null,
-          currencyCode: 'USD',
-          exchangeRate: '1',
-          subtotalAmount: '0',
-          taxAmount: '0',
-          discountAmount: '0',
-          baseTotalAmount: tx.totalAmount,
-          externalReference: null,
-          workflowStatus: null,
-          glTransactionId: null,
-          createdBy: null,
-          modifiedBy: null,
-          modifiedDate: null,
-          approvedBy: null,
-          approvedDate: null,
-          postedDate: null,
-          versionNumber: 1,
-        })),
+        data: result.data.map(tx => this.transformBusinessTransaction(tx)),
         total: result.total,
         page: result.page,
         limit: result.limit,
@@ -338,7 +350,7 @@ export class GlTransactionService extends BaseService {
       };
     } catch (error) {
       throw new ServiceError(
-        `Failed to list business transactions: ${error.message}`,
+        `Failed to list business transactions: ${error instanceof Error ? error.message : String(error)}`,
         'LIST_FAILED',
         500
       );
@@ -432,18 +444,18 @@ export class GlTransactionService extends BaseService {
       
       return {
         ...transaction,
-        status: result.status,
-        approvedBy: result.approvedBy,
-        approvedDate: result.approvedDate,
-        modifiedBy: result.modifiedBy,
-        modifiedDate: result.modifiedDate,
+        status: result.status as 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'POSTED' | 'PAID' | 'CLOSED' | 'CANCELLED',
+        approvedBy: result.approvedBy || undefined,
+        approvedDate: result.approvedDate || undefined,
+        modifiedBy: result.modifiedBy || undefined,
+        modifiedDate: result.modifiedDate || undefined,
       };
     } catch (error) {
       if (error instanceof ServiceError) {
         throw error;
       }
       throw new ServiceError(
-        `Failed to approve transaction: ${error.message}`,
+        `Failed to approve transaction: ${error instanceof Error ? error.message : String(error)}`,
         'APPROVAL_FAILED',
         500
       );
@@ -483,7 +495,7 @@ export class GlTransactionService extends BaseService {
         throw error;
       }
       throw new ServiceError(
-        `Failed to delete transaction: ${error.message}`,
+        `Failed to delete transaction: ${error instanceof Error ? error.message : String(error)}`,
         'DELETION_FAILED',
         500
       );

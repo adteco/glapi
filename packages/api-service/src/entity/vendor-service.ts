@@ -9,6 +9,26 @@ import {
 } from './types';
 
 export class VendorService extends EntityService {
+  
+  /**
+   * Transform database entity to match expected types
+   */
+  protected transformEntity(entity: any): BaseEntity {
+    if (!entity) return entity;
+    return {
+      ...entity,
+      createdAt: entity.createdAt instanceof Date ? entity.createdAt.toISOString() : entity.createdAt,
+      updatedAt: entity.updatedAt instanceof Date ? entity.updatedAt.toISOString() : entity.updatedAt,
+    };
+  }
+
+  /**
+   * Transform array of database entities
+   */
+  protected transformEntities(entities: any[]): BaseEntity[] {
+    return entities.map(entity => this.transformEntity(entity));
+  }
+
   /**
    * List all vendors
    */
@@ -58,7 +78,7 @@ export class VendorService extends EntityService {
       (v.metadata as VendorMetadata)?.ein === ein
     );
     
-    return vendor as BaseEntity || null;
+    return vendor ? this.transformEntity(vendor) : null;
   }
 }
 

@@ -7,7 +7,6 @@ import {
   paymentTerms
 } from '../db/schema/transaction-types';
 import { subsidiaries } from '../db/schema/subsidiaries';
-import { entities } from '../db/schema/entities';
 
 export interface BusinessTransactionPaginationParams {
   page?: number;
@@ -239,7 +238,7 @@ export class GlTransactionRepository extends BaseRepository {
     }
 
     // Insert the business transaction
-    const [result] = await this.db
+    const resultArray = await this.db
       .insert(businessTransactions)
       .values({
         transactionNumber: data.transactionNumber,
@@ -266,6 +265,10 @@ export class GlTransactionRepository extends BaseRepository {
       })
       .returning();
     
+    if (!Array.isArray(resultArray) || resultArray.length === 0) {
+      throw new Error('Failed to create business transaction');
+    }
+    const result = resultArray[0];
     return result;
   }
 
@@ -364,7 +367,8 @@ export class GlTransactionRepository extends BaseRepository {
    */
   async createTransactionLines(lines: any[], organizationId: string) {
     // Validate that all transaction IDs belong to accessible subsidiaries
-    const transactionIds = [...new Set(lines.map(line => line.businessTransactionId))];
+    const transactionIdsSet = new Set(lines.map(line => line.businessTransactionId));
+    const transactionIds = Array.from(transactionIdsSet);
     
     for (const transactionId of transactionIds) {
       const transaction = await this.findById(transactionId, organizationId);

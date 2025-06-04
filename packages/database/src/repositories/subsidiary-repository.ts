@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql, isNull } from 'drizzle-orm';
 import { BaseRepository } from './base-repository';
 import { subsidiaries } from '../db/schema/subsidiaries';
 
@@ -42,25 +42,27 @@ export class SubsidiaryRepository extends BaseRepository {
     const skip = (page - 1) * limit;
     
     // Build the where clause
-    let whereClause = eq(subsidiaries.organizationId, organizationId);
+    const whereConditions = [eq(subsidiaries.organizationId, organizationId)];
     
     if (filters.isActive !== undefined) {
-      whereClause = and(whereClause, eq(subsidiaries.isActive, filters.isActive));
+      whereConditions.push(eq(subsidiaries.isActive, filters.isActive));
     }
     
     if (filters.parentId !== undefined) {
       if (filters.parentId === null) {
-        whereClause = and(whereClause, eq(subsidiaries.parentId, null));
+        whereConditions.push(isNull(subsidiaries.parentId));
       } else {
-        whereClause = and(whereClause, eq(subsidiaries.parentId, filters.parentId));
+        whereConditions.push(eq(subsidiaries.parentId, filters.parentId));
       }
     }
+    
+    const whereClause = whereConditions.length > 1 ? and(...whereConditions) : whereConditions[0];
     
     // Get the total count
     const countResult = await this.db
       .select({ count: sql`COUNT(*)` })
       .from(subsidiaries)
-      .where(whereClause);
+      .where(whereClause!);
     
     const count = Number(countResult[0]?.count || 0);
     
@@ -73,7 +75,7 @@ export class SubsidiaryRepository extends BaseRepository {
     const results = await this.db
       .select()
       .from(subsidiaries)
-      .where(whereClause)
+      .where(whereClause!)
       .orderBy(orderFunc(orderColumn))
       .limit(limit)
       .offset(skip);
