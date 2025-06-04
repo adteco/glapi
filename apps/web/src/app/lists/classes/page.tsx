@@ -78,7 +78,7 @@ export default function ClassesPage() {
   const { getToken, orgId } = useAuth();
 
   const form = useForm<ClassFormValues>({
-    resolver: zodResolver(classFormSchema),
+    // resolver: zodResolver(classFormSchema),
     defaultValues: {
       name: "",
       code: "",

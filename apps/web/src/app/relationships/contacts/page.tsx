@@ -64,7 +64,7 @@ export default function ContactsPage() {
       department: '',
       mobilePhone: '',
       workPhone: '',
-      preferredContactMethod: 'email' as const,
+      preferredContactMethod: 'email' as 'email' | 'phone' | 'mobile',
     }
   });
 
@@ -245,7 +245,7 @@ export default function ContactsPage() {
         department: contact.metadata?.department || '',
         mobilePhone: contact.metadata?.mobilePhone || '',
         workPhone: contact.metadata?.workPhone || '',
-        preferredContactMethod: contact.metadata?.preferredContactMethod || 'email',
+        preferredContactMethod: (contact.metadata?.preferredContactMethod || 'email') as 'email' | 'phone' | 'mobile',
       }
     });
     setIsEditOpen(true);
@@ -270,10 +270,10 @@ export default function ContactsPage() {
     setSelectedContact(null);
   };
 
-  const getCompanyName = (parentId: string | null) => {
+  const getCompanyName = (parentId: string | null | undefined) => {
     if (!parentId) return 'Independent';
     const company = companies.find(c => c.id === parentId);
-    return company?.name || company?.companyName || 'Unknown';
+    return company?.name || 'Unknown';
   };
 
   const getContactMethodIcon = (method: string) => {
@@ -332,7 +332,7 @@ export default function ContactsPage() {
                           <SelectItem value="none">No Company (Independent)</SelectItem>
                           {companies.map((company) => (
                             <SelectItem key={company.id} value={company.id}>
-                              {company.name || company.companyName} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : '(Customer)'}
+                              {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : '(Customer)'}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -543,7 +543,7 @@ export default function ContactsPage() {
                     <SelectItem value="none">No Company (Independent)</SelectItem>
                     {companies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
-                        {company.name || company.companyName} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : '(Customer)'}
+                        {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : '(Customer)'}
                       </SelectItem>
                     ))}
                   </SelectContent>

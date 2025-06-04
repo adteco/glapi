@@ -13,7 +13,7 @@ export const accountingPeriods = pgTable('accounting_periods', {
   endDate: date('end_date').notNull(),
   periodType: text('period_type').notNull(), // 'MONTH', 'QUARTER', 'YEAR', 'ADJUSTMENT'
   status: text('status').notNull(), // 'OPEN', 'CLOSED', 'LOCKED'
-  closedBy: uuid('closed_by').references(() => users.id),
+  closedBy: uuid('closed_by'),
   closedDate: timestamp('closed_date', { withTimezone: true }),
   isAdjustmentPeriod: boolean('is_adjustment_period').default(false).notNull(),
   createdDate: timestamp('created_date', { withTimezone: true }).defaultNow().notNull(),

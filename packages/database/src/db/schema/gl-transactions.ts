@@ -1,5 +1,6 @@
 import { pgTable, text, boolean, jsonb, timestamp, uniqueIndex, decimal, date, uuid, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { accountingPeriods } from './accounting-periods';
 
 export const glTransactions = pgTable('gl_transactions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -7,7 +8,7 @@ export const glTransactions = pgTable('gl_transactions', {
   subsidiaryId: uuid('subsidiary_id').notNull(),
   transactionDate: date('transaction_date').notNull(),
   postingDate: date('posting_date').notNull(),
-  periodId: uuid('period_id').notNull().references(() => accountingPeriods.id),
+  periodId: uuid('period_id').notNull(),
   transactionType: text('transaction_type').notNull(), // 'JOURNAL', 'POSTING', 'REVERSAL', 'CLOSING'
   sourceSystem: text('source_system'), // 'MANUAL', 'AUTO', 'IMPORT'
   sourceTransactionId: uuid('source_transaction_id').references(() => businessTransactions.id),
@@ -173,7 +174,7 @@ export const glAccountBalances = pgTable('gl_account_balances', {
   id: uuid('id').defaultRandom().primaryKey(),
   accountId: uuid('account_id').notNull(),
   subsidiaryId: uuid('subsidiary_id').notNull(),
-  periodId: uuid('period_id').notNull().references(() => accountingPeriods.id),
+  periodId: uuid('period_id').notNull(),
   classId: uuid('class_id'),
   departmentId: uuid('department_id'),
   locationId: uuid('location_id'),
@@ -269,4 +270,3 @@ import { departments } from './departments';
 import { locations } from './locations';
 import { businessTransactions } from './transaction-types';
 import { transactionTypes } from './transaction-types';
-import { accountingPeriods } from './accounting-periods';
