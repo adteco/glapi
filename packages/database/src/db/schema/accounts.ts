@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, uniqueIndex, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, uniqueIndex, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { accountCategoryEnum } from './enums'; // Import the enum
 import { organizations } from './organizations';
@@ -13,7 +13,7 @@ export const accounts = pgTable('accounts', {
   normalBalance: text('normal_balance'), // 'DEBIT' or 'CREDIT'
   financialStatementLine: text('financial_statement_line'), // Maps to specific FS line items
   isControlAccount: boolean('is_control_account').default(false).notNull(),
-  rollupAccountId: uuid('rollup_account_id').references(() => accounts.id), // For account hierarchies
+  rollupAccountId: uuid('rollup_account_id').references((): AnyPgColumn => accounts.id), // For account hierarchies
   gaapClassification: text('gaap_classification'), // Specific GAAP classifications
   cashFlowCategory: text('cash_flow_category'), // 'OPERATING', 'INVESTING', 'FINANCING'
   description: text('description'),

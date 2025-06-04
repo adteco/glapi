@@ -1,4 +1,5 @@
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 
 /**
@@ -25,12 +26,12 @@ export abstract class BaseRepository {
     organizationId: string
   ): Promise<boolean> {
     const result = await this.db
-      .select({ count: this.db.fn.count<number>() })
+      .select({ count: sql<number>`count(*)` })
       .from(table)
       .where(
-        this.db.and(
-          this.db.eq(table.id, id),
-          this.db.eq(table.organizationId, organizationId)
+        and(
+          eq(table.id, id),
+          eq(table.organizationId, organizationId)
         )
       );
 

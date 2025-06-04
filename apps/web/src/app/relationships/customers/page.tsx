@@ -547,7 +547,7 @@ export default function CustomersPage() {
               Update customer information
             </DialogDescription>
           </DialogHeader>
-          <CustomerForm />
+          <CustomerForm formData={formData} setFormData={setFormData} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel

@@ -115,7 +115,6 @@ export class GlPostingEngine extends BaseService {
     const transactionNumber = await this.generateGlTransactionNumber(context.businessTransaction.subsidiaryId);
     
     const glTransaction: CreateGlTransactionInput = {
-      transactionNumber,
       subsidiaryId: context.businessTransaction.subsidiaryId,
       transactionDate: context.businessTransaction.transactionDate,
       postingDate: new Date().toISOString().split('T')[0], // Today's date
@@ -140,6 +139,7 @@ export class GlPostingEngine extends BaseService {
     return {
       ...glTransaction,
       id: `gl-${Date.now()}`, // Temporary ID
+      transactionNumber, // Add the generated number
       createdDate: new Date(),
       modifiedDate: new Date(),
       versionNumber: 1,

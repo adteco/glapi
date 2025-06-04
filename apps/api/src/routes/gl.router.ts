@@ -1,10 +1,14 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { accountRepository } from '@glapi/database';
 import { 
   GlTransactionService, 
   GlReportingService,
   createBusinessTransactionSchema,
   updateBusinessTransactionSchema,
+  createBusinessTransactionLineSchema,
+  updateBusinessTransactionLineSchema,
+  BusinessTransactionWithLines,
   ServiceError
 } from '@glapi/api-service';
 
@@ -314,26 +318,38 @@ router.delete(
   }
 );
 
+// Define Zod schema for creating a business transaction with lines
+const CreateBusinessTransactionWithLinesSchema = z.object({
+  transaction: createBusinessTransactionSchema,
+  lines: z.array(createBusinessTransactionLineSchema)
+});
+
+// Define Zod schema for updating a business transaction with lines
+const UpdateBusinessTransactionWithLinesSchema = z.object({
+  transaction: updateBusinessTransactionSchema, 
+  // For lines, we might expect a mix of new lines (Create) and updates to existing (Update)
+  // A common pattern is to require all fields for new lines, and partial for updates (identified by id)
+  // For simplicity, let's expect UpdateBusinessTransactionLineInput for all lines in an update context.
+  // The service layer would differentiate new vs existing lines, e.g., by checking for an ID.
+  lines: z.array(updateBusinessTransactionLineSchema) 
+});
+
 // BUSINESS TRANSACTIONS ROUTES
 
 // POST /api/v1/gl/transactions - Create a new business transaction
 router.post('/transactions', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const context = getServiceContext(req);
-    console.log('Creating business transaction with context:', context);
+  const serviceContext = getServiceContext(req);
+  const glTransactionService = new GlTransactionService(serviceContext);
 
-    // Validate request body
-    const parsedData = createBusinessTransactionSchema.safeParse(req.body);
+  try {
+    // Validate request body against the new schema
+    const parsedData = CreateBusinessTransactionWithLinesSchema.safeParse(req.body);
     if (!parsedData.success) {
-      return res.status(400).json({
-        message: 'Invalid transaction data',
-        errors: parsedData.error.errors
-      });
+      return res.status(400).json({ error: 'Invalid request body', details: parsedData.error.formErrors });
     }
 
-    const glTransactionService = new GlTransactionService(context);
-    const result = await glTransactionService.createBusinessTransaction(parsedData.data);
-
+    // parsedData.data now has the correct { transaction: ..., lines: ... } structure
+    const result = await glTransactionService.createBusinessTransaction(parsedData.data as BusinessTransactionWithLines);
     return res.status(201).json(result);
   } catch (error) {
     console.error('Error creating business transaction:', error);
@@ -348,7 +364,7 @@ router.post('/transactions', async (req: Request, res: Response, next: NextFunct
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -386,7 +402,7 @@ router.get('/transactions', async (req: Request, res: Response, next: NextFuncti
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -419,28 +435,25 @@ router.get('/transactions/:id', async (req: Request, res: Response, next: NextFu
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
 // PUT /api/v1/gl/transactions/:id - Update a business transaction
 router.put('/transactions/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const context = getServiceContext(req);
+  const serviceContext = getServiceContext(req);
+  const glTransactionService = new GlTransactionService(serviceContext);
+  const { id } = req.params;
 
-    // Validate request body
-    const parsedData = updateBusinessTransactionSchema.safeParse(req.body);
+  try {
+    // Validate request body against the new schema for updates
+    const parsedData = UpdateBusinessTransactionWithLinesSchema.safeParse(req.body);
     if (!parsedData.success) {
-      return res.status(400).json({
-        message: 'Invalid transaction data',
-        errors: parsedData.error.errors
-      });
+      return res.status(400).json({ error: 'Invalid request body for update', details: parsedData.error.formErrors });
     }
 
-    const glTransactionService = new GlTransactionService(context);
-    const result = await glTransactionService.updateBusinessTransaction(id, parsedData.data);
-
+    // parsedData.data now has the correct { transaction: ..., lines: ... } structure
+    const result = await glTransactionService.updateBusinessTransaction(id, parsedData.data as BusinessTransactionWithLines);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error updating business transaction:', error);
@@ -455,7 +468,7 @@ router.put('/transactions/:id', async (req: Request, res: Response, next: NextFu
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -485,7 +498,7 @@ router.delete('/transactions/:id', async (req: Request, res: Response, next: Nex
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -519,7 +532,7 @@ router.post('/transactions/:id/post', async (req: Request, res: Response, next: 
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -557,7 +570,7 @@ router.post('/transactions/:id/reverse', async (req: Request, res: Response, nex
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -588,7 +601,7 @@ router.post('/transactions/:id/approve', async (req: Request, res: Response, nex
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -630,7 +643,7 @@ router.get('/reports/trial-balance', async (req: Request, res: Response, next: N
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -676,7 +689,7 @@ router.get('/reports/account-activity', async (req: Request, res: Response, next
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -716,7 +729,7 @@ router.get('/reports/general-ledger', async (req: Request, res: Response, next: 
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -755,7 +768,7 @@ router.get('/gl-transactions', async (req: Request, res: Response, next: NextFun
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -788,7 +801,7 @@ router.get('/gl-transactions/:id', async (req: Request, res: Response, next: Nex
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -815,7 +828,7 @@ router.get('/gl-transactions/:id/lines', async (req: Request, res: Response, nex
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
-    next(error);
+    return next(error);
   }
 });
 

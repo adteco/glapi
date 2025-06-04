@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean, jsonb, timestamp, uniqueIndex, decimal, date, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, jsonb, timestamp, uniqueIndex, decimal, date, uuid, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 export const transactionTypes = pgTable('transaction_types', {
@@ -71,8 +71,8 @@ export const businessTransactions = pgTable('business_transactions', {
   marginPercent: decimal('margin_percent', { precision: 5, scale: 2 }),
   
   // Relationships
-  parentTransactionId: uuid('parent_transaction_id').references(() => businessTransactions.id),
-  rootTransactionId: uuid('root_transaction_id').references(() => businessTransactions.id),
+  parentTransactionId: uuid('parent_transaction_id').references((): AnyPgColumn => businessTransactions.id),
+  rootTransactionId: uuid('root_transaction_id').references((): AnyPgColumn => businessTransactions.id),
   glTransactionId: uuid('gl_transaction_id'), // Reference to glTransactions.id
   
   // Audit fields
@@ -171,7 +171,7 @@ export const businessTransactionLines = pgTable('business_transaction_lines', {
   workDate: date('work_date'),
   
   // Fulfillment tracking
-  parentLineId: uuid('parent_line_id').references(() => businessTransactionLines.id),
+  parentLineId: uuid('parent_line_id').references((): AnyPgColumn => businessTransactionLines.id),
   quantityReceived: decimal('quantity_received', { precision: 18, scale: 4 }).default('0').notNull(),
   quantityBilled: decimal('quantity_billed', { precision: 18, scale: 4 }).default('0').notNull(),
   quantityShipped: decimal('quantity_shipped', { precision: 18, scale: 4 }).default('0').notNull(),

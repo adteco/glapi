@@ -1,9 +1,25 @@
 import { Router } from 'express';
 import { getServiceContext } from '../middleware/clerk-auth';
-import { prospectService, EntityListQuerySchema, CreateEntitySchema, UpdateEntitySchema } from '@glapi/api-service';
+import { 
+  prospectService, 
+  EntityListQuerySchema, 
+  CreateEntitySchema, 
+  UpdateEntitySchema,
+  LeadProspectMetadataSchema 
+} from '@glapi/api-service';
 import { z } from 'zod';
 
-const router = Router();
+const router: Router = Router();
+
+// Define a Zod schema for creating a prospect, using the specific LeadProspectMetadataSchema
+const CreateProspectPayloadSchema = CreateEntitySchema.omit({ metadata: true }).extend({
+  metadata: LeadProspectMetadataSchema.optional()
+});
+
+// Define a Zod schema for updating a prospect, using the specific LeadProspectMetadataSchema
+const UpdateProspectPayloadSchema = UpdateEntitySchema.omit({ metadata: true }).extend({
+  metadata: LeadProspectMetadataSchema.optional()
+});
 
 // List prospects
 router.get('/', async (req, res, next) => {
@@ -16,9 +32,9 @@ router.get('/', async (req, res, next) => {
       query
     );
     
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -34,9 +50,9 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Prospect not found' });
     }
     
-    res.json(prospect);
+    return res.json(prospect);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -44,19 +60,19 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
-    const data = CreateEntitySchema.parse(req.body);
+    const data = CreateProspectPayloadSchema.parse(req.body);
     
     const prospect = await prospectService.createProspect(
       context.organizationId,
       data
     );
     
-    res.status(201).json(prospect);
+    return res.status(201).json(prospect);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -65,7 +81,7 @@ router.put('/:id', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
     const { id } = req.params;
-    const data = UpdateEntitySchema.parse(req.body);
+    const data = UpdateProspectPayloadSchema.parse(req.body);
     
     const prospect = await prospectService.updateProspect(
       id,
@@ -73,12 +89,12 @@ router.put('/:id', async (req, res, next) => {
       data
     );
     
-    res.json(prospect);
+    return res.json(prospect);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -90,26 +106,9 @@ router.delete('/:id', async (req, res, next) => {
     
     await prospectService.delete(id, context.organizationId);
     
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
-    next(error);
-  }
-});
-
-// Convert prospect to lead
-router.post('/:id/convert-to-lead', async (req, res, next) => {
-  try {
-    const context = await getServiceContext(req);
-    const { id } = req.params;
-    
-    const lead = await prospectService.convertToLead(
-      id,
-      context.organizationId
-    );
-    
-    res.json(lead);
-  } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -124,43 +123,9 @@ router.post('/:id/convert-to-customer', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json(customer);
+    return res.json(customer);
   } catch (error) {
-    next(error);
-  }
-});
-
-// Find prospects by industry
-router.get('/by-industry/:industry', async (req, res, next) => {
-  try {
-    const context = await getServiceContext(req);
-    const { industry } = req.params;
-    
-    const prospects = await prospectService.findByIndustry(
-      industry,
-      context.organizationId
-    );
-    
-    res.json({ data: prospects });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Find high-value prospects
-router.get('/high-value', async (req, res, next) => {
-  try {
-    const context = await getServiceContext(req);
-    const minRevenue = req.query.minRevenue ? Number(req.query.minRevenue) : 1000000;
-    
-    const prospects = await prospectService.findHighValueProspects(
-      context.organizationId,
-      minRevenue
-    );
-    
-    res.json({ data: prospects });
-  } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

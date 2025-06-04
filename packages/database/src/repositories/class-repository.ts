@@ -36,27 +36,26 @@ export class ClassRepository extends BaseRepository {
     
     const totalCount = Number(countResult[0]?.count || 0);
     
+    // Determine sort column
+    let sortColumn;
+    if (sortField === 'name') {
+      sortColumn = classes.name;
+    } else if (sortField === 'code') {
+      sortColumn = classes.code;
+    } else if (sortField === 'createdAt') {
+      sortColumn = classes.createdAt;
+    } else {
+      sortColumn = classes.name; // default
+    }
+    
     // Get sorted results with pagination
-    let query = this.db
+    const result = await this.db
       .select()
       .from(classes)
       .where(eq(classes.organizationId, organizationId))
+      .orderBy(sortOrder === 'desc' ? desc(sortColumn) : asc(sortColumn))
       .limit(limit)
       .offset(offset);
-    
-    // Handle sorting
-    if (sortField in classes) {
-      const sortColumn = classes[sortField as keyof typeof classes];
-      query = sortOrder === 'desc' 
-        ? query.orderBy(desc(sortColumn))
-        : query.orderBy(asc(sortColumn));
-    } else {
-      query = sortOrder === 'desc'
-        ? query.orderBy(desc(classes.name))
-        : query.orderBy(asc(classes.name));
-    }
-    
-    const result = await query;
     
     return {
       classes: result,
@@ -175,7 +174,7 @@ export class ClassRepository extends BaseRepository {
       return false;
     }
     
-    const result = await this.db
+    await this.db
       .delete(classes)
       .where(
         and(

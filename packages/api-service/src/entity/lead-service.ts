@@ -9,6 +9,26 @@ import {
 } from './types';
 
 export class LeadService extends EntityService {
+  
+  /**
+   * Transform database entity to match expected types
+   */
+  protected transformEntity(entity: any): BaseEntity {
+    if (!entity) return entity;
+    return {
+      ...entity,
+      createdAt: entity.createdAt instanceof Date ? entity.createdAt.toISOString() : entity.createdAt,
+      updatedAt: entity.updatedAt instanceof Date ? entity.updatedAt.toISOString() : entity.updatedAt,
+    };
+  }
+
+  /**
+   * Transform array of database entities
+   */
+  protected transformEntities(entities: any[]): BaseEntity[] {
+    return entities.map(entity => this.transformEntity(entity));
+  }
+
   /**
    * List all leads
    */
@@ -82,9 +102,10 @@ export class LeadService extends EntityService {
     );
     
     // Filter by source in metadata
-    return leads.filter(l => 
+    const filtered = leads.filter(l => 
       (l.metadata as LeadProspectMetadata)?.source === source
-    ) as BaseEntity[];
+    );
+    return this.transformEntities(filtered);
   }
   
   /**
@@ -103,9 +124,10 @@ export class LeadService extends EntityService {
     );
     
     // Filter by assignedTo in metadata
-    return leads.filter(l => 
+    const filtered = leads.filter(l => 
       (l.metadata as LeadProspectMetadata)?.assignedTo === assigneeId
-    ) as BaseEntity[];
+    );
+    return this.transformEntities(filtered);
   }
   
   /**
@@ -116,13 +138,15 @@ export class LeadService extends EntityService {
     highScoringLeads: BaseEntity[];
     totalLeads: number;
   }> {
-    const leads = await this.repository.findByTypes(
+    const rawLeads = await this.repository.findByTypes(
       ['Lead'],
       organizationId,
       {
         limit: 1000,
       }
     );
+    
+    const leads = this.transformEntities(rawLeads);
     
     const scores = leads
       .map(l => (l.metadata as LeadProspectMetadata)?.leadScore || 0)
@@ -145,7 +169,7 @@ export class LeadService extends EntityService {
     
     return {
       averageScore,
-      highScoringLeads: highScoringLeads as BaseEntity[],
+      highScoringLeads,
       totalLeads: leads.length,
     };
   }

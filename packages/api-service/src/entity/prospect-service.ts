@@ -9,6 +9,26 @@ import {
 } from './types';
 
 export class ProspectService extends EntityService {
+  
+  /**
+   * Transform database entity to match expected types
+   */
+  protected transformEntity(entity: any): BaseEntity {
+    if (!entity) return entity;
+    return {
+      ...entity,
+      createdAt: entity.createdAt instanceof Date ? entity.createdAt.toISOString() : entity.createdAt,
+      updatedAt: entity.updatedAt instanceof Date ? entity.updatedAt.toISOString() : entity.updatedAt,
+    };
+  }
+
+  /**
+   * Transform array of database entities
+   */
+  protected transformEntities(entities: any[]): BaseEntity[] {
+    return entities.map(entity => this.transformEntity(entity));
+  }
+
   /**
    * List all prospects
    */
@@ -108,9 +128,10 @@ export class ProspectService extends EntityService {
     );
     
     // Filter by industry in metadata
-    return prospects.filter(p => 
+    const filtered = prospects.filter(p => 
       (p.metadata as LeadProspectMetadata)?.industry === industry
-    ) as BaseEntity[];
+    );
+    return this.transformEntities(filtered);
   }
   
   /**
@@ -120,13 +141,15 @@ export class ProspectService extends EntityService {
     organizationId: string,
     minRevenue: number = 1000000
   ): Promise<BaseEntity[]> {
-    const prospects = await this.repository.findByTypes(
+    const rawProspects = await this.repository.findByTypes(
       ['Prospect'],
       organizationId,
       {
         limit: 1000,
       }
     );
+    
+    const prospects = this.transformEntities(rawProspects);
     
     // Filter by annual revenue in metadata
     return prospects
@@ -138,7 +161,7 @@ export class ProspectService extends EntityService {
         const revenueA = (a.metadata as LeadProspectMetadata)?.annualRevenue || 0;
         const revenueB = (b.metadata as LeadProspectMetadata)?.annualRevenue || 0;
         return revenueB - revenueA;
-      }) as BaseEntity[];
+      });
   }
 }
 

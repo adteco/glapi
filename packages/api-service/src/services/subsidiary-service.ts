@@ -7,7 +7,7 @@ import {
   PaginatedResult,
   ServiceError
 } from '../types';
-import { SubsidiaryRepository } from '@glapi/database/src/repositories/subsidiary-repository';
+import { SubsidiaryRepository } from '@glapi/database';
 
 export class SubsidiaryService extends BaseService {
   private subsidiaryRepository: SubsidiaryRepository;
@@ -15,6 +15,23 @@ export class SubsidiaryService extends BaseService {
   constructor(context = {}) {
     super(context);
     this.subsidiaryRepository = new SubsidiaryRepository();
+  }
+  
+  /**
+   * Transform database subsidiary to service layer type
+   */
+  private transformSubsidiary(dbSubsidiary: any): Subsidiary {
+    return {
+      id: dbSubsidiary.id,
+      organizationId: dbSubsidiary.organizationId,
+      parentId: dbSubsidiary.parentId || undefined,
+      name: dbSubsidiary.name,
+      code: dbSubsidiary.code,
+      description: dbSubsidiary.description || undefined,
+      isActive: dbSubsidiary.isActive,
+      createdAt: dbSubsidiary.createdAt || new Date(),
+      updatedAt: dbSubsidiary.updatedAt || new Date(),
+    };
   }
   
   /**
@@ -28,7 +45,7 @@ export class SubsidiaryService extends BaseService {
   ): Promise<PaginatedResult<Subsidiary>> {
     const organizationId = this.requireOrganizationContext();
     
-    return await this.subsidiaryRepository.findAll(
+    const result = await this.subsidiaryRepository.findAll(
       organizationId,
       {
         page: params.page,
@@ -38,6 +55,11 @@ export class SubsidiaryService extends BaseService {
       },
       filters
     );
+    
+    return {
+      ...result,
+      data: result.data.map(s => this.transformSubsidiary(s))
+    };
   }
   
   /**
@@ -45,7 +67,8 @@ export class SubsidiaryService extends BaseService {
    */
   async getSubsidiaryById(id: string): Promise<Subsidiary | null> {
     const organizationId = this.requireOrganizationContext();
-    return await this.subsidiaryRepository.findById(id, organizationId);
+    const subsidiary = await this.subsidiaryRepository.findById(id, organizationId);
+    return subsidiary ? this.transformSubsidiary(subsidiary) : null;
   }
   
   /**
@@ -63,14 +86,16 @@ export class SubsidiaryService extends BaseService {
       );
     }
     
-    // Check if a subsidiary with the same code exists in this organization
-    const existing = await this.subsidiaryRepository.findByCode(data.code, organizationId);
-    if (existing) {
-      throw new ServiceError(
-        `Subsidiary with code "${data.code}" already exists in this organization`,
-        'DUPLICATE_SUBSIDIARY_CODE',
-        400
-      );
+    // Check if a subsidiary with the same code exists in this organization, only if code is provided
+    if (typeof data.code === 'string' && data.code.trim() !== '') {
+      const existing = await this.subsidiaryRepository.findByCode(data.code, organizationId);
+      if (existing) {
+        throw new ServiceError(
+          `Subsidiary with code "${data.code}" already exists in this organization`,
+          'DUPLICATE_SUBSIDIARY_CODE',
+          400
+        );
+      }
     }
     
     // If parentId is provided, validate that it exists and belongs to the organization
@@ -86,7 +111,8 @@ export class SubsidiaryService extends BaseService {
     }
     
     // Create the new subsidiary
-    return await this.subsidiaryRepository.create(data);
+    const subsidiary = await this.subsidiaryRepository.create(data);
+    return this.transformSubsidiary(subsidiary);
   }
   
   /**
@@ -107,13 +133,24 @@ export class SubsidiaryService extends BaseService {
     
     // If code is being updated, check if it would create a duplicate
     if (data.code && data.code !== existing.code) {
-      const duplicateCode = await this.subsidiaryRepository.findByCode(data.code, organizationId);
-      if (duplicateCode && duplicateCode.id !== id) {
-        throw new ServiceError(
-          `Subsidiary with code "${data.code}" already exists in this organization`,
-          'DUPLICATE_SUBSIDIARY_CODE',
-          400
-        );
+      // For UpdateSubsidiaryInput, 'code' is 'string | null | undefined' as well.
+      // We need a similar check here if data.code could be null/undefined but is being set.
+      // If data.code is set to null/undefined, this check might not be needed or findByCode would fail.
+      // Assuming if data.code is being set, it should be a string.
+      if (typeof data.code === 'string' && data.code.trim() !== '') {
+        const duplicateCode = await this.subsidiaryRepository.findByCode(data.code, organizationId);
+        if (duplicateCode && duplicateCode.id !== id) {
+          throw new ServiceError(
+            `Subsidiary with code "${data.code}" already exists in this organization`,
+            'DUPLICATE_SUBSIDIARY_CODE',
+            400
+          );
+        }
+      } else if (data.code === null || data.code === '') {
+        // If attempting to set code to null or empty, this implies removing the code.
+        // No uniqueness check needed for null/empty code in the same way.
+        // Depending on business logic, you might want to check if other subsidiaries have null/empty code
+        // if that should also be unique (usually not).
       }
     }
     
@@ -153,7 +190,7 @@ export class SubsidiaryService extends BaseService {
           
           visitedIds.add(currentParentId);
           
-          const parent = await this.subsidiaryRepository.findById(currentParentId, organizationId);
+          const parent = await this.subsidiaryRepository.findById(currentParentId!, organizationId);
           if (!parent || !parent.parentId) {
             break;
           }
@@ -174,7 +211,7 @@ export class SubsidiaryService extends BaseService {
       );
     }
     
-    return result;
+    return this.transformSubsidiary(result);
   }
   
   /**

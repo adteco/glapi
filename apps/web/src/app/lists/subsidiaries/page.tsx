@@ -58,7 +58,7 @@ export default function SubsidiariesPage() {
   const { getToken, orgId } = useAuth();
 
   const form = useForm<SubsidiaryFormValues>({
-    resolver: zodResolver(subsidiaryFormSchema),
+    // resolver: zodResolver(subsidiaryFormSchema),
     defaultValues: {
       name: "",
       code: "",

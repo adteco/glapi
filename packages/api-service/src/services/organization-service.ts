@@ -4,7 +4,7 @@ import {
   CreateOrganizationInput, 
   ServiceError 
 } from '../types';
-import { OrganizationRepository } from '@glapi/database/src/repositories/organization-repository';
+import { OrganizationRepository } from '@glapi/database';
 
 export class OrganizationService extends BaseService {
   private organizationRepository: OrganizationRepository;
@@ -15,17 +15,32 @@ export class OrganizationService extends BaseService {
   }
   
   /**
+   * Transform database organization to service layer type
+   */
+  private transformOrganization(dbOrganization: any): Organization {
+    return {
+      id: dbOrganization.id,
+      stytchOrgId: dbOrganization.stytchOrgId,
+      name: dbOrganization.name,
+      slug: dbOrganization.slug,
+      settings: dbOrganization.settings || undefined,
+    };
+  }
+  
+  /**
    * Get organization by Stytch organization ID
    */
   async getOrganizationByStytchId(stytchOrgId: string): Promise<Organization | null> {
-    return await this.organizationRepository.findByStytchId(stytchOrgId);
+    const organization = await this.organizationRepository.findByStytchId(stytchOrgId);
+    return organization ? this.transformOrganization(organization) : null;
   }
   
   /**
    * Get organization by ID
    */
   async getOrganizationById(id: string): Promise<Organization | null> {
-    return await this.organizationRepository.findById(id);
+    const organization = await this.organizationRepository.findById(id);
+    return organization ? this.transformOrganization(organization) : null;
   }
   
   /**
@@ -53,7 +68,8 @@ export class OrganizationService extends BaseService {
     }
     
     // Create the organization
-    return await this.organizationRepository.create(data);
+    const organization = await this.organizationRepository.create(data);
+    return this.transformOrganization(organization);
   }
   
   /**
@@ -93,7 +109,7 @@ export class OrganizationService extends BaseService {
       );
     }
     
-    return result;
+    return this.transformOrganization(result);
   }
   
   /**
@@ -107,7 +123,7 @@ export class OrganizationService extends BaseService {
     // Check if organization already exists
     const existing = await this.organizationRepository.findByStytchId(stytchOrgData.organization_id);
     if (existing) {
-      return existing;
+      return this.transformOrganization(existing);
     }
     
     // Create a new organization
