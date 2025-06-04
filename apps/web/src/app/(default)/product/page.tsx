@@ -52,10 +52,224 @@ export default function ProductPage() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Built for the modern era
+              Built for Scale and Compliance
             </h2>
             <p className="mt-6 text-lg leading-8 text-gray-300">
-              Experience the power of a truly modern general ledger system.
+              Handle millions of transactions monthly with real-time insights and complete audit trails.
+            </p>
+          </div>
+          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
+            <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
+                  <Gauge className="h-8 w-8 text-white" />
+                </div>
+                <dt className="text-xl font-semibold leading-7">Enterprise Scale</dt>
+                <dd className="mt-1 text-base leading-7 text-gray-300">
+                  Process 1,000,000+ transactions monthly with sub-second response times. 
+                  Real-time balance calculations and instant financial reporting.
+                </dd>
+              </div>
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
+                  <Shield className="h-8 w-8 text-white" />
+                </div>
+                <dt className="text-xl font-semibold leading-7">GAAP Compliant</dt>
+                <dd className="mt-1 text-base leading-7 text-gray-300">
+                  Built-in compliance with GAAP standards. Complete audit trails, 
+                  immutable transaction records, and SOX-ready reporting.
+                </dd>
+              </div>
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
+                  <Globe className="h-8 w-8 text-white" />
+                </div>
+                <dt className="text-xl font-semibold leading-7">Multi-Currency</dt>
+                <dd className="mt-1 text-base leading-7 text-gray-300">
+                  Native multi-currency support with automatic exchange rate updates 
+                  and real-time currency conversion for global operations.
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      {/* Business Transaction Management */}
+      <div className="py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl lg:text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Complete Business Transaction Lifecycle
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-gray-300">
+              Manage every aspect of your business from opportunity to cash collection.
+            </p>
+          </div>
+          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
+            <div className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-12 lg:max-w-none lg:grid-cols-4">
+              <div className="flex flex-col">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-600">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <dt className="text-lg font-semibold leading-7">Sales Management</dt>
+                <dd className="mt-1 text-sm leading-6 text-gray-300">
+                  Track opportunities, create estimates, manage sales orders, and automate invoicing 
+                  with complete visibility into your sales pipeline.
+                </dd>
+              </div>
+              <div className="flex flex-col">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-600">
+                  <FileCode className="h-6 w-6 text-white" />
+                </div>
+                <dt className="text-lg font-semibold leading-7">Project Tracking</dt>
+                <dd className="mt-1 text-sm leading-6 text-gray-300">
+                  Monitor project profitability with time tracking, expense management, 
+                  and real-time budget vs. actual analysis.
+                </dd>
+              </div>
+              <div className="flex flex-col">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-600">
+                  <Rocket className="h-6 w-6 text-white" />
+                </div>
+                <dt className="text-lg font-semibold leading-7">Subscription Billing</dt>
+                <dd className="mt-1 text-sm leading-6 text-gray-300">
+                  Automate recurring revenue with flexible billing schedules, usage tracking, 
+                  and automatic invoice generation.
+                </dd>
+              </div>
+              <div className="flex flex-col">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-600">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <dt className="text-lg font-semibold leading-7">Contract Management</dt>
+                <dd className="mt-1 text-sm leading-6 text-gray-300">
+                  Track contract lifecycles, monitor renewal dates, and ensure compliance 
+                  with automated alerts and reporting.
+                </dd>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Architecture Features */}
+      <div className="py-24 sm:py-32 bg-gray-900/50">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl lg:text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Event-Driven Architecture
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-gray-300">
+              Built on modern event sourcing principles for complete auditability and flexibility.
+            </p>
+          </div>
+          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+              <div className="relative p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
+                <Database className="h-12 w-12 text-sky-400 mb-4" />
+                <h3 className="text-xl font-semibold mb-4">Complete Audit Trail</h3>
+                <p className="text-gray-300 mb-6">
+                  Every change captured as an immutable event. Travel back in time to see exact state at any moment.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                    <span className="text-gray-300">Immutable transaction history</span>
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                    <span className="text-gray-300">SOX compliance built-in</span>
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                    <span className="text-gray-300">Complete causation tracking</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="relative p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
+                <Zap className="h-12 w-12 text-sky-400 mb-4" />
+                <h3 className="text-xl font-semibold mb-4">Real-time Processing</h3>
+                <p className="text-gray-300 mb-6">
+                  Event-driven architecture enables instant updates and real-time analytics across your entire system.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                    <span className="text-gray-300">Instant balance updates</span>
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                    <span className="text-gray-300">Real-time reporting</span>
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                    <span className="text-gray-300">Live dashboard updates</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Financial Intelligence */}
+      <div className="py-24 sm:py-32 bg-gray-900/50">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl lg:text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Financial Intelligence & Insights
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-gray-300">
+              Turn your financial data into actionable insights with powerful analytics and reporting.
+            </p>
+          </div>
+          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
+            <div className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-12 lg:max-w-none lg:grid-cols-3">
+              <div className="flex flex-col">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-600">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <dt className="text-lg font-semibold leading-7">Real-time Dashboards</dt>
+                <dd className="mt-1 text-sm leading-6 text-gray-300">
+                  Monitor cash flow, project profitability, sales pipelines, and subscription metrics 
+                  with live dashboards that update instantly.
+                </dd>
+              </div>
+              <div className="flex flex-col">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-600">
+                  <FileCode className="h-6 w-6 text-white" />
+                </div>
+                <dt className="text-lg font-semibold leading-7">Activity-Based Costing</dt>
+                <dd className="mt-1 text-sm leading-6 text-gray-300">
+                  Track profitability by activity, project, customer, or department. 
+                  Understand true costs and margins across your business.
+                </dd>
+              </div>
+              <div className="flex flex-col">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-600">
+                  <Globe className="h-6 w-6 text-white" />
+                </div>
+                <dt className="text-lg font-semibold leading-7">Predictive Analytics</dt>
+                <dd className="mt-1 text-sm leading-6 text-gray-300">
+                  Leverage AI-ready data structures for forecasting, trend analysis, 
+                  and intelligent alerts on budget overruns or payment delays.
+                </dd>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Technical Features */}
+      <div className="py-24 sm:py-32 bg-gray-900/50">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl lg:text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Enterprise-Ready Platform
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-gray-300">
+              Built from the ground up for modern finance teams and developers.
             </p>
           </div>
           <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
@@ -64,203 +278,30 @@ export default function ProductPage() {
                 <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
                   <Code className="h-8 w-8 text-white" />
                 </div>
-                <dt className="text-xl font-semibold leading-7">API First</dt>
+                <dt className="text-xl font-semibold leading-7">API-First Design</dt>
                 <dd className="mt-1 text-base leading-7 text-gray-300">
-                  Every feature accessible via REST APIs. Build custom integrations, 
-                  automate workflows, and connect with any system.
+                  Every feature accessible via RESTful APIs. Build custom integrations, 
+                  automate workflows, and connect with any modern tech stack.
                 </dd>
               </div>
               <div className="flex flex-col items-center text-center">
                 <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
-                  <Gauge className="h-8 w-8 text-white" />
+                  <Lock className="h-8 w-8 text-white" />
                 </div>
-                <dt className="text-xl font-semibold leading-7">High Performance</dt>
+                <dt className="text-xl font-semibold leading-7">Security & Compliance</dt>
                 <dd className="mt-1 text-base leading-7 text-gray-300">
-                  Sub-second response times for millions of transactions. 
-                  Optimized database queries and intelligent caching.
+                  Role-based access control, audit logging, data encryption, and 
+                  built-in compliance with SOX, GAAP, and data privacy regulations.
                 </dd>
               </div>
               <div className="flex flex-col items-center text-center">
                 <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
-                  <Rocket className="h-8 w-8 text-white" />
+                  <Cloud className="h-8 w-8 text-white" />
                 </div>
-                <dt className="text-xl font-semibold leading-7">Designed for AI</dt>
+                <dt className="text-xl font-semibold leading-7">Cloud-Native</dt>
                 <dd className="mt-1 text-base leading-7 text-gray-300">
-                  Structured data formats and APIs designed for AI integration, 
-                  automation, and intelligent insights.
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      </div>
-
-      {/* Architecture Features */}
-      <div className="py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl lg:text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Lightweight & Extensible
-            </h2>
-            <p className="mt-6 text-lg leading-8 text-gray-300">
-              A flexible architecture that grows with your business needs.
-            </p>
-          </div>
-          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              <div className="relative p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
-                <FileCode className="h-12 w-12 text-sky-400 mb-4" />
-                <h3 className="text-xl font-semibold mb-4">Lightweight Core</h3>
-                <p className="text-gray-300 mb-6">
-                  Minimal dependencies and optimized codebase. Deploy quickly without bloat.
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Fast deployment</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Low resource usage</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Easy maintenance</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="relative p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
-                <Globe className="h-12 w-12 text-sky-400 mb-4" />
-                <h3 className="text-xl font-semibold mb-4">Highly Extensible</h3>
-                <p className="text-gray-300 mb-6">
-                  Plugin architecture and webhook system for custom business logic.
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Custom workflows</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Integration hooks</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Plugin ecosystem</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tenancy Options */}
-      <div className="py-24 sm:py-32 bg-gray-900/50">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl lg:text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Flexible Tenancy Options
-            </h2>
-            <p className="mt-6 text-lg leading-8 text-gray-300">
-              Choose the deployment model that works best for your organization.
-            </p>
-          </div>
-          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              <div className="relative p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
-                <Users className="h-12 w-12 text-sky-400 mb-4" />
-                <h3 className="text-xl font-semibold mb-4">Shared Tenancy</h3>
-                <p className="text-gray-300 mb-6">
-                  Cost-effective multi-tenant solution with enterprise-grade security and isolation.
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Lower operational costs</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Automatic updates</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Fast deployment</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Shared infrastructure benefits</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="relative p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
-                <Server className="h-12 w-12 text-sky-400 mb-4" />
-                <h3 className="text-xl font-semibold mb-4">Isolated Tenancy</h3>
-                <p className="text-gray-300 mb-6">
-                  Dedicated infrastructure with complete data isolation and custom configurations.
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Complete data isolation</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Custom configurations</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Enhanced compliance</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
-                    <span className="text-gray-300">Dedicated resources</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Technical Features */}
-      <div className="py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl lg:text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Enterprise-Ready Features
-            </h2>
-            <p className="mt-6 text-lg leading-8 text-gray-300">
-              Built for scale, security, and reliability.
-            </p>
-          </div>
-          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-            <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
-                  <Database className="h-8 w-8 text-white" />
-                </div>
-                <dt className="text-xl font-semibold leading-7">Data Integrity</dt>
-                <dd className="mt-1 text-base leading-7 text-gray-300">
-                  ACID compliance, transaction isolation, and automatic backup ensure your data is always consistent and safe.
-                </dd>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
-                  <Shield className="h-8 w-8 text-white" />
-                </div>
-                <dt className="text-xl font-semibold leading-7">Security First</dt>
-                <dd className="mt-1 text-base leading-7 text-gray-300">
-                  End-to-end encryption, role-based access control, and SOC 2 compliance for enterprise security.
-                </dd>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-sky-600">
-                  <BarChart3 className="h-8 w-8 text-white" />
-                </div>
-                <dt className="text-xl font-semibold leading-7">Real-time Analytics</dt>
-                <dd className="mt-1 text-base leading-7 text-gray-300">
-                  Live dashboards, custom reports, and business intelligence integration for instant insights.
+                  Microservices architecture with auto-scaling, high availability, 
+                  and disaster recovery built into the platform.
                 </dd>
               </div>
             </dl>
@@ -269,7 +310,7 @@ export default function ProductPage() {
       </div>
 
       {/* Integration Section */}
-      <div className="py-24 sm:py-32 bg-gray-900/50">
+      <div className="py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl lg:text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
