@@ -14,9 +14,9 @@ export default function TermsOfServicePage() {
 
           {/* Page header */}
           <div className="max-w-3xl mx-auto text-center pb-12 md:pb-16">
-            <h1 data-aos="zoom-y-out">Terms of Use</h1>
+            <h1>Terms of Use</h1>
             <p className="text-xl text-gray-400 mb-2">Terms of use apply to your usage of GLAPI's services and our obligations to you.</p>
-            <p className="text-sm text-gray-500">(Last modified April 8, 2024)</p> {/* TODO: Update date dynamically or manually */}
+            <p className="text-sm text-gray-500">(Last modified April 8, 2024)</p>
           </div>
 
           {/* Content */}
