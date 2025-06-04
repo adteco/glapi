@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/clerk-webhook(.*)', // Example: if you have a Clerk webhook
   '/privacy-policy(.*)',
   '/terms-of-service(.*)',
+  '/security(.*)',
   '/pricing(.*)',
   '/product(.*)',
   // Add any other public routes here, e.g., landing page, public API routes
