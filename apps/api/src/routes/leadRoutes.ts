@@ -1,9 +1,25 @@
 import { Router } from 'express';
 import { getServiceContext } from '../middleware/clerk-auth';
-import { leadService, EntityListQuerySchema, CreateEntitySchema, UpdateEntitySchema } from '@glapi/api-service';
+import { 
+  leadService, 
+  EntityListQuerySchema, 
+  CreateEntitySchema, 
+  UpdateEntitySchema,
+  LeadProspectMetadataSchema 
+} from '@glapi/api-service';
 import { z } from 'zod';
 
-const router = Router();
+const router: Router = Router();
+
+// Define a Zod schema for creating a lead, using the specific LeadProspectMetadataSchema
+const CreateLeadPayloadSchema = CreateEntitySchema.omit({ metadata: true }).extend({
+  metadata: LeadProspectMetadataSchema.optional()
+});
+
+// Define a Zod schema for updating a lead, using the specific LeadProspectMetadataSchema
+const UpdateLeadPayloadSchema = UpdateEntitySchema.omit({ metadata: true }).extend({
+  metadata: LeadProspectMetadataSchema.optional()
+});
 
 // List leads
 router.get('/', async (req, res, next) => {
@@ -16,9 +32,9 @@ router.get('/', async (req, res, next) => {
       query
     );
     
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -34,9 +50,9 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Lead not found' });
     }
     
-    res.json(lead);
+    return res.json(lead);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -44,19 +60,19 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
-    const data = CreateEntitySchema.parse(req.body);
+    const data = CreateLeadPayloadSchema.parse(req.body);
     
     const lead = await leadService.createLead(
       context.organizationId,
       data
     );
     
-    res.status(201).json(lead);
+    return res.status(201).json(lead);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -65,7 +81,7 @@ router.put('/:id', async (req, res, next) => {
   try {
     const context = await getServiceContext(req);
     const { id } = req.params;
-    const data = UpdateEntitySchema.parse(req.body);
+    const data = UpdateLeadPayloadSchema.parse(req.body);
     
     const lead = await leadService.updateLead(
       id,
@@ -73,12 +89,12 @@ router.put('/:id', async (req, res, next) => {
       data
     );
     
-    res.json(lead);
+    return res.json(lead);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -90,9 +106,9 @@ router.delete('/:id', async (req, res, next) => {
     
     await leadService.delete(id, context.organizationId);
     
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -107,9 +123,9 @@ router.post('/:id/convert-to-customer', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json(customer);
+    return res.json(customer);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -124,9 +140,9 @@ router.get('/by-source/:source', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json({ data: leads });
+    return res.json({ data: leads });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -141,9 +157,9 @@ router.get('/assigned-to/:assigneeId', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json({ data: leads });
+    return res.json({ data: leads });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -156,9 +172,9 @@ router.get('/stats/scoring', async (req, res, next) => {
       context.organizationId
     );
     
-    res.json(stats);
+    return res.json(stats);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

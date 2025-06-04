@@ -34,7 +34,7 @@ app.use(cors(corsOptions)); // Enable CORS with specific options
 app.use(express.json()); // Parse JSON request bodies
 
 // Health check route
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'UP',
     message: 'API is healthy'
@@ -60,7 +60,7 @@ app.use('/api/v1/prospects', prospectRoutes);
 app.use('/api/v1/contacts', contactRoutes);
 
 // Error handling middleware (simple example)
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!' });
 });

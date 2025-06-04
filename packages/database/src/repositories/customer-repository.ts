@@ -149,6 +149,10 @@ export class CustomerRepository extends BaseRepository {
           .insert(addresses)
           .values({
             organizationId: data.organizationId,
+            addressee: addr.addressee || data.companyName,
+            companyName: addr.companyName || data.companyName,
+            attention: addr.attention,
+            phoneNumber: addr.phoneNumber || data.contactPhone,
             line1: addr.line1 || addr.addressLine1,
             line2: addr.line2 || addr.addressLine2,
             city: addr.city,
@@ -204,7 +208,6 @@ export class CustomerRepository extends BaseRepository {
     }
     
     // Handle address update if needed
-    let addressId = undefined;
     if (data.billingAddress !== undefined) {
       // TODO: Update or create address
       // For now, we'll skip address updates

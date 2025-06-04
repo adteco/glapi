@@ -78,7 +78,7 @@ export default function DepartmentsPage() {
   const { getToken, orgId } = useAuth();
 
   const form = useForm<DepartmentFormValues>({
-    resolver: zodResolver(departmentFormSchema),
+    // resolver: zodResolver(departmentFormSchema),
     defaultValues: {
       name: "",
       code: "",

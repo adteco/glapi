@@ -7,9 +7,26 @@ import {
   PaginatedResult,
   ServiceError
 } from '../types';
-import { classRepository } from '@glapi/database/src/repositories';
+import { classRepository } from '@glapi/database';
 
 export class ClassService extends BaseService {
+  /**
+   * Transform database class to service layer type
+   */
+  private transformClass(dbClass: any): Class {
+    return {
+      id: dbClass.id,
+      organizationId: dbClass.organizationId,
+      subsidiaryId: dbClass.subsidiaryId,
+      name: dbClass.name,
+      code: dbClass.code || undefined,
+      description: dbClass.description || undefined,
+      isActive: dbClass.isActive ?? true,
+      createdAt: dbClass.createdAt || new Date(),
+      updatedAt: dbClass.updatedAt || new Date(),
+    };
+  }
+
   /**
    * Get a list of classes for the current organization
    */
@@ -35,7 +52,7 @@ export class ClassService extends BaseService {
       const paginatedClasses = classes.slice(startIdx, endIdx);
       
       return this.createPaginatedResult(
-        paginatedClasses, 
+        paginatedClasses.map(c => this.transformClass(c)), 
         classes.length, 
         page, 
         limit
@@ -52,7 +69,7 @@ export class ClassService extends BaseService {
     );
     
     return {
-      data: result.classes,
+      data: result.classes.map(c => this.transformClass(c)),
       total: result.totalCount,
       page,
       limit,
@@ -65,7 +82,8 @@ export class ClassService extends BaseService {
    */
   async getClassById(id: string): Promise<Class | null> {
     const organizationId = this.requireOrganizationContext();
-    return classRepository.findById(id, organizationId);
+    const cls = await classRepository.findById(id, organizationId);
+    return cls ? this.transformClass(cls) : null;
   }
   
   /**
@@ -84,7 +102,8 @@ export class ClassService extends BaseService {
     }
     
     // Create the class
-    return classRepository.create(data);
+    const created = await classRepository.create(data);
+    return this.transformClass(created);
   }
   
   /**
@@ -114,7 +133,7 @@ export class ClassService extends BaseService {
       );
     }
     
-    return updated;
+    return this.transformClass(updated);
   }
   
   /**

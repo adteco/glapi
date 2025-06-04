@@ -26,7 +26,7 @@ export function getClient() {
     // The postgres client has different parsing requirements
     // than node-postgres, so we use the Pool for testing as well
     return {
-      async query(sql, params) {
+      async query(sql: string, params?: any[]) {
         const result = await pool.query(sql, params);
         return result.rows;
       },

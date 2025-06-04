@@ -13,10 +13,13 @@
     "run:entities-migration": "tsx src/scripts/run-entities-migration.ts"
   },
   "dependencies": {
+    "@types/dotenv": "^8.2.3",
     "@types/pg": "^8.15.1",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.41.0",
     "pg": "^8.15.6",
-    "postgres": "^3.4.3"
+    "postgres": "^3.4.3",
+    "zod": "^3.25.49"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",

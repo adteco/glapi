@@ -47,7 +47,7 @@ export class AccountRepository extends BaseRepository {
     );
     
     if (filters.accountCategory) {
-      whereClause = and(whereClause, eq(accounts.accountCategory, filters.accountCategory));
+      whereClause = and(whereClause, eq(accounts.accountCategory, filters.accountCategory as any));
     }
     
     if (filters.isActive !== undefined) {

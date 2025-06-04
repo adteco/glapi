@@ -7,9 +7,32 @@ import {
   PaginatedResult,
   ServiceError
 } from '../types';
-import { locationRepository } from '@glapi/database/src/repositories';
+import { locationRepository } from '@glapi/database';
 
 export class LocationService extends BaseService {
+  /**
+   * Transform database location to service layer type
+   */
+  private transformLocation(dbLocation: any): Location {
+    return {
+      id: dbLocation.id,
+      organizationId: dbLocation.organizationId,
+      subsidiaryId: dbLocation.subsidiaryId,
+      name: dbLocation.name,
+      code: dbLocation.locationCode,
+      description: dbLocation.description || undefined,
+      addressLine1: dbLocation.addressLine1 || undefined,
+      addressLine2: dbLocation.addressLine2 || undefined,
+      city: dbLocation.city || undefined,
+      stateProvince: dbLocation.stateProvince || undefined,
+      postalCode: dbLocation.postalCode || undefined,
+      countryCode: dbLocation.countryCode || undefined,
+      isActive: dbLocation.status === 'active',
+      createdAt: dbLocation.createdAt || new Date(),
+      updatedAt: dbLocation.updatedAt || new Date(),
+    };
+  }
+
   /**
    * Get a list of locations for the current organization
    */
@@ -43,7 +66,7 @@ export class LocationService extends BaseService {
       const paginatedLocations = filteredLocations.slice(startIdx, endIdx);
       
       return this.createPaginatedResult(
-        paginatedLocations, 
+        paginatedLocations.map(l => this.transformLocation(l)), 
         filteredLocations.length, 
         page, 
         limit
@@ -61,7 +84,7 @@ export class LocationService extends BaseService {
     );
     
     return {
-      data: result.locations,
+      data: result.locations.map(l => this.transformLocation(l)),
       total: result.totalCount,
       page,
       limit,
@@ -74,7 +97,8 @@ export class LocationService extends BaseService {
    */
   async getLocationById(id: string): Promise<Location | null> {
     const organizationId = this.requireOrganizationContext();
-    return locationRepository.findById(id, organizationId);
+    const location = await locationRepository.findById(id, organizationId);
+    return location ? this.transformLocation(location) : null;
   }
   
   /**
@@ -93,7 +117,8 @@ export class LocationService extends BaseService {
     }
     
     // Create the location
-    return locationRepository.create(data);
+    const location = await locationRepository.create(data);
+    return this.transformLocation(location);
   }
   
   /**
@@ -123,7 +148,7 @@ export class LocationService extends BaseService {
       );
     }
     
-    return updated;
+    return this.transformLocation(updated);
   }
   
   /**

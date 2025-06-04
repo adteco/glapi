@@ -7,7 +7,7 @@ import {
   PaginatedResult,
   ServiceError
 } from '../types';
-import { CustomerRepository } from '@glapi/database/src/repositories/customer-repository';
+import { CustomerRepository } from '@glapi/database';
 
 export class CustomerService extends BaseService {
   private customerRepository: CustomerRepository;
@@ -15,6 +15,24 @@ export class CustomerService extends BaseService {
   constructor(context = {}) {
     super(context);
     this.customerRepository = new CustomerRepository();
+  }
+
+  /**
+   * Transform database customer to service layer type
+   */
+  private transformCustomer(dbCustomer: any): Customer {
+    return {
+      id: dbCustomer.id,
+      organizationId: dbCustomer.organizationId,
+      companyName: dbCustomer.companyName,
+      customerId: dbCustomer.customerId || undefined,
+      contactEmail: dbCustomer.contactEmail || undefined,
+      contactPhone: dbCustomer.contactPhone || undefined,
+      status: dbCustomer.status as 'active' | 'inactive' | 'archived',
+      billingAddress: dbCustomer.billingAddress || undefined,
+      createdAt: dbCustomer.createdAt || new Date(),
+      updatedAt: dbCustomer.updatedAt || new Date(),
+    };
   }
   
   /**
@@ -39,7 +57,10 @@ export class CustomerService extends BaseService {
       filters
     );
     
-    return result;
+    return {
+      ...result,
+      data: result.data.map(c => this.transformCustomer(c))
+    };
   }
   
   /**
@@ -47,7 +68,8 @@ export class CustomerService extends BaseService {
    */
   async getCustomerById(id: string): Promise<Customer | null> {
     const organizationId = this.requireOrganizationContext();
-    return await this.customerRepository.findById(id, organizationId);
+    const customer = await this.customerRepository.findById(id, organizationId);
+    return customer ? this.transformCustomer(customer) : null;
   }
   
   /**
@@ -78,7 +100,8 @@ export class CustomerService extends BaseService {
     }
     
     // Create the customer
-    return await this.customerRepository.create(data);
+    const customer = await this.customerRepository.create(data);
+    return this.transformCustomer(customer);
   }
   
   /**
@@ -108,7 +131,7 @@ export class CustomerService extends BaseService {
       );
     }
     
-    return result;
+    return this.transformCustomer(result);
   }
   
   /**
