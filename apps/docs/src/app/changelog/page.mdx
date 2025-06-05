@@ -1,100 +1,75 @@
 export const metadata = {
-  title: 'Quickstart',
+  title: 'Changelog',
   description:
-    'This guide will get you all set up and ready to use the the Kurrent project management platform',
+    'All notable changes to the GLAPI project will be documented here.',
 }
 
-# Quickstart
+# Changelog
 
-This guide will get you all set up and ready to use the Kurrent project management platform. We'll cover how to setup a project, look at the data and trigger a sync. {{ className: 'lead' }}
+All notable changes to the GLAPI project will be documented here. This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). {{ className: 'lead' }}
+
+## [0.1.0] - Initial Release
 
 <Note>
-  To complete the section, you will need to grab information about your Procore Instance and setup an Integration record in Netsuite. We can do this for you, or you can follow the instructions [here](some.link)
+  This is the initial release of GLAPI, a comprehensive revenue recognition system with accounting dimensions API.
 </Note>
 
-## Connect a project
+### Added
 
-There are multiple ways to connect a project but for now, let's take the manual approach. Click on the <a href="https://www.kurrent.ai/projects" target="_blank">projects</a> link and in the upper right select "Create Project" 
+- **Core API Infrastructure**
+  - RESTful API built with Express.js
+  - Authentication middleware with Clerk integration
+  - CORS support for cross-origin requests
+  
+- **Accounting Dimensions Endpoints**
+  - `/api/customers` - Customer management
+  - `/api/organizations` - Organization management
+  - `/api/subsidiaries` - Subsidiary management
+  - `/api/departments` - Department management
+  - `/api/locations` - Location management
+  - `/api/classes` - Class management
+  - `/api/employees` - Employee management
+  - `/api/vendors` - Vendor management
+  - `/api/contacts` - Contact management
+  - `/api/leads` - Lead management
+  - `/api/prospects` - Prospect management
 
-<CodeGroup>
+- **General Ledger Features**
+  - `/api/gl/accounts` - GL account management
+  - Transaction recording and tracking
+  - Revenue recognition support
+  
+- **Web Application**
+  - Next.js-based web interface
+  - Stytch authentication integration
+  - CRUD interfaces for all accounting dimensions
+  - Responsive design with shadcn/ui components
 
-```bash {{ title: 'cURL' }}
-# cURL is most likely already installed on your machine
-curl --version
-```
+- **Documentation Site**
+  - Comprehensive API documentation
+  - Interactive code examples
+  - Authentication guides
+  - Migration guides
 
-```bash {{ language: 'js' }}
-# Install the Protocol JavaScript SDK
-npm install @example/protocol-api --save
-```
+- **Database Layer**
+  - PostgreSQL with Drizzle ORM
+  - Repository pattern implementation
+  - Migration system
+  - Row-level security (RLS) design
 
-```bash {{ language: 'python' }}
-# Install the Protocol Python SDK
-pip install protocol_api
-```
+### Technical Stack
 
-```bash {{ language: 'php' }}
-# Install the Protocol PHP SDK
-composer require protocol/sdk
-```
+- **Backend**: Node.js, Express.js, TypeScript
+- **Frontend**: Next.js 14, React 18, Tailwind CSS
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: Clerk (API), Stytch (Web)
+- **Validation**: Zod
+- **Monorepo**: Turborepo with pnpm workspaces
 
-</CodeGroup>
+### Known Issues
 
-<div className="not-prose">
-  <Button href="/sdks" variant="text" arrow="right">
-    <>Check out our list of first-party SDKs</>
-  </Button>
-</div>
+- Initial release - gathering feedback for improvements
 
-## Compare the data
+---
 
-After picking your preferred client, you are ready to make your first call to the Protocol API. Below, you can see how to send a GET request to the Conversations endpoint to get a list of all your conversations. In the cURL example, results are limited to ten conversations, the default page length for each client.
-
-<CodeGroup tag="GET" label="/v1/conversations">
-
-```bash {{ title: 'cURL' }}
-curl -G https://api.protocol.chat/v1/conversations \
-  -H "Authorization: Bearer {token}" \
-  -d limit=10
-```
-
-```js
-import ApiClient from '@example/protocol-api'
-
-const client = new ApiClient(token)
-
-await client.conversations.list()
-```
-
-```python
-from protocol_api import ApiClient
-
-client = ApiClient(token)
-
-client.conversations.list()
-```
-
-```php
-$client = new \Protocol\ApiClient($token);
-
-$client->conversations->list();
-```
-
-</CodeGroup>
-
-<div className="not-prose">
-  <Button href="/conversations" variant="text" arrow="right">
-    <>Read the docs for the Conversations endpoint</>
-  </Button>
-</div>
-
-## Trigger a sync
-
-Great, you're now set up with an API client and have made your first request to the API. Here are a few links that might be handy as you venture further into the Protocol API:
-
-- [Grab your API key from the Protocol dashboard](#)
-- [Check out the Conversations endpoint](/conversations)
-- [Learn about the different error messages in Protocol](/errors)
-
-
-## Set project defaults 
+_The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)._ 
