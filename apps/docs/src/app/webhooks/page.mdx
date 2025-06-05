@@ -6,7 +6,7 @@ export const metadata = {
 
 # Webhooks
 
-In this guide, we will look at how to register and consume webhooks to integrate your app with Kurrent. With webhooks, your app can know when something happens in Protocol, such as someone sending a message or adding a contact. {{ className: 'lead' }}
+In this guide, we will look at how to register and consume webhooks to integrate your app with GLAPI. With webhooks, your app can know when something happens in Protocol, such as someone sending a message or adding a contact. {{ className: 'lead' }}
 
 ## Registering webhooks
 
@@ -14,11 +14,11 @@ To register a new webhook, you need to have a URL in your app that Protocol can 
 
 Now, whenever something of interest happens in your app, a webhook is fired off by Protocol.
 
-## How Kurrent Processes Webhooks
+## How GLAPI Processes Webhooks
 
-When Kurrent receives a webhook from an external system (like Procore or NetSuite), it goes through several steps:
+When GLAPI receives a webhook from an external system (like Procore or NetSuite), it goes through several steps:
 
-1.  **Verification:** Kurrent first verifies the webhook's signature (as described in the [Security](#security) section) to ensure it's legitimate.
+1.  **Verification:** GLAPI first verifies the webhook's signature (as described in the [Security](#security) section) to ensure it's legitimate.
 2.  **Storage:** The valid webhook event is stored in our system for tracking and potential retries.
 3.  **Queuing:** The event is placed in a queue for processing.
 4.  **Processing:** A background process picks up the event and performs the necessary actions based on your project's specific configuration.
@@ -31,20 +31,20 @@ This processing step is where your project settings come into play.
   **System Defaults:** Your system administrator can configure default webhook settings (like default cutoff dates and auto-sync options) that apply system-wide. When a new project is created, it automatically inherits these defaults. You can then customize these settings for your specific project as described below. Project-specific settings always override the system defaults.
 </Note>
 
-You can customize how Kurrent handles incoming webhooks on a per-project basis. These settings allow you to control which events trigger actions within Kurrent and under what conditions.
+You can customize how GLAPI handles incoming webhooks on a per-project basis. These settings allow you to control which events trigger actions within GLAPI and under what conditions.
 
 Key configuration options include:
 
 *   **Financial Cutoff Date:**
-    *   **Purpose:** This setting (currently applicable to Procore Requisitions) prevents Kurrent from processing or syncing financial transactions that occurred before a specific date. This is useful for ensuring that historical data that has already been reconciled or migrated is not inadvertently modified.
-    *   **How it works:** When a requisition webhook is received, Kurrent checks the requisition's date against this cutoff date. If the requisition date is earlier than the cutoff date, Kurrent may skip syncing it, depending on your specific workflow rules.
+    *   **Purpose:** This setting (currently applicable to Procore Requisitions) prevents GLAPI from processing or syncing financial transactions that occurred before a specific date. This is useful for ensuring that historical data that has already been reconciled or migrated is not inadvertently modified.
+    *   **How it works:** When a requisition webhook is received, GLAPI checks the requisition's date against this cutoff date. If the requisition date is earlier than the cutoff date, GLAPI may skip syncing it, depending on your specific workflow rules.
     *   **Further details:** For more detailed logic on how the cutoff date applies, see [Procore Cutoff Logic](./procore-cutoff-logic).
 
 *   **Automatic Syncing (Auto-Sync):**
-    *   **Purpose:** For various types of events (e.g., Requisitions, Purchase Orders, Vendor Bills), you can decide whether Kurrent should automatically attempt to sync the corresponding data when a webhook is received.
+    *   **Purpose:** For various types of events (e.g., Requisitions, Purchase Orders, Vendor Bills), you can decide whether GLAPI should automatically attempt to sync the corresponding data when a webhook is received.
     *   **How it works:** Each relevant event type (like `procore.requisition.created`, `netsuite.vendorbill.updated`, etc.) has an associated toggle in your project settings.
-        *   If **enabled**, Kurrent will automatically try to process and sync the data related to the webhook event.
-        *   If **disabled**, Kurrent will still record the webhook event but will not automatically initiate the sync process. This allows you to review events manually or trigger syncs through other means if needed.
+        *   If **enabled**, GLAPI will automatically try to process and sync the data related to the webhook event.
+        *   If **disabled**, GLAPI will still record the webhook event but will not automatically initiate the sync process. This allows you to review events manually or trigger syncs through other means if needed.
     *   **Configurable Events:** You can typically configure auto-sync for events related to:
         *   Procore Requisitions
         *   Procore Purchase Orders
@@ -53,11 +53,11 @@ Key configuration options include:
         *   NetSuite Purchase Orders
         *   *(Check your specific project settings for the full list)*
 
-These settings provide fine-grained control over how Kurrent interacts with your integrated systems based on webhook events. You can manage these configurations within your project settings page in the Kurrent application.
+These settings provide fine-grained control over how GLAPI interacts with your integrated systems based on webhook events. You can manage these configurations within your project settings page in the GLAPI application.
 
 ## Procore Event Types
 
-Kurrent can listen for various events from Procore. Here are some common event types you might configure:
+GLAPI can listen for various events from Procore. Here are some common event types you might configure:
 
 <Properties>
   <Property name="procore.purchase_order.created">
@@ -87,4 +87,4 @@ Kurrent can listen for various events from Procore. Here are some common event t
   {/* Add more specific event types as needed based on Procore API documentation */}
 </Properties>
 
-*Note: The exact event type names (`procore.resource.action`) may vary slightly. Refer to the Procore API documentation and your Kurrent project configuration for the specific event types available.*
+*Note: The exact event type names (`procore.resource.action`) may vary slightly. Refer to the Procore API documentation and your GLAPI project configuration for the specific event types available.*
