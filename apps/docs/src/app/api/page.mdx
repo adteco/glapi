@@ -1,15 +1,15 @@
 export const metadata = {
   title: 'API Reference',
   description:
-    'Complete reference documentation for the Kurrent API, including authentication, endpoints, and example requests.',
+    'Complete reference documentation for the GLAPI API, including authentication, endpoints, and example requests.',
 }
 
 # API Reference
 
-This documentation provides a comprehensive guide to the Kurrent API, including authentication methods, available endpoints, and example requests. Our API follows RESTful principles and uses standard HTTP methods. {{ className: 'lead' }}
+This documentation provides a comprehensive guide to the GLAPI API, including authentication methods, available endpoints, and example requests. Our API follows RESTful principles and uses standard HTTP methods. {{ className: 'lead' }}
 
 <Note>
-  To use the Kurrent API, you will need an API key. Contact your administrator or the support team to obtain your API key.
+  To use the GLAPI API, you will need an API key. Contact your administrator or the support team to obtain your API key.
 </Note>
 
 ## Authentication
@@ -17,7 +17,7 @@ This documentation provides a comprehensive guide to the Kurrent API, including 
 All API requests require authentication using an API key. The API key should be included in the request headers as `x-api-key`.
 
 ```bash
-curl -X GET https://api.kurrent.com/api/external/budget-views?project_id=123 \
+curl -X GET https://api.glapi.com/api/external/budget-views?project_id=123 \
   -H "x-api-key: your-api-key" \
   -H "x-organization-id: your-organization-id" \
   -H "x-company-id: your-company-id"
@@ -61,7 +61,7 @@ All API responses are returned in JSON format. Successful responses include a `d
 
 ## Available Endpoints
 
-Kurrent offers a variety of endpoints for accessing and managing your data:
+GLAPI offers a variety of endpoints for accessing and managing your data:
 
 ### Core Entities
 
