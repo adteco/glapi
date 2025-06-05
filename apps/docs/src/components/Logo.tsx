@@ -1,16 +1,11 @@
 import Link from 'next/link'
-import Image from 'next/image'
+import { ShieldCheck } from 'lucide-react'
 
 export function Logo(props: React.ComponentPropsWithoutRef<'a'>) {
   return (
     <Link href="/" className="flex items-center gap-2" {...props}>
-      <Image
-        src="/images/kurrent-icon.png"
-        alt="Kurrent"
-        width={32}
-        height={32}
-        className="h-8 w-8"
-      />
+      <ShieldCheck className="h-8 w-8 text-sky-400" />
+      <span className="text-xl font-bold">GLAPI</span>
     </Link>
   )
 }

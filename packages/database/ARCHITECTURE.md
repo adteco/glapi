@@ -41,7 +41,7 @@ Required environment variables:
 This package should be imported by other packages/apps that need database access:
 
 typescript
-import { db, projects } from '@kurrent/database'
+import { db, projects } from '@glapi/database'
 
 ## Row-Level Security Architecture
 

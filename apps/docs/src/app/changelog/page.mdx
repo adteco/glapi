@@ -1,0 +1,75 @@
+export const metadata = {
+  title: 'Changelog',
+  description:
+    'All notable changes to the GLAPI project will be documented here.',
+}
+
+# Changelog
+
+All notable changes to the GLAPI project will be documented here. This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). {{ className: 'lead' }}
+
+## [0.1.0] - Initial Release
+
+<Note>
+  This is the initial release of GLAPI, a comprehensive revenue recognition system with accounting dimensions API.
+</Note>
+
+### Added
+
+- **Core API Infrastructure**
+  - RESTful API built with Express.js
+  - Authentication middleware with Clerk integration
+  - CORS support for cross-origin requests
+  
+- **Accounting Dimensions Endpoints**
+  - `/api/customers` - Customer management
+  - `/api/organizations` - Organization management
+  - `/api/subsidiaries` - Subsidiary management
+  - `/api/departments` - Department management
+  - `/api/locations` - Location management
+  - `/api/classes` - Class management
+  - `/api/employees` - Employee management
+  - `/api/vendors` - Vendor management
+  - `/api/contacts` - Contact management
+  - `/api/leads` - Lead management
+  - `/api/prospects` - Prospect management
+
+- **General Ledger Features**
+  - `/api/gl/accounts` - GL account management
+  - Transaction recording and tracking
+  - Revenue recognition support
+  
+- **Web Application**
+  - Next.js-based web interface
+  - Stytch authentication integration
+  - CRUD interfaces for all accounting dimensions
+  - Responsive design with shadcn/ui components
+
+- **Documentation Site**
+  - Comprehensive API documentation
+  - Interactive code examples
+  - Authentication guides
+  - Migration guides
+
+- **Database Layer**
+  - PostgreSQL with Drizzle ORM
+  - Repository pattern implementation
+  - Migration system
+  - Row-level security (RLS) design
+
+### Technical Stack
+
+- **Backend**: Node.js, Express.js, TypeScript
+- **Frontend**: Next.js 14, React 18, Tailwind CSS
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: Clerk (API), Stytch (Web)
+- **Validation**: Zod
+- **Monorepo**: Turborepo with pnpm workspaces
+
+### Known Issues
+
+- Initial release - gathering feedback for improvements
+
+---
+
+_The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)._ 
