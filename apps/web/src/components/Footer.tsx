@@ -4,6 +4,8 @@ import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export function Footer() {
+  const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || 'https://docs.glapi.net';
+  
   return (
     <footer className="bg-gray-900 border-t border-gray-800">
       <div className="mx-auto max-w-7xl px-6 lg:px-8 py-12">
@@ -40,9 +42,14 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/api" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <a 
+                  href={docsUrl} 
+                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
                   API Reference
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
