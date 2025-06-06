@@ -61,21 +61,21 @@ app.get('/', (_req: Request, res: Response) => {
 
 // Apply combined auth middleware to API routes
 // This supports both API key and Clerk JWT authentication
-app.use('/api/v1', combinedAuthMiddleware);
+app.use('/', combinedAuthMiddleware);
 
 // Mount API routes
-app.use('/api/v1/customers', customerRoutes);
-app.use('/api/v1/organizations', organizationRoutes);
-app.use('/api/v1/subsidiaries', subsidiaryRoutes);
-app.use('/api/v1/departments', departmentRoutes);
-app.use('/api/v1/locations', locationRoutes);
-app.use('/api/v1/classes', classRoutes);
-app.use('/api/v1/gl', glRoutes); // Mount General Ledger routes
-app.use('/api/v1/vendors', vendorRoutes);
-app.use('/api/v1/employees', employeeRoutes);
-app.use('/api/v1/leads', leadRoutes);
-app.use('/api/v1/prospects', prospectRoutes);
-app.use('/api/v1/contacts', contactRoutes);
+app.use('/customers', customerRoutes);
+app.use('/organizations', organizationRoutes);
+app.use('/subsidiaries', subsidiaryRoutes);
+app.use('/departments', departmentRoutes);
+app.use('/locations', locationRoutes);
+app.use('/classes', classRoutes);
+app.use('/gl', glRoutes); // Mount General Ledger routes
+app.use('/vendors', vendorRoutes);
+app.use('/employees', employeeRoutes);
+app.use('/leads', leadRoutes);
+app.use('/prospects', prospectRoutes);
+app.use('/contacts', contactRoutes);
 
 // Error handling middleware (simple example)
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
