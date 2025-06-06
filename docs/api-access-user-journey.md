@@ -147,13 +147,13 @@ Since Clerk doesn't provide API keys, we'll implement a custom solution:
 
 1. **Request with API Key**:
    ```bash
-   curl https://api.glapi.io/v1/customers \
+   curl https://api.glapi.net/v1/customers \
      -H "X-API-Key: glapi_live_xxxxxxxxxxxxx"
    ```
 
 2. **Request with Clerk JWT** (from web app):
    ```bash
-   curl https://api.glapi.io/v1/customers \
+   curl https://api.glapi.net/v1/customers \
      -H "Authorization: Bearer <clerk-jwt-token>"
    ```
 
