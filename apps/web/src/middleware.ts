@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   '/security(.*)',
   '/pricing(.*)',
   '/product(.*)',
+  '/contact(.*)', // Add contact route
   // Add any other public routes here, e.g., landing page, public API routes
   // '/', // If your landing page is public
 ]);
