@@ -52,7 +52,7 @@ app.use(cors(corsOptions)); // Enable CORS with specific options
 app.use(express.json()); // Parse JSON request bodies
 
 // Health check route
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'UP',
     message: 'API is healthy'
@@ -90,5 +90,4 @@ if (process.env.VERCEL !== '1') {
   });
 }
 
-export default app; // Export app for Vercel
-module.exports = app; // Also export as CommonJS for Vercel
+module.exports = app; // Export app for Vercel
