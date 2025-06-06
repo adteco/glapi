@@ -16,12 +16,12 @@ info:
     ## Base URL
     
     - Development: `http://localhost:3001/api/v1`
-    - Production: `https://api.glapi.io/api/v1`
+    - Production: `https://api.glapi.net/api/v1`
 
 servers:
   - url: http://localhost:3001/api/v1
     description: Local development server
-  - url: https://api.glapi.io/api/v1
+  - url: https://api.glapi.net/api/v1
     description: Production server
 
 security:
