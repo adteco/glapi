@@ -22,49 +22,29 @@ All notable changes to the GLAPI project will be documented here. This project a
   - CORS support for cross-origin requests
   
 - **Accounting Dimensions Endpoints**
-  - `/api/customers` - Customer management
-  - `/api/organizations` - Organization management
-  - `/api/subsidiaries` - Subsidiary management
-  - `/api/departments` - Department management
-  - `/api/locations` - Location management
-  - `/api/classes` - Class management
-  - `/api/employees` - Employee management
-  - `/api/vendors` - Vendor management
-  - `/api/contacts` - Contact management
-  - `/api/leads` - Lead management
-  - `/api/prospects` - Prospect management
+  - [`/api/customers`](/api/customers) - Customer management
+  - [`/api/organizations`](/api/organizations) - Organization management
+  - [`/api/subsidiaries`](/api/subsidiaries) - Subsidiary management
+  - [`/api/departments`](/api/departments) - Department management
+  - [`/api/locations`](/api/locations) - Location management
+  - [`/api/classes`](/api/classes) - Class management
+  - [`/api/employees`](/api/employees) - Employee management
+  - [`/api/vendors`](/api/vendors) - Vendor management
+  - [`/api/contacts`](/api/contacts) - Contact management
+  - [`/api/leads`](/api/leads) - Lead management
+  - [`/api/prospects`](/api/prospects) - Prospect management
 
 - **General Ledger Features**
-  - `/api/gl/accounts` - GL account management
-  - Transaction recording and tracking
+  - [`/api/gl/accounts`](/api/general-ledger) - GL account management
+  - [`/api/gl/transactions`](/api/gl-transactions) - Transaction recording and tracking
+  - [`/api/gl/reports`](/api/gl-reports) - Financial reporting
   - Revenue recognition support
   
-- **Web Application**
-  - Next.js-based web interface
-  - Stytch authentication integration
-  - CRUD interfaces for all accounting dimensions
-  - Responsive design with shadcn/ui components
-
-- **Documentation Site**
+- - **Documentation Site**
   - Comprehensive API documentation
   - Interactive code examples
   - Authentication guides
   - Migration guides
-
-- **Database Layer**
-  - PostgreSQL with Drizzle ORM
-  - Repository pattern implementation
-  - Migration system
-  - Row-level security (RLS) design
-
-### Technical Stack
-
-- **Backend**: Node.js, Express.js, TypeScript
-- **Frontend**: Next.js 14, React 18, Tailwind CSS
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Clerk (API), Stytch (Web)
-- **Validation**: Zod
-- **Monorepo**: Turborepo with pnpm workspaces
 
 ### Known Issues
 
