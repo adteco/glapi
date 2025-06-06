@@ -5,6 +5,8 @@ import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export function Header() {
+  const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || 'https://docs.glapi.net';
+
   return (
     <nav className="relative z-10 flex items-center justify-between p-6 lg:px-8 bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900">
       <div className="flex items-center space-x-2">
@@ -19,9 +21,14 @@ export function Header() {
         <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors">
           Pricing
         </Link>
-        <Link href="/docs" className="text-gray-300 hover:text-white transition-colors">
+        <a 
+          href={docsUrl} 
+          className="text-gray-300 hover:text-white transition-colors"
+          target="_blank" 
+          rel="noopener noreferrer"
+        >
           Docs
-        </Link>
+        </a>
         <Link href="/contact" className="text-gray-300 hover:text-white transition-colors">
           Contact
         </Link>
