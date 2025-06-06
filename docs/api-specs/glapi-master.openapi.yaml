@@ -1,0 +1,823 @@
+openapi: 3.0.0
+info:
+  title: GLAPI - General Ledger API
+  version: 1.0.0
+  description: |
+    The GLAPI provides a comprehensive REST API for managing accounting dimensions and financial data.
+    
+    ## Authentication
+    
+    All API requests must be authenticated using an API key in the `X-API-Key` header:
+    
+    ```
+    X-API-Key: glapi_test_sk_1234567890abcdef
+    ```
+    
+    ## Base URL
+    
+    - Development: `http://localhost:3001/api/v1`
+    - Production: `https://api.glapi.io/api/v1`
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development server
+  - url: https://api.glapi.io/api/v1
+    description: Production server
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+  parameters:
+    page:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+    organizationId:
+      name: organizationId
+      in: path
+      required: true
+      description: Organization ID
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        message:
+          type: string
+          description: Detailed error message
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {}
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number
+        limit:
+          type: integer
+          description: Items per page
+        totalPages:
+          type: integer
+          description: Total number of pages
+
+    Customer:
+      type: object
+      required:
+        - companyName
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          readOnly: true
+        companyName:
+          type: string
+          description: Company name of the customer
+        customerId:
+          type: string
+          description: External customer ID
+        contactEmail:
+          type: string
+          format: email
+          description: Primary contact email
+        contactPhone:
+          type: string
+          description: Primary contact phone
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+        billingAddress:
+          type: string
+          description: Billing address
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Vendor:
+      type: object
+      required:
+        - companyName
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          readOnly: true
+        companyName:
+          type: string
+          description: Company name of the vendor
+        vendorId:
+          type: string
+          description: External vendor ID
+        contactEmail:
+          type: string
+          format: email
+          description: Primary contact email
+        contactPhone:
+          type: string
+          description: Primary contact phone
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+        address:
+          type: string
+          description: Vendor address
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Employee:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          readOnly: true
+        employeeId:
+          type: string
+          description: External employee ID
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        department:
+          type: string
+        position:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, terminated]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Department:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: Department name
+        code:
+          type: string
+          description: Department code
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent department ID for hierarchical structure
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Location:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: Location name
+        code:
+          type: string
+          description: Location code
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        postalCode:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Class:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: Class name
+        code:
+          type: string
+          description: Class code
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent class ID for hierarchical structure
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Subsidiary:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organizationId:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: Subsidiary name
+        code:
+          type: string
+          description: Subsidiary code
+        legalName:
+          type: string
+          description: Legal entity name
+        taxId:
+          type: string
+          description: Tax identification number
+        address:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+paths:
+  # Customer endpoints
+  /customers:
+    get:
+      tags:
+        - Customers
+      summary: List customers
+      description: Get a paginated list of customers for the organization
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, archived]
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Customer'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Customers
+      summary: Create customer
+      description: Create a new customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer'
+      responses:
+        201:
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /customers/{customerId}:
+    get:
+      tags:
+        - Customers
+      summary: Get customer
+      description: Get a specific customer by ID
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        404:
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Customers
+      summary: Update customer
+      description: Update an existing customer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer'
+      responses:
+        200:
+          description: Customer updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        404:
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Customers
+      summary: Delete customer
+      description: Delete a customer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        204:
+          description: Customer deleted
+        404:
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Vendor endpoints
+  /vendors:
+    get:
+      tags:
+        - Vendors
+      summary: List vendors
+      description: Get a paginated list of vendors
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Vendor'
+
+    post:
+      tags:
+        - Vendors
+      summary: Create vendor
+      description: Create a new vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Vendor'
+      responses:
+        201:
+          description: Vendor created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vendor'
+
+  # Employee endpoints
+  /employees:
+    get:
+      tags:
+        - Employees
+      summary: List employees
+      description: Get a paginated list of employees
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Employee'
+
+    post:
+      tags:
+        - Employees
+      summary: Create employee
+      description: Create a new employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      responses:
+        201:
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+
+  # Department endpoints
+  /departments:
+    get:
+      tags:
+        - Departments
+      summary: List departments
+      description: Get a paginated list of departments
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Department'
+
+    post:
+      tags:
+        - Departments
+      summary: Create department
+      description: Create a new department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+      responses:
+        201:
+          description: Department created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+
+  # Location endpoints
+  /locations:
+    get:
+      tags:
+        - Locations
+      summary: List locations
+      description: Get a paginated list of locations
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Location'
+
+    post:
+      tags:
+        - Locations
+      summary: Create location
+      description: Create a new location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+      responses:
+        201:
+          description: Location created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+
+  # Class endpoints
+  /classes:
+    get:
+      tags:
+        - Classes
+      summary: List classes
+      description: Get a paginated list of classes
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Class'
+
+    post:
+      tags:
+        - Classes
+      summary: Create class
+      description: Create a new class
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Class'
+      responses:
+        201:
+          description: Class created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Class'
+
+  # Subsidiary endpoints
+  /subsidiaries:
+    get:
+      tags:
+        - Subsidiaries
+      summary: List subsidiaries
+      description: Get a paginated list of subsidiaries
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Subsidiary'
+
+    post:
+      tags:
+        - Subsidiaries
+      summary: Create subsidiary
+      description: Create a new subsidiary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subsidiary'
+      responses:
+        201:
+          description: Subsidiary created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsidiary'
+
+tags:
+  - name: Customers
+    description: Customer management endpoints
+  - name: Vendors
+    description: Vendor management endpoints
+  - name: Employees
+    description: Employee management endpoints
+  - name: Departments
+    description: Department management endpoints
+  - name: Locations
+    description: Location management endpoints
+  - name: Classes
+    description: Class management endpoints
+  - name: Subsidiaries
+    description: Subsidiary management endpoints

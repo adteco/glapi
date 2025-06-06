@@ -13,7 +13,7 @@ import employeeRoutes from './routes/employeeRoutes'; // Import employee routes
 import leadRoutes from './routes/leadRoutes'; // Import lead routes
 import prospectRoutes from './routes/prospectRoutes'; // Import prospect routes
 import contactRoutes from './routes/contactRoutes'; // Import contact routes
-import { clerkAuthMiddleware } from './middleware/clerk-auth'; // Import the Clerk auth middleware
+import { combinedAuthMiddleware } from './middleware/api-key-auth'; // Import combined auth middleware
 
 // Load environment variables from .env file at the monorepo root
 dotenv.config({ path: '../../.env' });
@@ -26,7 +26,7 @@ const corsOptions = {
   origin: process.env.WEB_URL || 'http://localhost:3000',  // Allow web app origin
   credentials: true,  // Allow cookies to be sent with requests
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-organization-id', 'x-user-id', 'x-stytch-organization-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-organization-id', 'x-user-id', 'x-stytch-organization-id']
 };
 
 // Middleware
@@ -41,9 +41,9 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// Apply auth middleware to API routes
-// We add it here explicitly instead of in the individual route files
-app.use('/api/v1', clerkAuthMiddleware);
+// Apply combined auth middleware to API routes
+// This supports both API key and Clerk JWT authentication
+app.use('/api/v1', combinedAuthMiddleware);
 
 // Mount API routes
 app.use('/api/v1/customers', customerRoutes);
