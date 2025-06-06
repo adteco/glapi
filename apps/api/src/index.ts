@@ -21,9 +21,27 @@ dotenv.config({ path: '../../.env' });
 const app: Application = express();
 const port = process.env.API_PORT || 3001;
 
-// CORS configuration for allowing the web app to access the API
+// CORS configuration for allowing the web app and docs app to access the API
 const corsOptions = {
-  origin: process.env.WEB_URL || 'http://localhost:3000',  // Allow web app origin
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      process.env.WEB_URL || 'http://localhost:3000',
+      process.env.DOCS_URL || 'https://docs.glapi.net',
+      'http://localhost:3000',
+      'http://localhost:3002',
+      'https://web.glapi.net',
+      'https://docs.glapi.net'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,  // Allow cookies to be sent with requests
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-organization-id', 'x-user-id', 'x-stytch-organization-id']
