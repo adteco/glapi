@@ -236,10 +236,39 @@ export const navigation: Array<NavGroup> = [
       { title: 'Introduction', href: '/' },
       { title: 'Quickstart', href: '/quickstart' },
       { title: 'Configuration', href: '/configuration' },
-      
-      // { title: 'Pagination', href: '/pagination' },
-      // { title: 'Errors', href: '/errors' },
-      // { title: 'Webhooks', href: '/webhooks' },
+      { title: 'Authentication', href: '/authentication' },
+      { title: 'Pagination', href: '/pagination' },
+      { title: 'Errors', href: '/errors' },
+      { title: 'Webhooks', href: '/webhooks' },
+    ],
+  },
+  {
+    title: 'Accounting Dimensions',
+    links: [
+      { title: 'Customers', href: '/api/customers' },
+      { title: 'Organizations', href: '/api/organizations' },
+      { title: 'Subsidiaries', href: '/api/subsidiaries' },
+      { title: 'Departments', href: '/api/departments' },
+      { title: 'Locations', href: '/api/locations' },
+      { title: 'Classes', href: '/api/classes' },
+    ],
+  },
+  {
+    title: 'Relationships',
+    links: [
+      { title: 'Contacts', href: '/api/contacts' },
+      { title: 'Employees', href: '/api/employees' },
+      { title: 'Vendors', href: '/api/vendors' },
+      { title: 'Leads', href: '/api/leads' },
+      { title: 'Prospects', href: '/api/prospects' },
+    ],
+  },
+  {
+    title: 'Financial APIs',
+    links: [
+      { title: 'General Ledger', href: '/api/general-ledger' },
+      { title: 'GL Transactions', href: '/api/gl-transactions' },
+      { title: 'GL Reports', href: '/api/gl-reports' },
     ],
   },
   {
@@ -247,6 +276,7 @@ export const navigation: Array<NavGroup> = [
     links: [
       { title: 'Support', href: '/support' },
       { title: 'Changelog', href: '/changelog' },
+      { title: 'Migration Guide', href: '/migration' },
     ],
   },
 ]
