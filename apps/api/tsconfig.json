@@ -1,12 +1,12 @@
 {
   "extends": "tsconfig-custom/node.json",
   "compilerOptions": {
-    "outDir": "./api",
+    "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./api/*"]
     }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "api"]
+  "include": ["api/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 } 

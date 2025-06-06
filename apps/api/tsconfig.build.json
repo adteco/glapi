@@ -4,5 +4,5 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "exclude": ["node_modules", "api", "src/**/*.test.ts", "src/**/*.spec.ts"]
+  "exclude": ["node_modules", "dist", "api/**/*.test.ts", "api/**/*.spec.ts"]
 } 
