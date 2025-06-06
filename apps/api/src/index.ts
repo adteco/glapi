@@ -83,9 +83,11 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-// Start the server
-app.listen(port, () => {
-  console.log(`API server listening on port ${port}`);
-});
+// Start the server only if not in Vercel environment
+if (process.env.VERCEL !== '1') {
+  app.listen(port, () => {
+    console.log(`API server listening on port ${port}`);
+  });
+}
 
-export default app; // Optional: export app for testing or other purposes
+export default app; // Export app for Vercel
