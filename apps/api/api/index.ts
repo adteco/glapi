@@ -1,3 +1,3 @@
-import app from '../src/index';
+import app from '../dist/index';
 
-export default app;
+module.exports = app;

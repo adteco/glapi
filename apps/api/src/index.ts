@@ -91,3 +91,4 @@ if (process.env.VERCEL !== '1') {
 }
 
 export default app; // Export app for Vercel
+module.exports = app; // Also export as CommonJS for Vercel
