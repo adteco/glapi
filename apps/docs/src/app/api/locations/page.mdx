@@ -48,12 +48,18 @@ Create a new location within your organization.
 <Row>
   <Col>
     <Properties>
-      <Property name="HTTP Method" value="POST" />
-      <Property name="Endpoint" value="/api/v1/locations" />
-      <Property name="Required Headers">
-        - Content-Type: application/json
-        - Authorization: Bearer {token}
-        - x-stytch-organization-id: {stytchOrgId}
+      <Property name="Endpoint" type="POST /api/v1/locations" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Required Headers
+
+    <Properties>
+      <Property name="Authorization" type="string" required>
+        Bearer {token}
+      </Property>
+      <Property name="x-stytch-organization-id" type="string" required>
+        Your Stytch organization ID
       </Property>
     </Properties>
   </Col>
@@ -106,11 +112,17 @@ Retrieve a paginated list of locations in your organization.
 <Row>
   <Col>
     <Properties>
-      <Property name="HTTP Method" value="GET" />
-      <Property name="Endpoint" value="/api/v1/locations" />
-      <Property name="Required Headers">
-        - Authorization: Bearer {token}
-        - x-stytch-organization-id: {stytchOrgId}
+      <Property name="Endpoint" type="GET /api/v1/locations" />
+    </Properties>
+
+    #### Required Headers
+
+    <Properties>
+      <Property name="Authorization" type="string" required>
+        Bearer {token}
+      </Property>
+      <Property name="x-stytch-organization-id" type="string" required>
+        Your Stytch organization ID
       </Property>
     </Properties>
   </Col>
@@ -165,11 +177,17 @@ Retrieve a specific location by its ID.
 <Row>
   <Col>
     <Properties>
-      <Property name="HTTP Method" value="GET" />
-      <Property name="Endpoint" value="/api/v1/locations/{id}" />
-      <Property name="Required Headers">
-        - Authorization: Bearer {token}
-        - x-stytch-organization-id: {stytchOrgId}
+      <Property name="Endpoint" type="GET /api/v1/locations/{id}" />
+    </Properties>
+
+    #### Required Headers
+
+    <Properties>
+      <Property name="Authorization" type="string" required>
+        Bearer {token}
+      </Property>
+      <Property name="x-stytch-organization-id" type="string" required>
+        Your Stytch organization ID
       </Property>
     </Properties>
   </Col>
@@ -212,12 +230,18 @@ Update an existing location.
 <Row>
   <Col>
     <Properties>
-      <Property name="HTTP Method" value="PUT" />
-      <Property name="Endpoint" value="/api/v1/locations/{id}" />
-      <Property name="Required Headers">
-        - Content-Type: application/json
-        - Authorization: Bearer {token}
-        - x-stytch-organization-id: {stytchOrgId}
+      <Property name="Endpoint" type="PUT /api/v1/locations/{id}" />
+      <Property name="Content-Type" type="application/json" />
+    </Properties>
+
+    #### Required Headers
+
+    <Properties>
+      <Property name="Authorization" type="string" required>
+        Bearer {token}
+      </Property>
+      <Property name="x-stytch-organization-id" type="string" required>
+        Your Stytch organization ID
       </Property>
     </Properties>
   </Col>
@@ -270,11 +294,17 @@ Delete a location.
 <Row>
   <Col>
     <Properties>
-      <Property name="HTTP Method" value="DELETE" />
-      <Property name="Endpoint" value="/api/v1/locations/{id}" />
-      <Property name="Required Headers">
-        - Authorization: Bearer {token}
-        - x-stytch-organization-id: {stytchOrgId}
+      <Property name="Endpoint" type="DELETE /api/v1/locations/{id}" />
+    </Properties>
+
+    #### Required Headers
+
+    <Properties>
+      <Property name="Authorization" type="string" required>
+        Bearer {token}
+      </Property>
+      <Property name="x-stytch-organization-id" type="string" required>
+        Your Stytch organization ID
       </Property>
     </Properties>
   </Col>
