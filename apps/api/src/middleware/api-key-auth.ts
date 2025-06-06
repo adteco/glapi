@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 
 // Temporary hardcoded API keys for development
 // TODO: Replace with Clerk's API key solution when available
-const VALID_API_KEYS = {
+const VALID_API_KEYS: Record<string, {
+  organizationId: string;
+  name: string;
+  scopes: string[];
+}> = {
   'glapi_test_sk_1234567890abcdef': {
     organizationId: 'org_development',
     name: 'Development API Key',

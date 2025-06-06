@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "GLAPI - General Ledger API",
-    "description": "The GLAPI provides a comprehensive REST API for managing accounting dimensions and financial data.\n\n## Authentication\n\nAll API requests must be authenticated using an API key in the `X-API-Key` header:\n\n```\nX-API-Key: glapi_test_sk_1234567890abcdef\n```\n\n## Base URL\n\n- Development: `http://localhost:3001/api/v1`\n- Production: `https://api.glapi.io/api/v1`\n",
+    "description": "The GLAPI provides a comprehensive REST API for managing accounting dimensions and financial data.\n\n## Authentication\n\nAll API requests must be authenticated using an API key in the `X-API-Key` header:\n\n```\nX-API-Key: glapi_test_sk_1234567890abcdef\n```\n\n## Base URL\n\n- Development: `http://localhost:3001/api/v1`\n- Production: `https://api.glapi.net/api/v1`\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
