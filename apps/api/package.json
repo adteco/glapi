@@ -2,12 +2,12 @@
   "name": "@glapi/api",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./api/index.js",
+  "types": "./api/index.d.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc --project tsconfig.build.json && tsc-alias -p tsconfig.build.json",
-    "start": "node dist/index.js",
+    "start": "node api/index.js",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."
   },
