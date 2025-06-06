@@ -1,8 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
-  },
-  "exclude": ["node_modules", "dist", "api/**/*.test.ts", "api/**/*.spec.ts"]
-} 
