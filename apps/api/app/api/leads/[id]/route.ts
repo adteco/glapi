@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LeadService } from '@glapi/api-service';
 import { getServiceContext } from '../../utils/auth';
+import { isServiceError } from '../../utils/errors';
 
 // GET /api/leads/:id - Get a lead by ID
 export async function GET(
@@ -11,8 +12,8 @@ export async function GET(
     const context = getServiceContext();
     const { id } = params;
     
-    const leadService = new LeadService(context);
-    const result = await leadService.getLeadById(id);
+    const leadService = new LeadService();
+    const result = await leadService.findById(id, context.organizationId);
     
     if (!result) {
       return NextResponse.json(
@@ -26,15 +27,14 @@ export async function GET(
     console.error('Error getting lead:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -63,10 +63,10 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
     
-    const leadService = new LeadService(context);
+    const leadService = new LeadService();
     
     // Get the lead to ensure it exists
-    const existingLead = await leadService.getLeadById(id);
+    const existingLead = await leadService.findById(id, context.organizationId);
     if (!existingLead) {
       return NextResponse.json(
         { message: `Lead with ID "${id}" not found` },
@@ -75,7 +75,7 @@ export async function PUT(
     }
     
     // Update the lead
-    const result = await leadService.updateLead(id, body);
+    const result = await leadService.update(id, context.organizationId, body);
     
     return NextResponse.json(result);
   } catch (error) {
@@ -118,10 +118,10 @@ export async function DELETE(
     const context = getServiceContext();
     const { id } = params;
     
-    const leadService = new LeadService(context);
+    const leadService = new LeadService();
     
     // Delete the lead
-    await leadService.deleteLead(id);
+    await leadService.delete(id, context.organizationId);
     
     return NextResponse.json({
       success: true,

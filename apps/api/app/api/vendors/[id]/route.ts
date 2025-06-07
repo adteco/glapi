@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { VendorService } from '@glapi/api-service';
 import { getServiceContext } from '../../utils/auth';
+import { isServiceError } from '../../utils/errors';
 
 // GET /api/vendors/:id - Get a vendor by ID
 export async function GET(
@@ -11,8 +12,8 @@ export async function GET(
     const context = getServiceContext();
     const { id } = params;
     
-    const vendorService = new VendorService(context);
-    const result = await vendorService.getVendorById(id);
+    const vendorService = new VendorService();
+    const result = await vendorService.findById(id, context.organizationId);
     
     if (!result) {
       return NextResponse.json(
@@ -26,15 +27,14 @@ export async function GET(
     console.error('Error getting vendor:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -63,10 +63,10 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
     
-    const vendorService = new VendorService(context);
+    const vendorService = new VendorService();
     
     // Get the vendor to ensure it exists
-    const existingVendor = await vendorService.getVendorById(id);
+    const existingVendor = await vendorService.findById(id, context.organizationId);
     if (!existingVendor) {
       return NextResponse.json(
         { message: `Vendor with ID "${id}" not found` },
@@ -75,7 +75,7 @@ export async function PUT(
     }
     
     // Update the vendor
-    const result = await vendorService.updateVendor(id, body);
+    const result = await vendorService.update(id, context.organizationId, body);
     
     return NextResponse.json(result);
   } catch (error) {
@@ -118,10 +118,10 @@ export async function DELETE(
     const context = getServiceContext();
     const { id } = params;
     
-    const vendorService = new VendorService(context);
+    const vendorService = new VendorService();
     
     // Delete the vendor
-    await vendorService.deleteVendor(id);
+    await vendorService.delete(id, context.organizationId);
     
     return NextResponse.json({
       success: true,

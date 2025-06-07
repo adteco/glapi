@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OrganizationService } from '@glapi/api-service';
+import { isServiceError } from '../../utils/errors';
+
+// Force dynamic rendering since this route uses searchParams
+export const dynamic = 'force-dynamic';
 
 // GET /api/organizations/lookup
 // Lookup an organization by its Stytch organization ID
@@ -46,15 +50,14 @@ export async function GET(request: NextRequest) {
     console.error('Error looking up organization:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
