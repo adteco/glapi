@@ -13,7 +13,7 @@ export default function SignUpButton() {
 
   return (
     <button onClick={handleSignUp} className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-200">
-      Sign Up
+      Sign Up Here
     </button>
   );
 }
