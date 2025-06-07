@@ -3,6 +3,9 @@ import { OrganizationService } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
 import { isServiceError } from '../utils/errors';
 
+// Force dynamic rendering since this route uses headers
+export const dynamic = 'force-dynamic';
+
 // GET /api/organizations - Get all organizations (requires admin role)
 export async function GET(_request: NextRequest) {
   try {

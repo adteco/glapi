@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OrganizationService } from '@glapi/api-service';
 import { isServiceError } from '../../utils/errors';
 
+// Force dynamic rendering since this route uses database
+export const dynamic = 'force-dynamic';
+
 // GET /api/organizations/default
 // Get the default organization for development
 export async function GET(_request: NextRequest) {

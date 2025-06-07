@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OrganizationService } from '@glapi/api-service';
 import { isServiceError } from '../../utils/errors';
 
+// Force dynamic rendering since this route uses searchParams
+export const dynamic = 'force-dynamic';
+
 // GET /api/organizations/lookup
 // Lookup an organization by its Stytch organization ID
 export async function GET(request: NextRequest) {
