@@ -1,6 +1,7 @@
 'use client';
 
-import { SignInButton, SignUpButton } from '@clerk/nextjs';
+import SignInButton from './SignInButton';
+import SignUpButton from './SignUpButton';
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
@@ -35,16 +36,8 @@ export function Header() {
       </div>
 
       <div className="flex items-center space-x-4">
-        <Link href="/sign-in">
-          <button className="text-gray-300 hover:text-white transition-colors">
-            Sign In
-          </button>
-        </Link>
-        <Link href="/sign-up">
-          <button className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition-colors duration-200">
-            Get Started
-          </button>
-        </Link>
+        <SignInButton />
+        <SignUpButton />
       </div>
     </nav>
   );
