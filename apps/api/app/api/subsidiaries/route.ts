@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubsidiaryService, NewSubsidiarySchema } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
+import { isServiceError } from '../utils/errors';
 
 // POST /api/subsidiaries - Create a new subsidiary
 export async function POST(request: NextRequest) {
@@ -38,15 +39,14 @@ export async function POST(request: NextRequest) {
     console.error('Error creating subsidiary:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : 1;
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 10;
-    const orderBy = (searchParams.get('orderBy') as 'subsidiaryName' | 'createdAt') || 'subsidiaryName';
+    const orderBy = (searchParams.get('orderBy') as 'name' | 'createdAt') || 'name';
     const orderDirection = (searchParams.get('orderDirection') as 'asc' | 'desc') || 'asc';
     const status = searchParams.get('status') || undefined;
     

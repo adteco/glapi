@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OrganizationService } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
+import { isServiceError } from '../utils/errors';
 
 // GET /api/organizations - Get all organizations (requires admin role)
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Use just the service directly without requiring context
     // In a real app, we'd check for admin role here
@@ -27,15 +28,14 @@ export async function GET(request: NextRequest) {
     console.error('Error getting organizations:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     

@@ -35,12 +35,12 @@ export function Header() {
       </div>
 
       <div className="flex items-center space-x-4">
-        <SignInButton mode="modal">
+        <SignInButton>
           <button className="text-gray-300 hover:text-white transition-colors">
             Sign In
           </button>
         </SignInButton>
-        <SignUpButton mode="modal">
+        <SignUpButton>
           <button className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition-colors duration-200">
             Get Started
           </button>
