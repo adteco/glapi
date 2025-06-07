@@ -122,7 +122,7 @@ export default function LocationsPage() {
         }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/locations`, {
+        const response = await fetch(`${apiUrl}/api/locations`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -159,7 +159,7 @@ export default function LocationsPage() {
         if (!token) return;
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/subsidiaries`, {
+        const response = await fetch(`${apiUrl}/api/subsidiaries`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -196,7 +196,7 @@ export default function LocationsPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/locations`, {
+      const response = await fetch(`${apiUrl}/api/locations`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -229,7 +229,7 @@ export default function LocationsPage() {
       form.reset();
       
       // Refresh the locations list
-      const refreshResponse = await fetch(`${apiUrl}/api/v1/locations`, {
+      const refreshResponse = await fetch(`${apiUrl}/api/locations`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

@@ -6,3 +6,4 @@ export * from './user.types';
 export * from './subsidiary.types';
 export * from './accounting-dimensions';
 export * from './gl-transactions.types';
+export * from './account.types';
