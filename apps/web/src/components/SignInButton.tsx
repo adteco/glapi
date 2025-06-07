@@ -2,21 +2,17 @@
 
 'use client';
 
-// Use the Clerk Next.js hook for better Next.js integration
-import { useClerk } from '@clerk/nextjs';
+// Sign in button for satellite domain authentication
 
 export default function SignInButton() {
-  // The useClerk hook provides the openSignIn method to handle redirection.
-  const { openSignIn } = useClerk();
-
   const handleSignIn = () => {
-    // Calling openSignIn() on a satellite application will automatically
-    // redirect the user to the primary application's sign-in URL.
-    // This URL is configured in your satellite app's environment variables.
-    // After a successful sign-in, Clerk handles redirecting the user back.
-    if (openSignIn) {
-      openSignIn();
-    }
+    // For satellite domains, redirect to the primary domain's sign-in page
+    // The redirect URL includes the current domain as the redirect_url parameter
+    const primarySignInUrl = process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || 'http://adteco.com/sign-in';
+    const currentUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    
+    // Redirect to primary domain with return URL
+    window.location.href = `${primarySignInUrl}?redirect_url=${encodeURIComponent(currentUrl)}`;
   };
 
   return (
