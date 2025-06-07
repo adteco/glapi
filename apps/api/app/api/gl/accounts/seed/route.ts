@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { accountRepository } from '@glapi/database';
+import { AccountService } from '@glapi/api-service';
 import { getServiceContext } from '../../../utils/auth';
+import { isServiceError } from '../../../utils/errors';
 
 const defaultAccounts = [
   // ASSETS (10000-19999) - SUMMARY ACCOUNT
@@ -100,27 +101,27 @@ const defaultAccounts = [
 export async function POST(_request: NextRequest) {
   try {
     const context = getServiceContext();
+    const accountService = new AccountService(context);
     
-    const results = await Promise.allSettled(
-      defaultAccounts.map(account => 
-        accountRepository.create({
-          ...account,
-          organizationId: context.organizationId
-        })
-      )
-    );
-    
-    const created = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
+    const result = await accountService.seedDefaultAccounts(defaultAccounts);
     
     return NextResponse.json({
-      message: `Seeded ${created} accounts successfully${failed > 0 ? `, ${failed} failed or already existed` : ''}`,
-      created,
-      failed,
-      total: defaultAccounts.length
+      message: `Seeded ${result.created} accounts successfully${result.failed > 0 ? `, ${result.failed} failed or already existed` : ''}`,
+      ...result
     }, { status: 201 });
   } catch (error) {
     console.error('Error seeding GL accounts:', error);
+    
+    if (isServiceError(error)) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          code: error.code,
+          details: error.details
+        },
+        { status: error.statusCode }
+      );
+    }
     
     if (error instanceof Error) {
       return NextResponse.json(

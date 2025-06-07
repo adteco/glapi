@@ -149,7 +149,7 @@ export default function AccountsPage() {
         }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/gl/accounts`, {
+        const response = await fetch(`${apiUrl}/api/gl/accounts`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -202,7 +202,7 @@ export default function AccountsPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/gl/accounts`, {
+      const response = await fetch(`${apiUrl}/api/gl/accounts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +242,7 @@ export default function AccountsPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/gl/accounts/${selectedAccount.id}`, {
+      const response = await fetch(`${apiUrl}/api/gl/accounts/${selectedAccount.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -281,7 +281,7 @@ export default function AccountsPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/gl/accounts/${selectedAccount.id}`, {
+      const response = await fetch(`${apiUrl}/api/gl/accounts/${selectedAccount.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

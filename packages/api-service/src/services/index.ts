@@ -5,6 +5,7 @@ export * from './subsidiary-service';
 export * from './department-service';
 export * from './location-service';
 export * from './class-service';
+export * from './account-service';
 export * from './gl-transaction-service';
 export * from './gl-posting-engine';
 export * from './gl-reporting-service';

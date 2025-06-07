@@ -109,7 +109,7 @@ export default function ClassesPage() {
         console.log('Decoded token:', decodedToken);
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/classes`, {
+        const response = await fetch(`${apiUrl}/api/classes`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -146,7 +146,7 @@ export default function ClassesPage() {
         if (!token) return;
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/subsidiaries`, {
+        const response = await fetch(`${apiUrl}/api/subsidiaries`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -174,7 +174,7 @@ export default function ClassesPage() {
   const createDefaultSubsidiary = async (token: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/subsidiaries`, {
+      const response = await fetch(`${apiUrl}/api/subsidiaries`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -203,7 +203,7 @@ export default function ClassesPage() {
   const createDefaultClass = async (token: string, subsidiaryId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/classes`, {
+      const response = await fetch(`${apiUrl}/api/classes`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -242,7 +242,7 @@ export default function ClassesPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/classes`, {
+      const response = await fetch(`${apiUrl}/api/classes`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
