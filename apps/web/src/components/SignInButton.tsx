@@ -22,7 +22,7 @@ export default function SignInButton() {
   return (
     <button
       onClick={handleSignIn}
-      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-200"
+      className="text-gray-300 hover:text-white transition-colors px-4 py-2"
     >
       Sign In
     </button>
