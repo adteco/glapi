@@ -1,14 +1,15 @@
 // components/SignUpButton.tsx in your satellite app
 'use client';
-import { useClerk } from '@clerk/nextjs';
 
 export default function SignUpButton() {
-  const { openSignUp } = useClerk();
-
   const handleSignUp = () => {
-    if (openSignUp) {
-      openSignUp();
-    }
+    // For satellite domains, redirect to the primary domain's sign-up page
+    // Assuming the sign-up URL follows the same pattern as sign-in
+    const primaryDomain = 'http://adteco.com';
+    const currentUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    
+    // Redirect to primary domain sign-up with return URL
+    window.location.href = `${primaryDomain}/sign-up?redirect_url=${encodeURIComponent(currentUrl)}`;
   };
 
   return (
