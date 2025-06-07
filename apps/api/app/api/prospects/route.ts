@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ProspectService, NewProspectSchema } from '@glapi/api-service';
+import { ProspectService, CreateEntitySchema } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
+import { isServiceError } from '../utils/errors';
 
 // POST /api/prospects - Create a new prospect
 export async function POST(request: NextRequest) {
@@ -12,8 +13,9 @@ export async function POST(request: NextRequest) {
     console.log('Request body:', body);
     
     // Validate request body against schema
-    const parsedData = NewProspectSchema.safeParse({
+    const parsedData = CreateEntitySchema.safeParse({
       ...body,
+      entityTypes: ['Prospect'],
       organizationId: context.organizationId
     });
     
@@ -28,25 +30,28 @@ export async function POST(request: NextRequest) {
     }
     
     // Initialize the service with the context
-    const prospectService = new ProspectService(context);
+    const prospectService = new ProspectService();
     
     // Create the prospect
-    const result = await prospectService.createProspect(parsedData.data);
+    const result = await prospectService.create(
+      context.organizationId,
+      ['Prospect'],
+      parsedData.data
+    );
     
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error('Error creating prospect:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -69,22 +74,25 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const context = getServiceContext();
-    const prospectService = new ProspectService(context);
+    const prospectService = new ProspectService();
     
     // Parse query parameters
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : 1;
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 10;
-    const orderBy = (searchParams.get('orderBy') as 'prospectName' | 'createdAt') || 'prospectName';
     const orderDirection = (searchParams.get('orderDirection') as 'asc' | 'desc') || 'asc';
     const status = searchParams.get('status') || undefined;
     
     // Use the service to list prospects
     const result = await prospectService.listProspects(
-      { page, limit },
-      orderBy,
-      orderDirection,
-      { status }
+      context.organizationId,
+      {
+        page,
+        limit,
+        orderBy: 'name',
+        orderDirection,
+        status,
+      }
     );
     
     console.log('Prospects found:', result.data.length, 'total:', result.total);

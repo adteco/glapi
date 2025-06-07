@@ -10,29 +10,24 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : 1;
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 50;
-    const accountCategory = searchParams.get('accountCategory') || undefined;
+    const accountCategory = searchParams.get('accountCategory') as any || undefined;
+    const isActive = searchParams.get('isActive') ? searchParams.get('isActive') === 'true' : undefined;
     
-    const offset = (page - 1) * limit;
-    
-    const accounts = await accountRepository.getAccounts(
+    const result = await accountRepository.findAll(
       context.organizationId,
-      limit,
-      offset,
-      accountCategory
+      {
+        page,
+        limit,
+        orderBy: 'accountNumber',
+        orderDirection: 'asc'
+      },
+      {
+        accountCategory,
+        isActive
+      }
     );
     
-    const total = await accountRepository.getAccountsCount(
-      context.organizationId,
-      accountCategory
-    );
-    
-    return NextResponse.json({
-      data: accounts,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit)
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching GL accounts:', error);
     
@@ -56,9 +51,9 @@ export async function POST(request: NextRequest) {
     const context = getServiceContext();
     const body = await request.json();
     
-    const newAccount = await accountRepository.createAccount({
+    const newAccount = await accountRepository.create({
       ...body,
-      organization_id: context.organizationId
+      organizationId: context.organizationId
     });
     
     return NextResponse.json(newAccount, { status: 201 });

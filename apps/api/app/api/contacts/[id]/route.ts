@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ContactService } from '@glapi/api-service';
 import { getServiceContext } from '../../utils/auth';
+import { isServiceError } from '../../utils/errors';
 
 // GET /api/contacts/:id - Get a contact by ID
 export async function GET(
@@ -11,8 +12,8 @@ export async function GET(
     const context = getServiceContext();
     const { id } = params;
     
-    const contactService = new ContactService(context);
-    const result = await contactService.getContactById(id);
+    const contactService = new ContactService();
+    const result = await contactService.findById(id, context.organizationId);
     
     if (!result) {
       return NextResponse.json(
@@ -26,15 +27,14 @@ export async function GET(
     console.error('Error getting contact:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -63,10 +63,10 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
     
-    const contactService = new ContactService(context);
+    const contactService = new ContactService();
     
     // Get the contact to ensure it exists
-    const existingContact = await contactService.getContactById(id);
+    const existingContact = await contactService.findById(id, context.organizationId);
     if (!existingContact) {
       return NextResponse.json(
         { message: `Contact with ID "${id}" not found` },
@@ -75,7 +75,7 @@ export async function PUT(
     }
     
     // Update the contact
-    const result = await contactService.updateContact(id, body);
+    const result = await contactService.update(id, context.organizationId, body);
     
     return NextResponse.json(result);
   } catch (error) {
@@ -118,10 +118,10 @@ export async function DELETE(
     const context = getServiceContext();
     const { id } = params;
     
-    const contactService = new ContactService(context);
+    const contactService = new ContactService();
     
     // Delete the contact
-    await contactService.deleteContact(id);
+    await contactService.delete(id, context.organizationId);
     
     return NextResponse.json({
       success: true,

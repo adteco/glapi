@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ContactService, NewContactSchema } from '@glapi/api-service';
+import { ContactService, CreateEntitySchema } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
+import { isServiceError } from '../utils/errors';
 
 // POST /api/contacts - Create a new contact
 export async function POST(request: NextRequest) {
@@ -12,8 +13,9 @@ export async function POST(request: NextRequest) {
     console.log('Request body:', body);
     
     // Validate request body against schema
-    const parsedData = NewContactSchema.safeParse({
+    const parsedData = CreateEntitySchema.safeParse({
       ...body,
+      entityTypes: ['Contact'],
       organizationId: context.organizationId
     });
     
@@ -28,25 +30,28 @@ export async function POST(request: NextRequest) {
     }
     
     // Initialize the service with the context
-    const contactService = new ContactService(context);
+    const contactService = new ContactService();
     
     // Create the contact
-    const result = await contactService.createContact(parsedData.data);
+    const result = await contactService.create(
+      context.organizationId,
+      ['Contact'],
+      parsedData.data
+    );
     
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error('Error creating contact:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -69,22 +74,25 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const context = getServiceContext();
-    const contactService = new ContactService(context);
+    const contactService = new ContactService();
     
     // Parse query parameters
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : 1;
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 10;
-    const orderBy = (searchParams.get('orderBy') as 'fullName' | 'createdAt') || 'fullName';
     const orderDirection = (searchParams.get('orderDirection') as 'asc' | 'desc') || 'asc';
     const status = searchParams.get('status') || undefined;
     
     // Use the service to list contacts
     const result = await contactService.listContacts(
-      { page, limit },
-      orderBy,
-      orderDirection,
-      { status }
+      context.organizationId,
+      {
+        page,
+        limit,
+        orderBy: 'name',
+        orderDirection,
+        status,
+      }
     );
     
     console.log('Contacts found:', result.data.length, 'total:', result.total);
