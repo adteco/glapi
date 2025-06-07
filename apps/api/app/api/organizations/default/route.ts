@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OrganizationService } from '@glapi/api-service';
+import { isServiceError } from '../../utils/errors';
 
 // GET /api/organizations/default
 // Get the default organization for development
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Initialize the organization service
     const orgService = new OrganizationService();
@@ -20,15 +21,14 @@ export async function GET(request: NextRequest) {
     console.error('Error getting default organization:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     

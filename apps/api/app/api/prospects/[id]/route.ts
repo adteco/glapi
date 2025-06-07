@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProspectService } from '@glapi/api-service';
 import { getServiceContext } from '../../utils/auth';
+import { isServiceError } from '../../utils/errors';
 
 // GET /api/prospects/:id - Get a prospect by ID
 export async function GET(
@@ -11,8 +12,8 @@ export async function GET(
     const context = getServiceContext();
     const { id } = params;
     
-    const prospectService = new ProspectService(context);
-    const result = await prospectService.getProspectById(id);
+    const prospectService = new ProspectService();
+    const result = await prospectService.findById(id, context.organizationId);
     
     if (!result) {
       return NextResponse.json(
@@ -26,15 +27,14 @@ export async function GET(
     console.error('Error getting prospect:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -63,10 +63,10 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
     
-    const prospectService = new ProspectService(context);
+    const prospectService = new ProspectService();
     
     // Get the prospect to ensure it exists
-    const existingProspect = await prospectService.getProspectById(id);
+    const existingProspect = await prospectService.findById(id, context.organizationId);
     if (!existingProspect) {
       return NextResponse.json(
         { message: `Prospect with ID "${id}" not found` },
@@ -75,7 +75,7 @@ export async function PUT(
     }
     
     // Update the prospect
-    const result = await prospectService.updateProspect(id, body);
+    const result = await prospectService.update(id, context.organizationId, body);
     
     return NextResponse.json(result);
   } catch (error) {
@@ -118,10 +118,10 @@ export async function DELETE(
     const context = getServiceContext();
     const { id } = params;
     
-    const prospectService = new ProspectService(context);
+    const prospectService = new ProspectService();
     
     // Delete the prospect
-    await prospectService.deleteProspect(id);
+    await prospectService.delete(id, context.organizationId);
     
     return NextResponse.json({
       success: true,

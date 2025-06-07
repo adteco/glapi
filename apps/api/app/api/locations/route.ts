@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LocationService, NewLocationSchema } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
+import { isServiceError } from '../utils/errors';
 
 // POST /api/locations - Create a new location
 export async function POST(request: NextRequest) {
@@ -38,15 +39,14 @@ export async function POST(request: NextRequest) {
     console.error('Error creating location:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -77,14 +77,14 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 10;
     const orderBy = (searchParams.get('orderBy') as 'locationName' | 'createdAt') || 'locationName';
     const orderDirection = (searchParams.get('orderDirection') as 'asc' | 'desc') || 'asc';
-    const status = searchParams.get('status') || undefined;
+    const subsidiaryId = searchParams.get('subsidiaryId') || undefined;
     
     // Use the service to list locations
     const result = await locationService.listLocations(
       { page, limit },
       orderBy,
       orderDirection,
-      { status }
+      subsidiaryId ? { subsidiaryId } : {}
     );
     
     console.log('Locations found:', result.data.length, 'total:', result.total);

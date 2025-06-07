@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EmployeeService } from '@glapi/api-service';
 import { getServiceContext } from '../../utils/auth';
+import { isServiceError } from '../../utils/errors';
 
 // GET /api/employees/:id - Get a employee by ID
 export async function GET(
@@ -11,8 +12,8 @@ export async function GET(
     const context = getServiceContext();
     const { id } = params;
     
-    const employeeService = new EmployeeService(context);
-    const result = await employeeService.getEmployeeById(id);
+    const employeeService = new EmployeeService();
+    const result = await employeeService.findById(id, context.organizationId);
     
     if (!result) {
       return NextResponse.json(
@@ -26,15 +27,14 @@ export async function GET(
     console.error('Error getting employee:', error);
     
     // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
@@ -63,10 +63,10 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
     
-    const employeeService = new EmployeeService(context);
+    const employeeService = new EmployeeService();
     
     // Get the employee to ensure it exists
-    const existingEmployee = await employeeService.getEmployeeById(id);
+    const existingEmployee = await employeeService.findById(id, context.organizationId);
     if (!existingEmployee) {
       return NextResponse.json(
         { message: `Employee with ID "${id}" not found` },
@@ -75,7 +75,7 @@ export async function PUT(
     }
     
     // Update the employee
-    const result = await employeeService.updateEmployee(id, body);
+    const result = await employeeService.update(id, context.organizationId, body);
     
     return NextResponse.json(result);
   } catch (error) {
@@ -118,10 +118,10 @@ export async function DELETE(
     const context = getServiceContext();
     const { id } = params;
     
-    const employeeService = new EmployeeService(context);
+    const employeeService = new EmployeeService();
     
     // Delete the employee
-    await employeeService.deleteEmployee(id);
+    await employeeService.delete(id, context.organizationId);
     
     return NextResponse.json({
       success: true,

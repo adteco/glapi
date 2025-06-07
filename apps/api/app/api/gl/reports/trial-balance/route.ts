@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GlReportingService } from '@glapi/api-service';
 import { getServiceContext } from '../../../utils/auth';
+import { isServiceError } from '../../../utils/errors';
 
 // GET /api/gl/reports/trial-balance
 export async function GET(request: NextRequest) {
@@ -9,24 +10,41 @@ export async function GET(request: NextRequest) {
     const reportingService = new GlReportingService(context);
     
     const searchParams = request.nextUrl.searchParams;
-    const startDate = searchParams.get('startDate') || undefined;
-    const endDate = searchParams.get('endDate') || undefined;
+    const periodId = searchParams.get('periodId');
+    const subsidiaryId = searchParams.get('subsidiaryId') || undefined;
+    const includeInactive = searchParams.get('includeInactive') === 'true';
+    const classId = searchParams.get('classId') || undefined;
+    const departmentId = searchParams.get('departmentId') || undefined;
+    const locationId = searchParams.get('locationId') || undefined;
     
-    const result = await reportingService.getTrialBalance({ startDate, endDate });
+    if (!periodId) {
+      return NextResponse.json(
+        { message: 'periodId is required' },
+        { status: 400 }
+      );
+    }
+    
+    const result = await reportingService.getTrialBalance({
+      periodId,
+      subsidiaryId,
+      includeInactive,
+      classId,
+      departmentId,
+      locationId
+    });
     
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error generating trial balance:', error);
     
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
+    if (isServiceError(error)) {
       return NextResponse.json(
         {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
+          message: error.message,
+          code: error.code,
+          details: error.details
         },
-        { status: serviceError.statusCode }
+        { status: error.statusCode }
       );
     }
     
