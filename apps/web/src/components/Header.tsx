@@ -35,7 +35,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center space-x-4">
-        <Link href="https://www.adteco.com/sign-in">
+        <Link href="/sign-in">
           <button className="text-gray-300 hover:text-white transition-colors">
             Sign In
           </button>
