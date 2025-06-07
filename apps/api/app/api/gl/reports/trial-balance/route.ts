@@ -3,6 +3,9 @@ import { GlReportingService } from '@glapi/api-service';
 import { getServiceContext } from '../../../utils/auth';
 import { isServiceError } from '../../../utils/errors';
 
+// Force dynamic rendering since this route uses headers
+export const dynamic = 'force-dynamic';
+
 // GET /api/gl/reports/trial-balance
 export async function GET(request: NextRequest) {
   try {

@@ -77,14 +77,16 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 10;
     const orderBy = (searchParams.get('orderBy') as 'name' | 'createdAt') || 'name';
     const orderDirection = (searchParams.get('orderDirection') as 'asc' | 'desc') || 'asc';
-    const status = searchParams.get('status') || undefined;
+    const isActive = searchParams.get('isActive') === 'true' ? true : 
+                     searchParams.get('isActive') === 'false' ? false : undefined;
+    const parentId = searchParams.get('parentId') || undefined;
     
     // Use the service to list subsidiaries
     const result = await subsidiaryService.listSubsidiaries(
       { page, limit },
       orderBy,
       orderDirection,
-      { status }
+      { isActive, parentId }
     );
     
     console.log('Subsidiaries found:', result.data.length, 'total:', result.total);
