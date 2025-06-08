@@ -40,6 +40,7 @@ import { VendorItemsRepository } from './vendor-items-repository';
 import { InventoryTrackingRepository } from './inventory-tracking-repository';
 import { AssembliesKitsRepository } from './assemblies-kits-repository';
 
+// Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
 export const locationRepository = new LocationRepository();
 export const classRepository = new ClassRepository();

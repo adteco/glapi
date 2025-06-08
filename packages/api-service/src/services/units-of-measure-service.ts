@@ -9,7 +9,9 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { unitsOfMeasureRepository } from '@glapi/database';
+import { UnitsOfMeasureRepository } from '@glapi/database';
+
+const unitsOfMeasureRepository = new UnitsOfMeasureRepository();
 
 export class UnitsOfMeasureService extends BaseService {
   /**

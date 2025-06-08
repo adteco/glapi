@@ -12,13 +12,20 @@ import {
   PaginationParams
 } from '../types';
 import { 
-  itemsRepository, 
-  unitsOfMeasureRepository,
-  itemCategoriesRepository,
-  accountRepository,
-  assembliesKitsRepository
+  ItemsRepository,
+  UnitsOfMeasureRepository,
+  ItemCategoriesRepository,
+  AccountRepository,
+  AssembliesKitsRepository
 } from '@glapi/database';
 import type { ItemSearchParams } from '@glapi/database';
+
+// Create repository instances
+const itemsRepository = new ItemsRepository();
+const unitsOfMeasureRepository = new UnitsOfMeasureRepository();
+const itemCategoriesRepository = new ItemCategoriesRepository();
+const accountRepository = new AccountRepository();
+const assembliesKitsRepository = new AssembliesKitsRepository();
 
 export class ItemsService extends BaseService {
   /**

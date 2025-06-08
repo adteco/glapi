@@ -377,3 +377,32 @@ export interface KitComponent {
   isOptional: boolean;
   createdAt: Date;
 }
+
+// Assembly/Kit Component Types (for the unified service)
+export const createAssemblyKitComponentSchema = z.object({
+  parentItemId: z.string().uuid(),
+  componentItemId: z.string().uuid(),
+  quantity: z.number().positive(),
+  unitOfMeasureId: z.string().uuid().optional(),
+  sequenceNumber: z.number().int().positive().optional(),
+  isOptional: z.boolean().default(false),
+  notes: z.string().optional(),
+});
+
+export const updateAssemblyKitComponentSchema = createAssemblyKitComponentSchema.partial();
+
+export type CreateAssemblyKitComponentInput = z.infer<typeof createAssemblyKitComponentSchema>;
+export type UpdateAssemblyKitComponentInput = z.infer<typeof updateAssemblyKitComponentSchema>;
+
+export interface AssemblyKitComponent {
+  id: string;
+  parentItemId: string;
+  componentItemId: string;
+  quantity: number;
+  unitOfMeasureId: string | null;
+  sequenceNumber: number | null;
+  isOptional: boolean;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
