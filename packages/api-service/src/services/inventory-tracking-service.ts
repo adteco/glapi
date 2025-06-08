@@ -14,11 +14,9 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { 
-  InventoryTrackingRepository,
-  ItemsRepository,
-  EntityRepository
-} from '@glapi/database';
+import { InventoryTrackingRepository } from '../../../database/src/repositories/inventory-tracking-repository';
+import { ItemsRepository } from '../../../database/src/repositories/items-repository';
+import { EntityRepository } from '../../../database/src/repositories/entity-repository';
 
 const inventoryTrackingRepository = new InventoryTrackingRepository();
 const itemsRepository = new ItemsRepository();

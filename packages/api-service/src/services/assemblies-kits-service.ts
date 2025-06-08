@@ -9,11 +9,9 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { 
-  AssembliesKitsRepository,
-  ItemsRepository,
-  UnitsOfMeasureRepository
-} from '@glapi/database';
+import { AssembliesKitsRepository } from '../../../database/src/repositories/assemblies-kits-repository';
+import { ItemsRepository } from '../../../database/src/repositories/items-repository';
+import { UnitsOfMeasureRepository } from '../../../database/src/repositories/units-of-measure-repository';
 
 const assembliesKitsRepository = new AssembliesKitsRepository();
 const itemsRepository = new ItemsRepository();

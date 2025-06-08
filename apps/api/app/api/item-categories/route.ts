@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // GET /api/item-categories - List all item categories
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemCategoriesService(context);
     
     // Parse query parameters
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 // POST /api/item-categories - Create a new item category
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json();
     
     const service = new ItemCategoriesService(context);
