@@ -162,7 +162,7 @@ export default function AccountsPage() {
         }
 
         const data = await response.json();
-        setAccounts(data);
+        setAccounts(data.data || []);
       } catch (error) {
         console.error('Error fetching accounts:', error);
         // Toast error is handled above if response is not ok
