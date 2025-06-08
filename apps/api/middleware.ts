@@ -19,6 +19,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3002',
   'https://web.glapi.net',
+  'https://www.glapi.net',
+  'https://glapi.net',
   'https://docs.glapi.net'
 ];
 

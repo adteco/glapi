@@ -13,6 +13,10 @@ dist/
 out/
 build/
 
+# TypeScript declaration files (we use .ts directly in monorepo)
+*.d.ts
+*.d.ts.map
+
 # Local env files
 .env
 .env*.local

@@ -83,7 +83,7 @@ export default function SubsidiariesPage() {
         }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/subsidiaries`, {
+        const response = await fetch(`${apiUrl}/api/subsidiaries`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -119,7 +119,7 @@ export default function SubsidiariesPage() {
   const createDefaultSubsidiary = async (token: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/subsidiaries`, {
+      const response = await fetch(`${apiUrl}/api/subsidiaries`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -158,7 +158,7 @@ export default function SubsidiariesPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/subsidiaries`, {
+      const response = await fetch(`${apiUrl}/api/subsidiaries`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
