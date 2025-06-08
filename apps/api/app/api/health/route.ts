@@ -3,8 +3,7 @@ import { AccountService } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
 
 // GET /api/health - Health check endpoint
-export async function GET(request: NextRequest) {
-  const startTime = Date.now();
+export async function GET(_request: NextRequest) {
   
   const health = {
     status: 'checking',
