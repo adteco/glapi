@@ -3,10 +3,10 @@ import { InventoryTrackingService } from '@glapi/api-service';
 import { getServiceContext } from '../../../utils/auth';
 import { isServiceError } from '../../../utils/errors';
 
-// GET /api/items/:itemId/serials - List serial numbers for an item
+// GET /api/items/:id/serials - List serial numbers for an item
 export async function GET(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const context = getServiceContext();
@@ -19,7 +19,7 @@ export async function GET(
     const status = searchParams.get('status') as 'AVAILABLE' | 'SOLD' | 'IN_TRANSIT' | 'RETURNED' | 'DAMAGED' | 'LOST' | undefined;
     const lotNumberId = searchParams.get('lotNumberId') || undefined;
     
-    const result = await service.listSerialNumbers(params.itemId, {
+    const result = await service.listSerialNumbers(params.id, {
       page,
       limit,
       status,
@@ -55,10 +55,10 @@ export async function GET(
   }
 }
 
-// POST /api/items/:itemId/serials - Create a serial number
+// POST /api/items/:id/serials - Create a serial number
 export async function POST(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const context = getServiceContext();
@@ -66,7 +66,7 @@ export async function POST(
     
     const service = new InventoryTrackingService(context);
     const result = await service.createSerialNumber({
-      itemId: params.itemId,
+      itemId: params.id,
       ...body
     });
     

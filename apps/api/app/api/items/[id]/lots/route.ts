@@ -3,10 +3,10 @@ import { InventoryTrackingService } from '@glapi/api-service';
 import { getServiceContext } from '../../../utils/auth';
 import { isServiceError } from '../../../utils/errors';
 
-// GET /api/items/:itemId/lots - List lots for an item
+// GET /api/items/:id/lots - List lots for an item
 export async function GET(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const context = getServiceContext();
@@ -19,7 +19,7 @@ export async function GET(
     const status = searchParams.get('status') as 'ACTIVE' | 'EXPIRED' | 'RECALLED' | undefined;
     const includeExpired = searchParams.get('includeExpired') === 'true';
     
-    const result = await service.listLotNumbers(params.itemId, {
+    const result = await service.listLotNumbers(params.id, {
       page,
       limit,
       status,
@@ -55,10 +55,10 @@ export async function GET(
   }
 }
 
-// POST /api/items/:itemId/lots - Create a lot number
+// POST /api/items/:id/lots - Create a lot number
 export async function POST(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const context = getServiceContext();
@@ -66,7 +66,7 @@ export async function POST(
     
     const service = new InventoryTrackingService(context);
     const result = await service.createLotNumber({
-      itemId: params.itemId,
+      itemId: params.id,
       ...body
     });
     
