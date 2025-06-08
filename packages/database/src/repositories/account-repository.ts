@@ -27,6 +27,24 @@ export class AccountRepository extends BaseRepository {
     
     return result || null;
   }
+  
+  /**
+   * Find an account by account number with organization context
+   */
+  async findByAccountNumber(accountNumber: string, organizationId: string) {
+    const [result] = await this.db
+      .select()
+      .from(accounts)
+      .where(
+        and(
+          eq(accounts.accountNumber, accountNumber),
+          eq(accounts.organizationId, organizationId)
+        )
+      )
+      .limit(1);
+    
+    return result || null;
+  }
 
   /**
    * Find all accounts for an organization with pagination and filtering
@@ -133,8 +151,15 @@ export class AccountRepository extends BaseRepository {
     accountNumber: string;
     accountName: string;
     accountCategory: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'COGS' | 'Expense';
-    description?: string;
+    description?: string | null;
     isActive?: boolean;
+    isControlAccount?: boolean;
+    accountSubcategory?: string | null;
+    normalBalance?: string | null;
+    financialStatementLine?: string | null;
+    rollupAccountId?: string | null;
+    gaapClassification?: string | null;
+    cashFlowCategory?: string | null;
   }) {
     const [result] = await this.db
       .insert(accounts)
@@ -145,6 +170,13 @@ export class AccountRepository extends BaseRepository {
         accountCategory: data.accountCategory,
         description: data.description,
         isActive: data.isActive ?? true,
+        isControlAccount: data.isControlAccount ?? false,
+        accountSubcategory: data.accountSubcategory,
+        normalBalance: data.normalBalance,
+        financialStatementLine: data.financialStatementLine,
+        rollupAccountId: data.rollupAccountId,
+        gaapClassification: data.gaapClassification,
+        cashFlowCategory: data.cashFlowCategory,
       })
       .returning();
     
@@ -191,8 +223,15 @@ export class AccountRepository extends BaseRepository {
       accountNumber?: string;
       accountName?: string;
       accountCategory?: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'COGS' | 'Expense';
-      description?: string;
+      description?: string | null;
       isActive?: boolean;
+      isControlAccount?: boolean;
+      accountSubcategory?: string | null;
+      normalBalance?: string | null;
+      financialStatementLine?: string | null;
+      rollupAccountId?: string | null;
+      gaapClassification?: string | null;
+      cashFlowCategory?: string | null;
     }
   ) {
     const [result] = await this.db
@@ -231,5 +270,34 @@ export class AccountRepository extends BaseRepository {
       .returning();
     
     return result || null;
+  }
+  
+  /**
+   * Check database connection by attempting a simple query
+   */
+  async checkConnection(): Promise<boolean> {
+    try {
+      // Try to execute a simple query to check if the database is accessible
+      const result = await this.db.execute(sql`SELECT 1 as test`);
+      
+      // Log some debug information
+      console.log('Database connection check result:', result);
+      
+      return true;
+    } catch (error) {
+      console.error('Database connection check failed:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        name: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
+      // Check if it's a table not found error
+      if (error instanceof Error && error.message.includes('relation') && error.message.includes('does not exist')) {
+        console.error('Table does not exist error detected');
+      }
+      
+      return false;
+    }
   }
 }
