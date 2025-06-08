@@ -10,10 +10,14 @@ import {
   PaginationParams
 } from '../types';
 import { 
-  vendorItemsRepository,
-  itemsRepository,
-  entityRepository
+  VendorItemsRepository,
+  ItemsRepository,
+  EntityRepository
 } from '@glapi/database';
+
+const vendorItemsRepository = new VendorItemsRepository();
+const itemsRepository = new ItemsRepository();
+const entityRepository = new EntityRepository();
 
 export class VendorItemsService extends BaseService {
   /**

@@ -10,10 +10,14 @@ import {
   PaginationParams
 } from '../types';
 import { 
-  assembliesKitsRepository,
-  itemsRepository,
-  unitsOfMeasureRepository
+  AssembliesKitsRepository,
+  ItemsRepository,
+  UnitsOfMeasureRepository
 } from '@glapi/database';
+
+const assembliesKitsRepository = new AssembliesKitsRepository();
+const itemsRepository = new ItemsRepository();
+const unitsOfMeasureRepository = new UnitsOfMeasureRepository();
 
 export class AssembliesKitsService extends BaseService {
   /**

@@ -9,7 +9,11 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { itemCategoriesRepository, itemsRepository } from '@glapi/database';
+import { ItemCategoriesRepository, ItemsRepository } from '@glapi/database';
+
+// Create repository instances
+const itemCategoriesRepository = new ItemCategoriesRepository();
+const itemsRepository = new ItemsRepository();
 
 export class ItemCategoriesService extends BaseService {
   /**

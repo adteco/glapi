@@ -15,10 +15,14 @@ import {
   PaginationParams
 } from '../types';
 import { 
-  inventoryTrackingRepository,
-  itemsRepository,
-  entityRepository
+  InventoryTrackingRepository,
+  ItemsRepository,
+  EntityRepository
 } from '@glapi/database';
+
+const inventoryTrackingRepository = new InventoryTrackingRepository();
+const itemsRepository = new ItemsRepository();
+const entityRepository = new EntityRepository();
 
 export class InventoryTrackingService extends BaseService {
   /**
