@@ -19,11 +19,9 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { 
-  PricingRepository,
-  ItemsRepository,
-  EntityRepository
-} from '@glapi/database';
+import { PricingRepository } from '../../../database/src/repositories/pricing-repository';
+import { ItemsRepository } from '../../../database/src/repositories/items-repository';
+import { EntityRepository } from '../../../database/src/repositories/entity-repository';
 
 const pricingRepository = new PricingRepository();
 const itemsRepository = new ItemsRepository();

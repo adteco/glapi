@@ -9,7 +9,9 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { UnitsOfMeasureRepository } from '@glapi/database';
+
+// Direct import to avoid webpack issues
+import { UnitsOfMeasureRepository } from '../../../database/src/repositories/units-of-measure-repository';
 
 const unitsOfMeasureRepository = new UnitsOfMeasureRepository();
 

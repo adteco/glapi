@@ -9,11 +9,9 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { 
-  VendorItemsRepository,
-  ItemsRepository,
-  EntityRepository
-} from '@glapi/database';
+import { VendorItemsRepository } from '../../../database/src/repositories/vendor-items-repository';
+import { ItemsRepository } from '../../../database/src/repositories/items-repository';
+import { EntityRepository } from '../../../database/src/repositories/entity-repository';
 
 const vendorItemsRepository = new VendorItemsRepository();
 const itemsRepository = new ItemsRepository();
