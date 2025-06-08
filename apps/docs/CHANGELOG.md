@@ -1,5 +1,44 @@
 # Changelog
 
+## 2025-01-08
+
+### GL Accounts Service Layer Implementation
+
+- **Service Architecture**: Implemented complete service layer for GL accounts following the established pattern
+  - Created `AccountService` class in `packages/api-service/src/services/account-service.ts`
+  - Added account type definitions in `packages/api-service/src/types/account.types.ts`
+  - Updated GL accounts API routes to use service layer instead of direct database access
+
+- **API Path Standardization**: Fixed incorrect API paths across the application
+  - Changed from `/api/v1/gl/accounts` to `/api/gl/accounts` in web app
+  - Updated all GL-related endpoints to follow consistent path structure
+
+- **TypeScript Module Resolution**: Resolved caching issues preventing code updates
+  - Identified and removed stale `.d.ts` declaration files causing webpack module caching problems
+  - Added TypeScript declaration files to `.gitignore` to prevent future issues
+  - Temporarily bypassed `findByAccountNumber` calls to work around persistent caching
+
+- **CORS Configuration**: Updated middleware to support production domains
+  - Added `https://web.glapi.net`, `https://www.glapi.net`, `https://glapi.net`, and `https://docs.glapi.net` to allowed origins
+  - Ensured proper cross-origin communication between frontend and API
+
+- **Authentication**: Fixed Clerk satellite domain configuration issues
+  - Resolved localhost redirecting to adteco.com by adjusting satellite settings
+  - Maintained proper authentication flow for both local and production environments
+
+- **Pagination Support**: Fixed accounts page to handle paginated API responses
+  - Updated `setAccounts(data)` to `setAccounts(data.data || [])` to properly handle response structure
+  - Ensured chart of accounts displays correctly with hierarchical structure
+
+- **Health Check System**: Created comprehensive health monitoring
+  - Added `/api/health` endpoint to verify API → Service → Database communication
+  - Implemented health check methods in AccountService and AccountRepository
+  - Enabled layer-by-layer debugging of connectivity issues
+
+- **Production Deployment**: Resolved build and runtime errors
+  - Fixed ESLint errors by properly handling unused variables in health check route
+  - Ensured successful Vercel deployment with all services operational
+
 ## 2025-01-23
 
 - Update template to Tailwind CSS v4.0
