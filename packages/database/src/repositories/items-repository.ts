@@ -28,8 +28,7 @@ export class ItemsRepository extends BaseRepository {
   async findByOrganization(organizationId: string, params: ItemSearchParams = {}) {
     let query = this.db
       .select()
-      .from(items)
-      .where(eq(items.organizationId, organizationId));
+      .from(items);
 
     // Apply filters
     const conditions = [eq(items.organizationId, organizationId)];

@@ -3,10 +3,10 @@ import { InventoryTrackingService } from '@glapi/api-service';
 import { getServiceContext } from '../../../../../utils/auth';
 import { isServiceError } from '../../../../../utils/errors';
 
-// PUT /api/items/:itemId/serials/:id/status - Update serial status
+// PUT /api/items/:id/lots/:lotId/status - Update lot status
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { itemId: string; id: string } }
+  { params }: { params: { id: string; lotId: string } }
 ) {
   try {
     const context = getServiceContext();
@@ -20,15 +20,13 @@ export async function PUT(
     }
     
     const service = new InventoryTrackingService(context);
-    const result = await service.updateSerialNumber(params.id, {
-      status: body.status,
-      customerId: body.customerId,
-      soldDate: body.soldDate
+    const result = await service.updateLotNumber(params.lotId, {
+      status: body.status
     });
     
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error updating serial status:', error);
+    console.error('Error updating lot status:', error);
     
     if (isServiceError(error)) {
       return NextResponse.json(

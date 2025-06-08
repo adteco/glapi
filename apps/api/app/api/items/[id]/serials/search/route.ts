@@ -3,10 +3,10 @@ import { inventoryTrackingRepository } from '@glapi/database';
 import { getServiceContext } from '../../../../utils/auth';
 import { isServiceError } from '../../../../utils/errors';
 
-// GET /api/items/:itemId/serials/search - Search by serial number
+// GET /api/items/:id/serials/search - Search by serial number
 export async function GET(
   request: NextRequest,
-  { params }: { params: { itemId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const context = getServiceContext();
@@ -25,7 +25,7 @@ export async function GET(
     // Direct repository call for search
     const result = await inventoryTrackingRepository.findSerialByNumber(serialNumber);
     
-    if (!result || result.itemId !== params.itemId) {
+    if (!result || result.itemId !== params.id) {
       return NextResponse.json(
         { message: 'Serial number not found' },
         { status: 404 }
