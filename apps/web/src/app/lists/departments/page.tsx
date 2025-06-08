@@ -104,7 +104,7 @@ export default function DepartmentsPage() {
         }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/departments`, {
+        const response = await fetch(`${apiUrl}/api/departments`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -141,7 +141,7 @@ export default function DepartmentsPage() {
         if (!token) return;
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/v1/subsidiaries`, {
+        const response = await fetch(`${apiUrl}/api/subsidiaries`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -178,7 +178,7 @@ export default function DepartmentsPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/v1/departments`, {
+      const response = await fetch(`${apiUrl}/api/departments`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -205,7 +205,7 @@ export default function DepartmentsPage() {
       form.reset();
       
       // Refresh the departments list
-      const refreshResponse = await fetch(`${apiUrl}/api/v1/departments`, {
+      const refreshResponse = await fetch(`${apiUrl}/api/departments`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

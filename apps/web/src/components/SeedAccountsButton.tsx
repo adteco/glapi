@@ -30,7 +30,7 @@ export function SeedAccountsButton({ onSuccess }: SeedAccountsButtonProps) {
 
       // Adjust the API URL based on your setup (e.g., if API is on a different port/domain)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'; 
-      const response = await fetch(`${apiUrl}/api/v1/gl/accounts/seed`, {
+      const response = await fetch(`${apiUrl}/api/gl/accounts/seed`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
