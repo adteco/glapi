@@ -54,7 +54,7 @@
 - [ ] Create `schema/assemblies-kits.ts`
   - [ ] Define assembly_components schema
   - [ ] Define kit_components schema
-  - [ ] Define relations
+
 
 ### Repository Layer Implementation
 
