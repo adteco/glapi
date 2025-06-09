@@ -440,10 +440,10 @@ export class PricingRepository extends BaseRepository {
           eq(itemPricing.itemId, itemId),
           eq(itemPricing.priceListId, priceListId),
           lte(itemPricing.minQuantity, quantity),
-          lte(itemPricing.effectiveDate, date),
+          lte(itemPricing.effectiveDate, date.toISOString().split('T')[0]),
           or(
             isNull(itemPricing.expirationDate),
-            gte(itemPricing.expirationDate, date)
+            gte(itemPricing.expirationDate, date.toISOString().split('T')[0])
           )
         )
       )
@@ -458,8 +458,8 @@ export class PricingRepository extends BaseRepository {
     return {
       unitPrice: parseFloat(price.unitPrice),
       minQuantity: parseFloat(price.minQuantity),
-      effectiveDate: price.effectiveDate,
-      expirationDate: price.expirationDate,
+      effectiveDate: new Date(price.effectiveDate),
+      expirationDate: price.expirationDate ? new Date(price.expirationDate) : null,
     };
   }
 

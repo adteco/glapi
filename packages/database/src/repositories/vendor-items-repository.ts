@@ -174,27 +174,19 @@ export class VendorItemsRepository extends BaseRepository {
    * Unset preferred vendors for an item
    */
   private async unsetPreferredVendors(itemId: string, excludeId?: string) {
-    let query = this.db
-      .update(vendorItems)
-      .set({ isPreferred: false })
-      .where(
-        and(
-          eq(vendorItems.itemId, itemId),
-          eq(vendorItems.isPreferred, true)
-        )
-      );
+    const conditions = [
+      eq(vendorItems.itemId, itemId),
+      eq(vendorItems.isPreferred, true)
+    ];
 
     if (excludeId) {
-      query = query.where(
-        and(
-          eq(vendorItems.itemId, itemId),
-          eq(vendorItems.isPreferred, true),
-          sql`${vendorItems.id} != ${excludeId}`
-        )
-      );
+      conditions.push(sql`${vendorItems.id} != ${excludeId}`);
     }
 
-    return await query;
+    return await this.db
+      .update(vendorItems)
+      .set({ isPreferred: false })
+      .where(and(...conditions));
   }
 
   /**
@@ -210,7 +202,7 @@ export class VendorItemsRepository extends BaseRepository {
     
     if (existing) {
       return await this.update(existing.id, {
-        lastPurchaseDate: purchaseDate,
+        lastPurchaseDate: purchaseDate.toISOString().split('T')[0],
         lastPurchasePrice: purchasePrice,
       });
     }

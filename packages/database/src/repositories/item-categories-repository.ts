@@ -5,15 +5,15 @@ import { items } from '../db/schema/items';
 import type { ItemCategory, NewItemCategory } from '../db/schema/item-categories';
 
 interface CategoryNode extends ItemCategory {
-  children?: CategoryNode[];
+  children: CategoryNode[];
 }
 
 export class ItemCategoriesRepository extends BaseRepository {
   /**
    * Find all categories for an organization
    */
-  async findByOrganization(organizationId: string) {
-    return await this.db
+  async findByOrganization(organizationId: string): Promise<ItemCategory[]> {
+    return this.db
       .select()
       .from(itemCategories)
       .where(eq(itemCategories.organizationId, organizationId))
@@ -23,7 +23,7 @@ export class ItemCategoriesRepository extends BaseRepository {
   /**
    * Find a category by ID
    */
-  async findById(id: string, organizationId: string) {
+  async findById(id: string, organizationId: string): Promise<ItemCategory | null> {
     const results = await this.db
       .select()
       .from(itemCategories)
@@ -40,7 +40,7 @@ export class ItemCategoriesRepository extends BaseRepository {
   /**
    * Find a category by code
    */
-  async findByCode(code: string, organizationId: string) {
+  async findByCode(code: string, organizationId: string): Promise<ItemCategory | null> {
     const results = await this.db
       .select()
       .from(itemCategories)
@@ -57,8 +57,8 @@ export class ItemCategoriesRepository extends BaseRepository {
   /**
    * Find root categories (no parent)
    */
-  async findRootCategories(organizationId: string) {
-    return await this.db
+  async findRootCategories(organizationId: string): Promise<ItemCategory[]> {
+    return this.db
       .select()
       .from(itemCategories)
       .where(
@@ -73,8 +73,8 @@ export class ItemCategoriesRepository extends BaseRepository {
   /**
    * Find child categories of a parent
    */
-  async findChildCategories(parentId: string, organizationId: string) {
-    return await this.db
+  async findChildCategories(parentId: string, organizationId: string): Promise<ItemCategory[]> {
+    return this.db
       .select()
       .from(itemCategories)
       .where(
@@ -92,22 +92,16 @@ export class ItemCategoriesRepository extends BaseRepository {
   async getCategoryTree(organizationId: string): Promise<CategoryNode[]> {
     const allCategories = await this.findByOrganization(organizationId);
     
-    // Build a map for quick lookup
     const categoryMap = new Map<string, CategoryNode>();
     allCategories.forEach(cat => {
       categoryMap.set(cat.id, { ...cat, children: [] });
     });
 
-    // Build the tree structure
     const rootCategories: CategoryNode[] = [];
-    
-    allCategories.forEach(cat => {
-      const node = categoryMap.get(cat.id)!;
-      
-      if (cat.parentCategoryId) {
-        const parent = categoryMap.get(cat.parentCategoryId);
+    categoryMap.forEach(node => {
+      if (node.parentCategoryId) {
+        const parent = categoryMap.get(node.parentCategoryId);
         if (parent) {
-          parent.children = parent.children || [];
           parent.children.push(node);
         }
       } else {
@@ -160,7 +154,7 @@ export class ItemCategoriesRepository extends BaseRepository {
   /**
    * Create a new category
    */
-  async create(data: Omit<NewItemCategory, 'path' | 'level'>) {
+  async create(data: Omit<NewItemCategory, 'path' | 'level'>): Promise<ItemCategory | null> {
     const path = await this.calculatePath(
       data.parentCategoryId || null,
       data.code,
@@ -172,7 +166,7 @@ export class ItemCategoriesRepository extends BaseRepository {
       data.organizationId
     );
 
-    const results = await this.db
+    const results: ItemCategory[] = await this.db
       .insert(itemCategories)
       .values({
         ...data,
@@ -181,15 +175,14 @@ export class ItemCategoriesRepository extends BaseRepository {
       })
       .returning();
     
-    return results[0];
+    return results[0] || null;
   }
 
   /**
    * Update a category
    */
-  async update(id: string, organizationId: string, data: Partial<NewItemCategory>) {
-    // If parent or code is changing, recalculate path
-    let updateData: any = {
+  async update(id: string, organizationId: string, data: Partial<NewItemCategory>): Promise<ItemCategory | null> {
+    const updateData: Partial<ItemCategory> = {
       ...data,
       updatedAt: new Date(),
     };
@@ -199,7 +192,6 @@ export class ItemCategoriesRepository extends BaseRepository {
       return null;
     }
 
-    // Check if we need to recalculate path
     if (data.parentCategoryId !== undefined || data.code !== undefined) {
       const newParentId = data.parentCategoryId !== undefined 
         ? data.parentCategoryId 
@@ -222,7 +214,6 @@ export class ItemCategoriesRepository extends BaseRepository {
       )
       .returning();
     
-    // If path changed, update all descendant paths
     if (results[0] && updateData.path && updateData.path !== current.path) {
       await this.updateDescendantPaths(id, current.path, updateData.path, organizationId);
     }
@@ -246,21 +237,19 @@ export class ItemCategoriesRepository extends BaseRepository {
         level = level + (${newPath.split('/').length} - ${oldPath.split('/').length})
       WHERE 
         organization_id = ${organizationId}
-        AND path LIKE ${oldPath + '/%'}
+        AND path LIKE ${oldPath || ''}'/%'
     `);
   }
 
   /**
    * Delete a category (with validation)
    */
-  async delete(id: string, organizationId: string) {
-    // Check if category has children
+  async delete(id: string, organizationId: string): Promise<ItemCategory | null> {
     const children = await this.findChildCategories(id, organizationId);
     if (children.length > 0) {
       throw new Error('Cannot delete category with child categories');
     }
 
-    // Check if category has items
     const itemCountResult = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(items)
@@ -276,7 +265,6 @@ export class ItemCategoriesRepository extends BaseRepository {
       throw new Error('Cannot delete category with associated items');
     }
 
-    // Soft delete
     const results = await this.db
       .update(itemCategories)
       .set({
@@ -302,7 +290,6 @@ export class ItemCategoriesRepository extends BaseRepository {
     newParentId: string | null,
     organizationId: string
   ) {
-    // Validate the move (prevent circular references)
     if (newParentId) {
       const isDescendant = await this.isDescendant(newParentId, categoryId, organizationId);
       if (isDescendant) {
@@ -310,7 +297,7 @@ export class ItemCategoriesRepository extends BaseRepository {
       }
     }
 
-    return await this.update(categoryId, organizationId, {
+    return this.update(categoryId, organizationId, {
       parentCategoryId: newParentId,
     });
   }
@@ -349,7 +336,7 @@ export class ItemCategoriesRepository extends BaseRepository {
       const parent = await this.findById(currentId, organizationId);
       if (!parent) break;
       
-      ancestors.unshift(parent); // Add to beginning to maintain order
+      ancestors.unshift(parent);
       currentId = parent.parentCategoryId;
     }
 

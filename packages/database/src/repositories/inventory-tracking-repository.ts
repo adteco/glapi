@@ -1,4 +1,5 @@
 import { and, eq, lte, gte, or, sql, desc } from 'drizzle-orm';
+import type { PgSelect } from 'drizzle-orm/pg-core';
 import { BaseRepository } from './base-repository';
 import { lotNumbers, serialNumbers } from '../db/schema/inventory-tracking';
 import type { LotNumber, NewLotNumber, SerialNumber, NewSerialNumber } from '../db/schema/inventory-tracking';
@@ -25,11 +26,6 @@ export class InventoryTrackingRepository extends BaseRepository {
    * Find lot numbers based on search params
    */
   async findLots(organizationId: string, params: LotSearchParams = {}) {
-    let query = this.db
-      .select()
-      .from(lotNumbers)
-      .where(eq(lotNumbers.organizationId, organizationId));
-
     const conditions = [eq(lotNumbers.organizationId, organizationId)];
 
     if (params.itemId) {
@@ -46,7 +42,7 @@ export class InventoryTrackingRepository extends BaseRepository {
       conditions.push(
         and(
           sql`${lotNumbers.expirationDate} IS NOT NULL`,
-          lte(lotNumbers.expirationDate, expirationDate)
+          lte(lotNumbers.expirationDate, expirationDate.toISOString())
         )!
       );
     }
@@ -55,14 +51,16 @@ export class InventoryTrackingRepository extends BaseRepository {
       conditions.push(
         or(
           sql`${lotNumbers.expirationDate} IS NULL`,
-          gte(lotNumbers.expirationDate, new Date())
+          gte(lotNumbers.expirationDate, new Date().toISOString())
         )!
       );
     }
 
-    query = query.where(and(...conditions));
-
-    return await query.orderBy(lotNumbers.expirationDate, lotNumbers.lotNumber);
+    return await this.db
+      .select()
+      .from(lotNumbers)
+      .where(and(...conditions))
+      .orderBy(lotNumbers.expirationDate, lotNumbers.lotNumber);
   }
 
   /**
@@ -168,8 +166,8 @@ export class InventoryTrackingRepository extends BaseRepository {
           eq(lotNumbers.organizationId, organizationId),
           eq(lotNumbers.status, 'ACTIVE'),
           sql`${lotNumbers.expirationDate} IS NOT NULL`,
-          lte(lotNumbers.expirationDate, expirationDate),
-          gte(lotNumbers.expirationDate, new Date())
+          lte(lotNumbers.expirationDate, expirationDate.toISOString()),
+          gte(lotNumbers.expirationDate, new Date().toISOString())
         )
       )
       .orderBy(lotNumbers.expirationDate);
@@ -187,7 +185,7 @@ export class InventoryTrackingRepository extends BaseRepository {
           eq(lotNumbers.organizationId, organizationId),
           eq(lotNumbers.status, 'ACTIVE'),
           sql`${lotNumbers.expirationDate} IS NOT NULL`,
-          lte(lotNumbers.expirationDate, new Date())
+          lte(lotNumbers.expirationDate, new Date().toISOString())
         )
       );
   }
@@ -198,11 +196,6 @@ export class InventoryTrackingRepository extends BaseRepository {
    * Find serial numbers based on search params
    */
   async findSerials(organizationId: string, params: SerialSearchParams = {}) {
-    let query = this.db
-      .select()
-      .from(serialNumbers)
-      .where(eq(serialNumbers.organizationId, organizationId));
-
     const conditions = [eq(serialNumbers.organizationId, organizationId)];
 
     if (params.itemId) {
@@ -225,9 +218,11 @@ export class InventoryTrackingRepository extends BaseRepository {
       conditions.push(eq(serialNumbers.serialNumber, params.serialNumber));
     }
 
-    query = query.where(and(...conditions));
-
-    return await query.orderBy(serialNumbers.serialNumber);
+    return await this.db
+      .select()
+      .from(serialNumbers)
+      .where(and(...conditions))
+      .orderBy(serialNumbers.serialNumber);
   }
 
   /**
@@ -326,12 +321,14 @@ export class InventoryTrackingRepository extends BaseRepository {
     // Set additional fields based on status
     if (status === 'SOLD' && additionalData?.customerId) {
       updateData.saleCustomerId = additionalData.customerId;
-      updateData.saleDate = additionalData.saleDate || new Date();
+      const saleDate = additionalData.saleDate || new Date();
+      updateData.saleDate = saleDate.toISOString();
     }
 
     if (status === 'AVAILABLE' && additionalData?.vendorId) {
       updateData.purchaseVendorId = additionalData.vendorId;
-      updateData.purchaseDate = additionalData.purchaseDate || new Date();
+      const purchaseDate = additionalData.purchaseDate || new Date();
+      updateData.purchaseDate = purchaseDate.toISOString();
     }
 
     return await this.updateSerial(id, organizationId, updateData);
@@ -341,7 +338,8 @@ export class InventoryTrackingRepository extends BaseRepository {
    * Get available serials for an item
    */
   async getAvailableSerials(itemId: string, organizationId: string, limit?: number) {
-    let query = this.db
+    
+    const queryBuilder = this.db
       .select()
       .from(serialNumbers)
       .where(
@@ -354,10 +352,10 @@ export class InventoryTrackingRepository extends BaseRepository {
       .orderBy(serialNumbers.createdAt);
 
     if (limit) {
-      query = query.limit(limit);
+      return await (queryBuilder as any).limit(limit);
     }
 
-    return await query;
+    return await queryBuilder;
   }
 
   /**
@@ -411,8 +409,8 @@ export class InventoryTrackingRepository extends BaseRepository {
         and(
           eq(serialNumbers.organizationId, organizationId),
           sql`${serialNumbers.warrantyExpirationDate} IS NOT NULL`,
-          lte(serialNumbers.warrantyExpirationDate, expirationDate),
-          gte(serialNumbers.warrantyExpirationDate, new Date())
+          lte(serialNumbers.warrantyExpirationDate, expirationDate.toISOString()),
+          gte(serialNumbers.warrantyExpirationDate, new Date().toISOString())
         )
       )
       .orderBy(serialNumbers.warrantyExpirationDate);

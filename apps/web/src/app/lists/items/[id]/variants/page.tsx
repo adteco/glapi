@@ -17,6 +17,7 @@ interface Item {
   name: string;
   description?: string | null;
   isParent: boolean;
+  isActive?: boolean;
   variantAttributes?: any;
 }
 
@@ -439,7 +440,7 @@ export default function ItemVariantsPage() {
                         <div className="flex gap-1">
                           {Object.entries(variant.variantAttributes).map(([key, value]) => (
                             <Badge key={key} variant="outline">
-                              {key}: {value}
+                              {key}: {String(value)}
                             </Badge>
                           ))}
                         </div>
