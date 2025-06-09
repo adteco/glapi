@@ -10,29 +10,29 @@ interface Item {
   id: string;
   itemCode: string;
   name: string;
-  description?: string | null;
-  itemType: string;
-  categoryId?: string | null;
+  description?: string;
+  itemType: 'INVENTORY_ITEM' | 'NON_INVENTORY_ITEM' | 'SERVICE' | 'CHARGE' | 'DISCOUNT' | 'TAX' | 'ASSEMBLY' | 'KIT';
+  categoryId?: string;
   unitOfMeasureId: string;
-  incomeAccountId?: string | null;
-  expenseAccountId?: string | null;
-  assetAccountId?: string | null;
-  cogsAccountId?: string | null;
-  defaultPrice?: number | null;
-  defaultCost?: number | null;
+  incomeAccountId?: string;
+  expenseAccountId?: string;
+  assetAccountId?: string;
+  cogsAccountId?: string;
+  defaultPrice?: number;
+  defaultCost?: number;
   isTaxable: boolean;
-  taxCode?: string | null;
+  taxCode?: string;
   isActive: boolean;
   isPurchasable: boolean;
   isSaleable: boolean;
   trackQuantity: boolean;
   trackLotNumbers: boolean;
   trackSerialNumbers: boolean;
-  sku?: string | null;
-  upc?: string | null;
-  manufacturerPartNumber?: string | null;
-  weight?: number | null;
-  weightUnit?: string | null;
+  sku?: string;
+  upc?: string;
+  manufacturerPartNumber?: string;
+  weight?: number;
+  weightUnit?: string;
   isParent: boolean;
   variantAttributes?: any;
 }
@@ -76,7 +76,25 @@ export default function EditItemPage() {
       }
 
       const data = await response.json();
-      setItem(data);
+      // Convert null values to undefined for form compatibility
+      const transformedData = {
+        ...data,
+        description: data.description ?? undefined,
+        categoryId: data.categoryId ?? undefined,
+        incomeAccountId: data.incomeAccountId ?? undefined,
+        expenseAccountId: data.expenseAccountId ?? undefined,
+        assetAccountId: data.assetAccountId ?? undefined,
+        cogsAccountId: data.cogsAccountId ?? undefined,
+        defaultPrice: data.defaultPrice ?? undefined,
+        defaultCost: data.defaultCost ?? undefined,
+        taxCode: data.taxCode ?? undefined,
+        sku: data.sku ?? undefined,
+        upc: data.upc ?? undefined,
+        manufacturerPartNumber: data.manufacturerPartNumber ?? undefined,
+        weight: data.weight ?? undefined,
+        weightUnit: data.weightUnit ?? undefined,
+      };
+      setItem(transformedData);
     } catch (error) {
       console.error('Error fetching item:', error);
       toast.error('An unexpected error occurred');

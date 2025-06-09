@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
@@ -10,34 +10,34 @@ interface Item {
   id: string;
   itemCode: string;
   name: string;
-  description?: string | null;
-  itemType: string;
-  categoryId?: string | null;
+  description?: string;
+  itemType: 'INVENTORY_ITEM' | 'NON_INVENTORY_ITEM' | 'SERVICE' | 'CHARGE' | 'DISCOUNT' | 'TAX' | 'ASSEMBLY' | 'KIT';
+  categoryId?: string;
   unitOfMeasureId: string;
-  incomeAccountId?: string | null;
-  expenseAccountId?: string | null;
-  assetAccountId?: string | null;
-  cogsAccountId?: string | null;
-  defaultPrice?: number | null;
-  defaultCost?: number | null;
+  incomeAccountId?: string;
+  expenseAccountId?: string;
+  assetAccountId?: string;
+  cogsAccountId?: string;
+  defaultPrice?: number;
+  defaultCost?: number;
   isTaxable: boolean;
-  taxCode?: string | null;
+  taxCode?: string;
   isActive: boolean;
   isPurchasable: boolean;
   isSaleable: boolean;
   trackQuantity: boolean;
   trackLotNumbers: boolean;
   trackSerialNumbers: boolean;
-  sku?: string | null;
-  upc?: string | null;
-  manufacturerPartNumber?: string | null;
-  weight?: number | null;
-  weightUnit?: string | null;
+  sku?: string;
+  upc?: string;
+  manufacturerPartNumber?: string;
+  weight?: number;
+  weightUnit?: string;
   isParent: boolean;
   variantAttributes?: any;
 }
 
-export default function NewItemPage() {
+function NewItemPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { getToken, orgId } = useAuth();
@@ -68,11 +68,27 @@ export default function NewItemPage() {
         const item = await response.json();
         // Remove unique fields when duplicating
         const { id, itemCode, sku, upc, createdAt, updatedAt, ...itemData } = item;
-        setDuplicateFrom({
+        // Convert null values to undefined for form compatibility
+        const transformedData = {
           ...itemData,
           name: `${item.name} (Copy)`,
           itemCode: '', // User must provide new code
-        });
+          description: itemData.description ?? undefined,
+          categoryId: itemData.categoryId ?? undefined,
+          incomeAccountId: itemData.incomeAccountId ?? undefined,
+          expenseAccountId: itemData.expenseAccountId ?? undefined,
+          assetAccountId: itemData.assetAccountId ?? undefined,
+          cogsAccountId: itemData.cogsAccountId ?? undefined,
+          defaultPrice: itemData.defaultPrice ?? undefined,
+          defaultCost: itemData.defaultCost ?? undefined,
+          taxCode: itemData.taxCode ?? undefined,
+          sku: undefined, // Reset SKU for duplicate
+          upc: undefined, // Reset UPC for duplicate
+          manufacturerPartNumber: itemData.manufacturerPartNumber ?? undefined,
+          weight: itemData.weight ?? undefined,
+          weightUnit: itemData.weightUnit ?? undefined,
+        };
+        setDuplicateFrom(transformedData);
       }
     } catch (error) {
       console.error('Error fetching item to duplicate:', error);
@@ -110,7 +126,7 @@ export default function NewItemPage() {
         return;
       }
 
-      const createdItem = await response.json();
+      await response.json();
       toast.success('Item created successfully');
       
       // Redirect to the items list or the created item
@@ -142,5 +158,19 @@ export default function NewItemPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function NewItemPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-10">
+        <div className="max-w-4xl mx-auto">
+          <p>Loading...</p>
+        </div>
+      </div>
+    }>
+      <NewItemPageContent />
+    </Suspense>
   );
 }
