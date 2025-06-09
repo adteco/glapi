@@ -18,7 +18,7 @@ export const itemTypeEnum = pgEnum('item_type', [
 
 export const items = pgTable('items', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
+  organizationId: text('organization_id').notNull().references(() => organizations.id),
   itemCode: text('item_code').notNull(),
   name: text('name').notNull(),
   description: text('description'),

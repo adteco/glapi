@@ -5,7 +5,7 @@ import { items } from './items';
 
 export const itemAuditLog = pgTable('item_audit_log', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
+  organizationId: text('organization_id').notNull().references(() => organizations.id),
   userId: uuid('user_id').notNull(),
   itemId: uuid('item_id').references(() => items.id),
   action: text('action').notNull(), // CREATE, UPDATE, DELETE, VIEW

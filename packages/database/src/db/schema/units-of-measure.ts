@@ -4,7 +4,7 @@ import { organizations } from './organizations';
 
 export const unitsOfMeasure = pgTable('units_of_measure', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
+  organizationId: text('organization_id').notNull().references(() => organizations.id),
   code: text('code').notNull(),
   name: text('name').notNull(),
   abbreviation: text('abbreviation').notNull(),

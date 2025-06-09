@@ -25,7 +25,10 @@ import {
   Network as NetworkIcon,
   MapPinned as MapPinnedIcon,
   ListOrdered as ListOrderedIcon,
-  Users as UsersIcon
+  Users as UsersIcon,
+  Package as PackageIcon,
+  Ruler as RulerIcon,
+  Tags as TagsIcon
 } from 'lucide-react';
 
 const NewPageSidebar = () => {
@@ -35,6 +38,7 @@ const NewPageSidebar = () => {
   const [isListsOpen, setIsListsOpen] = useState(false);
   const [isAccountingOpen, setIsAccountingOpen] = useState(false);
   const [isRelationshipsOpen, setIsRelationshipsOpen] = useState(false);
+  const [isItemsOpen, setIsItemsOpen] = useState(false);
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -262,6 +266,50 @@ const NewPageSidebar = () => {
                         {/* @ts-ignore */}
                         <UsersIcon className={`h-3 w-3 opacity-75`} />
                         <span>Contacts</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </div>
+              
+              {/* Items Section */}
+              <div>
+                <button 
+                  onClick={() => setIsItemsOpen(!isItemsOpen)}
+                  className={`${baseSubLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
+                >
+                  <div className="flex items-center space-x-3">
+                    {/* @ts-ignore */}
+                    <PackageIcon className="h-4 w-4" />
+                    <span>Items</span>
+                  </div>
+                  {/* @ts-ignore */}
+                  {isItemsOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+                </button>
+                {isItemsOpen && (
+                  <ul className="mt-1 space-y-1">
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/units-of-measure" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/units-of-measure') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <RulerIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Units of Measure</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/item-categories" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/item-categories') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <TagsIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Categories</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/items" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/items') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <PackageIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Items</span>
                       </Link>
                     </li>
                   </ul>

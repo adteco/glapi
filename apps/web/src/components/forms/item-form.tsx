@@ -289,7 +289,6 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
                             {categories.map(category => (
                               <SelectItem key={category.id} value={category.id}>
                                 {category.name}
@@ -464,7 +463,6 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
                               {getAccountsByCategory('Revenue').map(account => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.accountNumber} - {account.accountName}
@@ -490,7 +488,6 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
                               {getAccountsByCategory('Expense').map(account => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.accountNumber} - {account.accountName}
@@ -520,7 +517,6 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
                               {getAccountsByCategory('Asset').map(account => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.accountNumber} - {account.accountName}
@@ -546,7 +542,6 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
                               {getAccountsByCategory('COGS').map(account => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.accountNumber} - {account.accountName}

@@ -20,7 +20,7 @@ export const serialStatusEnum = pgEnum('serial_status', [
 // Lot Numbers
 export const lotNumbers = pgTable('lot_numbers', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
+  organizationId: text('organization_id').notNull().references(() => organizations.id),
   itemId: uuid('item_id').notNull().references(() => items.id),
   lotNumber: text('lot_number').notNull(),
   manufactureDate: date('manufacture_date'),
@@ -40,7 +40,7 @@ export const lotNumbers = pgTable('lot_numbers', {
 // Serial Numbers
 export const serialNumbers = pgTable('serial_numbers', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
+  organizationId: text('organization_id').notNull().references(() => organizations.id),
   itemId: uuid('item_id').notNull().references(() => items.id),
   serialNumber: text('serial_number').notNull(),
   lotNumberId: uuid('lot_number_id').references(() => lotNumbers.id),
