@@ -1,6 +1,7 @@
 import { and, eq, ilike, isNull, sql } from 'drizzle-orm';
 import { BaseRepository } from './base-repository';
 import { itemCategories } from '../db/schema/item-categories';
+import { items } from '../db/schema/items';
 import type { ItemCategory, NewItemCategory } from '../db/schema/item-categories';
 
 interface CategoryNode extends ItemCategory {
@@ -260,14 +261,18 @@ export class ItemCategoriesRepository extends BaseRepository {
     }
 
     // Check if category has items
-    const itemCount = await this.db.execute(sql`
-      SELECT COUNT(*) as count 
-      FROM items 
-      WHERE category_id = ${id} 
-      AND organization_id = ${organizationId}
-    `);
+    const itemCountResult = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(items)
+      .where(
+        and(
+          eq(items.categoryId, id),
+          eq(items.organizationId, organizationId)
+        )
+      );
 
-    if (itemCount.rows[0]?.count > 0) {
+    const itemCount = itemCountResult[0]?.count || 0;
+    if (itemCount > 0) {
       throw new Error('Cannot delete category with associated items');
     }
 
