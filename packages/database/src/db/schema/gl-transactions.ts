@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, jsonb, timestamp, uniqueIndex, decimal, date, uuid, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, uniqueIndex, decimal, date, uuid, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { accountingPeriods } from './accounting-periods';
 

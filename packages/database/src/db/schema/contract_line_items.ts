@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, timestamp, decimal, integer, text } from "drizzle-orm/pg-core";
+import { pgTable, uuid, timestamp, decimal, integer, text } from "drizzle-orm/pg-core";
+import { relations } from 'drizzle-orm';
 import { contracts } from "./contracts";
 import { products } from "./products";
 import { performanceObligations } from "./performance_obligations";

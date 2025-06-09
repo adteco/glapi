@@ -1,9 +1,8 @@
 import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 
 export const addresses = pgTable('addresses', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(), // Clerk org ID format: org_xxx
+  organizationId: text('organization_id').notNull(),
   addressee: text('addressee'),
   companyName: text('company_name'),
   attention: text('attention'),
@@ -13,13 +12,10 @@ export const addresses = pgTable('addresses', {
   city: text('city'),
   stateProvince: text('state_province'),
   postalCode: text('postal_code'),
-  countryCode: text('country_code'), // ISO 2-letter country code
+  countryCode: text('country_code'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const addressRelations = relations(addresses, ({ many }) => ({
-  // If an address could be linked to multiple entities (e.g. shared office)
-  // For now, assuming address is primarily owned/referenced by one entity
-  // but this setup allows flexibility if needed later.
-})); 
+export type Address = typeof addresses.$inferSelect;
+export type NewAddress = typeof addresses.$inferInsert; 

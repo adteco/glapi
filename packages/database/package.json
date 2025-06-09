@@ -2,9 +2,10 @@
   "name": "@glapi/database",
   "version": "0.0.0",
   "private": true,
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "tsc",
     "test:connection": "tsx src/scripts/test-connection.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -13,6 +14,7 @@
     "run:entities-migration": "tsx src/scripts/run-entities-migration.ts"
   },
   "dependencies": {
+    "@glapi/business": "workspace:*",
     "@types/dotenv": "^8.2.3",
     "@types/pg": "^8.15.1",
     "dotenv": "^16.4.5",
