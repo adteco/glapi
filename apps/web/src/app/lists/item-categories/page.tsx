@@ -282,7 +282,7 @@ export default function ItemCategoriesPage() {
     return (
       <div key={category.id} className="select-none">
         <div 
-          className={`flex items-center justify-between py-2 px-4 hover:bg-gray-50 rounded-lg transition-colors ${
+          className={`flex items-center justify-between py-3 px-4 hover:bg-gray-100/50 rounded-md transition-colors border-b border-gray-100 ${
             !category.isActive ? 'opacity-50' : ''
           }`}
           style={{ paddingLeft: `${level * 24 + 16}px` }}
@@ -291,7 +291,7 @@ export default function ItemCategoriesPage() {
             {hasChildren && (
               <button
                 onClick={() => toggleExpanded(category.id)}
-                className="p-0.5 hover:bg-gray-200 rounded"
+                className="p-0.5 hover:bg-gray-200/50 rounded"
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
@@ -367,7 +367,7 @@ export default function ItemCategoriesPage() {
           </Button>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border">
+        <div className="space-y-1">
           {categories.map(category => renderCategory(category))}
         </div>
       )}
@@ -427,7 +427,6 @@ export default function ItemCategoriesPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None (Top Level)</SelectItem>
                         {flatCategories.map(category => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.path ? category.path.replace(/\//g, ' → ') : category.name}
@@ -529,7 +528,6 @@ export default function ItemCategoriesPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None (Top Level)</SelectItem>
                         {flatCategories
                           .filter(cat => cat.id !== selectedCategory?.id)
                           .map(category => (
