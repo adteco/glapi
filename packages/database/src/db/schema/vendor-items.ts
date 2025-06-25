@@ -19,7 +19,7 @@ export const vendorItems = pgTable('vendor_items', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   uniqueVendorItem: uniqueIndex('idx_vendor_items_unique').on(table.vendorId, table.itemId),
-  itemIndex: index('idx_vendor_items_item').on(table.itemId),
+  vendorItemIndex: index('idx_vendor_items_item').on(table.itemId),
   preferredIndex: index('idx_vendor_items_preferred').on(table.itemId, table.isPreferred),
 }));
 

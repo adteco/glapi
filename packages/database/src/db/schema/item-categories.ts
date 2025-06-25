@@ -18,7 +18,7 @@ export const itemCategories = pgTable('item_categories', {
 }, (table) => ({
   orgCodeUnique: uniqueIndex('idx_item_categories_org_code').on(table.organizationId, table.code),
   pathIndex: index('idx_item_categories_path').on(table.path),
-  parentIndex: index('idx_item_categories_parent').on(table.parentCategoryId),
+  categoryParentIndex: index('idx_item_categories_parent').on(table.parentCategoryId),
 }));
 
 export const itemCategoriesRelations = relations(itemCategories, ({ one, many }) => ({
