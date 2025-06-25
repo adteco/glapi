@@ -36,6 +36,13 @@
       "when": 1749504474373,
       "tag": "0004_heavy_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1750861351854,
+      "tag": "0005_lethal_beyonder",
+      "breakpoints": true
     }
   ]
 }
