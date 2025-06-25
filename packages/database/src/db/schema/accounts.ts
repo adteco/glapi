@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, uniqueIndex, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, uniqueIndex, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { accountCategoryEnum } from './enums'; // Import the enum
 import { organizations } from './organizations';

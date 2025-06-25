@@ -1,6 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp, jsonb, index, unique, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { entityTypeEnum } from './enums';
+import { pgTable, uuid, text, boolean, timestamp, jsonb, index, unique, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { addresses } from './addresses';
 
 export const entities = pgTable('entities', {

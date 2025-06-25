@@ -22,6 +22,20 @@
       "when": 1748963793844,
       "tag": "0002_crazy_warhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749426206227,
+      "tag": "0003_free_dragon_lord",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1749504474373,
+      "tag": "0004_heavy_captain_america",
+      "breakpoints": true
     }
   ]
 }

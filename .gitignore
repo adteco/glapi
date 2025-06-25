@@ -17,6 +17,11 @@ build/
 *.d.ts
 *.d.ts.map
 
+# JavaScript build outputs
+packages/**/*.js
+packages/**/*.js.map
+!packages/**/scripts/**/*.js
+
 # Local env files
 .env
 .env*.local
