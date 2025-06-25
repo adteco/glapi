@@ -67,7 +67,30 @@ export const customers = pgTable('customers', {
 
 **Important:** We store Clerk organization IDs directly (format: `org_xxx`) without foreign key constraints to an organizations table. This simplifies RLS implementation and improves performance.
 
-### 3. Consistent Field Patterns
+### 3. File Naming Convention
+
+**Important:** Drizzle introspection generates files based on database table names. To avoid manual renaming after each introspection, we follow this naming pattern:
+
+- **Database table**: `units_of_measure` (snake_case)
+- **Generated file**: `units-of-measure.ts` (kebab-case)
+- **Exported const**: `unitsOfMeasure` (camelCase)
+- **Import statement**: `import { unitsOfMeasure } from './units-of-measure';`
+
+Example:
+```typescript
+// File: src/db/schema/units-of-measure.ts
+export const unitsOfMeasure = pgTable('units_of_measure', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // ... fields
+});
+
+// Import in another file:
+import { unitsOfMeasure } from './units-of-measure';
+```
+
+This ensures compatibility with Drizzle's introspection while maintaining consistent imports.
+
+### 4. Consistent Field Patterns
 
 All tables should follow these patterns:
 
@@ -93,7 +116,7 @@ export const tableName = pgTable('table_name', {
 });
 ```
 
-### 4. Indexes
+### 5. Indexes
 
 Add indexes for commonly queried fields:
 

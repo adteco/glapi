@@ -114,3 +114,11 @@ The system is designed around accounting dimensions (customers, organizations, s
 - Repository and service patterns provide consistent data access and business logic
 - All accounting dimensions follow the same CRUD pattern for consistency
 - Tests can be run on individual packages with `pnpm --filter <package> test`
+
+## Important: Monorepo Import Guidelines
+
+- **DO NOT use relative paths between packages** - This is a monorepo managed by pnpm workspaces
+- Always import packages using their package names as defined in their package.json
+- Example: Use `import { something } from '@glapi/database'` NOT `import { something } from '../database'`
+- Each package should be treated as an independent module with its own dependencies
+- The monorepo tooling (pnpm and Turborepo) handles the linking between packages automatically

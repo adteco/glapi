@@ -2,7 +2,7 @@ import { pgTable, uuid, integer, decimal, text, boolean, jsonb, AnyPgColumn } fr
 import { relations } from 'drizzle-orm';
 // import { transactions } from './transactions'; // Will be created - Will uncomment later
 import { products } from './products';
-import { unitsOfMeasure } from './unitsOfMeasure';
+import { unitsOfMeasure } from './units-of-measure';
 import { departments } from './departments';
 import { classes } from './classes';
 import { locations } from './locations';
