@@ -203,7 +203,7 @@ export default function PriceListsPage() {
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const response = await fetch(`${apiUrl}/api/price-lists/${editingPriceList.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

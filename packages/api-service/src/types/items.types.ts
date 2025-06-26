@@ -168,8 +168,8 @@ export const createItemPricingSchema = z.object({
   priceListId: z.string().uuid(),
   unitPrice: z.number().positive(),
   minQuantity: z.number().positive().default(1),
-  effectiveDate: z.date(),
-  expirationDate: z.date().optional().nullable(),
+  effectiveDate: z.string().transform((str) => new Date(str)),
+  expirationDate: z.string().transform((str) => new Date(str)).optional().nullable(),
 });
 
 export const updateItemPricingSchema = createItemPricingSchema.partial();
@@ -178,15 +178,15 @@ export const assignCustomerPriceListSchema = z.object({
   customerId: z.string().uuid(),
   priceListId: z.string().uuid(),
   priority: z.number().int().positive().default(1),
-  effectiveDate: z.date().optional(),
-  expirationDate: z.date().optional(),
+  effectiveDate: z.string().transform((str) => new Date(str)).optional(),
+  expirationDate: z.string().transform((str) => new Date(str)).optional(),
 });
 
 export const priceCalculationSchema = z.object({
   itemId: z.string().uuid(),
   customerId: z.string().uuid().optional(),
   quantity: z.number().positive(),
-  date: z.date().default(() => new Date()),
+  date: z.string().transform((str) => new Date(str)).default(() => new Date().toISOString()),
 });
 
 export type CreatePriceListInput = z.infer<typeof createPriceListSchema>;
@@ -219,6 +219,17 @@ export interface ItemPricing {
   expirationDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ItemPricingWithItem extends ItemPricing {
+  item?: {
+    id: string;
+    itemCode: string;
+    name: string;
+    description?: string;
+    defaultPrice?: number;
+    isActive: boolean;
+  };
 }
 
 export interface CalculatedPrice {

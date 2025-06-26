@@ -8,7 +8,7 @@ const VALID_API_KEYS: Record<string, {
   scopes: string[];
 }> = {
   'glapi_test_sk_1234567890abcdef': {
-    organizationId: 'org_development',
+    organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Use existing Adteco org UUID
     name: 'Development API Key',
     scopes: ['read', 'write']
   }
@@ -70,7 +70,7 @@ export function middleware(request: NextRequest) {
     
     // If no API key, check for Clerk auth (you'll need to implement this)
     // For now, we'll use a development fallback
-    response.headers.set('x-organization-id', 'org_development');
+    response.headers.set('x-organization-id', 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2'); // Use existing Adteco org UUID
     response.headers.set('x-user-id', 'user_development');
   }
   
