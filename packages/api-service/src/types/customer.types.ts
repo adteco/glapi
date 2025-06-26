@@ -9,6 +9,7 @@ export const customerSchema = z.object({
   contactEmail: z.string().email().optional().or(z.literal('')),
   contactPhone: z.string().optional(),
   billingAddress: addressSchema.optional(),
+  parentCustomerId: z.string().uuid().optional(), // Parent customer reference
   status: z.enum(['active', 'inactive', 'archived']).default('active'),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),

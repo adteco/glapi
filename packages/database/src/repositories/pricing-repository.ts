@@ -1,6 +1,7 @@
 import { and, eq, gte, lte, or, isNull, desc, asc, sql } from 'drizzle-orm';
 import { BaseRepository } from './base-repository';
 import { priceLists, itemPricing, customerPriceLists } from '../db/schema/pricing';
+import { items } from '../db/schema/items';
 import type { PriceList, NewPriceList, ItemPricing, NewItemPricing, CustomerPriceList, NewCustomerPriceList } from '../db/schema/pricing';
 
 export interface PriceCalculationParams {
@@ -213,11 +214,32 @@ export class PricingRepository extends BaseRepository {
    * Find all items in a price list
    */
   async findPriceListItems(priceListId: string) {
-    return await this.db
-      .select()
+    const results = await this.db
+      .select({
+        id: itemPricing.id,
+        itemId: itemPricing.itemId,
+        priceListId: itemPricing.priceListId,
+        unitPrice: itemPricing.unitPrice,
+        minQuantity: itemPricing.minQuantity,
+        effectiveDate: itemPricing.effectiveDate,
+        expirationDate: itemPricing.expirationDate,
+        createdAt: itemPricing.createdAt,
+        updatedAt: itemPricing.updatedAt,
+        item: {
+          id: items.id,
+          itemCode: items.itemCode,
+          name: items.name,
+          description: items.description,
+          defaultPrice: items.defaultPrice,
+          isActive: items.isActive,
+        },
+      })
       .from(itemPricing)
+      .leftJoin(items, eq(itemPricing.itemId, items.id))
       .where(eq(itemPricing.priceListId, priceListId))
       .orderBy(itemPricing.itemId, itemPricing.minQuantity);
+    
+    return results;
   }
 
   /**

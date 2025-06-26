@@ -15,7 +15,7 @@ export const assemblyComponents = pgTable('assembly_components', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
-  uniqueComponent: uniqueIndex('idx_assembly_components_unique').on(table.assemblyItemId, table.componentItemId),
+  assemblyComponentUnique: uniqueIndex('idx_assembly_components_unique').on(table.assemblyItemId, table.componentItemId),
   assemblyIndex: index('idx_assembly_components_assembly').on(table.assemblyItemId),
   componentIndex: index('idx_assembly_components_component').on(table.componentItemId),
 }));
@@ -29,7 +29,7 @@ export const kitComponents = pgTable('kit_components', {
   isOptional: boolean('is_optional').default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
-  uniqueComponent: uniqueIndex('idx_kit_components_unique').on(table.kitItemId, table.componentItemId),
+  kitComponentUnique: uniqueIndex('idx_kit_components_unique').on(table.kitItemId, table.componentItemId),
   kitIndex: index('idx_kit_components_kit').on(table.kitItemId),
 }));
 

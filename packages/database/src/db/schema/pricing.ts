@@ -38,13 +38,13 @@ export const itemPricing = pgTable('item_pricing', {
     table.minQuantity, 
     table.effectiveDate
   ),
-  lookupIndex: index('idx_item_pricing_lookup').on(
+  itemPricingLookupIndex: index('idx_item_pricing_lookup').on(
     table.itemId,
     table.priceListId,
     table.effectiveDate,
     table.expirationDate
   ),
-  datesIndex: index('idx_item_pricing_dates').on(table.effectiveDate, table.expirationDate),
+  itemPricingDatesIndex: index('idx_item_pricing_dates').on(table.effectiveDate, table.expirationDate),
 }));
 
 // Customer Price Lists
@@ -57,8 +57,8 @@ export const customerPriceLists = pgTable('customer_price_lists', {
   expirationDate: date('expiration_date'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
-  uniqueAssignment: uniqueIndex('idx_customer_price_lists_unique').on(table.customerId, table.priceListId),
-  datesIndex: index('idx_customer_price_lists_dates').on(table.effectiveDate, table.expirationDate),
+  customerPriceUnique: uniqueIndex('idx_customer_price_lists_unique').on(table.customerId, table.priceListId),
+  customerPriceDatesIndex: index('idx_customer_price_lists_dates').on(table.effectiveDate, table.expirationDate),
 }));
 
 // Relations

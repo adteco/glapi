@@ -48,7 +48,7 @@ export async function GET(
   }
 }
 
-// POST /api/price-lists/:id/items - Bulk update prices in a price list
+// POST /api/price-lists/:id/items - Add an item to a price list
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -59,16 +59,19 @@ export async function POST(
     
     const service = new PricingService(context);
     
-    if (!Array.isArray(body.updates)) {
-      return NextResponse.json(
-        { message: 'Updates must be an array' },
-        { status: 400 }
-      );
+    // Check if it's a bulk update (array) or single item add
+    if (Array.isArray(body.updates)) {
+      // Bulk update prices
+      await service.bulkUpdatePrices(params.id, body.updates);
+      return NextResponse.json({ message: 'Prices updated successfully' });
+    } else {
+      // Add single item to price list
+      const result = await service.createItemPricing({
+        ...body,
+        priceListId: params.id
+      });
+      return NextResponse.json(result, { status: 201 });
     }
-    
-    await service.bulkUpdatePrices(params.id, body.updates);
-    
-    return NextResponse.json({ message: 'Prices updated successfully' });
   } catch (error) {
     console.error('Error bulk updating prices:', error);
     

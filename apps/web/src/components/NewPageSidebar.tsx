@@ -28,7 +28,8 @@ import {
   Users as UsersIcon,
   Package as PackageIcon,
   Ruler as RulerIcon,
-  Tags as TagsIcon
+  Tags as TagsIcon,
+  Building2 as Building2Icon
 } from 'lucide-react';
 
 const NewPageSidebar = () => {
@@ -310,6 +311,22 @@ const NewPageSidebar = () => {
                         {/* @ts-ignore */}
                         <PackageIcon className={`h-3 w-3 opacity-75`} />
                         <span>Items</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/warehouses" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/warehouses') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <Building2Icon className={`h-3 w-3 opacity-75`} />
+                        <span>Warehouses</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/price-lists" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/price-lists') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <TagsIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Price Lists</span>
                       </Link>
                     </li>
                   </ul>

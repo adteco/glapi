@@ -77,7 +77,7 @@ export const items = pgTable('items', {
   typeIndex: index('idx_items_type').on(table.itemType),
   skuIndex: index('idx_items_sku').on(table.sku),
   upcIndex: index('idx_items_upc').on(table.upc),
-  parentIndex: index('idx_items_parent').on(table.parentItemId),
+  itemParentIndex: index('idx_items_parent').on(table.parentItemId),
 }));
 
 export const itemsRelations = relations(items, ({ one, many }) => ({
