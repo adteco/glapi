@@ -2,6 +2,7 @@ import { BaseService } from './base-service';
 import { 
   PriceList,
   ItemPricing,
+  ItemPricingWithItem,
   CalculatedPrice,
   CreatePriceListInput,
   UpdatePriceListInput,
@@ -49,7 +50,7 @@ export class PricingService extends BaseService {
   /**
    * Transform database item pricing to service layer type
    */
-  private transformItemPricing(dbRecord: any): ItemPricing {
+  private transformItemPricing(dbRecord: any): ItemPricingWithItem {
     return {
       id: dbRecord.id,
       itemId: dbRecord.itemId,
@@ -60,6 +61,7 @@ export class PricingService extends BaseService {
       expirationDate: dbRecord.expirationDate,
       createdAt: dbRecord.createdAt,
       updatedAt: dbRecord.updatedAt,
+      item: dbRecord.item || undefined,
     };
   }
 
@@ -252,7 +254,7 @@ export class PricingService extends BaseService {
   async getPriceListItems(
     priceListId: string,
     params: PaginationParams = {}
-  ): Promise<PaginatedResult<ItemPricing>> {
+  ): Promise<PaginatedResult<ItemPricingWithItem>> {
     const organizationId = this.requireOrganizationContext();
     const { page, limit } = this.getPaginationParams(params);
     
@@ -270,6 +272,8 @@ export class PricingService extends BaseService {
     }
     
     const items = await pricingRepository.findPriceListItems(priceListId);
+    
+    console.log('Raw items from repository:', JSON.stringify(items[0], null, 2));
     
     // Manual pagination
     const startIdx = (page - 1) * limit;

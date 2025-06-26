@@ -373,7 +373,10 @@ export class WarehousePricingService extends BaseService {
       date
     );
     
-    return priceLists.map(pl => this.transformWarehousePriceList(pl.warehousePriceList));
+    return priceLists.map(pl => ({
+      ...this.transformWarehousePriceList(pl.warehousePriceList),
+      priceList: pl.priceList
+    }));
   }
 
   /**

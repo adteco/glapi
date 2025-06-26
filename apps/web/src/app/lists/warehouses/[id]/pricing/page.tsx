@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, DollarSign, Trash } from 'lucide-react';
+import { ExpandablePriceList } from './ExpandablePriceList';
 import {
   Dialog,
   DialogContent,
@@ -456,53 +457,34 @@ export default function WarehousePricingPage() {
           </p>
         </div>
       ) : (
-        <Table>
-          <TableCaption>Price lists assigned to this warehouse, ordered by priority.</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Priority</TableHead>
-              <TableHead>Price List</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Currency</TableHead>
-              <TableHead>Effective Date</TableHead>
-              <TableHead>Expiration Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {warehousePriceLists
-              .sort((a, b) => a.priority - b.priority)
-              .map((wpl) => (
-                <TableRow key={wpl.id}>
-                  <TableCell className="font-medium">{wpl.priority}</TableCell>
-                  <TableCell>{wpl.priceList?.name || '-'}</TableCell>
-                  <TableCell>{wpl.priceList?.code || '-'}</TableCell>
-                  <TableCell>{wpl.priceList?.currencyCode || 'USD'}</TableCell>
-                  <TableCell>
-                    {wpl.effectiveDate ? new Date(wpl.effectiveDate).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {wpl.expirationDate ? new Date(wpl.expirationDate).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={wpl.priceList?.isActive ? 'default' : 'secondary'}>
-                      {wpl.priceList?.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(wpl.priceListId)}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
+        <div className="space-y-4">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold mb-2">Assigned Price Lists</h2>
+            <p className="text-sm text-muted-foreground">Click on a price list to view its items</p>
+          </div>
+          {warehousePriceLists
+            .sort((a, b) => a.priority - b.priority)
+            .map((wpl) => (
+              <div key={wpl.id} className="relative">
+                {wpl.priceList && (
+                  <ExpandablePriceList 
+                    priceList={wpl.priceList} 
+                    priority={wpl.priority}
+                  />
+                )}
+                <div className="absolute top-4 right-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(wpl.priceListId)}
+                    title="Remove from warehouse"
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+        </div>
       )}
     </div>
   );

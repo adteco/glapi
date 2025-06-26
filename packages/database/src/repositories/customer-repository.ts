@@ -23,6 +23,7 @@ export class CustomerRepository extends BaseRepository {
         customerId: entities.code,
         contactEmail: entities.email,
         contactPhone: entities.phone,
+        parentCustomerId: entities.parentEntityId,
         status: entities.status,
         createdAt: entities.createdAt,
         updatedAt: entities.updatedAt,
@@ -103,6 +104,7 @@ export class CustomerRepository extends BaseRepository {
         customerId: entities.code,
         contactEmail: entities.email,
         contactPhone: entities.phone,
+        parentCustomerId: entities.parentEntityId,
         status: entities.status,
         createdAt: entities.createdAt,
         updatedAt: entities.updatedAt,
@@ -132,6 +134,47 @@ export class CustomerRepository extends BaseRepository {
       limit,
       totalPages: Math.ceil(count / limit)
     };
+  }
+  
+  /**
+   * Find customers by parent ID
+   */
+  async findByParentId(parentId: string, organizationId: string) {
+    const results = await this.db
+      .select({
+        id: entities.id,
+        organizationId: entities.organizationId,
+        companyName: entities.name,
+        customerId: entities.code,
+        contactEmail: entities.email,
+        contactPhone: entities.phone,
+        parentCustomerId: entities.parentEntityId,
+        status: entities.status,
+        createdAt: entities.createdAt,
+        updatedAt: entities.updatedAt,
+        // Address fields from joined table
+        billingAddress: addresses.id ? sql`
+          jsonb_build_object(
+            'line1', ${addresses.line1},
+            'line2', ${addresses.line2},
+            'city', ${addresses.city},
+            'state', ${addresses.stateProvince},
+            'postalCode', ${addresses.postalCode},
+            'country', ${addresses.countryCode}
+          )
+        ` : sql`null`,
+      })
+      .from(entities)
+      .leftJoin(addresses, eq(entities.addressId, addresses.id))
+      .where(
+        and(
+          eq(entities.parentEntityId, parentId),
+          eq(entities.organizationId, organizationId),
+          arrayContains(entities.entityTypes, ['Customer'])
+        )
+      );
+    
+    return results;
   }
   
   /**
@@ -178,6 +221,7 @@ export class CustomerRepository extends BaseRepository {
         status: data.status || 'active',
         entityTypes: ['Customer'],
         addressId: addressId,
+        parentEntityId: data.parentCustomerId,
         isActive: true,
       })
       .returning();
@@ -190,6 +234,7 @@ export class CustomerRepository extends BaseRepository {
       customerId: result.code,
       contactEmail: result.email,
       contactPhone: result.phone,
+      parentCustomerId: result.parentEntityId,
       status: result.status,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
@@ -222,6 +267,7 @@ export class CustomerRepository extends BaseRepository {
     if (data.customerId !== undefined) updateData.code = data.customerId;
     if (data.contactEmail !== undefined) updateData.email = data.contactEmail;
     if (data.contactPhone !== undefined) updateData.phone = data.contactPhone;
+    if (data.parentCustomerId !== undefined) updateData.parentEntityId = data.parentCustomerId || null;
     if (data.status !== undefined) updateData.status = data.status;
     
     const [result] = await this.db
@@ -248,6 +294,7 @@ export class CustomerRepository extends BaseRepository {
       customerId: result.code,
       contactEmail: result.email,
       contactPhone: result.phone,
+      parentCustomerId: result.parentEntityId,
       status: result.status,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
@@ -282,6 +329,7 @@ export class CustomerRepository extends BaseRepository {
         customerId: entities.code,
         contactEmail: entities.email,
         contactPhone: entities.phone,
+        parentCustomerId: entities.parentEntityId,
         status: entities.status,
         createdAt: entities.createdAt,
         updatedAt: entities.updatedAt,
