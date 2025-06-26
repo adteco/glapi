@@ -32,9 +32,9 @@ export const lotNumbers = pgTable('lot_numbers', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   uniqueLot: uniqueIndex('idx_lot_numbers_unique').on(table.organizationId, table.itemId, table.lotNumber),
-  itemIndex: index('idx_lot_numbers_item').on(table.itemId),
-  expirationIndex: index('idx_lot_numbers_dates').on(table.expirationDate),
-  statusIndex: index('idx_lot_numbers_status').on(table.status),
+  lotItemIndex: index('idx_lot_numbers_item').on(table.itemId),
+  lotExpirationIndex: index('idx_lot_numbers_dates').on(table.expirationDate),
+  lotStatusIndex: index('idx_lot_numbers_status').on(table.status),
 }));
 
 // Serial Numbers
@@ -55,8 +55,8 @@ export const serialNumbers = pgTable('serial_numbers', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   uniqueSerial: uniqueIndex('idx_serial_numbers_unique').on(table.organizationId, table.serialNumber),
-  itemIndex: index('idx_serial_numbers_item').on(table.itemId),
-  statusIndex: index('idx_serial_numbers_status').on(table.status),
+  serialItemIndex: index('idx_serial_numbers_item').on(table.itemId),
+  serialStatusIndex: index('idx_serial_numbers_status').on(table.status),
 }));
 
 // Relations

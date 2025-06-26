@@ -23,6 +23,7 @@ export * from './pricing-repository';
 export * from './vendor-items-repository';
 export * from './inventory-tracking-repository';
 export * from './assemblies-kits-repository';
+export * from './warehouse-repository';
 
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
@@ -39,6 +40,7 @@ import { PricingRepository } from './pricing-repository';
 import { VendorItemsRepository } from './vendor-items-repository';
 import { InventoryTrackingRepository } from './inventory-tracking-repository';
 import { AssembliesKitsRepository } from './assemblies-kits-repository';
+import { WarehouseRepository } from './warehouse-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -55,3 +57,4 @@ export const pricingRepository = new PricingRepository();
 export const vendorItemsRepository = new VendorItemsRepository();
 export const inventoryTrackingRepository = new InventoryTrackingRepository();
 export const assembliesKitsRepository = new AssembliesKitsRepository();
+export const warehouseRepository = new WarehouseRepository();

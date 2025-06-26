@@ -28,6 +28,7 @@ export class CustomerService extends BaseService {
       customerId: dbCustomer.customerId || undefined,
       contactEmail: dbCustomer.contactEmail || undefined,
       contactPhone: dbCustomer.contactPhone || undefined,
+      parentCustomerId: dbCustomer.parentCustomerId || undefined,
       status: dbCustomer.status as 'active' | 'inactive' | 'archived',
       billingAddress: dbCustomer.billingAddress || undefined,
       createdAt: dbCustomer.createdAt || new Date(),
@@ -152,5 +153,15 @@ export class CustomerService extends BaseService {
     
     // Delete the customer
     await this.customerRepository.delete(id, organizationId);
+  }
+
+  /**
+   * Get child customers for a parent customer
+   */
+  async getChildCustomers(parentId: string): Promise<Customer[]> {
+    const organizationId = this.requireOrganizationContext();
+    
+    const children = await this.customerRepository.findByParentId(parentId, organizationId);
+    return children.map(c => this.transformCustomer(c));
   }
 }

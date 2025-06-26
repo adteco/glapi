@@ -141,16 +141,16 @@ export class UnitsOfMeasureRepository extends BaseRepository {
 
     // Direct conversion if they share the same base unit
     if (fromUnit.baseUnitId === toUnit.baseUnitId && fromUnit.baseUnitId) {
-      return fromUnit.baseConversionFactor / toUnit.baseConversionFactor;
+      return Number(fromUnit.baseConversionFactor) / Number(toUnit.baseConversionFactor);
     }
 
     // Check if one is the base unit of the other
     if (fromUnit.id === toUnit.baseUnitId) {
-      return 1 / toUnit.baseConversionFactor;
+      return 1 / Number(toUnit.baseConversionFactor);
     }
 
     if (toUnit.id === fromUnit.baseUnitId) {
-      return fromUnit.baseConversionFactor;
+      return Number(fromUnit.baseConversionFactor);
     }
 
     // Complex conversion through base units
@@ -160,8 +160,8 @@ export class UnitsOfMeasureRepository extends BaseRepository {
 
       if (fromBase && toBase && fromBase.baseUnitId === toBase.baseUnitId) {
         // Both units can be converted to the same ultimate base
-        const fromToCommonBase = fromUnit.baseConversionFactor * (fromBase.baseConversionFactor || 1);
-        const toToCommonBase = toUnit.baseConversionFactor * (toBase.baseConversionFactor || 1);
+        const fromToCommonBase = Number(fromUnit.baseConversionFactor) * Number(fromBase.baseConversionFactor || 1);
+        const toToCommonBase = Number(toUnit.baseConversionFactor) * Number(toBase.baseConversionFactor || 1);
         return fromToCommonBase / toToCommonBase;
       }
     }

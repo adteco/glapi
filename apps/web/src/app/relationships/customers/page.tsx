@@ -16,14 +16,11 @@ import { apiEndpoints } from '@/lib/api';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 
 interface Address {
-  line1?: string | null;
-  line2?: string | null;
+  street?: string | null;
   city?: string | null;
   state?: string | null;
-  stateProvince?: string | null;
   postalCode?: string | null;
   country?: string | null;
-  countryCode?: string | null;
 }
 
 interface Customer {
@@ -32,6 +29,7 @@ interface Customer {
   customerId?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  parentCustomerId?: string | null;
   status: string;
   billingAddress?: Address | null;
   createdAt: string;
@@ -49,23 +47,25 @@ interface FormData {
   description: string;
   notes: string;
   status: string;
+  parentCustomerId: string;
   address: {
-    line1: string;
-    line2: string;
+    street: string;
     city: string;
-    stateProvince: string;
+    state: string;
     postalCode: string;
-    countryCode: string;
+    country: string;
   };
 }
 
 interface CustomerFormProps {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  customers: Customer[];
+  currentCustomerId?: string;
 }
 
 // Move CustomerForm outside of the main component
-const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData }) => (
+const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData, customers, currentCustomerId }) => (
   <div className="space-y-4">
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
@@ -145,57 +145,73 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData }) =>
     </div>
     
     <div className="space-y-2">
+      <Label htmlFor="parentCustomer">Parent Customer</Label>
+      <Select
+        value={formData.parentCustomerId}
+        onValueChange={(value) => setFormData(prev => ({ ...prev, parentCustomerId: value }))}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select parent customer (optional)" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">None</SelectItem>
+          {customers
+            .filter(c => c.id !== currentCustomerId) // Don't show current customer as its own parent
+            .map(customer => (
+              <SelectItem key={customer.id} value={customer.id}>
+                {customer.companyName} {customer.customerId ? `(${customer.customerId})` : ''}
+              </SelectItem>
+            ))
+          }
+        </SelectContent>
+      </Select>
+    </div>
+    
+    <div className="space-y-2">
       <Label>Billing Address</Label>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-4">
         <Input
-          placeholder="Address Line 1"
-          value={formData.address.line1}
+          placeholder="Street Address"
+          value={formData.address.street}
           onChange={(e) => setFormData(prev => ({ 
             ...prev, 
-            address: { ...prev.address, line1: e.target.value }
+            address: { ...prev.address, street: e.target.value }
           }))}
         />
-        <Input
-          placeholder="Address Line 2"
-          value={formData.address.line2}
-          onChange={(e) => setFormData(prev => ({ 
-            ...prev, 
-            address: { ...prev.address, line2: e.target.value }
-          }))}
-        />
-        <Input
-          placeholder="City"
-          value={formData.address.city}
-          onChange={(e) => setFormData(prev => ({ 
-            ...prev, 
-            address: { ...prev.address, city: e.target.value }
-          }))}
-        />
-        <Input
-          placeholder="State/Province"
-          value={formData.address.stateProvince}
-          onChange={(e) => setFormData(prev => ({ 
-            ...prev, 
-            address: { ...prev.address, stateProvince: e.target.value }
-          }))}
-        />
-        <Input
-          placeholder="Postal Code"
-          value={formData.address.postalCode}
-          onChange={(e) => setFormData(prev => ({ 
-            ...prev, 
-            address: { ...prev.address, postalCode: e.target.value }
-          }))}
-        />
-        <Input
-          placeholder="Country Code (e.g., US)"
-          value={formData.address.countryCode}
-          maxLength={2}
-          onChange={(e) => setFormData(prev => ({ 
-            ...prev, 
-            address: { ...prev.address, countryCode: e.target.value.toUpperCase() }
-          }))}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            placeholder="City"
+            value={formData.address.city}
+            onChange={(e) => setFormData(prev => ({ 
+              ...prev, 
+              address: { ...prev.address, city: e.target.value }
+            }))}
+          />
+          <Input
+            placeholder="State/Province"
+            value={formData.address.state}
+            onChange={(e) => setFormData(prev => ({ 
+              ...prev, 
+              address: { ...prev.address, state: e.target.value }
+            }))}
+          />
+          <Input
+            placeholder="Postal Code"
+            value={formData.address.postalCode}
+            onChange={(e) => setFormData(prev => ({ 
+              ...prev, 
+              address: { ...prev.address, postalCode: e.target.value }
+            }))}
+          />
+          <Input
+            placeholder="Country (e.g., United States)"
+            value={formData.address.country}
+            onChange={(e) => setFormData(prev => ({ 
+              ...prev, 
+              address: { ...prev.address, country: e.target.value }
+            }))}
+          />
+        </div>
       </div>
     </div>
     
@@ -240,13 +256,13 @@ export default function CustomersPage() {
     description: '',
     notes: '',
     status: 'active',
+    parentCustomerId: '',
     address: {
-      line1: '',
-      line2: '',
+      street: '',
       city: '',
-      stateProvince: '',
+      state: '',
       postalCode: '',
-      countryCode: '',
+      country: '',
     }
   });
 
@@ -277,6 +293,11 @@ export default function CustomersPage() {
 
   const handleCreate = async () => {
     try {
+      if (!formData.name) {
+        alert('Company name is required');
+        return;
+      }
+
       const token = await getToken();
       const response = await fetch(apiEndpoints.customers, {
         method: 'POST',
@@ -290,13 +311,13 @@ export default function CustomersPage() {
           contactEmail: formData.email || undefined,
           contactPhone: formData.phone || undefined,
           status: formData.status,
-          billingAddress: formData.address.line1 || formData.address.city ? {
-            line1: formData.address.line1,
-            line2: formData.address.line2,
-            city: formData.address.city,
-            state: formData.address.stateProvince,
-            postalCode: formData.address.postalCode,
-            country: formData.address.countryCode,
+          parentCustomerId: formData.parentCustomerId || undefined,
+          billingAddress: formData.address.street || formData.address.city ? {
+            street: formData.address.street || undefined,
+            city: formData.address.city || undefined,
+            state: formData.address.state || undefined,
+            postalCode: formData.address.postalCode || undefined,
+            country: formData.address.country || undefined,
           } : undefined,
         }),
       });
@@ -304,14 +325,19 @@ export default function CustomersPage() {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Create customer error:', errorData);
-        throw new Error(errorData.message || 'Failed to create customer');
+        alert(errorData.message || 'Failed to create customer');
+        return;
       }
+      
+      const newCustomer = await response.json();
+      console.log('Customer created successfully:', newCustomer);
       
       await fetchCustomers();
       setIsCreateOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error creating customer:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create customer');
     }
   };
 
@@ -332,13 +358,13 @@ export default function CustomersPage() {
           contactEmail: formData.email || undefined,
           contactPhone: formData.phone || undefined,
           status: formData.status,
-          billingAddress: formData.address.line1 || formData.address.city ? {
-            line1: formData.address.line1,
-            line2: formData.address.line2,
-            city: formData.address.city,
-            state: formData.address.stateProvince,
-            postalCode: formData.address.postalCode,
-            country: formData.address.countryCode,
+          parentCustomerId: formData.parentCustomerId || undefined,
+          billingAddress: formData.address.street || formData.address.city ? {
+            street: formData.address.street || undefined,
+            city: formData.address.city || undefined,
+            state: formData.address.state || undefined,
+            postalCode: formData.address.postalCode || undefined,
+            country: formData.address.country || undefined,
           } : undefined,
         }),
       });
@@ -386,13 +412,13 @@ export default function CustomersPage() {
       description: '',
       notes: '',
       status: customer.status,
+      parentCustomerId: customer.parentCustomerId || '',
       address: {
-        line1: customer.billingAddress?.line1 || '',
-        line2: customer.billingAddress?.line2 || '',
+        street: customer.billingAddress?.street || '',
         city: customer.billingAddress?.city || '',
-        stateProvince: customer.billingAddress?.stateProvince || customer.billingAddress?.state || '',
+        state: customer.billingAddress?.state || '',
         postalCode: customer.billingAddress?.postalCode || '',
-        countryCode: customer.billingAddress?.countryCode || customer.billingAddress?.country || '',
+        country: customer.billingAddress?.country || '',
       }
     });
     setIsEditOpen(true);
@@ -455,7 +481,7 @@ export default function CustomersPage() {
                     Add a new customer to your organization
                   </DialogDescription>
                 </DialogHeader>
-                <CustomerForm formData={formData} setFormData={setFormData} />
+                <CustomerForm formData={formData} setFormData={setFormData} customers={customers} />
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
@@ -472,6 +498,7 @@ export default function CustomersPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Code</TableHead>
+                <TableHead>Parent</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
@@ -486,6 +513,12 @@ export default function CustomersPage() {
                     {customer.companyName}
                   </TableCell>
                   <TableCell>{customer.customerId || '-'}</TableCell>
+                  <TableCell>
+                    {customer.parentCustomerId ? 
+                      customers.find(c => c.id === customer.parentCustomerId)?.companyName || '-' 
+                      : '-'
+                    }
+                  </TableCell>
                   <TableCell>{customer.contactEmail || '-'}</TableCell>
                   <TableCell>{customer.contactPhone || '-'}</TableCell>
                   <TableCell>

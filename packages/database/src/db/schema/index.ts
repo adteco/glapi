@@ -30,6 +30,7 @@ import * as unitsOfMeasure from './units-of-measure';
 import * as itemCategories from './item-categories';
 import * as items from './items';
 import * as pricing from './pricing';
+import * as warehouses from './warehouses';
 import * as vendorItems from './vendor-items';
 import * as inventoryTracking from './inventory-tracking';
 import * as assembliesKits from './assemblies-kits';
@@ -68,6 +69,7 @@ export const schema = {
   ...itemCategories,
   ...items,
   ...pricing,
+  ...warehouses,
   ...vendorItems,
   ...inventoryTracking,
   ...assembliesKits,
