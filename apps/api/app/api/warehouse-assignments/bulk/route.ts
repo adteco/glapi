@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const warehousePricingService = new WarehousePricingService(context);
 
-    const body = await request.json();
+    const body = await request.json() as any;
     
     // Validate that body is an array
     if (!Array.isArray(body) || body.length === 0) {

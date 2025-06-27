@@ -55,12 +55,12 @@ export async function POST(
 ) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     const service = new VendorItemsService(context);
     const result = await service.addVendorItem({
       vendorId: params.vendorId,
-      ...body
+      ...(typeof body === 'object' && body !== null ? body : {})
     });
     
     return NextResponse.json(result, { status: 201 });

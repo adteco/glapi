@@ -12,7 +12,7 @@ export async function PATCH(
     const context = getServiceContext();
     const service = new PricingService(context);
     
-    const body = await request.json();
+    const body = await request.json() as any;
     const result = await service.updateItemPricing(params.id, body);
     
     return NextResponse.json(result);

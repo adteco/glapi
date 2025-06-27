@@ -14,8 +14,6 @@ export class VendorItemsRepository extends BaseRepository {
    * Find all vendor items based on search params
    */
   async find(params: VendorItemSearchParams = {}) {
-    let query = this.db.select().from(vendorItems);
-    
     const conditions = [];
     
     if (params.vendorId) {
@@ -30,8 +28,10 @@ export class VendorItemsRepository extends BaseRepository {
       conditions.push(eq(vendorItems.isPreferred, params.isPreferred));
     }
     
+    const query = this.db.select().from(vendorItems);
+    
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return await query.where(and(...conditions)).orderBy(vendorItems.vendorId, vendorItems.itemId);
     }
     
     return await query.orderBy(vendorItems.vendorId, vendorItems.itemId);

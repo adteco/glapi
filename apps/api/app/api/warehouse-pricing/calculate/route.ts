@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const warehousePricingService = new WarehousePricingService(context);
 
-    const body = await request.json();
+    const body = await request.json() as any;
     
     // Validate required fields
     if (!body.customerId || !body.itemId) {

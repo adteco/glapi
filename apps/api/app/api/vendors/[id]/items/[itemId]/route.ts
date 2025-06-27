@@ -10,7 +10,7 @@ export async function PUT(
 ) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     const service = new VendorItemsService(context);
     const result = await service.updateVendorItem(

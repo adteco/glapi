@@ -4,7 +4,7 @@ import { getServiceContext } from '../../utils/auth';
 import { isServiceError } from '../../utils/errors';
 
 // GET /api/item-categories/tree - Get hierarchical category tree
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const context = getServiceContext();
     const service = new ItemCategoriesService(context);

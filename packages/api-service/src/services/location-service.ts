@@ -117,7 +117,20 @@ export class LocationService extends BaseService {
     }
     
     // Create the location
-    const location = await locationRepository.create(data);
+    const location = await locationRepository.create({
+      organizationId,
+      name: data.name,
+      code: data.code,
+      description: data.description,
+      subsidiaryId: data.subsidiaryId,
+      addressLine1: data.addressLine1,
+      addressLine2: data.addressLine2,
+      city: data.city,
+      stateProvince: data.stateProvince,
+      postalCode: data.postalCode,
+      countryCode: data.countryCode,
+      isActive: data.isActive
+    });
     return this.transformLocation(location);
   }
   
