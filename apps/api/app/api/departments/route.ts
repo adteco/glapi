@@ -7,14 +7,14 @@ import { isServiceError } from '../utils/errors';
 export async function POST(request: NextRequest) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     console.log('Creating department with context:', context);
     console.log('Request body:', body);
     
     // Validate request body against schema
     const parsedData = NewDepartmentSchema.safeParse({
-      ...body,
+      ...(typeof body === 'object' && body !== null ? body : {}),
       organizationId: context.organizationId
     });
     

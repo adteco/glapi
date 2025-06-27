@@ -77,7 +77,7 @@ export async function PUT(
   try {
     const context = getServiceContext();
     const { id } = params;
-    const body = await request.json();
+    const body = await request.json() as any;
     
     const customerService = new CustomerService(context);
     

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WarehousePricingService } from '@glapi/api-service';
+import type { AssignCustomerWarehouseInput } from '@glapi/api-service/src/services/warehouse-pricing-service';
 import { handleApiError } from '../../../utils/errors';
 import { getServiceContext } from '../../../utils/auth';
 
@@ -45,11 +46,12 @@ export async function POST(
 
     const warehousePricingService = new WarehousePricingService(context);
 
-    const body = await request.json();
-    const assignment = await warehousePricingService.assignCustomerWarehouse({
-      ...body,
+    const body = await request.json() as any;
+    const assignmentData = {
+      ...(typeof body === 'object' && body !== null ? body : {}),
       customerId: params.id,
-    });
+    } as AssignCustomerWarehouseInput;
+    const assignment = await warehousePricingService.assignCustomerWarehouse(assignmentData);
 
     return NextResponse.json(assignment, { status: 201 });
   } catch (error) {

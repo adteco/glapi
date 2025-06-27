@@ -42,7 +42,7 @@ export async function PATCH(
 
     const warehousePricingService = new WarehousePricingService(context);
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const warehouse = await warehousePricingService.updateWarehouse(params.id, body);
 
     return NextResponse.json(warehouse);

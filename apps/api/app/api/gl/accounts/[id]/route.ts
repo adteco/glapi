@@ -50,7 +50,7 @@ export async function PUT(
 ) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     // Validate request body against schema
     const parsedData = UpdateAccountSchema.safeParse(body);
