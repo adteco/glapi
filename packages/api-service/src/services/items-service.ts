@@ -4,6 +4,7 @@ import {
   CreateItemInput,
   UpdateItemInput,
   GenerateVariantsInput,
+  VariantAttribute,
   createItemSchema,
   updateItemSchema,
   generateVariantsSchema,
@@ -410,7 +411,7 @@ export class ItemsService extends BaseService {
       const variants = await itemsRepository.generateVariants(
         validatedInput.parentItemId,
         organizationId,
-        validatedInput.attributes as VariantAttribute[]
+        validatedInput.attributes as any
       );
       
       return variants.map(v => this.transformItem(v));
