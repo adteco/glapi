@@ -370,8 +370,24 @@ importers:
         specifier: ^5.3.3
         version: 5.8.3
 
+  packages/business:
+    dependencies:
+      zod:
+        specifier: ^3.25.49
+        version: 3.25.51
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.16
+        version: 20.17.57
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+
   packages/database:
     dependencies:
+      '@glapi/business':
+        specifier: workspace:*
+        version: link:../business
       '@types/dotenv':
         specifier: ^8.2.3
         version: 8.2.3
