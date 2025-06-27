@@ -9,9 +9,7 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { VendorItemsRepository } from '../../../database/src/repositories/vendor-items-repository';
-import { ItemsRepository } from '../../../database/src/repositories/items-repository';
-import { EntityRepository } from '../../../database/src/repositories/entity-repository';
+import { VendorItemsRepository, ItemsRepository, EntityRepository } from '@glapi/database';
 
 const vendorItemsRepository = new VendorItemsRepository();
 const itemsRepository = new ItemsRepository();
@@ -72,7 +70,7 @@ export class VendorItemsService extends BaseService {
     
     // Validate vendor belongs to organization
     const vendor = await entityRepository.findById(vendorId, organizationId);
-    if (!vendor || vendor.entityType !== 'Vendor') {
+    if (!vendor || !vendor.entityTypes.includes('Vendor')) {
       throw new ServiceError(
         'Vendor not found',
         'VENDOR_NOT_FOUND',
@@ -109,7 +107,7 @@ export class VendorItemsService extends BaseService {
       validatedInput.vendorId,
       organizationId
     );
-    if (!vendor || vendor.entityType !== 'Vendor') {
+    if (!vendor || !vendor.entityTypes.includes('Vendor')) {
       throw new ServiceError(
         'Vendor not found',
         'VENDOR_NOT_FOUND',
@@ -194,7 +192,7 @@ export class VendorItemsService extends BaseService {
     
     // Validate ownership by checking vendor
     const vendor = await entityRepository.findById(vendorId, organizationId);
-    if (!vendor || vendor.entityType !== 'Vendor') {
+    if (!vendor || !vendor.entityTypes.includes('Vendor')) {
       throw new ServiceError(
         'Vendor not found',
         'VENDOR_NOT_FOUND',
@@ -236,7 +234,7 @@ export class VendorItemsService extends BaseService {
     
     // Validate vendor belongs to organization
     const vendor = await entityRepository.findById(vendorId, organizationId);
-    if (!vendor || vendor.entityType !== 'Vendor') {
+    if (!vendor || !vendor.entityTypes.includes('Vendor')) {
       throw new ServiceError(
         'Vendor not found',
         'VENDOR_NOT_FOUND',
@@ -265,7 +263,7 @@ export class VendorItemsService extends BaseService {
     
     // Validate vendor
     const vendor = await entityRepository.findById(vendorId, organizationId);
-    if (!vendor || vendor.entityType !== 'Vendor') {
+    if (!vendor || !vendor.entityTypes.includes('Vendor')) {
       throw new ServiceError(
         'Vendor not found',
         'VENDOR_NOT_FOUND',
@@ -312,7 +310,7 @@ export class VendorItemsService extends BaseService {
     
     // Validate vendor
     const vendor = await entityRepository.findById(vendorId, organizationId);
-    if (!vendor || vendor.entityType !== 'Vendor') {
+    if (!vendor || !vendor.entityTypes.includes('Vendor')) {
       throw new ServiceError(
         'Vendor not found',
         'VENDOR_NOT_FOUND',
@@ -370,7 +368,7 @@ export class VendorItemsService extends BaseService {
     // Validate vendor if provided
     if (params.vendorId) {
       const vendor = await entityRepository.findById(params.vendorId, organizationId);
-      if (!vendor || vendor.entityType !== 'Vendor') {
+      if (!vendor || !vendor.entityTypes.includes('Vendor')) {
         throw new ServiceError(
           'Vendor not found',
           'VENDOR_NOT_FOUND',

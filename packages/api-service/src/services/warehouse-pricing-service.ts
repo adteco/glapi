@@ -9,7 +9,7 @@ import {
   ItemsRepository,
   EntityRepository,
   PricingRepository
-} from '../../../database/src/repositories';
+} from '@glapi/database';
 
 // Types for warehouse pricing
 export interface Warehouse {
