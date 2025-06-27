@@ -50,7 +50,7 @@ export async function PUT(
 ) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     const service = new ItemCategoriesService(context);
     const result = await service.updateCategory(params.id, body);

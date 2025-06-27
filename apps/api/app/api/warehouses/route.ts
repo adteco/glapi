@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const warehousePricingService = new WarehousePricingService(context);
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const warehouse = await warehousePricingService.createWarehouse(body);
 
     return NextResponse.json(warehouse, { status: 201 });

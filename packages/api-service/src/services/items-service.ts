@@ -410,7 +410,7 @@ export class ItemsService extends BaseService {
       const variants = await itemsRepository.generateVariants(
         validatedInput.parentItemId,
         organizationId,
-        validatedInput.attributes
+        validatedInput.attributes as VariantAttribute[]
       );
       
       return variants.map(v => this.transformItem(v));

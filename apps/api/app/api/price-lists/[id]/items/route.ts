@@ -55,7 +55,7 @@ export async function POST(
 ) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     const service = new PricingService(context);
     
@@ -67,7 +67,7 @@ export async function POST(
     } else {
       // Add single item to price list
       const result = await service.createItemPricing({
-        ...body,
+        ...(typeof body === 'object' && body !== null ? body : {}),
         priceListId: params.id
       });
       return NextResponse.json(result, { status: 201 });

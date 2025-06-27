@@ -22,8 +22,15 @@ export async function GET(
       );
     }
     
+    if (!context.organizationId) {
+      return NextResponse.json(
+        { message: 'Organization context required' },
+        { status: 401 }
+      );
+    }
+    
     // Direct repository call for search
-    const result = await inventoryTrackingRepository.findSerialByNumber(serialNumber);
+    const result = await inventoryTrackingRepository.findSerialByNumber(serialNumber, context.organizationId);
     
     if (!result || result.itemId !== params.id) {
       return NextResponse.json(
