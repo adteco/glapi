@@ -28,7 +28,7 @@ export class AssembliesKitsService extends BaseService {
       componentItemId: dbRecord.componentItemId,
       quantity: parseFloat(dbRecord.quantity),
       unitOfMeasureId: dbRecord.unitOfMeasureId,
-      displayOrder: dbRecord.displayOrder,
+      sequenceNumber: dbRecord.sequenceNumber,
       isOptional: dbRecord.isOptional,
       notes: dbRecord.notes,
       createdAt: dbRecord.createdAt,

@@ -135,8 +135,19 @@ export class AccountService extends BaseService {
     // }
     
     const accountData = {
-      ...input,
-      organizationId
+      organizationId,
+      accountNumber: input.accountNumber,
+      accountName: input.accountName,
+      accountCategory: input.accountCategory,
+      description: input.description,
+      isActive: input.isActive,
+      isControlAccount: input.isControlAccount,
+      accountSubcategory: input.accountSubcategory,
+      normalBalance: input.normalBalance,
+      financialStatementLine: input.financialStatementLine,
+      rollupAccountId: input.rollupAccountId,
+      gaapClassification: input.gaapClassification,
+      cashFlowCategory: input.cashFlowCategory
     };
     
     const newAccount = await this.accountRepository.create(accountData);

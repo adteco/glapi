@@ -166,7 +166,7 @@ export class ItemCategoriesRepository extends BaseRepository {
       data.organizationId
     );
 
-    const results: ItemCategory[] = await this.db
+    const results = await this.db
       .insert(itemCategories)
       .values({
         ...data,
