@@ -9,9 +9,9 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { AssembliesKitsRepository } from '../../../database/src/repositories/assemblies-kits-repository';
-import { ItemsRepository } from '../../../database/src/repositories/items-repository';
-import { UnitsOfMeasureRepository } from '../../../database/src/repositories/units-of-measure-repository';
+import { AssembliesKitsRepository } from '@glapi/database';
+import { ItemsRepository } from '@glapi/database';
+import { UnitsOfMeasureRepository } from '@glapi/database';
 
 const assembliesKitsRepository = new AssembliesKitsRepository();
 const itemsRepository = new ItemsRepository();
@@ -28,7 +28,7 @@ export class AssembliesKitsService extends BaseService {
       componentItemId: dbRecord.componentItemId,
       quantity: parseFloat(dbRecord.quantity),
       unitOfMeasureId: dbRecord.unitOfMeasureId,
-      displayOrder: dbRecord.displayOrder,
+      sequenceNumber: dbRecord.sequenceNumber,
       isOptional: dbRecord.isOptional,
       notes: dbRecord.notes,
       createdAt: dbRecord.createdAt,

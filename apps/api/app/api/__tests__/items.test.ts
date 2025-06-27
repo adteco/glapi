@@ -99,7 +99,7 @@ describe('Items API Routes', () => {
         'http://localhost/api/items?itemType=SERVICE&isActive=true&page=2&limit=20'
       );
       const response = await GET(request);
-      const data = await response.json();
+      const _data = await response.json();
 
       expect(response.status).toBe(200);
       expect(mockService.listItems).toHaveBeenCalledWith({

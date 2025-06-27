@@ -28,21 +28,17 @@ export class PricingRepository extends BaseRepository {
    * Find all price lists for an organization
    */
   async findPriceLists(organizationId: string, activeOnly = true) {
-    let query = this.db
-      .select()
-      .from(priceLists)
-      .where(eq(priceLists.organizationId, organizationId));
-
+    const conditions = [eq(priceLists.organizationId, organizationId)];
+    
     if (activeOnly) {
-      query = query.where(
-        and(
-          eq(priceLists.organizationId, organizationId),
-          eq(priceLists.isActive, true)
-        )
-      );
+      conditions.push(eq(priceLists.isActive, true));
     }
 
-    return await query.orderBy(priceLists.name);
+    return await this.db
+      .select()
+      .from(priceLists)
+      .where(and(...conditions))
+      .orderBy(priceLists.name);
   }
 
   /**
@@ -193,21 +189,17 @@ export class PricingRepository extends BaseRepository {
    * Find all prices for an item
    */
   async findItemPrices(itemId: string, priceListId?: string) {
-    let query = this.db
-      .select()
-      .from(itemPricing)
-      .where(eq(itemPricing.itemId, itemId));
-
+    const conditions = [eq(itemPricing.itemId, itemId)];
+    
     if (priceListId) {
-      query = query.where(
-        and(
-          eq(itemPricing.itemId, itemId),
-          eq(itemPricing.priceListId, priceListId)
-        )
-      );
+      conditions.push(eq(itemPricing.priceListId, priceListId));
     }
 
-    return await query.orderBy(itemPricing.minQuantity);
+    return await this.db
+      .select()
+      .from(itemPricing)
+      .where(and(...conditions))
+      .orderBy(itemPricing.minQuantity);
   }
 
   /**
@@ -409,15 +401,12 @@ export class PricingRepository extends BaseRepository {
     customerId: string | undefined,
     organizationId: string
   ): Promise<PriceList[]> {
-    const priceLists: PriceList[] = [];
+    const applicablePriceLists: PriceList[] = [];
 
     // If customer is provided, get their assigned price lists
     if (customerId) {
       const customerAssignments = await this.db
-        .select({
-          priceList: priceLists,
-          assignment: customerPriceLists,
-        })
+        .select()
         .from(customerPriceLists)
         .innerJoin(
           priceLists,
@@ -432,17 +421,17 @@ export class PricingRepository extends BaseRepository {
         .orderBy(customerPriceLists.priority);
 
       for (const row of customerAssignments) {
-        priceLists.push(row.priceList);
+        applicablePriceLists.push(row.price_lists);
       }
     }
 
     // Always include the default price list as fallback
     const defaultPriceList = await this.getDefaultPriceList(organizationId);
-    if (defaultPriceList && !priceLists.find(pl => pl.id === defaultPriceList.id)) {
-      priceLists.push(defaultPriceList);
+    if (defaultPriceList && !applicablePriceLists.find(pl => pl.id === defaultPriceList.id)) {
+      applicablePriceLists.push(defaultPriceList);
     }
 
-    return priceLists;
+    return applicablePriceLists;
   }
 
   /**
@@ -461,7 +450,7 @@ export class PricingRepository extends BaseRepository {
         and(
           eq(itemPricing.itemId, itemId),
           eq(itemPricing.priceListId, priceListId),
-          lte(itemPricing.minQuantity, quantity),
+          lte(itemPricing.minQuantity, quantity.toString()),
           lte(itemPricing.effectiveDate, date.toISOString().split('T')[0]),
           or(
             isNull(itemPricing.expirationDate),

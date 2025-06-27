@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     const service = new PricingService(context);
     const result = await service.createPriceList(body);

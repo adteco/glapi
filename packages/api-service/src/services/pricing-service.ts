@@ -20,9 +20,11 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { PricingRepository } from '../../../database/src/repositories/pricing-repository';
-import { ItemsRepository } from '../../../database/src/repositories/items-repository';
-import { EntityRepository } from '../../../database/src/repositories/entity-repository';
+import { 
+  PricingRepository,
+  ItemsRepository,
+  EntityRepository
+} from '@glapi/database';
 
 const pricingRepository = new PricingRepository();
 const itemsRepository = new ItemsRepository();
@@ -330,9 +332,11 @@ export class PricingService extends BaseService {
     );
     
     const hasOverlap = existingPrices.some(price => {
-      const priceEffective = price.effectiveDate <= validatedInput.effectiveDate;
-      const priceNotExpired = !price.expirationDate || 
-        price.expirationDate >= validatedInput.effectiveDate;
+      const priceEffectiveDate = new Date(price.effectiveDate);
+      const priceExpirationDate = price.expirationDate ? new Date(price.expirationDate) : null;
+      const priceEffective = priceEffectiveDate <= validatedInput.effectiveDate;
+      const priceNotExpired = !priceExpirationDate || 
+        priceExpirationDate >= validatedInput.effectiveDate;
       const quantityOverlap = parseFloat(price.minQuantity) === validatedInput.minQuantity;
       
       return priceEffective && priceNotExpired && quantityOverlap;
@@ -351,8 +355,8 @@ export class PricingService extends BaseService {
       priceListId: validatedInput.priceListId,
       unitPrice: validatedInput.unitPrice.toString(),
       minQuantity: validatedInput.minQuantity.toString(),
-      effectiveDate: validatedInput.effectiveDate,
-      expirationDate: validatedInput.expirationDate,
+      effectiveDate: validatedInput.effectiveDate.toISOString().split('T')[0],
+      expirationDate: validatedInput.expirationDate ? validatedInput.expirationDate.toISOString().split('T')[0] : undefined,
     });
     
     return this.transformItemPricing(created);
@@ -428,7 +432,7 @@ export class PricingService extends BaseService {
       validatedInput.customerId,
       organizationId
     );
-    if (!customer || customer.entityType !== 'Customer') {
+    if (!customer || !customer.entityTypes.includes('Customer')) {
       throw new ServiceError(
         'Customer not found',
         'CUSTOMER_NOT_FOUND',
@@ -452,9 +456,9 @@ export class PricingService extends BaseService {
     await pricingRepository.assignPriceListToCustomer({
       customerId: validatedInput.customerId,
       priceListId: validatedInput.priceListId,
-      priority: validatedInput.priority,
-      effectiveDate: validatedInput.effectiveDate,
-      expirationDate: validatedInput.expirationDate,
+      priority: validatedInput.priority.toString(),
+      effectiveDate: validatedInput.effectiveDate ? validatedInput.effectiveDate.toISOString().split('T')[0] : undefined,
+      expirationDate: validatedInput.expirationDate ? validatedInput.expirationDate.toISOString().split('T')[0] : undefined,
     });
   }
 
@@ -560,8 +564,8 @@ export class PricingService extends BaseService {
       priceListId,
       unitPrice: update.unitPrice.toString(),
       minQuantity: (update.minQuantity || 1).toString(),
-      effectiveDate: update.effectiveDate || new Date(),
-      expirationDate: update.expirationDate || null,
+      effectiveDate: (update.effectiveDate || new Date()).toISOString().split('T')[0],
+      expirationDate: update.expirationDate ? update.expirationDate.toISOString().split('T')[0] : undefined,
     }));
     
     await pricingRepository.createManyItemPrices(newPrices);

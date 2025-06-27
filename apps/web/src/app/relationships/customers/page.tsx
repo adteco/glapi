@@ -436,13 +436,13 @@ export default function CustomersPage() {
       description: '',
       notes: '',
       status: 'active',
+      parentCustomerId: '',
       address: {
-        line1: '',
-        line2: '',
+        street: '',
         city: '',
-        stateProvince: '',
+        state: '',
         postalCode: '',
-        countryCode: '',
+        country: '',
       }
     });
     setSelectedCustomer(null);
@@ -580,7 +580,7 @@ export default function CustomersPage() {
               Update customer information
             </DialogDescription>
           </DialogHeader>
-          <CustomerForm formData={formData} setFormData={setFormData} />
+          <CustomerForm formData={formData} setFormData={setFormData} customers={customers} currentCustomerId={selectedCustomer?.id} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel

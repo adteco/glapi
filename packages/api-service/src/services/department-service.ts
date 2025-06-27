@@ -102,7 +102,14 @@ export class DepartmentService extends BaseService {
     }
     
     // Create the department
-    const department = await departmentRepository.create(data);
+    const department = await departmentRepository.create({
+      name: data.name,
+      organizationId: data.organizationId,
+      code: data.code,
+      description: data.description,
+      subsidiaryId: data.subsidiaryId,
+      isActive: data.isActive
+    });
     return this.transformDepartment(department);
   }
   

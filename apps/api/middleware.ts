@@ -24,7 +24,7 @@ const allowedOrigins = [
   'https://docs.glapi.net'
 ];
 
-export function middleware(request: NextRequest) {
+export function middleware(request: NextRequest): NextResponse | Response {
   // Handle CORS
   const origin = request.headers.get('origin');
   const response = NextResponse.next();

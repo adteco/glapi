@@ -11,7 +11,7 @@ import {
 } from '../types';
 
 // Direct import to avoid webpack issues
-import { UnitsOfMeasureRepository } from '../../../database/src/repositories/units-of-measure-repository';
+import { UnitsOfMeasureRepository } from '@glapi/database';
 
 const unitsOfMeasureRepository = new UnitsOfMeasureRepository();
 

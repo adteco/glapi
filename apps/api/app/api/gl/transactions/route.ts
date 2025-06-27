@@ -7,13 +7,13 @@ import { isServiceError } from '../../utils/errors';
 export async function POST(request: NextRequest) {
   try {
     const context = getServiceContext();
-    const body = await request.json();
+    const body = await request.json() as any;
     
     console.log('Creating GL transaction with context:', context);
     console.log('Request body:', body);
     
     // Validate request body - expecting transaction and lines
-    if (!body.transaction || !body.lines || !Array.isArray(body.lines)) {
+    if (!body?.transaction || !body?.lines || !Array.isArray(body.lines)) {
       return NextResponse.json(
         {
           message: 'Invalid request body. Expected { transaction: {...}, lines: [...] }'

@@ -50,9 +50,9 @@ export async function POST(
 
     const warehousePricingService = new WarehousePricingService(context);
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const assignment = await warehousePricingService.assignWarehousePriceList({
-      ...body,
+      ...(typeof body === 'object' && body !== null ? body : {}),
       warehouseId: params.id,
     });
 

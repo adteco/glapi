@@ -102,7 +102,14 @@ export class ClassService extends BaseService {
     }
     
     // Create the class
-    const created = await classRepository.create(data);
+    const created = await classRepository.create({
+      name: data.name,
+      organizationId: data.organizationId,
+      code: data.code,
+      description: data.description,
+      subsidiaryId: data.subsidiaryId,
+      isActive: data.isActive
+    });
     return this.transformClass(created);
   }
   
