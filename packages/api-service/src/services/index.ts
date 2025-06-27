@@ -16,6 +16,6 @@ export * from './item-categories-service';
 export * from './items-service';
 export * from './pricing-service';
 export * from './vendor-items-service';
-export * from './inventory-tracking-service';
-export * from './assemblies-kits-service';
+// export * from './inventory-tracking-service';
+// export * from './assemblies-kits-service';
 export * from './warehouse-pricing-service';

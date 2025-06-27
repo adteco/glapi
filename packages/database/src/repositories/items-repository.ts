@@ -26,10 +26,6 @@ export class ItemsRepository extends BaseRepository {
    * Find all items for an organization
    */
   async findByOrganization(organizationId: string, params: ItemSearchParams = {}) {
-    let query = this.db
-      .select()
-      .from(items);
-
     // Apply filters
     const conditions = [eq(items.organizationId, organizationId)];
 
@@ -76,17 +72,23 @@ export class ItemsRepository extends BaseRepository {
       conditions.push(eq(items.isParent, false));
     }
 
-    query = query.where(and(...conditions));
+    // Build query with all conditions
+    const baseQuery = this.db
+      .select()
+      .from(items)
+      .where(and(...conditions))
+      .orderBy(items.itemCode);
 
     // Apply pagination
-    if (params.limit) {
-      query = query.limit(params.limit);
-    }
-    if (params.offset) {
-      query = query.offset(params.offset);
+    if (params.limit && params.offset) {
+      return await baseQuery.limit(params.limit).offset(params.offset);
+    } else if (params.limit) {
+      return await baseQuery.limit(params.limit);
+    } else if (params.offset) {
+      return await baseQuery.offset(params.offset);
     }
 
-    return await query.orderBy(items.itemCode);
+    return await baseQuery;
   }
 
   /**
@@ -284,7 +286,8 @@ export class ItemsRepository extends BaseRepository {
       });
     }
 
-    return await this.createMany(variants);
+    const results = await this.createMany(variants);
+    return results as Item[];
   }
 
   /**

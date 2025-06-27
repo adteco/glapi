@@ -37,19 +37,16 @@ export class WarehouseRepository extends BaseRepository {
    * Find all warehouses for an organization
    */
   async findWarehouses(organizationId: string, activeOnly = true) {
-    let query = this.db
+    const conditions = [eq(warehouses.organizationId, organizationId)];
+    
+    if (activeOnly) {
+      conditions.push(eq(warehouses.isActive, true));
+    }
+
+    const query = this.db
       .select()
       .from(warehouses)
-      .where(eq(warehouses.organizationId, organizationId));
-
-    if (activeOnly) {
-      query = query.where(
-        and(
-          eq(warehouses.organizationId, organizationId),
-          eq(warehouses.isActive, true)
-        )
-      );
-    }
+      .where(and(...conditions));
 
     return await query.orderBy(warehouses.name);
   }
@@ -167,30 +164,29 @@ export class WarehouseRepository extends BaseRepository {
    * Find all price lists for a warehouse
    */
   async findWarehousePriceLists(warehouseId: string, date?: Date) {
-    let query = this.db
+    const conditions = [eq(warehousePriceLists.warehouseId, warehouseId)];
+    
+    if (date) {
+      conditions.push(
+        or(
+          isNull(warehousePriceLists.effectiveDate),
+          lte(warehousePriceLists.effectiveDate, date.toISOString().split('T')[0])
+        ),
+        or(
+          isNull(warehousePriceLists.expirationDate),
+          gte(warehousePriceLists.expirationDate, date.toISOString().split('T')[0])
+        )
+      );
+    }
+
+    const query = this.db
       .select({
         warehousePriceList: warehousePriceLists,
         priceList: priceLists
       })
       .from(warehousePriceLists)
       .innerJoin(priceLists, eq(warehousePriceLists.priceListId, priceLists.id))
-      .where(eq(warehousePriceLists.warehouseId, warehouseId));
-
-    if (date) {
-      query = query.where(
-        and(
-          eq(warehousePriceLists.warehouseId, warehouseId),
-          or(
-            isNull(warehousePriceLists.effectiveDate),
-            lte(warehousePriceLists.effectiveDate, date.toISOString().split('T')[0])
-          ),
-          or(
-            isNull(warehousePriceLists.expirationDate),
-            gte(warehousePriceLists.expirationDate, date.toISOString().split('T')[0])
-          )
-        )
-      );
-    }
+      .where(and(...conditions));
 
     return await query.orderBy(warehousePriceLists.priority);
   }
@@ -234,38 +230,33 @@ export class WarehouseRepository extends BaseRepository {
     organizationId: string,
     date?: Date
   ) {
-    let query = this.db
+    const conditions = [
+      eq(customerWarehouseAssignments.organizationId, organizationId),
+      eq(customerWarehouseAssignments.customerId, customerId),
+      eq(customerWarehouseAssignments.itemId, itemId)
+    ];
+    
+    if (date) {
+      conditions.push(
+        or(
+          isNull(customerWarehouseAssignments.effectiveDate),
+          lte(customerWarehouseAssignments.effectiveDate, date.toISOString().split('T')[0])
+        ),
+        or(
+          isNull(customerWarehouseAssignments.expirationDate),
+          gte(customerWarehouseAssignments.expirationDate, date.toISOString().split('T')[0])
+        )
+      );
+    }
+
+    const query = this.db
       .select({
         assignment: customerWarehouseAssignments,
         warehouse: warehouses
       })
       .from(customerWarehouseAssignments)
       .innerJoin(warehouses, eq(customerWarehouseAssignments.warehouseId, warehouses.id))
-      .where(
-        and(
-          eq(customerWarehouseAssignments.organizationId, organizationId),
-          eq(customerWarehouseAssignments.customerId, customerId),
-          eq(customerWarehouseAssignments.itemId, itemId)
-        )
-      );
-
-    if (date) {
-      query = query.where(
-        and(
-          eq(customerWarehouseAssignments.organizationId, organizationId),
-          eq(customerWarehouseAssignments.customerId, customerId),
-          eq(customerWarehouseAssignments.itemId, itemId),
-          or(
-            isNull(customerWarehouseAssignments.effectiveDate),
-            lte(customerWarehouseAssignments.effectiveDate, date.toISOString().split('T')[0])
-          ),
-          or(
-            isNull(customerWarehouseAssignments.expirationDate),
-            gte(customerWarehouseAssignments.expirationDate, date.toISOString().split('T')[0])
-          )
-        )
-      );
-    }
+      .where(and(...conditions));
 
     const results = await query;
     return results[0] || null;

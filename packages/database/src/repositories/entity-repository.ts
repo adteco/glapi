@@ -376,7 +376,23 @@ export class EntityRepository extends BaseRepository {
     const [result] = await this.db
       .insert(entities)
       .values({
-        ...entityData,
+        organizationId: entityData.organizationId!,
+        name: entityData.name!,
+        entityTypes: entityData.entityTypes!,
+        description: entityData.description,
+        code: entityData.code,
+        isActive: entityData.isActive,
+        email: entityData.email,
+        phone: entityData.phone,
+        status: entityData.status,
+        displayName: entityData.displayName,
+        website: entityData.website,
+        taxId: entityData.taxId,
+        notes: entityData.notes,
+        customFields: entityData.customFields,
+        metadata: entityData.metadata,
+        parentEntityId: entityData.parentEntityId,
+        primaryContactId: entityData.primaryContactId,
         addressId,
       })
       .returning();

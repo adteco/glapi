@@ -176,7 +176,7 @@ export class GlTransactionService extends BaseService {
         // GL transaction line
         totalDebits += Number(line.debitAmount || 0);
         totalCredits += Number(line.creditAmount || 0);
-      } else {
+      } else if ('lineAmount' in line) {
         // Business transaction line - all amounts are typically positive
         totalCredits += Number(line.lineAmount || 0);
       }
