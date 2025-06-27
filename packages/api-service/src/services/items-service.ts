@@ -12,12 +12,14 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { ItemsRepository } from '../../../database/src/repositories/items-repository';
-import { UnitsOfMeasureRepository } from '../../../database/src/repositories/units-of-measure-repository';
-import { ItemCategoriesRepository } from '../../../database/src/repositories/item-categories-repository';
-import { AccountRepository } from '../../../database/src/repositories/account-repository';
-// import { AssembliesKitsRepository } from '../../../database/src/repositories/assemblies-kits-repository';
-import type { ItemSearchParams } from '../../../database/src/repositories/items-repository';
+import { 
+  ItemsRepository,
+  UnitsOfMeasureRepository,
+  ItemCategoriesRepository,
+  AccountRepository,
+  // AssembliesKitsRepository,
+  type ItemSearchParams
+} from '@glapi/database';
 
 // Create repository instances
 const itemsRepository = new ItemsRepository();

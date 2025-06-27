@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,9 @@ interface Customer {
   updatedAt: string;
 }
 
-export default function CustomerDetailPage({ params }: { params: { id: string } }) {
+export default function CustomerDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
   const { getToken } = useAuth();
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -32,14 +34,14 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
   useEffect(() => {
     fetchCustomerData();
-  }, [params.id]);
+  }, [id]);
 
   const fetchCustomerData = async () => {
     try {
       const token = await getToken();
       
       // Fetch customer details
-      const customerResponse = await fetch(`${apiEndpoints.customers}/${params.id}`, {
+      const customerResponse = await fetch(`${apiEndpoints.customers}/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -51,7 +53,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
       setCustomer(customerData);
       
       // Fetch child customers
-      const childrenResponse = await fetch(`${apiEndpoints.customers}/${params.id}/children`, {
+      const childrenResponse = await fetch(`${apiEndpoints.customers}/${id}/children`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
