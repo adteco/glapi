@@ -4,7 +4,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "echo 'Skipping tRPC build - using source files directly'",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
