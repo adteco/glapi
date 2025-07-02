@@ -11,6 +11,7 @@
   "dependencies": {
     "@clerk/nextjs": "^6.20.2",
     "@clerk/themes": "^2.2.48",
+    "@glapi/trpc": "workspace:*",
     "@hookform/resolvers": "^3.9.1",
     "@marsidev/react-turnstile": "^1.1.0",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -24,6 +25,7 @@
     "@tanstack/react-query": "^5.81.5",
     "@trpc/client": "^11.4.3",
     "@trpc/next": "^11.4.3",
+    "@trpc/react-query": "^11.0.0",
     "@trpc/server": "^11.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
