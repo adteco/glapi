@@ -5,6 +5,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from "@clerk/themes";
 import { ConditionalLayout } from "@/components/ConditionalLayout";
 import { Toaster } from 'sonner';
+import { TRPCProvider } from "@/components/providers/trpc-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,9 +23,11 @@ export default function RootLayout({
     <ClerkProvider appearance={{ baseTheme: dark }}>
       <html lang="en" className="dark" suppressHydrationWarning>
         <body className={`${inter.className} bg-background text-foreground`}>
-          <ConditionalLayout>
-            {children}
-          </ConditionalLayout>
+          <TRPCProvider>
+            <ConditionalLayout>
+              {children}
+            </ConditionalLayout>
+          </TRPCProvider>
           <Toaster richColors closeButton position="top-right" />
         </body>
       </html>
