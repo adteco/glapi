@@ -14,10 +14,10 @@ import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 
 interface FormData {
-  name: string;
-  code: string;
-  email: string;
-  phone: string;
+  companyName: string;
+  customerId: string;
+  contactEmail: string;
+  contactPhone: string;
   billingAddress: {
     street: string;
     city: string;
@@ -36,7 +36,7 @@ interface FormData {
   taxId: string;
   paymentTerms: string;
   creditLimit: number | null;
-  isActive: boolean;
+  status: 'active' | 'inactive' | 'archived';
 }
 
 export default function CustomersPageWithTRPC() {
@@ -45,10 +45,10 @@ export default function CustomersPageWithTRPC() {
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<FormData>({
-    name: '',
-    code: '',
-    email: '',
-    phone: '',
+    companyName: '',
+    customerId: '',
+    contactEmail: '',
+    contactPhone: '',
     billingAddress: {
       street: '',
       city: '',
@@ -67,7 +67,7 @@ export default function CustomersPageWithTRPC() {
     taxId: '',
     paymentTerms: '',
     creditLimit: null,
-    isActive: true,
+    status: 'active' as const,
   });
 
   // tRPC queries and mutations
@@ -112,10 +112,10 @@ export default function CustomersPageWithTRPC() {
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      code: '',
-      email: '',
-      phone: '',
+      companyName: '',
+      customerId: '',
+      contactEmail: '',
+      contactPhone: '',
       billingAddress: {
         street: '',
         city: '',
@@ -134,7 +134,7 @@ export default function CustomersPageWithTRPC() {
       taxId: '',
       paymentTerms: '',
       creditLimit: null,
-      isActive: true,
+      status: 'active' as const,
     });
   };
 
@@ -143,8 +143,9 @@ export default function CustomersPageWithTRPC() {
     
     const dataToSubmit = {
       ...formData,
-      email: formData.email || null,
-      phone: formData.phone || null,
+      customerId: formData.customerId || undefined,
+      contactEmail: formData.contactEmail || null,
+      contactPhone: formData.contactPhone || null,
       billingAddress: formData.billingAddress.street ? formData.billingAddress : null,
       shippingAddress: formData.shippingAddress.street ? formData.shippingAddress : null,
       parentCustomerId: formData.parentCustomerId || null,
@@ -165,10 +166,10 @@ export default function CustomersPageWithTRPC() {
 
   const handleEdit = (customer: any) => {
     setFormData({
-      name: customer.name,
-      code: customer.code,
-      email: customer.email || '',
-      phone: customer.phone || '',
+      companyName: customer.companyName,
+      customerId: customer.customerId || '',
+      contactEmail: customer.contactEmail || '',
+      contactPhone: customer.contactPhone || '',
       billingAddress: customer.billingAddress || {
         street: '',
         city: '',
@@ -187,9 +188,9 @@ export default function CustomersPageWithTRPC() {
       taxId: customer.taxId || '',
       paymentTerms: customer.paymentTerms || '',
       creditLimit: customer.creditLimit || null,
-      isActive: customer.isActive,
+      status: customer.status,
     });
-    setEditingCustomer(customer.id);
+    setEditingCustomer(customer.id!);
     setIsOpen(true);
   };
 
@@ -200,8 +201,8 @@ export default function CustomersPageWithTRPC() {
   };
 
   const filteredCustomers = customers?.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.code.toLowerCase().includes(searchTerm.toLowerCase())
+    customer.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.customerId || '').toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   if (isLoading) {
@@ -237,8 +238,8 @@ export default function CustomersPageWithTRPC() {
                       <Label htmlFor="name">Name *</Label>
                       <Input
                         id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        value={formData.companyName}
+                        onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                         required
                       />
                     </div>
@@ -246,8 +247,8 @@ export default function CustomersPageWithTRPC() {
                       <Label htmlFor="code">Code *</Label>
                       <Input
                         id="code"
-                        value={formData.code}
-                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                        value={formData.customerId}
+                        onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
                         required
                       />
                     </div>
@@ -259,16 +260,16 @@ export default function CustomersPageWithTRPC() {
                       <Input
                         id="email"
                         type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        value={formData.contactEmail}
+                        onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                       />
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone</Label>
                       <Input
                         id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        value={formData.contactPhone}
+                        onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                       />
                     </div>
                   </div>
@@ -309,14 +310,14 @@ export default function CustomersPageWithTRPC() {
             </TableHeader>
             <TableBody>
               {filteredCustomers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.name}</TableCell>
-                  <TableCell>{customer.code}</TableCell>
-                  <TableCell>{customer.email || '-'}</TableCell>
-                  <TableCell>{customer.phone || '-'}</TableCell>
+                <TableRow key={customer.id!}>
+                  <TableCell className="font-medium">{customer.companyName}</TableCell>
+                  <TableCell>{customer.customerId || '-'}</TableCell>
+                  <TableCell>{customer.contactEmail || '-'}</TableCell>
+                  <TableCell>{customer.contactPhone || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={customer.isActive ? 'default' : 'secondary'}>
-                      {customer.isActive ? 'Active' : 'Inactive'}
+                    <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
+                      {customer.status === 'active' ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -324,7 +325,7 @@ export default function CustomersPageWithTRPC() {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => router.push(`/relationships/customers/${customer.id}`)}
+                        onClick={() => router.push(`/relationships/customers/${customer.id!}`)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -338,7 +339,7 @@ export default function CustomersPageWithTRPC() {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleDelete(customer.id)}
+                        onClick={() => handleDelete(customer.id!)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

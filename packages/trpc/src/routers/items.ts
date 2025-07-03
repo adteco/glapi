@@ -7,18 +7,31 @@ const itemSchema = z.object({
   itemCode: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),
+  itemType: z.enum(['INVENTORY_ITEM', 'NON_INVENTORY_ITEM', 'SERVICE', 'CHARGE', 'DISCOUNT', 'TAX', 'ASSEMBLY', 'KIT']).default('INVENTORY_ITEM'),
   categoryId: z.string().uuid().optional().nullable(),
-  unitOfMeasureId: z.string().uuid().optional().nullable(),
+  unitOfMeasureId: z.string().uuid(),
   defaultPrice: z.number().min(0).optional(),
-  cost: z.number().min(0).optional(),
+  defaultCost: z.number().min(0).optional(),
   sku: z.string().optional(),
-  barcode: z.string().optional(),
+  upc: z.string().optional(),
   isActive: z.boolean().default(true),
-  isSerialized: z.boolean().default(false),
-  isLotTracked: z.boolean().default(false),
-  reorderPoint: z.number().min(0).optional(),
-  reorderQuantity: z.number().min(0).optional(),
-  leadTimeDays: z.number().min(0).optional(),
+  isTaxable: z.boolean().default(true),
+  isPurchasable: z.boolean().default(true),
+  isSaleable: z.boolean().default(true),
+  trackQuantity: z.boolean().default(false),
+  trackLotNumbers: z.boolean().default(false),
+  trackSerialNumbers: z.boolean().default(false),
+  isParent: z.boolean().default(false),
+  parentItemId: z.string().uuid().optional().nullable(),
+  variantAttributes: z.record(z.string()).optional(),
+  incomeAccountId: z.string().uuid().optional().nullable(),
+  expenseAccountId: z.string().uuid().optional().nullable(),
+  assetAccountId: z.string().uuid().optional().nullable(),
+  cogsAccountId: z.string().uuid().optional().nullable(),
+  taxCode: z.string().optional(),
+  manufacturerPartNumber: z.string().optional(),
+  weight: z.number().positive().optional(),
+  weightUnit: z.string().optional(),
 });
 
 const variantSchema = z.object({
@@ -62,7 +75,15 @@ export const itemsRouter = router({
     .input(itemSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ItemsService(ctx.serviceContext);
-      return service.createItem(input);
+      return service.createItem({
+        ...input,
+        categoryId: input.categoryId || undefined,
+        parentItemId: input.parentItemId || undefined,
+        incomeAccountId: input.incomeAccountId || undefined,
+        expenseAccountId: input.expenseAccountId || undefined,
+        assetAccountId: input.assetAccountId || undefined,
+        cogsAccountId: input.cogsAccountId || undefined,
+      });
     }),
 
   update: authenticatedProcedure
@@ -114,14 +135,18 @@ export const itemsRouter = router({
     create: authenticatedProcedure
       .input(
         z.object({
+          code: z.string().min(1),
           name: z.string().min(1),
-          parentId: z.string().uuid().optional().nullable(),
-          description: z.string().optional(),
+          parentCategoryId: z.string().uuid().optional().nullable(),
+          isActive: z.boolean().default(true),
         })
       )
       .mutation(async ({ ctx, input }) => {
         const service = new ItemCategoriesService(ctx.serviceContext);
-        return service.createCategory(input);
+        return service.createCategory({
+          ...input,
+          parentCategoryId: input.parentCategoryId || undefined,
+        });
       }),
   }),
 

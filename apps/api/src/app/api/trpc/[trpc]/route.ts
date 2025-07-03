@@ -1,7 +1,7 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { appRouter, createContext } from '@glapi/trpc';
 import { db } from '@glapi/database';
-import { getServiceContext } from '../../utils/auth';
+import { getServiceContext } from '../../../../../app/api/utils/auth';
 import type { NextRequest } from 'next/server';
 
 const handler = async (req: NextRequest) => {
@@ -25,7 +25,7 @@ const handler = async (req: NextRequest) => {
       user,
       db 
     }),
-    onError({ error, path, input }) {
+    onError({ error, path }) {
       console.error(`tRPC error on ${path}:`, error);
     },
   });
