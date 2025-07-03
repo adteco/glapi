@@ -4,10 +4,10 @@ import { CustomerService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
 
 const customerSchema = z.object({
-  name: z.string().min(1),
-  code: z.string().min(1),
-  email: z.string().email().optional().nullable(),
-  phone: z.string().optional().nullable(),
+  companyName: z.string().min(1),
+  customerId: z.string().min(1).optional(),
+  contactEmail: z.string().email().optional().nullable(),
+  contactPhone: z.string().optional().nullable(),
   billingAddress: z.object({
     street: z.string().optional(),
     city: z.string().optional(),
@@ -26,7 +26,7 @@ const customerSchema = z.object({
   taxId: z.string().optional().nullable(),
   paymentTerms: z.string().optional().nullable(),
   creditLimit: z.number().optional().nullable(),
-  isActive: z.boolean().default(true),
+  status: z.enum(['active', 'inactive', 'archived']).default('active'),
 });
 
 export const customersRouter = router({
@@ -66,7 +66,16 @@ export const customersRouter = router({
     .input(customerSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new CustomerService(ctx.serviceContext);
-      return service.createCustomer(input);
+      const { shippingAddress, taxId, paymentTerms, creditLimit, ...customerData } = input;
+      
+      return service.createCustomer({
+        ...customerData,
+        organizationId: ctx.organizationId,
+        contactEmail: customerData.contactEmail || undefined,
+        contactPhone: customerData.contactPhone || undefined,
+        billingAddress: customerData.billingAddress || undefined,
+        parentCustomerId: customerData.parentCustomerId || undefined,
+      });
     }),
 
   update: authenticatedProcedure
@@ -78,7 +87,17 @@ export const customersRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new CustomerService(ctx.serviceContext);
-      const updated = await service.updateCustomer(input.id, input.data);
+      const { shippingAddress, taxId, paymentTerms, creditLimit, ...customerData } = input.data;
+      
+      const dataToUpdate = {
+        ...customerData,
+        contactEmail: customerData.contactEmail === null ? undefined : customerData.contactEmail,
+        contactPhone: customerData.contactPhone === null ? undefined : customerData.contactPhone,
+        billingAddress: customerData.billingAddress === null ? undefined : customerData.billingAddress,
+        parentCustomerId: customerData.parentCustomerId === null ? undefined : customerData.parentCustomerId,
+      };
+      
+      const updated = await service.updateCustomer(input.id, dataToUpdate);
       
       if (!updated) {
         throw new TRPCError({

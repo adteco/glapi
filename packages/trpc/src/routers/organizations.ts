@@ -5,21 +5,9 @@ import { TRPCError } from '@trpc/server';
 
 const organizationSchema = z.object({
   name: z.string().min(1),
-  subdomain: z.string().min(1),
-  contactEmail: z.string().email().optional(),
-  contactPhone: z.string().optional(),
-  billingAddress: z.object({
-    street: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    postalCode: z.string().optional(),
-    country: z.string().optional(),
-  }).optional(),
-  settings: z.object({
-    currency: z.string().default('USD'),
-    timezone: z.string().default('America/New_York'),
-    fiscalYearEnd: z.string().optional(),
-  }).optional(),
+  slug: z.string().min(1),
+  stytchOrgId: z.string().min(1),
+  settings: z.record(z.any()).optional(),
 });
 
 export const organizationsRouter = router({

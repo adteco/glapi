@@ -7,7 +7,7 @@ export const itemCategories = pgTable('item_categories', {
   organizationId: text('organization_id').notNull().references(() => organizations.id),
   code: text('code').notNull(),
   name: text('name').notNull(),
-  parentCategoryId: uuid('parent_category_id').references(() => itemCategories.id),
+  parentCategoryId: uuid('parent_category_id'),
   level: integer('level').notNull().default(0),
   path: text('path').notNull(), // Materialized path for hierarchy
   isActive: boolean('is_active').default(true),

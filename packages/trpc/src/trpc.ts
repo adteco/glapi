@@ -1,6 +1,8 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import superjson from 'superjson';
 import type { Context } from './context';
+
+// Use require for superjson to avoid ESM/CommonJS issues
+const superjson = require('superjson');
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,

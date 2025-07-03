@@ -358,7 +358,7 @@ export class ItemsRepository extends BaseRepository {
    */
   async canBePurchased(itemId: string, organizationId: string): Promise<boolean> {
     const item = await this.findById(itemId, organizationId);
-    return item ? item.isPurchasable && item.isActive : false;
+    return item ? (item.isPurchasable === true) && (item.isActive === true) : false;
   }
 
   /**
@@ -366,7 +366,7 @@ export class ItemsRepository extends BaseRepository {
    */
   async canBeSold(itemId: string, organizationId: string): Promise<boolean> {
     const item = await this.findById(itemId, organizationId);
-    return item ? item.isSaleable && item.isActive : false;
+    return item ? (item.isSaleable === true) && (item.isActive === true) : false;
   }
 
   /**

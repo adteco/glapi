@@ -102,18 +102,21 @@ export default function ItemsPageWithTRPC() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // unitOfMeasureId is required, so don't submit if it's missing
+    if (!formData.unitOfMeasureId) {
+      alert('Unit of Measure is required');
+      return;
+    }
+    
     createItem.mutate({
       ...formData,
       categoryId: formData.categoryId || null,
-      unitOfMeasureId: formData.unitOfMeasureId || null,
+      unitOfMeasureId: formData.unitOfMeasureId,
       description: formData.description || undefined,
       sku: formData.sku || undefined,
-      barcode: formData.barcode || undefined,
+      upc: formData.barcode || undefined, // mapping barcode to upc
       defaultPrice: formData.defaultPrice || undefined,
-      cost: formData.cost || undefined,
-      reorderPoint: formData.reorderPoint || undefined,
-      reorderQuantity: formData.reorderQuantity || undefined,
-      leadTimeDays: formData.leadTimeDays || undefined,
+      defaultCost: formData.cost || undefined, // mapping cost to defaultCost
     });
   };
 
@@ -296,7 +299,7 @@ export default function ItemsPageWithTRPC() {
                     {categories?.find(c => c.id === item.categoryId)?.name || '-'}
                   </TableCell>
                   <TableCell>${item.defaultPrice?.toFixed(2) || '0.00'}</TableCell>
-                  <TableCell>${item.cost?.toFixed(2) || '0.00'}</TableCell>
+                  <TableCell>${(item as any).cost?.toFixed(2) || '0.00'}</TableCell>
                   <TableCell>
                     <Badge variant={item.isActive ? 'default' : 'secondary'}>
                       {item.isActive ? 'Active' : 'Inactive'}

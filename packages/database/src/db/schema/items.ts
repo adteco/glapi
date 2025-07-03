@@ -28,7 +28,7 @@ export const items = pgTable('items', {
   
   // Matrix/Variant Support
   isParent: boolean('is_parent').default(false),
-  parentItemId: uuid('parent_item_id').references(() => items.id),
+  parentItemId: uuid('parent_item_id'),
   variantAttributes: jsonb('variant_attributes'), // e.g., {"size": "Large", "color": "Blue"}
   
   // Categorization

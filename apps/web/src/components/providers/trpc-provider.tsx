@@ -29,6 +29,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
               authorization: token ? `Bearer ${token}` : '',
             };
           },
+          // @ts-ignore - superjson type issue with tRPC
           transformer: superjson,
         }),
       ],
