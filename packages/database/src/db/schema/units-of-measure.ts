@@ -8,7 +8,7 @@ export const unitsOfMeasure = pgTable('units_of_measure', {
   code: text('code').notNull(),
   name: text('name').notNull(),
   abbreviation: text('abbreviation').notNull(),
-  baseUnitId: uuid('base_unit_id').references(() => unitsOfMeasure.id),
+  baseUnitId: uuid('base_unit_id'),
   baseConversionFactor: decimal('base_conversion_factor', { precision: 18, scale: 6 }).default('1.0'),
   decimalPlaces: integer('decimal_places').default(2),
   isActive: boolean('is_active').default(true),

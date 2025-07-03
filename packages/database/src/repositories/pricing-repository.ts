@@ -468,7 +468,7 @@ export class PricingRepository extends BaseRepository {
 
     return {
       unitPrice: parseFloat(price.unitPrice),
-      minQuantity: parseFloat(price.minQuantity),
+      minQuantity: price.minQuantity ? parseFloat(price.minQuantity) : 0,
       effectiveDate: new Date(price.effectiveDate),
       expirationDate: price.expirationDate ? new Date(price.expirationDate) : null,
     };
