@@ -167,16 +167,17 @@ export class WarehouseRepository extends BaseRepository {
     const conditions = [eq(warehousePriceLists.warehouseId, warehouseId)];
     
     if (date) {
-      conditions.push(
-        or(
-          isNull(warehousePriceLists.effectiveDate),
-          lte(warehousePriceLists.effectiveDate, date.toISOString().split('T')[0])
-        ),
-        or(
-          isNull(warehousePriceLists.expirationDate),
-          gte(warehousePriceLists.expirationDate, date.toISOString().split('T')[0])
-        )
+      const effectiveCondition = or(
+        isNull(warehousePriceLists.effectiveDate),
+        lte(warehousePriceLists.effectiveDate, date.toISOString().split('T')[0])
       );
+      const expirationCondition = or(
+        isNull(warehousePriceLists.expirationDate),
+        gte(warehousePriceLists.expirationDate, date.toISOString().split('T')[0])
+      );
+      
+      if (effectiveCondition) conditions.push(effectiveCondition);
+      if (expirationCondition) conditions.push(expirationCondition);
     }
 
     const query = this.db
@@ -237,16 +238,17 @@ export class WarehouseRepository extends BaseRepository {
     ];
     
     if (date) {
-      conditions.push(
-        or(
-          isNull(customerWarehouseAssignments.effectiveDate),
-          lte(customerWarehouseAssignments.effectiveDate, date.toISOString().split('T')[0])
-        ),
-        or(
-          isNull(customerWarehouseAssignments.expirationDate),
-          gte(customerWarehouseAssignments.expirationDate, date.toISOString().split('T')[0])
-        )
+      const effectiveCondition = or(
+        isNull(customerWarehouseAssignments.effectiveDate),
+        lte(customerWarehouseAssignments.effectiveDate, date.toISOString().split('T')[0])
       );
+      const expirationCondition = or(
+        isNull(customerWarehouseAssignments.expirationDate),
+        gte(customerWarehouseAssignments.expirationDate, date.toISOString().split('T')[0])
+      );
+      
+      if (effectiveCondition) conditions.push(effectiveCondition);
+      if (expirationCondition) conditions.push(expirationCondition);
     }
 
     const query = this.db

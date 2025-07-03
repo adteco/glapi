@@ -337,7 +337,7 @@ export class PricingService extends BaseService {
       const priceEffective = priceEffectiveDate <= validatedInput.effectiveDate;
       const priceNotExpired = !priceExpirationDate || 
         priceExpirationDate >= validatedInput.effectiveDate;
-      const quantityOverlap = parseFloat(price.minQuantity) === validatedInput.minQuantity;
+      const quantityOverlap = price.minQuantity ? parseFloat(price.minQuantity) === validatedInput.minQuantity : false;
       
       return priceEffective && priceNotExpired && quantityOverlap;
     });
