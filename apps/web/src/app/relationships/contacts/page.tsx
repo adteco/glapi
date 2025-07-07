@@ -70,23 +70,6 @@ export default function ContactsPage() {
     }
   });
 
-  useEffect(() => {
-    if (orgId && orgId !== prevOrgIdRef.current) {
-      // Organization changed, clear data
-      setContacts([]);
-      setCompanies([]);
-      setLoading(true);
-      prevOrgIdRef.current = orgId;
-    }
-  }, [orgId]);
-
-  useEffect(() => {
-    if (orgId) {
-      fetchContacts();
-      fetchCompanies();
-    }
-  }, [orgId, fetchContacts, fetchCompanies]);
-
   const fetchContacts = useCallback(async () => {
     if (!orgId) return;
     
@@ -120,6 +103,23 @@ export default function ContactsPage() {
       console.error('Error fetching companies:', error);
     }
   }, [apiGet, orgId]);
+
+  useEffect(() => {
+    if (orgId && orgId !== prevOrgIdRef.current) {
+      // Organization changed, clear data
+      setContacts([]);
+      setCompanies([]);
+      setLoading(true);
+      prevOrgIdRef.current = orgId;
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    if (orgId) {
+      fetchContacts();
+      fetchCompanies();
+    }
+  }, [orgId, fetchContacts, fetchCompanies]);
 
   const handleCreate = async () => {
     try {

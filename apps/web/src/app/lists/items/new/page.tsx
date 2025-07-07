@@ -36,6 +36,8 @@ interface Item {
   weightUnit?: string;
   isParent: boolean;
   variantAttributes?: any;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 function NewItemPageContent() {
@@ -44,7 +46,7 @@ function NewItemPageContent() {
   const { orgId } = useAuth();
   const { apiGet, apiPost } = useApiClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [duplicateFrom, setDuplicateFrom] = useState<Item | null>(null);
+  const [duplicateFrom, setDuplicateFrom] = useState<Partial<Item> | null>(null);
   const previousOrgIdRef = useRef<string | null>(null);
 
   const duplicateId = searchParams.get('duplicate');

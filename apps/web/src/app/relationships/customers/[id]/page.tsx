@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Edit, Plus } from 'lucide-react';
-import { useOrganization } from '@clerk/nextjs';
+import { useAuth } from '@clerk/nextjs';
 
 interface Customer {
   id: string;
@@ -26,27 +26,27 @@ interface Customer {
 export default function CustomerDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const apiClient = useApiClient();
+  const { apiGet } = useApiClient();
   const router = useRouter();
-  const { organization } = useOrganization();
+  const { orgId } = useAuth();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [childCustomers, setChildCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const lastOrgIdRef = useRef<string | null>(null);
 
   const fetchCustomerData = useCallback(async () => {
-    if (!apiClient) return;
+    if (!orgId) return;
     
     try {
       setLoading(true);
       
       // Fetch customer details
-      const customerData = await apiClient.customers.getOne(id);
+      const customerData = await apiGet<Customer>(`/api/customers/${id}`);
       setCustomer(customerData);
       
       // Fetch child customers
       try {
-        const childrenData = await apiClient.customers.getChildren(id);
+        const childrenData = await apiGet<{ data: Customer[] }>(`/api/customers/${id}/children`);
         setChildCustomers(childrenData.data || []);
       } catch (error) {
         // If children endpoint fails, just set empty array
@@ -58,11 +58,11 @@ export default function CustomerDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [apiClient, id]);
+  }, [apiGet, orgId, id]);
 
   // Detect organization changes and clear data
   useEffect(() => {
-    const currentOrgId = organization?.id || null;
+    const currentOrgId = orgId || null;
     
     if (lastOrgIdRef.current && lastOrgIdRef.current !== currentOrgId) {
       // Organization changed, clear data
@@ -72,13 +72,13 @@ export default function CustomerDetailPage() {
     }
     
     lastOrgIdRef.current = currentOrgId;
-  }, [organization]);
+  }, [orgId]);
 
   useEffect(() => {
-    if (apiClient) {
+    if (orgId) {
       fetchCustomerData();
     }
-  }, [fetchCustomerData, apiClient]);
+  }, [fetchCustomerData, orgId]);
 
   if (loading) {
     return <div>Loading...</div>;

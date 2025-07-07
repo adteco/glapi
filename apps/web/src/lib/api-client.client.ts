@@ -17,10 +17,18 @@ export function useApiClient() {
     
     const { includeOrgId = true, headers = {}, ...restOptions } = options;
     
-    const requestHeaders: HeadersInit = {
-      ...headers,
+    const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
     };
+    
+    // Merge any existing headers
+    if (headers) {
+      Object.entries(headers).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          requestHeaders[key] = value;
+        }
+      });
+    }
     
     if (token) {
       requestHeaders['Authorization'] = `Bearer ${token}`;
