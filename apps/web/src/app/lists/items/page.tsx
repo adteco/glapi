@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -61,33 +62,25 @@ export default function ItemsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const { getToken, orgId } = useAuth();
+  const { orgId } = useAuth();
   const router = useRouter();
+  const { apiGet, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const itemsPerPage = 20;
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
+    if (!orgId) return;
+    
     try {
-      const token = await getToken();
-      if (!token) return;
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/item-categories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.data || []);
-      }
+      const data = await apiGet<{ data: ItemCategory[] }>('/api/item-categories');
+      setCategories(data.data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, [orgId, apiGet]);
 
-  const fetchItems = async (page: number = 1) => {
+  const fetchItems = useCallback(async (page: number = 1) => {
     if (!orgId) {
       setIsLoading(false);
       return;
@@ -95,14 +88,6 @@ export default function ItemsPage() {
     
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const params = new URLSearchParams({
         page: page.toString(),
         limit: itemsPerPage.toString(),
@@ -119,40 +104,40 @@ export default function ItemsPage() {
         params.append('categoryId', selectedCategory);
       }
 
-      const response = await fetch(`${apiUrl}/api/items?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to fetch items.');
-        throw new Error('Failed to fetch items');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<{
+        data: Item[];
+        total: number;
+        pages: number;
+        page: number;
+      }>(`/api/items?${params}`);
+      
       setItems(data.data || []);
       setTotal(data.total || 0);
       setTotalPages(data.pages || 1);
       setCurrentPage(data.page || 1);
     } catch (error) {
       console.error('Error fetching items:', error);
-      if (!(error instanceof Error && error.message === 'Failed to fetch items')) {
-        toast.error('An unexpected error occurred while fetching items.');
-      }
+      toast.error('Failed to fetch items.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, apiGet, searchQuery, selectedType, selectedCategory, showActiveOnly, itemsPerPage]);
 
+  // Clear data and refetch when organization changes
   useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setItems([]);
+      setCategories([]);
+      setCurrentPage(1);
+      previousOrgIdRef.current = orgId;
+    }
     fetchCategories();
-  }, [orgId]);
+  }, [orgId, fetchCategories]);
 
   useEffect(() => {
     fetchItems(currentPage);
-  }, [orgId, searchQuery, selectedType, selectedCategory, showActiveOnly, currentPage]);
+  }, [currentPage, fetchItems]);
 
   const handleEdit = (item: Item) => {
     router.push(`/lists/items/${item.id}/edit`);
@@ -164,31 +149,12 @@ export default function ItemsPage() {
     }
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/items/${item.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to delete item');
-        return;
-      }
-
+      await apiDelete(`/api/items/${item.id}`);
       toast.success('Item deleted successfully');
       fetchItems(currentPage);
     } catch (error) {
       console.error('Error deleting item:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to delete item');
     }
   };
 

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,8 @@ export default function SubsidiariesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<SubsidiaryFormValues>({
     // resolver: zodResolver(subsidiaryFormSchema),
@@ -66,81 +69,54 @@ export default function SubsidiariesPage() {
     },
   });
 
-  // Fetch subsidiaries
-  useEffect(() => {
-    const fetchSubsidiaries = async () => {
-      if (!orgId) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const token = await getToken();
-        if (!token) {
-          toast.error('Authentication token not available.');
-          setIsLoading(false);
-          return;
-        }
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/subsidiaries`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorResult = await response.json();
-          toast.error(errorResult.message || errorResult.error || 'Failed to fetch subsidiaries.');
-          throw new Error('Failed to fetch subsidiaries');
-        }
-
-        const data = await response.json();
-        setSubsidiaries(data.data || []);
-        
-        // Create default subsidiary if none exist
-        if (!data.data || data.data.length === 0) {
-          await createDefaultSubsidiary(token);
-        }
-      } catch (error) {
-        console.error('Error fetching subsidiaries:', error);
-        if (!(error instanceof Error && error.message === 'Failed to fetch subsidiaries')) {
-          toast.error('An unexpected error occurred while fetching subsidiaries.');
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSubsidiaries();
-  }, [orgId, getToken]);
-
   // Create default subsidiary
-  const createDefaultSubsidiary = async (token: string) => {
+  const createDefaultSubsidiary = useCallback(async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/subsidiaries`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: 'Default Subsidiary',
-          code: 'DEFAULT',
-          description: 'Default subsidiary for the organization',
-        }),
+      const newSubsidiary = await apiPost<Subsidiary>('/api/subsidiaries', {
+        name: 'Default Subsidiary',
+        code: 'DEFAULT',
+        description: 'Default subsidiary for the organization',
       });
-
-      if (response.ok) {
-        const newSubsidiary = await response.json();
-        setSubsidiaries([newSubsidiary]);
-        toast.success('Default subsidiary created automatically.');
-      }
+      
+      setSubsidiaries([newSubsidiary]);
+      toast.success('Default subsidiary created automatically.');
     } catch (error) {
       console.error('Error creating default subsidiary:', error);
     }
-  };
+  }, [apiPost]);
+
+  // Fetch subsidiaries
+  const fetchSubsidiaries = useCallback(async () => {
+    if (!orgId) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const data = await apiGet<{ data: Subsidiary[] }>('/api/subsidiaries');
+      setSubsidiaries(data.data || []);
+      
+      // Create default subsidiary if none exist
+      if (!data.data || data.data.length === 0) {
+        await createDefaultSubsidiary();
+      }
+    } catch (error) {
+      console.error('Error fetching subsidiaries:', error);
+      toast.error('Failed to fetch subsidiaries.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orgId, apiGet, createDefaultSubsidiary]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setSubsidiaries([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchSubsidiaries();
+  }, [orgId, fetchSubsidiaries]);
 
   // Submit form
   const onSubmit = async (values: SubsidiaryFormValues) => {
@@ -151,42 +127,21 @@ export default function SubsidiariesPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/subsidiaries`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...values,
-          code: values.code || undefined,
-          description: values.description || undefined,
-        }),
+      await apiPost('/api/subsidiaries', {
+        name: values.name,
+        code: values.code || undefined,
+        description: values.description || undefined,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || errorResult.error || 'Failed to create subsidiary.');
-        throw new Error('Failed to create subsidiary');
-      }
-
-      const newSubsidiary = await response.json();
-      setSubsidiaries([...subsidiaries, newSubsidiary]);
+      
       toast.success('Subsidiary created successfully!');
       setIsDialogOpen(false);
       form.reset();
+      
+      // Refresh the subsidiaries list
+      await fetchSubsidiaries();
     } catch (error) {
       console.error('Error creating subsidiary:', error);
-      if (!(error instanceof Error && error.message === 'Failed to create subsidiary')) {
-        toast.error('An unexpected error occurred while creating the subsidiary.');
-      }
+      toast.error('Failed to create subsidiary.');
     } finally {
       setIsSubmitting(false);
     }

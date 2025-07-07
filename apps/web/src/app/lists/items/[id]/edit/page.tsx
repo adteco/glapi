@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { toast } from 'sonner';
 import { ItemForm } from '@/components/forms/item-form';
 
@@ -10,29 +11,29 @@ interface Item {
   id: string;
   itemCode: string;
   name: string;
-  description?: string;
+  description?: string | null;
   itemType: 'INVENTORY_ITEM' | 'NON_INVENTORY_ITEM' | 'SERVICE' | 'CHARGE' | 'DISCOUNT' | 'TAX' | 'ASSEMBLY' | 'KIT';
-  categoryId?: string;
+  categoryId?: string | null;
   unitOfMeasureId: string;
-  incomeAccountId?: string;
-  expenseAccountId?: string;
-  assetAccountId?: string;
-  cogsAccountId?: string;
-  defaultPrice?: number;
-  defaultCost?: number;
+  incomeAccountId?: string | null;
+  expenseAccountId?: string | null;
+  assetAccountId?: string | null;
+  cogsAccountId?: string | null;
+  defaultPrice?: number | null;
+  defaultCost?: number | null;
   isTaxable: boolean;
-  taxCode?: string;
+  taxCode?: string | null;
   isActive: boolean;
   isPurchasable: boolean;
   isSaleable: boolean;
   trackQuantity: boolean;
   trackLotNumbers: boolean;
   trackSerialNumbers: boolean;
-  sku?: string;
-  upc?: string;
-  manufacturerPartNumber?: string;
-  weight?: number;
-  weightUnit?: string;
+  sku?: string | null;
+  upc?: string | null;
+  manufacturerPartNumber?: string | null;
+  weight?: number | null;
+  weightUnit?: string | null;
   isParent: boolean;
   variantAttributes?: any;
 }
@@ -40,42 +41,24 @@ interface Item {
 export default function EditItemPage() {
   const router = useRouter();
   const params = useParams();
-  const { getToken, orgId } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPut } = useApiClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [item, setItem] = useState<Item | null>(null);
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const itemId = params.id as string;
 
-  useEffect(() => {
-    if (itemId) {
-      fetchItem();
+  const fetchItem = useCallback(async () => {
+    if (!orgId || !itemId) {
+      setIsLoading(false);
+      return;
     }
-  }, [itemId]);
 
-  const fetchItem = async () => {
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/items/${itemId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to fetch item');
-        router.push('/lists/items');
-        return;
-      }
-
-      const data = await response.json();
+      const data = await apiGet<Item>(`/api/items/${itemId}`);
+      
       // Convert null values to undefined for form compatibility
       const transformedData = {
         ...data,
@@ -97,12 +80,24 @@ export default function EditItemPage() {
       setItem(transformedData);
     } catch (error) {
       console.error('Error fetching item:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to fetch item');
       router.push('/lists/items');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, itemId, apiGet, router]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setItem(null);
+      previousOrgIdRef.current = orgId;
+    }
+    if (itemId) {
+      fetchItem();
+    }
+  }, [orgId, itemId, fetchItem]);
 
   const handleSubmit = async (values: any) => {
     if (!orgId) {
@@ -112,33 +107,12 @@ export default function EditItemPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/items/${itemId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to update item');
-        return;
-      }
-
+      await apiPut(`/api/items/${itemId}`, values);
       toast.success('Item updated successfully');
       router.push('/lists/items');
     } catch (error) {
       console.error('Error updating item:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to update item');
     } finally {
       setIsSubmitting(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,9 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@clerk/nextjs';
-import { apiEndpoints } from '@/lib/api';
+import { useApiClient } from '@/lib/api-client.client';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Address {
   line1?: string | null;
@@ -295,13 +296,15 @@ const VendorForm: React.FC<VendorFormProps> = ({ formData, setFormData }) => (
 );
 
 export default function VendorsPage() {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
   const router = useRouter();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const previousOrgIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -330,82 +333,86 @@ export default function VendorsPage() {
     }
   });
 
-  useEffect(() => {
-    fetchVendors();
-  }, []);
-
-  const fetchVendors = async () => {
+  const fetchVendors = useCallback(async () => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.vendors, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch vendors');
-      
-      const data = await response.json();
+      const data = await apiGet<{ data: Vendor[] }>('/api/vendors');
+      console.log('Fetched vendors:', data);
       setVendors(data.data || []);
     } catch (error) {
       console.error('Error fetching vendors:', error);
+      toast.error('Failed to fetch vendors.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setVendors([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchVendors();
+  }, [orgId, fetchVendors]);
+
 
   const handleCreate = async () => {
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.vendors, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      if (!formData.name) {
+        toast.error('Vendor name is required');
+        return;
+      }
+
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      const newVendor = await apiPost<Vendor>('/api/vendors', {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        code: formData.code || undefined,
+        entityTypes: ['Vendor'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        website: formData.website || undefined,
+        taxId: formData.taxId || undefined,
+        description: formData.description || undefined,
+        notes: formData.notes || undefined,
+        status: formData.status,
+        isActive: true,
+        address: formData.address.line1 || formData.address.city ? {
+          line1: formData.address.line1 || undefined,
+          line2: formData.address.line2 || undefined,
+          city: formData.address.city || undefined,
+          stateProvince: formData.address.stateProvince || undefined,
+          postalCode: formData.address.postalCode || undefined,
+          countryCode: formData.address.countryCode || undefined,
+        } : undefined,
+        metadata: {
+          paymentTerms: formData.metadata.paymentTerms || undefined,
+          vendorType: formData.metadata.vendorType || undefined,
+          ein: formData.metadata.ein || undefined,
+          w9OnFile: formData.metadata.w9OnFile,
+          defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          code: formData.code || undefined,
-          entityTypes: ['Vendor'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          website: formData.website || undefined,
-          taxId: formData.taxId || undefined,
-          description: formData.description || undefined,
-          notes: formData.notes || undefined,
-          status: formData.status,
-          isActive: true,
-          address: formData.address.line1 || formData.address.city ? {
-            line1: formData.address.line1 || undefined,
-            line2: formData.address.line2 || undefined,
-            city: formData.address.city || undefined,
-            stateProvince: formData.address.stateProvince || undefined,
-            postalCode: formData.address.postalCode || undefined,
-            countryCode: formData.address.countryCode || undefined,
-          } : undefined,
-          metadata: {
-            paymentTerms: formData.metadata.paymentTerms || undefined,
-            vendorType: formData.metadata.vendorType || undefined,
-            ein: formData.metadata.ein || undefined,
-            w9OnFile: formData.metadata.w9OnFile,
-            defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
-          },
-        }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Create vendor error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to create vendor');
-      }
+      console.log('Vendor created successfully:', newVendor);
+      toast.success('Vendor created successfully.');
       
       await fetchVendors();
       setIsCreateOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error creating vendor:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create vendor');
+      toast.error(error instanceof Error ? error.message : 'Failed to create vendor');
     }
   };
 
@@ -413,56 +420,48 @@ export default function VendorsPage() {
     if (!selectedVendor) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.vendors}/${selectedVendor.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiPut(`/api/vendors/${selectedVendor.id}`, {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        code: formData.code || undefined,
+        entityTypes: ['Vendor'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        website: formData.website || undefined,
+        taxId: formData.taxId || undefined,
+        description: formData.description || undefined,
+        notes: formData.notes || undefined,
+        status: formData.status,
+        isActive: true,
+        address: formData.address.line1 || formData.address.city ? {
+          line1: formData.address.line1 || undefined,
+          line2: formData.address.line2 || undefined,
+          city: formData.address.city || undefined,
+          stateProvince: formData.address.stateProvince || undefined,
+          postalCode: formData.address.postalCode || undefined,
+          countryCode: formData.address.countryCode || undefined,
+        } : undefined,
+        metadata: {
+          paymentTerms: formData.metadata.paymentTerms || undefined,
+          vendorType: formData.metadata.vendorType || undefined,
+          ein: formData.metadata.ein || undefined,
+          w9OnFile: formData.metadata.w9OnFile,
+          defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          code: formData.code || undefined,
-          entityTypes: ['Vendor'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          website: formData.website || undefined,
-          taxId: formData.taxId || undefined,
-          description: formData.description || undefined,
-          notes: formData.notes || undefined,
-          status: formData.status,
-          isActive: true,
-          address: formData.address.line1 || formData.address.city ? {
-            line1: formData.address.line1 || undefined,
-            line2: formData.address.line2 || undefined,
-            city: formData.address.city || undefined,
-            stateProvince: formData.address.stateProvince || undefined,
-            postalCode: formData.address.postalCode || undefined,
-            countryCode: formData.address.countryCode || undefined,
-          } : undefined,
-          metadata: {
-            paymentTerms: formData.metadata.paymentTerms || undefined,
-            vendorType: formData.metadata.vendorType || undefined,
-            ein: formData.metadata.ein || undefined,
-            w9OnFile: formData.metadata.w9OnFile,
-            defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
-          },
-        }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Update vendor error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to update vendor');
-      }
-      
+      toast.success('Vendor updated successfully.');
       await fetchVendors();
       setIsEditOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error updating vendor:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update vendor');
+      toast.error('Failed to update vendor.');
     }
   };
 
@@ -470,19 +469,12 @@ export default function VendorsPage() {
     if (!confirm('Are you sure you want to delete this vendor?')) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.vendors}/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete vendor');
-      
+      await apiDelete(`/api/vendors/${id}`);
+      toast.success('Vendor deleted successfully.');
       await fetchVendors();
     } catch (error) {
       console.error('Error deleting vendor:', error);
+      toast.error('Failed to delete vendor.');
     }
   };
 

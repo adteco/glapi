@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Building2, Mail, Phone, Globe } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
-import { apiEndpoints } from '@/lib/api';
+import { useApiClient } from '@/lib/api-client.client';
+import { toast } from 'sonner';
 
 interface EntityDetails {
   id: string;
@@ -50,7 +51,8 @@ interface Contact {
 export default function EntityDashboard() {
   const params = useParams();
   const router = useRouter();
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost } = useApiClient();
   const [entity, setEntity] = useState<EntityDetails | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,7 @@ export default function EntityDashboard() {
     department: '',
     preferredContactMethod: 'email',
   });
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const entityType = params.entityType as string;
   const entityId = params.id as string;
@@ -71,10 +74,10 @@ export default function EntityDashboard() {
   // Map entity types to API endpoints
   const getApiEndpoint = (type: string) => {
     const endpoints: Record<string, string> = {
-      'customers': apiEndpoints.customers,
-      'vendors': apiEndpoints.vendors,
-      'leads': apiEndpoints.leads,
-      'prospects': apiEndpoints.prospects,
+      'customers': '/api/customers',
+      'vendors': '/api/vendors',
+      'leads': '/api/leads',
+      'prospects': '/api/prospects',
     };
     return endpoints[type];
   };
@@ -90,48 +93,36 @@ export default function EntityDashboard() {
     return names[type] || type;
   };
 
-  useEffect(() => {
-    fetchEntityDetails();
-    fetchContacts();
-  }, [entityId, entityType]);
-
-  const fetchEntityDetails = async () => {
+  const fetchEntityDetails = useCallback(async () => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    
     try {
-      const token = await getToken();
       const endpoint = getApiEndpoint(entityType);
+      const data = await apiGet<any>(`${endpoint}/${entityId}`);
       
-      const response = await fetch(`${endpoint}/${entityId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch entity details');
-      
-      const data = await response.json();
       // Handle different response formats
       setEntity(data.customer || data.vendor || data.lead || data.prospect || data);
     } catch (error) {
       console.error('Error fetching entity details:', error);
+      toast.error('Failed to fetch entity details');
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, entityType, entityId, apiGet]);
 
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
+    if (!orgId) {
+      return;
+    }
+    
     try {
-      const token = await getToken();
       // First fetch all contacts, then filter by parentEntityId
       // This is a temporary solution until the API supports filtering
-      const response = await fetch(apiEndpoints.contacts, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const data = await apiGet<{ data: Contact[] }>('/api/contacts');
       
-      if (!response.ok) throw new Error('Failed to fetch contacts');
-      
-      const data = await response.json();
       // Filter contacts that belong to this entity
       const entityContacts = (data.data || []).filter(
         (contact: any) => contact.parentEntityId === entityId
@@ -139,46 +130,52 @@ export default function EntityDashboard() {
       setContacts(entityContacts);
     } catch (error) {
       console.error('Error fetching contacts:', error);
+      toast.error('Failed to fetch contacts');
     }
-  };
+  }, [orgId, entityId, apiGet]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setEntity(null);
+      setContacts([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchEntityDetails();
+    fetchContacts();
+  }, [orgId, fetchEntityDetails, fetchContacts]);
 
   const handleAddContact = async () => {
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.contacts, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiPost('/api/contacts', {
+        name: contactFormData.name,
+        displayName: contactFormData.displayName || undefined,
+        entityTypes: ['Contact'],
+        email: contactFormData.email || undefined,
+        phone: contactFormData.phone || undefined,
+        parentEntityId: entityId,
+        status: 'active',
+        isActive: true,
+        metadata: {
+          title: contactFormData.title || undefined,
+          department: contactFormData.department || undefined,
+          preferredContactMethod: contactFormData.preferredContactMethod,
         },
-        body: JSON.stringify({
-          name: contactFormData.name,
-          displayName: contactFormData.displayName || undefined,
-          entityTypes: ['Contact'],
-          email: contactFormData.email || undefined,
-          phone: contactFormData.phone || undefined,
-          parentEntityId: entityId,
-          status: 'active',
-          isActive: true,
-          metadata: {
-            title: contactFormData.title || undefined,
-            department: contactFormData.department || undefined,
-            preferredContactMethod: contactFormData.preferredContactMethod,
-          },
-        }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || 'Failed to add contact');
-      }
-      
+      toast.success('Contact added successfully');
       await fetchContacts();
       setIsAddContactOpen(false);
       resetContactForm();
     } catch (error) {
       console.error('Error adding contact:', error);
-      alert(error instanceof Error ? error.message : 'Failed to add contact');
+      toast.error(error instanceof Error ? error.message : 'Failed to add contact');
     }
   };
 
