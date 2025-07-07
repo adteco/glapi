@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
-import { VendorService } from '@glapi/api-service';
+import { ContactService } from '@glapi/api-service';
 
-const vendorSchema = z.object({
+const contactSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   entityId: z.string().optional(),
   isActive: z.boolean().default(true),
@@ -13,30 +13,32 @@ const vendorSchema = z.object({
   website: z.string().url().optional().or(z.literal('')),
   notes: z.string().optional(),
   metadata: z.object({
-    ein: z.string().optional(),
-    vendor_type: z.string().optional(),
-    terms: z.string().optional(),
-    creditLimit: z.number().optional(),
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
+    title: z.string().optional(),
+    company: z.string().optional(),
+    contact_type: z.string().optional(),
+    preferred_communication: z.string().optional(),
   }).optional(),
 });
 
-const updateVendorSchema = vendorSchema.partial();
+const updateContactSchema = contactSchema.partial();
 
-const vendorQuerySchema = z.object({
+const contactQuerySchema = z.object({
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(10),
   search: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 
-export const vendorsRouter = router({
+export const contactsRouter = router({
   list: authenticatedProcedure
-    .input(vendorQuerySchema.optional())
+    .input(contactQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new VendorService();
+      const service = new ContactService();
       const { page, limit, search, isActive } = input;
       
-      return await service.listVendors(ctx.user.organizationId, {
+      return await service.listContacts(ctx.user.organizationId, {
         page,
         limit,
         search,
@@ -47,38 +49,31 @@ export const vendorsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new VendorService();
+      const service = new ContactService();
       return await service.findById(input.id, ctx.user.organizationId);
     }),
 
   create: authenticatedProcedure
-    .input(vendorSchema)
+    .input(contactSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService();
-      return await service.createVendor(ctx.user.organizationId, input);
+      const service = new ContactService();
+      return await service.createContact(ctx.user.organizationId, input);
     }),
 
   update: authenticatedProcedure
     .input(z.object({
       id: z.string(),
-      data: updateVendorSchema,
+      data: updateContactSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService();
-      return await service.updateVendor(input.id, ctx.user.organizationId, input.data);
+      const service = new ContactService();
+      return await service.updateContact(input.id, ctx.user.organizationId, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService();
+      const service = new ContactService();
       return await service.delete(input.id, ctx.user.organizationId);
-    }),
-
-  findByEIN: authenticatedProcedure
-    .input(z.object({ ein: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const service = new VendorService();
-      return await service.findByEIN(input.ein, ctx.user.organizationId);
     }),
 });
