@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
-import { VendorService } from '@glapi/api-service';
+import { ProspectService } from '@glapi/api-service';
 
-const vendorSchema = z.object({
+const prospectSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   entityId: z.string().optional(),
   isActive: z.boolean().default(true),
@@ -13,30 +13,31 @@ const vendorSchema = z.object({
   website: z.string().url().optional().or(z.literal('')),
   notes: z.string().optional(),
   metadata: z.object({
-    ein: z.string().optional(),
-    vendor_type: z.string().optional(),
-    terms: z.string().optional(),
-    creditLimit: z.number().optional(),
+    prospect_source: z.string().optional(),
+    prospect_status: z.string().optional(),
+    qualification_score: z.number().min(0).max(100).optional(),
+    next_action: z.string().optional(),
+    follow_up_date: z.string().optional(),
   }).optional(),
 });
 
-const updateVendorSchema = vendorSchema.partial();
+const updateProspectSchema = prospectSchema.partial();
 
-const vendorQuerySchema = z.object({
+const prospectQuerySchema = z.object({
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(10),
   search: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 
-export const vendorsRouter = router({
+export const prospectsRouter = router({
   list: authenticatedProcedure
-    .input(vendorQuerySchema.optional())
+    .input(prospectQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new VendorService();
+      const service = new ProspectService();
       const { page, limit, search, isActive } = input;
       
-      return await service.listVendors(ctx.user.organizationId, {
+      return await service.listProspects(ctx.user.organizationId, {
         page,
         limit,
         search,
@@ -47,38 +48,31 @@ export const vendorsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new VendorService();
+      const service = new ProspectService();
       return await service.findById(input.id, ctx.user.organizationId);
     }),
 
   create: authenticatedProcedure
-    .input(vendorSchema)
+    .input(prospectSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService();
-      return await service.createVendor(ctx.user.organizationId, input);
+      const service = new ProspectService();
+      return await service.createProspect(ctx.user.organizationId, input);
     }),
 
   update: authenticatedProcedure
     .input(z.object({
       id: z.string(),
-      data: updateVendorSchema,
+      data: updateProspectSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService();
-      return await service.updateVendor(input.id, ctx.user.organizationId, input.data);
+      const service = new ProspectService();
+      return await service.updateProspect(input.id, ctx.user.organizationId, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService();
+      const service = new ProspectService();
       return await service.delete(input.id, ctx.user.organizationId);
-    }),
-
-  findByEIN: authenticatedProcedure
-    .input(z.object({ ein: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const service = new VendorService();
-      return await service.findByEIN(input.ein, ctx.user.organizationId);
     }),
 });

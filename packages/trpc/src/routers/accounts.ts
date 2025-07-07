@@ -89,6 +89,13 @@ export const accountsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new AccountService(ctx.serviceContext);
-      return service.seedDefaultAccounts(input);
+      return service.seedDefaultAccounts(input.map(account => ({
+        accountNumber: account.accountNumber,
+        accountName: account.accountName,
+        accountCategory: account.accountCategory,
+        description: account.description,
+        isControlAccount: account.isControlAccount,
+        isActive: account.isActive,
+      })));
     }),
 });
