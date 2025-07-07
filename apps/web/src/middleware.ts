@@ -19,8 +19,16 @@ const isPublicRoute = createRouteMatcher([
 
 // Updated to align with common Clerk patterns
 export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth();
   const { pathname } = req.nextUrl;
+  
+  // Early return for static files - double check
+  if (pathname.startsWith('/_next/static') || 
+      pathname.startsWith('/_next/image') || 
+      pathname === '/favicon.ico') {
+    return NextResponse.next();
+  }
+  
+  const { userId } = await auth();
 
   // If the user is signed in and on the public landing page, redirect to dashboard
   if (userId && pathname === '/') {
@@ -54,10 +62,10 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico, robots.txt, sitemap.xml (public files)
-     * - public folder files
-     * - any file with an extension (e.g., .css, .js, .jpg, etc.)
+     * - favicon.ico (favicon file)
+     * The regex explicitly excludes these paths
      */
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)' ,
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/api/(.*)',
   ],
 }; 
