@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -76,10 +77,12 @@ interface ItemFormProps {
 }
 
 export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: ItemFormProps) {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet } = useApiClient();
   const [categories, setCategories] = useState<any[]>([]);
   const [unitsOfMeasure, setUnitsOfMeasure] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemFormSchema),
@@ -103,74 +106,55 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
   const watchItemType = form.watch('itemType');
   const watchTrackQuantity = form.watch('trackQuantity');
 
-  useEffect(() => {
-    fetchCategories();
-    fetchUnitsOfMeasure();
-    fetchAccounts();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
+    if (!orgId) return;
+    
     try {
-      const token = await getToken();
-      if (!token) return;
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/item-categories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.data || []);
-      }
+      const response = await apiGet<{ data: any[] }>('/api/item-categories');
+      setCategories(response.data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, [orgId, apiGet]);
 
-  const fetchUnitsOfMeasure = async () => {
+  const fetchUnitsOfMeasure = useCallback(async () => {
+    if (!orgId) return;
+    
     try {
-      const token = await getToken();
-      if (!token) return;
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/units-of-measure`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUnitsOfMeasure(data.data || []);
-      }
+      const response = await apiGet<{ data: any[] }>('/api/units-of-measure');
+      setUnitsOfMeasure(response.data || []);
     } catch (error) {
       console.error('Error fetching units of measure:', error);
     }
-  };
+  }, [orgId, apiGet]);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
+    if (!orgId) return;
+    
     try {
-      const token = await getToken();
-      if (!token) return;
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/gl/accounts`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAccounts(data.data || []);
-      }
+      const response = await apiGet<{ data: any[] }>('/api/gl/accounts');
+      setAccounts(response.data || []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
     }
-  };
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setCategories([]);
+      setUnitsOfMeasure([]);
+      setAccounts([]);
+      previousOrgIdRef.current = orgId;
+    }
+    
+    if (orgId) {
+      fetchCategories();
+      fetchUnitsOfMeasure();
+      fetchAccounts();
+    }
+  }, [orgId, fetchCategories, fetchUnitsOfMeasure, fetchAccounts]);
 
   const getAccountsByCategory = (category: string) => {
     return accounts.filter(account => account.accountCategory === category);

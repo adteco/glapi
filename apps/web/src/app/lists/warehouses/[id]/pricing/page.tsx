@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, DollarSign, Trash } from 'lucide-react';
 import { ExpandablePriceList } from './ExpandablePriceList';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -88,7 +89,9 @@ export default function WarehousePricingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken, orgId } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<WarehousePriceListFormValues>({
     resolver: zodResolver(warehousePriceListFormSchema),
@@ -101,39 +104,24 @@ export default function WarehousePricingPage() {
   });
 
   // Fetch warehouse details
+  const fetchWarehouse = useCallback(async () => {
+    if (!orgId || !warehouseId) return;
+    
+    try {
+      const data = await apiGet<Warehouse>(`/api/warehouses/${warehouseId}`);
+      setWarehouse(data);
+    } catch (error) {
+      console.error('Error fetching warehouse:', error);
+      toast.error('Failed to fetch warehouse details');
+    }
+  }, [orgId, warehouseId, apiGet]);
+
   useEffect(() => {
-    const fetchWarehouse = async () => {
-      if (!orgId || !warehouseId) return;
-      
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/warehouses/${warehouseId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          toast.error('Failed to fetch warehouse details');
-          return;
-        }
-
-        const data = await response.json();
-        setWarehouse(data);
-      } catch (error) {
-        console.error('Error fetching warehouse:', error);
-        toast.error('An unexpected error occurred');
-      }
-    };
-
     fetchWarehouse();
-  }, [orgId, warehouseId, getToken]);
+  }, [fetchWarehouse]);
 
   // Fetch warehouse price lists
-  const fetchWarehousePriceLists = async () => {
+  const fetchWarehousePriceLists = useCallback(async () => {
     if (!orgId || !warehouseId) {
       setIsLoading(false);
       return;
@@ -141,41 +129,27 @@ export default function WarehousePricingPage() {
     
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouses/${warehouseId}/price-lists`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to fetch price lists.');
-        throw new Error('Failed to fetch price lists');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<WarehousePriceList[]>(`/api/warehouses/${warehouseId}/price-lists`);
       setWarehousePriceLists(data);
     } catch (error) {
       console.error('Error fetching price lists:', error);
-      if (!(error instanceof Error && error.message === 'Failed to fetch price lists')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to fetch price lists.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, warehouseId, apiGet]);
 
+  // Clear data and refetch when organization changes
   useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setWarehouse(null);
+      setWarehousePriceLists([]);
+      setAvailablePriceLists([]);
+      previousOrgIdRef.current = orgId;
+    }
     fetchWarehousePriceLists();
-  }, [orgId, warehouseId, getToken]);
+  }, [orgId, fetchWarehousePriceLists]);
 
   // Fetch available price lists
   useEffect(() => {
@@ -183,22 +157,7 @@ export default function WarehousePricingPage() {
       if (!orgId) return;
       
       try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/price-lists?activeOnly=true`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch price lists');
-          return;
-        }
-
-        const data = await response.json();
+        const data = await apiGet<{ data: PriceList[] }>('/api/price-lists?activeOnly=true');
         setAvailablePriceLists(data.data || []);
       } catch (error) {
         console.error('Error fetching price lists:', error);
@@ -206,7 +165,7 @@ export default function WarehousePricingPage() {
     };
 
     fetchPriceLists();
-  }, [orgId, getToken]);
+  }, [orgId, apiGet]);
 
   // Handle form submission
   const onSubmit = async (values: WarehousePriceListFormValues) => {
@@ -217,34 +176,12 @@ export default function WarehousePricingPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouses/${warehouseId}/price-lists`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          priceListId: values.priceListId,
-          priority: values.priority,
-          effectiveDate: values.effectiveDate || undefined,
-          expirationDate: values.expirationDate || undefined,
-        }),
+      await apiPost(`/api/warehouses/${warehouseId}/price-lists`, {
+        priceListId: values.priceListId,
+        priority: values.priority,
+        effectiveDate: values.effectiveDate || undefined,
+        expirationDate: values.expirationDate || undefined,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to assign price list.');
-        throw new Error('Failed to assign price list');
-      }
-
-      const result = await response.json();
       
       toast.success('Price list assigned successfully!');
       setIsDialogOpen(false);
@@ -254,9 +191,7 @@ export default function WarehousePricingPage() {
       await fetchWarehousePriceLists();
     } catch (error) {
       console.error('Error assigning price list:', error);
-      if (!(error instanceof Error && error.message === 'Failed to assign price list')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to assign price list.');
     } finally {
       setIsSubmitting(false);
     }
@@ -269,34 +204,12 @@ export default function WarehousePricingPage() {
     }
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(
-        `${apiUrl}/api/warehouses/${warehouseId}/price-lists?priceListId=${priceListId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to remove price list.');
-        throw new Error('Failed to remove price list');
-      }
-
+      await apiDelete(`/api/warehouses/${warehouseId}/price-lists?priceListId=${priceListId}`);
       toast.success('Price list removed successfully!');
       await fetchWarehousePriceLists();
     } catch (error) {
       console.error('Error removing price list:', error);
-      toast.error('An unexpected error occurred.');
+      toast.error('Failed to remove price list.');
     }
   };
 

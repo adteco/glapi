@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Slider } from '@/components/ui/slider';
-import { apiEndpoints } from '@/lib/api';
 import { Eye, Pencil, Trash2, Plus, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface LeadMetadata {
   source?: string;
@@ -41,11 +42,13 @@ interface Lead {
 }
 
 export default function LeadsPage() {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost } = useApiClient();
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const previousOrgIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -63,90 +66,90 @@ export default function LeadsPage() {
     }
   });
 
-  useEffect(() => {
-    fetchLeads();
-  }, []);
-
-  const fetchLeads = async () => {
+  const fetchLeads = useCallback(async () => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.leads, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch leads');
-      
-      const data = await response.json();
+      const data = await apiGet<{ data: Lead[] }>('/api/leads');
+      console.log('Fetched leads:', data);
       setLeads(data.data || []);
     } catch (error) {
       console.error('Error fetching leads:', error);
+      toast.error('Failed to fetch leads.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setLeads([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchLeads();
+  }, [orgId, fetchLeads]);
 
   const handleCreate = async () => {
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.leads, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          entityTypes: ['Lead'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          website: formData.website || undefined,
-          status: formData.status,
-          isActive: true,
-          metadata: {
-            source: formData.metadata.source || undefined,
-            industry: formData.metadata.industry || undefined,
-            leadScore: formData.metadata.leadScore || undefined,
-          },
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Create lead error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to create lead');
+      if (!formData.name) {
+        toast.error('Company name is required');
+        return;
       }
-      
+
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiPost('/api/leads', {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        entityTypes: ['Lead'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        website: formData.website || undefined,
+        status: formData.status,
+        isActive: true,
+        metadata: {
+          source: formData.metadata.source || undefined,
+          industry: formData.metadata.industry || undefined,
+          leadScore: formData.metadata.leadScore || undefined,
+        },
+      });
+
+      toast.success('Lead created successfully.');
       await fetchLeads();
       setIsCreateOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error creating lead:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create lead');
+      toast.error(error instanceof Error ? error.message : 'Failed to create lead');
     }
   };
 
-  const handleConvertToCustomer = async (leadId: string) => {
+  const handleConvertToCustomer = useCallback(async (leadId: string) => {
     if (!confirm('Convert this lead to a customer?')) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.leads}/${leadId}/convert-to-customer`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiPost(`/api/leads/${leadId}/convert-to-customer`, {});
       
-      if (!response.ok) throw new Error('Failed to convert lead');
-      
+      toast.success('Lead converted to customer successfully.');
       await fetchLeads();
     } catch (error) {
       console.error('Error converting lead:', error);
+      toast.error('Failed to convert lead to customer.');
     }
-  };
+  }, [orgId, apiPost, fetchLeads]);
 
   const resetForm = () => {
     setFormData({
@@ -181,7 +184,9 @@ export default function LeadsPage() {
     }).format(amount);
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="container mx-auto py-10">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { apiEndpoints } from '@/lib/api';
+import { useApiClient } from '@/lib/api-client.client';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface EmployeeMetadata {
   employeeId?: string;
@@ -39,13 +40,15 @@ interface Employee {
 }
 
 export default function EmployeesPage() {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const previousOrgIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -62,70 +65,74 @@ export default function EmployeesPage() {
     }
   });
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.employees, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch employees');
-      
-      const data = await response.json();
+      const data = await apiGet<{ data: Employee[] }>('/api/employees');
+      console.log('Fetched employees:', data);
       setEmployees(data.data || []);
     } catch (error) {
       console.error('Error fetching employees:', error);
+      toast.error('Failed to fetch employees.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setEmployees([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchEmployees();
+  }, [orgId, fetchEmployees]);
+
 
   const handleCreate = async () => {
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.employees, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      if (!formData.name) {
+        toast.error('Full name is required');
+        return;
+      }
+
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      const newEmployee = await apiPost<Employee>('/api/employees', {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        code: formData.code || undefined,
+        entityTypes: ['Employee'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        status: formData.status,
+        isActive: true,
+        metadata: {
+          employeeId: formData.metadata.employeeId || undefined,
+          department: formData.metadata.department || undefined,
+          title: formData.metadata.title || undefined,
+          employmentType: formData.metadata.employmentType || undefined,
+          startDate: formData.metadata.startDate || undefined,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          code: formData.code || undefined,
-          entityTypes: ['Employee'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          status: formData.status,
-          isActive: true,
-          metadata: {
-            employeeId: formData.metadata.employeeId || undefined,
-            department: formData.metadata.department || undefined,
-            title: formData.metadata.title || undefined,
-            employmentType: formData.metadata.employmentType || undefined,
-            startDate: formData.metadata.startDate || undefined,
-          },
-        }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Create employee error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to create employee');
-      }
+      console.log('Employee created successfully:', newEmployee);
+      toast.success('Employee created successfully.');
       
       await fetchEmployees();
       setIsCreateOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error creating employee:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create employee');
+      toast.error(error instanceof Error ? error.message : 'Failed to create employee');
     }
   };
 
@@ -133,44 +140,38 @@ export default function EmployeesPage() {
     if (!selectedEmployee) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.employees}/${selectedEmployee.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiPut(`/api/employees/${selectedEmployee.id}`, {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        code: formData.code || undefined,
+        entityTypes: ['Employee'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        status: formData.status,
+        isActive: true,
+        metadata: {
+          employeeId: formData.metadata.employeeId || undefined,
+          department: formData.metadata.department || undefined,
+          title: formData.metadata.title || undefined,
+          employmentType: formData.metadata.employmentType || undefined,
+          startDate: formData.metadata.startDate || undefined,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          code: formData.code || undefined,
-          entityTypes: ['Employee'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          status: formData.status,
-          isActive: true,
-          metadata: {
-            employeeId: formData.metadata.employeeId || undefined,
-            department: formData.metadata.department || undefined,
-            title: formData.metadata.title || undefined,
-            employmentType: formData.metadata.employmentType || undefined,
-            startDate: formData.metadata.startDate || undefined,
-          },
-        }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Update employee error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to update employee');
-      }
+      console.log('Employee updated successfully');
+      toast.success('Employee updated successfully.');
       
       await fetchEmployees();
       setIsEditOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error updating employee:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update employee');
+      toast.error(error instanceof Error ? error.message : 'Failed to update employee');
     }
   };
 
@@ -178,19 +179,20 @@ export default function EmployeesPage() {
     if (!confirm('Are you sure you want to delete this employee?')) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.employees}/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiDelete(`/api/employees/${id}`);
       
-      if (!response.ok) throw new Error('Failed to delete employee');
+      console.log('Employee deleted successfully');
+      toast.success('Employee deleted successfully.');
       
       await fetchEmployees();
     } catch (error) {
       console.error('Error deleting employee:', error);
+      toast.error('Failed to delete employee');
     }
   };
 

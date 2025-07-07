@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { WarehousePriceLookup } from '@/components/warehouse-price-lookup';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,80 +25,53 @@ export default function WarehousePricingPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { getToken, orgId } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   // Fetch customers
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      if (!orgId) return;
-      
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/customers?limit=100`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch customers');
-          return;
-        }
-
-        const data = await response.json();
-        setCustomers(data.data || []);
-      } catch (error) {
-        console.error('Error fetching customers:', error);
-        toast.error('Failed to load customers');
-      }
-    };
-
-    fetchCustomers();
-  }, [orgId, getToken]);
+  const fetchCustomers = useCallback(async () => {
+    if (!orgId) return;
+    
+    try {
+      const data = await apiGet<{ data: Customer[] }>('/api/customers?limit=100');
+      setCustomers(data.data || []);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      toast.error('Failed to load customers');
+    }
+  }, [orgId, apiGet]);
 
   // Fetch items
+  const fetchItems = useCallback(async () => {
+    if (!orgId) {
+      setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const data = await apiGet<{ data: Item[] }>('/api/items?activeOnly=true&limit=100');
+      setItems(data.data || []);
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      toast.error('Failed to load items');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
   useEffect(() => {
-    const fetchItems = async () => {
-      if (!orgId) {
-        setIsLoading(false);
-        return;
-      }
-      
-      setIsLoading(true);
-      try {
-        const token = await getToken();
-        if (!token) {
-          setIsLoading(false);
-          return;
-        }
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/items?activeOnly=true&limit=100`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch items');
-          return;
-        }
-
-        const data = await response.json();
-        setItems(data.data || []);
-      } catch (error) {
-        console.error('Error fetching items:', error);
-        toast.error('Failed to load items');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setCustomers([]);
+      setItems([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchCustomers();
     fetchItems();
-  }, [orgId, getToken]);
+  }, [orgId, fetchCustomers, fetchItems]);
 
   return (
     <div className="container mx-auto py-10">

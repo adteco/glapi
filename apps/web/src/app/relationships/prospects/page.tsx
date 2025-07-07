@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { apiEndpoints } from '@/lib/api';
+import { useApiClient } from '@/lib/api-client.client';
 import { Eye, Pencil, Trash2, Plus, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ProspectMetadata {
   source?: string;
@@ -39,11 +40,13 @@ interface Prospect {
 }
 
 export default function ProspectsPage() {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost } = useApiClient();
   const router = useRouter();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const previousOrgIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -60,70 +63,71 @@ export default function ProspectsPage() {
     }
   });
 
-  useEffect(() => {
-    fetchProspects();
-  }, []);
-
-  const fetchProspects = async () => {
+  const fetchProspects = useCallback(async () => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.prospects, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch prospects');
-      
-      const data = await response.json();
+      const data = await apiGet<{ data: Prospect[] }>('/api/prospects');
+      console.log('Fetched prospects:', data);
       setProspects(data.data || []);
     } catch (error) {
       console.error('Error fetching prospects:', error);
+      toast.error('Failed to fetch prospects.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setProspects([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchProspects();
+  }, [orgId, fetchProspects]);
 
   const handleCreate = async () => {
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.prospects, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          entityTypes: ['Prospect'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          website: formData.website || undefined,
-          status: formData.status,
-          isActive: true,
-          metadata: {
-            source: formData.metadata.source || undefined,
-            industry: formData.metadata.industry || undefined,
-            annualRevenue: formData.metadata.annualRevenue || undefined,
-            numberOfEmployees: formData.metadata.numberOfEmployees || undefined,
-            assignedTo: formData.metadata.assignedTo || undefined,
-          },
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Create prospect error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to create prospect');
+      if (!formData.name) {
+        toast.error('Company name is required');
+        return;
       }
+
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiPost('/api/prospects', {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        entityTypes: ['Prospect'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        website: formData.website || undefined,
+        status: formData.status,
+        isActive: true,
+        metadata: {
+          source: formData.metadata.source || undefined,
+          industry: formData.metadata.industry || undefined,
+          annualRevenue: formData.metadata.annualRevenue || undefined,
+          numberOfEmployees: formData.metadata.numberOfEmployees || undefined,
+          assignedTo: formData.metadata.assignedTo || undefined,
+        },
+      });
       
       await fetchProspects();
       setIsCreateOpen(false);
       resetForm();
+      toast.success('Prospect created successfully');
     } catch (error) {
       console.error('Error creating prospect:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create prospect');
+      toast.error(error instanceof Error ? error.message : 'Failed to create prospect');
     }
   };
 
@@ -135,23 +139,17 @@ export default function ProspectsPage() {
     if (!confirm(confirmMsg)) return;
     
     try {
-      const token = await getToken();
       const endpoint = convertTo === 'lead' 
-        ? `${apiEndpoints.prospects}/${prospectId}/convert-to-lead`
-        : `${apiEndpoints.prospects}/${prospectId}/convert-to-customer`;
+        ? `/api/prospects/${prospectId}/convert-to-lead`
+        : `/api/prospects/${prospectId}/convert-to-customer`;
         
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error(`Failed to convert prospect to ${convertTo}`);
+      await apiPost(endpoint, {});
       
       await fetchProspects();
+      toast.success(`Successfully converted prospect to ${convertTo}`);
     } catch (error) {
       console.error('Error converting prospect:', error);
+      toast.error(`Failed to convert prospect to ${convertTo}`);
     }
   };
 

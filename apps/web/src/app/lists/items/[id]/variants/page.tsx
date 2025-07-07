@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,8 @@ interface VariantAttribute {
 export default function ItemVariantsPage() {
   const router = useRouter();
   const params = useParams();
-  const { getToken, orgId } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost, apiPut } = useApiClient();
   const [isLoading, setIsLoading] = useState(true);
   const [parentItem, setParentItem] = useState<Item | null>(null);
   const [variants, setVariants] = useState<Item[]>([]);
@@ -38,39 +40,19 @@ export default function ItemVariantsPage() {
   const [newAttributeValue, setNewAttributeValue] = useState('');
   const [selectedAttribute, setSelectedAttribute] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const itemId = params.id as string;
 
-  useEffect(() => {
-    if (itemId) {
-      fetchItemAndVariants();
+  const fetchItemAndVariants = useCallback(async () => {
+    if (!orgId || !itemId) {
+      setIsLoading(false);
+      return;
     }
-  }, [itemId]);
 
-  const fetchItemAndVariants = async () => {
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      
       // Fetch parent item
-      const itemResponse = await fetch(`${apiUrl}/api/items/${itemId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!itemResponse.ok) {
-        toast.error('Failed to fetch item');
-        router.push('/lists/items');
-        return;
-      }
-
-      const item = await itemResponse.json();
+      const item = await apiGet<Item>(`/api/items/${itemId}`);
       setParentItem(item);
 
       // Load existing variant attributes if any
@@ -83,23 +65,39 @@ export default function ItemVariantsPage() {
       }
 
       // Fetch existing variants
-      const variantsResponse = await fetch(`${apiUrl}/api/items/${itemId}/variants`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (variantsResponse.ok) {
-        const variantsData = await variantsResponse.json();
+      try {
+        const variantsData = await apiGet<Item[]>(`/api/items/${itemId}/variants`);
         setVariants(variantsData);
+      } catch (error) {
+        // It's okay if variants don't exist yet
+        setVariants([]);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to fetch item');
+      router.push('/lists/items');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, itemId, apiGet, router]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setParentItem(null);
+      setVariants([]);
+      setAttributes([]);
+      setSelectedAttribute(null);
+      previousOrgIdRef.current = orgId;
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    if (itemId && orgId) {
+      fetchItemAndVariants();
+    }
+  }, [itemId, orgId, fetchItemAndVariants]);
 
   const addAttribute = () => {
     if (!newAttributeName.trim()) {
@@ -179,57 +177,32 @@ export default function ItemVariantsPage() {
 
     setIsGenerating(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
       // Convert attributes to object format
       const attributesObject: Record<string, string[]> = {};
       attributes.forEach(attr => {
         attributesObject[attr.name] = attr.values;
       });
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/items/${itemId}/variants`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          attributes: attributesObject,
-        }),
+      const newVariants = await apiPost<Item[]>(`/api/items/${itemId}/variants`, {
+        attributes: attributesObject,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to generate variants');
-        return;
-      }
-
-      const newVariants = await response.json();
       toast.success(`Successfully generated ${newVariants.length} variants`);
       setVariants(newVariants);
       
       // Update parent item to be marked as parent
       if (!parentItem?.isParent) {
-        await fetch(`${apiUrl}/api/items/${itemId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            isParent: true,
-            variantAttributes: attributesObject,
-          }),
+        await apiPut(`/api/items/${itemId}`, {
+          isParent: true,
+          variantAttributes: attributesObject,
         });
+        
+        // Update local state
+        setParentItem(prev => prev ? { ...prev, isParent: true, variantAttributes: attributesObject } : null);
       }
     } catch (error) {
       console.error('Error generating variants:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to generate variants');
     } finally {
       setIsGenerating(false);
     }
@@ -237,6 +210,10 @@ export default function ItemVariantsPage() {
 
   if (isLoading) {
     return <div className="container mx-auto py-10"><p>Loading...</p></div>;
+  }
+
+  if (!orgId) {
+    return <div className="container mx-auto py-10"><p>Please select an organization to view items.</p></div>;
   }
 
   if (!parentItem) {

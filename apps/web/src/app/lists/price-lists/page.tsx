@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, DollarSign, Edit, Trash, Package } from 'lucide-react';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,8 @@ export default function PriceListsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingPriceList, setEditingPriceList] = useState<PriceList | null>(null);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<PriceListFormValues>({
     resolver: zodResolver(priceListFormSchema),
@@ -93,7 +96,7 @@ export default function PriceListsPage() {
   });
 
   // Fetch price lists
-  const fetchPriceLists = async () => {
+  const fetchPriceLists = useCallback(async () => {
     if (!orgId) {
       setIsLoading(false);
       return;
@@ -101,74 +104,36 @@ export default function PriceListsPage() {
     
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/price-lists?activeOnly=false&limit=100`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to fetch price lists.');
-        throw new Error('Failed to fetch price lists');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<{ data: PriceList[] }>('/api/price-lists?activeOnly=false&limit=100');
       setPriceLists(data.data || []);
     } catch (error) {
       console.error('Error fetching price lists:', error);
-      if (!(error instanceof Error && error.message === 'Failed to fetch price lists')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to fetch price lists.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
 
+  // Clear data and refetch when organization changes
   useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setPriceLists([]);
+      previousOrgIdRef.current = orgId;
+    }
     fetchPriceLists();
-  }, [orgId, getToken]);
+  }, [orgId, fetchPriceLists]);
 
   // Handle form submission for create
   const onSubmit = async (values: PriceListFormValues) => {
     if (!orgId) {
-      toast.error('Missing required information.');
+      toast.error('Organization not selected.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/price-lists`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to create price list.');
-        throw new Error('Failed to create price list');
-      }
-
-      const result = await response.json();
+      await apiPost('/api/price-lists', values);
       
       toast.success('Price list created successfully!');
       setIsDialogOpen(false);
@@ -178,9 +143,7 @@ export default function PriceListsPage() {
       await fetchPriceLists();
     } catch (error) {
       console.error('Error creating price list:', error);
-      if (!(error instanceof Error && error.message === 'Failed to create price list')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to create price list.');
     } finally {
       setIsSubmitting(false);
     }
@@ -189,35 +152,13 @@ export default function PriceListsPage() {
   // Handle form submission for edit
   const onEditSubmit = async (values: PriceListFormValues) => {
     if (!orgId || !editingPriceList) {
-      toast.error('Missing required information.');
+      toast.error('Organization not selected.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/price-lists/${editingPriceList.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to update price list.');
-        throw new Error('Failed to update price list');
-      }
-
-      const result = await response.json();
+      await apiPut(`/api/price-lists/${editingPriceList.id}`, values);
       
       toast.success('Price list updated successfully!');
       setIsEditDialogOpen(false);
@@ -228,9 +169,7 @@ export default function PriceListsPage() {
       await fetchPriceLists();
     } catch (error) {
       console.error('Error updating price list:', error);
-      if (!(error instanceof Error && error.message === 'Failed to update price list')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to update price list.');
     } finally {
       setIsSubmitting(false);
     }
@@ -243,31 +182,12 @@ export default function PriceListsPage() {
     }
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/price-lists/${priceList.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to delete price list.');
-        throw new Error('Failed to delete price list');
-      }
-
+      await apiDelete(`/api/price-lists/${priceList.id}`);
       toast.success('Price list deleted successfully!');
       await fetchPriceLists();
     } catch (error) {
       console.error('Error deleting price list:', error);
-      toast.error('An unexpected error occurred.');
+      toast.error('Failed to delete price list.');
     }
   };
 

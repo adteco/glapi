@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Edit, Plus } from 'lucide-react';
-import { apiEndpoints } from '@/lib/api';
+import { useAuth } from '@clerk/nextjs';
 
 interface Customer {
   id: string;
@@ -26,49 +26,59 @@ interface Customer {
 export default function CustomerDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const { getToken } = useAuth();
+  const { apiGet } = useApiClient();
   const router = useRouter();
+  const { orgId } = useAuth();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [childCustomers, setChildCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const lastOrgIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    fetchCustomerData();
-  }, [id]);
-
-  const fetchCustomerData = async () => {
+  const fetchCustomerData = useCallback(async () => {
+    if (!orgId) return;
+    
     try {
-      const token = await getToken();
+      setLoading(true);
       
       // Fetch customer details
-      const customerResponse = await fetch(`${apiEndpoints.customers}/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!customerResponse.ok) throw new Error('Failed to fetch customer');
-      
-      const customerData = await customerResponse.json();
+      const customerData = await apiGet<Customer>(`/api/customers/${id}`);
       setCustomer(customerData);
       
       // Fetch child customers
-      const childrenResponse = await fetch(`${apiEndpoints.customers}/${id}/children`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (childrenResponse.ok) {
-        const childrenData = await childrenResponse.json();
+      try {
+        const childrenData = await apiGet<{ data: Customer[] }>(`/api/customers/${id}/children`);
         setChildCustomers(childrenData.data || []);
+      } catch (error) {
+        // If children endpoint fails, just set empty array
+        setChildCustomers([]);
       }
     } catch (error) {
       console.error('Error fetching customer data:', error);
+      setCustomer(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiGet, orgId, id]);
+
+  // Detect organization changes and clear data
+  useEffect(() => {
+    const currentOrgId = orgId || null;
+    
+    if (lastOrgIdRef.current && lastOrgIdRef.current !== currentOrgId) {
+      // Organization changed, clear data
+      setCustomer(null);
+      setChildCustomers([]);
+      setLoading(true);
+    }
+    
+    lastOrgIdRef.current = currentOrgId;
+  }, [orgId]);
+
+  useEffect(() => {
+    if (orgId) {
+      fetchCustomerData();
+    }
+  }, [fetchCustomerData, orgId]);
 
   if (loading) {
     return <div>Loading...</div>;

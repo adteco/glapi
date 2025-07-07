@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Plus, ChevronRight, ChevronDown, Edit, Trash2, Folder, FolderOpen } from 'lucide-react';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,8 @@ export default function ItemCategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
@@ -79,7 +82,7 @@ export default function ItemCategoriesPage() {
     },
   });
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     if (!orgId) {
       setIsLoading(false);
       return;
@@ -87,55 +90,31 @@ export default function ItemCategoriesPage() {
     
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      
       // Fetch tree structure
-      const treeResponse = await fetch(`${apiUrl}/api/item-categories/tree`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!treeResponse.ok) {
-        const errorResult = await treeResponse.json();
-        toast.error(errorResult.message || 'Failed to fetch categories.');
-        throw new Error('Failed to fetch categories');
-      }
-
-      const treeData = await treeResponse.json();
+      const treeData = await apiGet<ItemCategory[]>('/api/item-categories/tree');
       setCategories(treeData);
 
       // Also fetch flat list for form selects
-      const listResponse = await fetch(`${apiUrl}/api/item-categories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (listResponse.ok) {
-        const listData = await listResponse.json();
-        setFlatCategories(listData.data || []);
-      }
+      const listData = await apiGet<{ data: ItemCategory[] }>('/api/item-categories');
+      setFlatCategories(listData.data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
-      if (!(error instanceof Error && error.message === 'Failed to fetch categories')) {
-        toast.error('An unexpected error occurred while fetching categories.');
-      }
+      toast.error('Failed to fetch categories.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
 
+  // Clear data and refetch when organization changes
   useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setCategories([]);
+      setFlatCategories([]);
+      previousOrgIdRef.current = orgId;
+    }
     fetchCategories();
-  }, [orgId]);
+  }, [orgId, fetchCategories]);
 
   const toggleExpanded = (categoryId: string) => {
     setExpandedCategories(prev => {
@@ -152,38 +131,18 @@ export default function ItemCategoriesPage() {
   const handleAddCategory = async (values: CategoryFormValues) => {
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/item-categories`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...values,
-          parentCategoryId: values.parentCategoryId || null,
-        }),
+      await apiPost('/api/item-categories', {
+        ...values,
+        parentCategoryId: values.parentCategoryId || null,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to create category');
-        return;
-      }
 
       toast.success('Category created successfully');
       setIsAddDialogOpen(false);
       form.reset();
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error('Error creating category:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to create category');
     } finally {
       setIsSubmitting(false);
     }
@@ -194,37 +153,17 @@ export default function ItemCategoriesPage() {
     
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/item-categories/${selectedCategory.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...values,
-          parentCategoryId: values.parentCategoryId || null,
-        }),
+      await apiPut(`/api/item-categories/${selectedCategory.id}`, {
+        ...values,
+        parentCategoryId: values.parentCategoryId || null,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to update category');
-        return;
-      }
 
       toast.success('Category updated successfully');
       setIsEditDialogOpen(false);
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error('Error updating category:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to update category');
     } finally {
       setIsSubmitting(false);
     }
@@ -236,31 +175,12 @@ export default function ItemCategoriesPage() {
     }
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/item-categories/${category.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to delete category');
-        return;
-      }
-
+      await apiDelete(`/api/item-categories/${category.id}`);
       toast.success('Category deleted successfully');
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error('Error deleting category:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to delete category');
     }
   };
 

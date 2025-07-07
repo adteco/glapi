@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -76,6 +77,8 @@ export default function ClassesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<ClassFormValues>({
     // resolver: zodResolver(classFormSchema),
@@ -88,143 +91,87 @@ export default function ClassesPage() {
   });
 
   // Fetch classes
-  useEffect(() => {
-    const fetchClasses = async () => {
-      if (!orgId) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const token = await getToken();
-        if (!token) {
-          toast.error('Authentication token not available.');
-          setIsLoading(false);
-          return;
-        }
-        
-        // Debug: Log the token to see what's in it
-        console.log('Token:', token);
-        const decodedToken = JSON.parse(atob(token.split('.')[1]));
-        console.log('Decoded token:', decodedToken);
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/classes`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorResult = await response.json();
-          toast.error(errorResult.message || errorResult.error || 'Failed to fetch classes.');
-          throw new Error('Failed to fetch classes');
-        }
-
-        const data = await response.json();
-        setClasses(data.data || []);
-      } catch (error) {
-        console.error('Error fetching classes:', error);
-        if (!(error instanceof Error && error.message === 'Failed to fetch classes')) {
-          toast.error('An unexpected error occurred while fetching classes.');
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchClasses();
-  }, [orgId, getToken]);
-
-  // Fetch subsidiaries
-  useEffect(() => {
-    const fetchSubsidiaries = async () => {
-      if (!orgId) return;
-      
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/subsidiaries`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const subs = data.data || [];
-          setSubsidiaries(subs);
-          
-          // Create default subsidiary if none exist
-          if (subs.length === 0) {
-            await createDefaultSubsidiary(token);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching subsidiaries:', error);
-      }
-    };
-
-    fetchSubsidiaries();
-  }, [orgId, getToken]);
-
-  // Create default subsidiary
-  const createDefaultSubsidiary = async (token: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/subsidiaries`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: 'Default Subsidiary',
-          code: 'DEFAULT',
-          description: 'Default subsidiary for the organization',
-        }),
-      });
-
-      if (response.ok) {
-        const newSubsidiary = await response.json();
-        setSubsidiaries([newSubsidiary]);
-        
-        // Create default class
-        await createDefaultClass(token, newSubsidiary.id);
-      }
-    } catch (error) {
-      console.error('Error creating default subsidiary:', error);
+  const fetchClasses = useCallback(async () => {
+    if (!orgId) {
+      setIsLoading(false);
+      return;
     }
-  };
+    setIsLoading(true);
+    try {
+      const data = await apiGet<{ data: Class[] }>('/api/classes');
+      setClasses(data.data || []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      toast.error('Failed to fetch classes.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orgId, apiGet]);
 
   // Create default class
-  const createDefaultClass = async (token: string, subsidiaryId: string) => {
+  const createDefaultClass = useCallback(async (subsidiaryId: string) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/classes`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: 'Default Class',
-          code: 'DEFAULT',
-          description: 'Default class for transactions',
-          subsidiaryId: subsidiaryId,
-        }),
+      const newClass = await apiPost<Class>('/api/classes', {
+        name: 'Default Class',
+        code: 'DEFAULT',
+        description: 'Default class for transactions',
+        subsidiaryId: subsidiaryId,
       });
-
-      if (response.ok) {
-        const newClass = await response.json();
-        setClasses([newClass]);
-      }
+      setClasses([newClass]);
     } catch (error) {
       console.error('Error creating default class:', error);
     }
-  };
+  }, [apiPost]);
+
+  // Create default subsidiary
+  const createDefaultSubsidiary = useCallback(async () => {
+    try {
+      const newSubsidiary = await apiPost<Subsidiary>('/api/subsidiaries', {
+        name: 'Default Subsidiary',
+        code: 'DEFAULT',
+        description: 'Default subsidiary for the organization',
+      });
+      setSubsidiaries([newSubsidiary]);
+      
+      // Create default class
+      await createDefaultClass(newSubsidiary.id);
+    } catch (error) {
+      console.error('Error creating default subsidiary:', error);
+    }
+  }, [apiPost, createDefaultClass]);
+
+  // Fetch subsidiaries
+  const fetchSubsidiaries = useCallback(async () => {
+    if (!orgId) return;
+    
+    try {
+      const data = await apiGet<{ data: Subsidiary[] }>('/api/subsidiaries');
+      const subs = data.data || [];
+      setSubsidiaries(subs);
+      
+      // Create default subsidiary if none exist
+      if (subs.length === 0) {
+        await createDefaultSubsidiary();
+      }
+    } catch (error) {
+      console.error('Error fetching subsidiaries:', error);
+    }
+  }, [orgId, apiGet, createDefaultSubsidiary]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setClasses([]);
+      setSubsidiaries([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchClasses();
+  }, [orgId, fetchClasses]);
+
+  useEffect(() => {
+    fetchSubsidiaries();
+  }, [fetchSubsidiaries]);
 
   // Submit form
   const onSubmit = async (values: ClassFormValues) => {
@@ -235,42 +182,18 @@ export default function ClassesPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/classes`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...values,
-          code: values.code || undefined,
-          description: values.description || undefined,
-        }),
+      const response = await apiPost<{ data: Class }>('/api/classes', {
+        ...values,
+        code: values.code || undefined,
+        description: values.description || undefined,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || errorResult.error || 'Failed to create class.');
-        throw new Error('Failed to create class');
-      }
-
-      const newClass = await response.json();
-      setClasses([...classes, newClass]);
+      setClasses([...classes, response.data]);
       toast.success('Class created successfully!');
       setIsDialogOpen(false);
       form.reset();
     } catch (error) {
       console.error('Error creating class:', error);
-      if (!(error instanceof Error && error.message === 'Failed to create class')) {
-        toast.error('An unexpected error occurred while creating the class.');
-      }
+      toast.error('Failed to create class.');
     } finally {
       setIsSubmitting(false);
     }
