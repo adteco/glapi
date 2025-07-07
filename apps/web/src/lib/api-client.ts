@@ -11,7 +11,7 @@ export async function apiClient(
   const { getToken, orgId } = await auth();
   const token = await getToken();
   
-  const { includeOrgId = true, headers = {}, ...restOptions } = options;
+  const { includeOrgId = true, headers, ...restOptions } = options;
   
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -19,11 +19,22 @@ export async function apiClient(
   
   // Merge any existing headers
   if (headers) {
-    Object.entries(headers).forEach(([key, value]) => {
-      if (typeof value === 'string') {
+    // Handle different HeadersInit types
+    if (headers instanceof Headers) {
+      headers.forEach((value, key) => {
         requestHeaders[key] = value;
-      }
-    });
+      });
+    } else if (Array.isArray(headers)) {
+      headers.forEach(([key, value]) => {
+        requestHeaders[key] = value;
+      });
+    } else if (typeof headers === 'object') {
+      Object.entries(headers).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          requestHeaders[key] = value;
+        }
+      });
+    }
   }
   
   if (token) {
