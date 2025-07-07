@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CustomerService, NewCustomerSchema } from '@glapi/api-service';
 import { getServiceContext } from '../utils/auth';
-import { isServiceError } from '../utils/errors';
+import { handleApiError } from '../utils/errors';
 
 // POST /api/customers - Create a new customer
 export async function POST(request: NextRequest) {
@@ -36,32 +36,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('Error creating customer:', error);
-    
-    // Check if it's a ServiceError
-    if (isServiceError(error)) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          code: error.code,
-          details: error.details
-        },
-        { status: error.statusCode }
-      );
-    }
-    
-    // Generic error handling
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { message: error.message },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -104,32 +79,6 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error listing customers:', error);
-    
-    // Check if it's a ServiceError
-    if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
-      const serviceError = error as any;
-      return NextResponse.json(
-        {
-          message: serviceError.message,
-          code: serviceError.code,
-          details: serviceError.details
-        },
-        { status: serviceError.statusCode }
-      );
-    }
-    
-    // Generic error handling
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { message: error.message },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
