@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -64,6 +65,8 @@ interface UnitOfMeasure {
 
 export default function UnitsOfMeasurePage() {
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
   const [units, setUnits] = useState<UnitOfMeasure[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -84,29 +87,15 @@ export default function UnitsOfMeasurePage() {
     },
   });
 
-  const fetchUnits = async () => {
-    if (!orgId) return;
+  const fetchUnits = useCallback(async () => {
+    if (!orgId) {
+      setIsLoading(false);
+      return;
+    }
     
+    setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/units-of-measure`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch units of measure');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<{ data: UnitOfMeasure[] }>('/api/units-of-measure');
       setUnits(data.data || []);
     } catch (error) {
       console.error('Error fetching units:', error);
@@ -114,116 +103,81 @@ export default function UnitsOfMeasurePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
 
+  // Clear data and refetch when organization changes
   useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setUnits([]);
+      previousOrgIdRef.current = orgId;
+    }
     fetchUnits();
-  }, [orgId]);
+  }, [orgId, fetchUnits]);
 
   const handleAddUnit = async (values: UnitFormValues) => {
+    if (!orgId) {
+      toast.error('Organization not selected.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/units-of-measure`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to create unit of measure');
-        return;
-      }
-
+      await apiPost('/api/units-of-measure', values);
+      
       toast.success('Unit of measure created successfully');
       setIsAddDialogOpen(false);
       form.reset();
-      fetchUnits();
+      
+      // Refresh the units list
+      await fetchUnits();
     } catch (error) {
       console.error('Error creating unit:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to create unit of measure');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleEditUnit = async (values: UnitFormValues) => {
-    if (!selectedUnit) return;
+    if (!orgId || !selectedUnit) {
+      toast.error('Organization not selected.');
+      return;
+    }
     
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/units-of-measure/${selectedUnit.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to update unit of measure');
-        return;
-      }
-
+      await apiPut(`/api/units-of-measure/${selectedUnit.id}`, values);
+      
       toast.success('Unit of measure updated successfully');
       setIsEditDialogOpen(false);
       setSelectedUnit(null);
       form.reset();
-      fetchUnits();
+      
+      // Refresh the units list
+      await fetchUnits();
     } catch (error) {
       console.error('Error updating unit:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to update unit of measure');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteUnit = async (unit: UnitOfMeasure) => {
+    if (!orgId) {
+      toast.error('Organization not selected.');
+      return;
+    }
+
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/units-of-measure/${unit.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to delete unit of measure');
-        return;
-      }
-
+      await apiDelete(`/api/units-of-measure/${unit.id}`);
+      
       toast.success('Unit of measure deleted successfully');
-      fetchUnits();
+      await fetchUnits();
     } catch (error) {
       console.error('Error deleting unit:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to delete unit of measure');
     }
   };
 

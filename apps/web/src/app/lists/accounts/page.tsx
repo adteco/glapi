@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'; // For displaying account categor
 import { SeedAccountsButton } from '@/components/SeedAccountsButton';
 import { ChevronRight, ChevronDown, Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -118,6 +119,8 @@ export default function AccountsPage() {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<AccountFormValues>({
     // Temporarily remove zodResolver to fix build issue
@@ -132,51 +135,33 @@ export default function AccountsPage() {
     },
   });
 
-  const fetchAccounts = async () => {
-      if (!orgId) {
-        // Potentially set accounts to [] or show a message if no org is active
-        // For now, we just won't fetch if there's no orgId
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const token = await getToken(); // Get the default Clerk JWT token
-        if (!token) {
-          toast.error('Authentication token not available.');
-          setIsLoading(false);
-          return;
-        }
+  const fetchAccounts = useCallback(async () => {
+    if (!orgId) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const data = await apiGet<{ data: Account[] }>('/api/gl/accounts');
+      setAccounts(data.data || []);
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+      toast.error('Failed to fetch accounts.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orgId, apiGet]);
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/gl/accounts`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorResult = await response.json();
-          toast.error(errorResult.message || errorResult.error || 'Failed to fetch accounts.');
-          throw new Error('Failed to fetch accounts');
-        }
-
-        const data = await response.json();
-        setAccounts(data.data || []);
-      } catch (error) {
-        console.error('Error fetching accounts:', error);
-        // Toast error is handled above if response is not ok
-        if (!(error instanceof Error && error.message === 'Failed to fetch accounts')) {
-            toast.error('An unexpected error occurred while fetching accounts.');
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+  // Clear data and refetch when organization changes
   useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setAccounts([]);
+      setExpandedAccounts(new Set());
+      previousOrgIdRef.current = orgId;
+    }
     fetchAccounts();
-  }, [orgId, getToken]); // Re-fetch if orgId changes
+  }, [orgId, fetchAccounts]);
 
   // Toggle expansion of a parent account
   const toggleExpanded = (accountNumber: string) => {
@@ -195,35 +180,14 @@ export default function AccountsPage() {
   const handleAddAccount = async (values: AccountFormValues) => {
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/gl/accounts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to create account');
-        return;
-      }
-
+      await apiPost('/api/gl/accounts', values);
       toast.success('Account created successfully');
       setIsAddDialogOpen(false);
       form.reset();
       fetchAccounts();
     } catch (error) {
       console.error('Error creating account:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to create account');
     } finally {
       setIsSubmitting(false);
     }
@@ -235,34 +199,13 @@ export default function AccountsPage() {
     
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/gl/accounts/${selectedAccount.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to update account');
-        return;
-      }
-
+      await apiPut(`/api/gl/accounts/${selectedAccount.id}`, values);
       toast.success('Account updated successfully');
       setIsEditDialogOpen(false);
       fetchAccounts();
     } catch (error) {
       console.error('Error updating account:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to update account');
     } finally {
       setIsSubmitting(false);
     }
@@ -274,32 +217,13 @@ export default function AccountsPage() {
     
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/gl/accounts/${selectedAccount.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to delete account');
-        return;
-      }
-
+      await apiDelete(`/api/gl/accounts/${selectedAccount.id}`);
       toast.success('Account deleted successfully');
       setIsDeleteDialogOpen(false);
       fetchAccounts();
     } catch (error) {
       console.error('Error deleting account:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to delete account');
     } finally {
       setIsSubmitting(false);
     }
