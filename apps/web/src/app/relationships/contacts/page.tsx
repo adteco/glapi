@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { apiEndpoints } from '@/lib/api';
+import { useApiClient } from '@/lib/api-client.client';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 
 interface ContactMetadata {
@@ -44,8 +44,10 @@ interface Entity {
 }
 
 export default function ContactsPage() {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
   const router = useRouter();
+  const prevOrgIdRef = useRef<string | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,49 +70,28 @@ export default function ContactsPage() {
     }
   });
 
-  useEffect(() => {
-    fetchContacts();
-    fetchCompanies();
-  }, []);
-
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
+    if (!orgId) return;
+    
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.contacts, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        console.error('Fetch contacts failed:', response.status, response.statusText);
-        throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await apiGet<{ data: Contact[] }>('/api/contacts');
       setContacts(data.data || []);
     } catch (error) {
       console.error('Error fetching contacts:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiGet, orgId]);
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
+    if (!orgId) return;
+    
     try {
-      const token = await getToken();
       // Fetch all customers and vendors to use as parent companies
-      const [customersRes, vendorsRes] = await Promise.all([
-        fetch(apiEndpoints.customers, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-        fetch(apiEndpoints.vendors, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
+      const [customers, vendors] = await Promise.all([
+        apiGet<{ data: Entity[] }>('/api/customers'),
+        apiGet<{ data: Entity[] }>('/api/vendors'),
       ]);
-      
-      const customers = await customersRes.json();
-      const vendors = await vendorsRes.json();
       
       const allCompanies = [
         ...(customers.data || []),
@@ -121,41 +102,44 @@ export default function ContactsPage() {
     } catch (error) {
       console.error('Error fetching companies:', error);
     }
-  };
+  }, [apiGet, orgId]);
+
+  useEffect(() => {
+    if (orgId && orgId !== prevOrgIdRef.current) {
+      // Organization changed, clear data
+      setContacts([]);
+      setCompanies([]);
+      setLoading(true);
+      prevOrgIdRef.current = orgId;
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    if (orgId) {
+      fetchContacts();
+      fetchCompanies();
+    }
+  }, [orgId, fetchContacts, fetchCompanies]);
 
   const handleCreate = async () => {
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.contacts, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      await apiPost('/api/contacts', {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        entityTypes: ['Contact'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        parentEntityId: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
+        status: formData.status,
+        isActive: true,
+        metadata: {
+          title: formData.metadata.title || undefined,
+          department: formData.metadata.department || undefined,
+          mobilePhone: formData.metadata.mobilePhone || undefined,
+          workPhone: formData.metadata.workPhone || undefined,
+          preferredContactMethod: formData.metadata.preferredContactMethod || undefined,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          entityTypes: ['Contact'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          parentEntityId: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
-          status: formData.status,
-          isActive: true,
-          metadata: {
-            title: formData.metadata.title || undefined,
-            department: formData.metadata.department || undefined,
-            mobilePhone: formData.metadata.mobilePhone || undefined,
-            workPhone: formData.metadata.workPhone || undefined,
-            preferredContactMethod: formData.metadata.preferredContactMethod || undefined,
-          },
-        }),
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Create contact error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to create contact');
-      }
       
       await fetchContacts();
       setIsCreateOpen(false);
@@ -170,37 +154,23 @@ export default function ContactsPage() {
     if (!selectedContact) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.contacts}/${selectedContact.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      await apiPut(`/api/contacts/${selectedContact.id}`, {
+        name: formData.name,
+        displayName: formData.displayName || undefined,
+        entityTypes: ['Contact'],
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        parentEntityId: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
+        status: formData.status,
+        isActive: true,
+        metadata: {
+          title: formData.metadata.title || undefined,
+          department: formData.metadata.department || undefined,
+          mobilePhone: formData.metadata.mobilePhone || undefined,
+          workPhone: formData.metadata.workPhone || undefined,
+          preferredContactMethod: formData.metadata.preferredContactMethod || undefined,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          entityTypes: ['Contact'],
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          parentEntityId: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
-          status: formData.status,
-          isActive: true,
-          metadata: {
-            title: formData.metadata.title || undefined,
-            department: formData.metadata.department || undefined,
-            mobilePhone: formData.metadata.mobilePhone || undefined,
-            workPhone: formData.metadata.workPhone || undefined,
-            preferredContactMethod: formData.metadata.preferredContactMethod || undefined,
-          },
-        }),
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Update contact error:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to update contact');
-      }
       
       await fetchContacts();
       setIsEditOpen(false);
@@ -215,19 +185,11 @@ export default function ContactsPage() {
     if (!confirm('Are you sure you want to delete this contact?')) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.contacts}/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete contact');
-      
+      await apiDelete(`/api/contacts/${id}`);
       await fetchContacts();
     } catch (error) {
       console.error('Error deleting contact:', error);
+      alert('Failed to delete contact');
     }
   };
 

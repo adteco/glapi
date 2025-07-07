@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { useApiClient } from '@/lib/api-client.client';
 
 interface PriceList {
   id: string;
@@ -43,53 +44,32 @@ export function ExpandablePriceList({ priceList, priority }: ExpandablePriceList
   const [isExpanded, setIsExpanded] = useState(false);
   const [items, setItems] = useState<ItemPricing[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
-  const fetchPriceListItems = async () => {
+  const fetchPriceListItems = useCallback(async () => {
+    if (!orgId) return;
+    
     if (!isExpanded) {
       setIsExpanded(true);
       if (items.length > 0) return; // Already loaded
       
       setIsLoading(true);
       try {
-        const token = await getToken();
-        if (!token) {
-          toast.error('Authentication token not available.');
-          return;
-        }
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/price-lists/${priceList.id}/items?limit=100`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          toast.error('Failed to fetch price list items.');
-          return;
-        }
-
-        const data = await response.json();
-        const pricings = Array.isArray(data) ? data : (data.data || []);
+        const response = await apiGet<{ data: ItemPricing[] } | ItemPricing[]>(`/api/price-lists/${priceList.id}/items?limit=100`);
+        const pricings = Array.isArray(response) ? response : ((response as any).data || []);
         
         // Fetch item details for each pricing
         const enrichedPricings = await Promise.all(
           pricings.map(async (pricing: ItemPricing) => {
             try {
-              const itemResponse = await fetch(`${apiUrl}/api/items/${pricing.itemId}`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
-              if (itemResponse.ok) {
-                const item = await itemResponse.json();
-                return { ...pricing, item };
-              }
+              const item = await apiGet<Item>(`/api/items/${pricing.itemId}`);
+              return { ...pricing, item };
             } catch (err) {
               console.error('Error fetching item details:', err);
+              return pricing;
             }
-            return pricing;
           })
         );
         
@@ -103,7 +83,17 @@ export function ExpandablePriceList({ priceList, priority }: ExpandablePriceList
     } else {
       setIsExpanded(false);
     }
-  };
+  }, [orgId, priceList.id, isExpanded, items.length, apiGet]);
+
+  // Clear data when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setItems([]);
+      setIsExpanded(false);
+      previousOrgIdRef.current = orgId;
+    }
+  }, [orgId]);
 
   return (
     <div className="space-y-2">

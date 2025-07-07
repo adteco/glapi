@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { apiEndpoints } from '@/lib/api';
+import { useApiClient } from '@/lib/api-client.client';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Address {
   street?: string | null;
@@ -238,13 +239,15 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData, cust
 );
 
 export default function CustomersPage() {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const previousOrgIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -266,78 +269,71 @@ export default function CustomersPage() {
     }
   });
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.customers, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch customers');
-      
-      const data = await response.json();
+      const data = await apiGet<{ data: Customer[] }>('/api/customers');
       console.log('Fetched customers:', data);
       setCustomers(data.data || []);
     } catch (error) {
       console.error('Error fetching customers:', error);
+      toast.error('Failed to fetch customers.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
+  useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setCustomers([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchCustomers();
+  }, [orgId, fetchCustomers]);
 
   const handleCreate = async () => {
     try {
       if (!formData.name) {
-        alert('Company name is required');
+        toast.error('Company name is required');
         return;
       }
 
-      const token = await getToken();
-      const response = await fetch(apiEndpoints.customers, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          companyName: formData.name,
-          customerId: formData.code || undefined,
-          contactEmail: formData.email || undefined,
-          contactPhone: formData.phone || undefined,
-          status: formData.status,
-          parentCustomerId: formData.parentCustomerId || undefined,
-          billingAddress: formData.address.street || formData.address.city ? {
-            street: formData.address.street || undefined,
-            city: formData.address.city || undefined,
-            state: formData.address.state || undefined,
-            postalCode: formData.address.postalCode || undefined,
-            country: formData.address.country || undefined,
-          } : undefined,
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Create customer error:', errorData);
-        alert(errorData.message || 'Failed to create customer');
+      if (!orgId) {
+        toast.error('Organization not selected.');
         return;
       }
+
+      const newCustomer = await apiPost<Customer>('/api/customers', {
+        companyName: formData.name,
+        customerId: formData.code || undefined,
+        contactEmail: formData.email || undefined,
+        contactPhone: formData.phone || undefined,
+        status: formData.status,
+        parentCustomerId: formData.parentCustomerId || undefined,
+        billingAddress: formData.address.street || formData.address.city ? {
+          street: formData.address.street || undefined,
+          city: formData.address.city || undefined,
+          state: formData.address.state || undefined,
+          postalCode: formData.address.postalCode || undefined,
+          country: formData.address.country || undefined,
+        } : undefined,
+      });
       
-      const newCustomer = await response.json();
       console.log('Customer created successfully:', newCustomer);
+      toast.success('Customer created successfully.');
       
       await fetchCustomers();
       setIsCreateOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error creating customer:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create customer');
+      toast.error(error instanceof Error ? error.message : 'Failed to create customer');
     }
   };
 
@@ -345,37 +341,34 @@ export default function CustomersPage() {
     if (!selectedCustomer) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.customers}/${selectedCustomer.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          companyName: formData.name,
-          customerId: formData.code || undefined,
-          contactEmail: formData.email || undefined,
-          contactPhone: formData.phone || undefined,
-          status: formData.status,
-          parentCustomerId: formData.parentCustomerId || undefined,
-          billingAddress: formData.address.street || formData.address.city ? {
-            street: formData.address.street || undefined,
-            city: formData.address.city || undefined,
-            state: formData.address.state || undefined,
-            postalCode: formData.address.postalCode || undefined,
-            country: formData.address.country || undefined,
-          } : undefined,
-        }),
+      if (!orgId) {
+        toast.error('Organization not selected.');
+        return;
+      }
+
+      await apiPut(`/api/customers/${selectedCustomer.id}`, {
+        companyName: formData.name,
+        customerId: formData.code || undefined,
+        contactEmail: formData.email || undefined,
+        contactPhone: formData.phone || undefined,
+        status: formData.status,
+        parentCustomerId: formData.parentCustomerId || undefined,
+        billingAddress: formData.address.street || formData.address.city ? {
+          street: formData.address.street || undefined,
+          city: formData.address.city || undefined,
+          state: formData.address.state || undefined,
+          postalCode: formData.address.postalCode || undefined,
+          country: formData.address.country || undefined,
+        } : undefined,
       });
       
-      if (!response.ok) throw new Error('Failed to update customer');
-      
+      toast.success('Customer updated successfully.');
       await fetchCustomers();
       setIsEditOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error updating customer:', error);
+      toast.error('Failed to update customer.');
     }
   };
 
@@ -383,19 +376,12 @@ export default function CustomersPage() {
     if (!confirm('Are you sure you want to delete this customer?')) return;
     
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiEndpoints.customers}/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete customer');
-      
+      await apiDelete(`/api/customers/${id}`);
+      toast.success('Customer deleted successfully.');
       await fetchCustomers();
     } catch (error) {
       console.error('Error deleting customer:', error);
+      toast.error('Failed to delete customer.');
     }
   };
 

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -88,6 +89,8 @@ export default function LocationsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<LocationFormValues>({
     // resolver: zodResolver(locationFormSchema),
@@ -106,48 +109,33 @@ export default function LocationsPage() {
   });
 
   // Fetch locations
+  const fetchLocations = useCallback(async () => {
+    if (!orgId) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const data = await apiGet<{ data: Location[] }>('/api/locations');
+      setLocations(data.data || []);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      toast.error('Failed to fetch locations.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
   useEffect(() => {
-    const fetchLocations = async () => {
-      if (!orgId) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const token = await getToken();
-        if (!token) {
-          toast.error('Authentication token not available.');
-          setIsLoading(false);
-          return;
-        }
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/locations`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorResult = await response.json();
-          toast.error(errorResult.message || errorResult.error || 'Failed to fetch locations.');
-          throw new Error('Failed to fetch locations');
-        }
-
-        const data = await response.json();
-        setLocations(data.data || []);
-      } catch (error) {
-        console.error('Error fetching locations:', error);
-        if (!(error instanceof Error && error.message === 'Failed to fetch locations')) {
-          toast.error('An unexpected error occurred while fetching locations.');
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setLocations([]);
+      setSubsidiaries([]);
+      previousOrgIdRef.current = orgId;
+    }
     fetchLocations();
-  }, [orgId, getToken]);
+  }, [orgId, fetchLocations]);
 
   // Fetch subsidiaries
   useEffect(() => {
@@ -155,22 +143,7 @@ export default function LocationsPage() {
       if (!orgId) return;
       
       try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/subsidiaries`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch subsidiaries');
-          return;
-        }
-
-        const data = await response.json();
+        const data = await apiGet<{ data: Subsidiary[] }>('/api/subsidiaries');
         setSubsidiaries(data.data || []);
       } catch (error) {
         console.error('Error fetching subsidiaries:', error);
@@ -178,7 +151,7 @@ export default function LocationsPage() {
     };
 
     fetchSubsidiaries();
-  }, [orgId, getToken]);
+  }, [orgId, apiGet]);
 
   // Handle form submission
   const onSubmit = async (values: LocationFormValues) => {
@@ -189,61 +162,28 @@ export default function LocationsPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/locations`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: values.name,
-          code: values.code || undefined,
-          description: values.description || undefined,
-          subsidiaryId: values.subsidiaryId,
-          addressLine1: values.addressLine1 || undefined,
-          addressLine2: values.addressLine2 || undefined,
-          city: values.city || undefined,
-          stateProvince: values.stateProvince || undefined,
-          postalCode: values.postalCode || undefined,
-          countryCode: values.countryCode || undefined,
-        }),
+      await apiPost('/api/locations', {
+        name: values.name,
+        code: values.code || undefined,
+        description: values.description || undefined,
+        subsidiaryId: values.subsidiaryId,
+        addressLine1: values.addressLine1 || undefined,
+        addressLine2: values.addressLine2 || undefined,
+        city: values.city || undefined,
+        stateProvince: values.stateProvince || undefined,
+        postalCode: values.postalCode || undefined,
+        countryCode: values.countryCode || undefined,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to create location.');
-        throw new Error('Failed to create location');
-      }
-
-      const result = await response.json();
       
       toast.success('Location created successfully!');
       setIsDialogOpen(false);
       form.reset();
       
       // Refresh the locations list
-      const refreshResponse = await fetch(`${apiUrl}/api/locations`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (refreshResponse.ok) {
-        const data = await refreshResponse.json();
-        setLocations(data.data || []);
-      }
+      await fetchLocations();
     } catch (error) {
       console.error('Error creating location:', error);
-      if (!(error instanceof Error && error.message === 'Failed to create location')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to create location.');
     } finally {
       setIsSubmitting(false);
     }

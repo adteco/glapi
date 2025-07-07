@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,9 +40,27 @@ export function WarehousePriceLookup({ customers = [], items = [] }: WarehousePr
   const [priceResult, setPriceResult] = useState<PriceLookupResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getToken, orgId } = useAuth();
+  const { orgId } = useAuth();
+  const { apiClient } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
-  const handleLookup = async () => {
+  // Detect organization changes and clear data
+  useEffect(() => {
+    const currentOrgId = orgId || null;
+    
+    if (previousOrgIdRef.current && previousOrgIdRef.current !== currentOrgId) {
+      // Organization changed, clear data
+      setPriceResult(null);
+      setSelectedCustomerId('');
+      setSelectedItemId('');
+      setQuantity('1');
+      setError(null);
+    }
+    
+    previousOrgIdRef.current = currentOrgId;
+  }, [orgId]);
+
+  const handleLookup = useCallback(async () => {
     if (!selectedCustomerId || !selectedItemId) {
       toast.error('Please select both a customer and an item');
       return;
@@ -57,19 +76,8 @@ export function WarehousePriceLookup({ customers = [], items = [] }: WarehousePr
     setPriceResult(null);
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouse-pricing/calculate`, {
+      const response = await apiClient('/api/warehouse-pricing/calculate', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           customerId: selectedCustomerId,
           itemId: selectedItemId,
@@ -97,7 +105,7 @@ export function WarehousePriceLookup({ customers = [], items = [] }: WarehousePr
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [apiClient, orgId, selectedCustomerId, selectedItemId, quantity]);
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
   const selectedItem = items.find(i => i.id === selectedItemId);

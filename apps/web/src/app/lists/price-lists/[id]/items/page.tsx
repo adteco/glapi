@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
@@ -96,7 +97,9 @@ export default function PriceListItemsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingPricing, setEditingPricing] = useState<ItemPricing | null>(null);
-  const { getToken, orgId } = useAuth();
+  const { orgId } = useAuth();
+  const { apiClient, apiGet, apiPost, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<ItemPricingFormValues>({
     resolver: zodResolver(itemPricingFormSchema),
@@ -121,39 +124,20 @@ export default function PriceListItemsPage() {
   });
 
   // Fetch price list details
-  useEffect(() => {
-    const fetchPriceList = async () => {
-      if (!orgId || !priceListId) return;
-      
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/price-lists/${priceListId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          toast.error('Failed to fetch price list details');
-          return;
-        }
-
-        const data = await response.json();
-        setPriceList(data);
-      } catch (error) {
-        console.error('Error fetching price list:', error);
-        toast.error('An unexpected error occurred');
-      }
-    };
-
-    fetchPriceList();
-  }, [orgId, priceListId, getToken]);
+  const fetchPriceList = useCallback(async () => {
+    if (!orgId || !priceListId) return;
+    
+    try {
+      const data = await apiGet<PriceList>(`/api/price-lists/${priceListId}`);
+      setPriceList(data);
+    } catch (error) {
+      console.error('Error fetching price list:', error);
+      toast.error('Failed to fetch price list details');
+    }
+  }, [orgId, priceListId, apiGet]);
 
   // Fetch item pricings
-  const fetchItemPricings = async () => {
+  const fetchItemPricings = useCallback(async () => {
     if (!orgId || !priceListId) {
       setIsLoading(false);
       return;
@@ -161,27 +145,8 @@ export default function PriceListItemsPage() {
     
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/price-lists/${priceListId}/items?limit=1000`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to fetch price list items.');
-        throw new Error('Failed to fetch items');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<ItemPricing[] | { data: ItemPricing[] }>(`/api/price-lists/${priceListId}/items?limit=1000`);
+      
       // Handle both paginated and non-paginated responses
       const pricings = Array.isArray(data) ? data : (data.data || []);
       
@@ -189,68 +154,50 @@ export default function PriceListItemsPage() {
       const enrichedPricings = await Promise.all(
         pricings.map(async (pricing: ItemPricing) => {
           try {
-            const itemResponse = await fetch(`${apiUrl}/api/items/${pricing.itemId}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            });
-            if (itemResponse.ok) {
-              const item = await itemResponse.json();
-              return { ...pricing, item };
-            }
+            const item = await apiGet<Item>(`/api/items/${pricing.itemId}`);
+            return { ...pricing, item };
           } catch (err) {
             console.error('Error fetching item details:', err);
+            return pricing;
           }
-          return pricing;
         })
       );
       
       setItemPricings(enrichedPricings);
     } catch (error) {
       console.error('Error fetching items:', error);
-      if (!(error instanceof Error && error.message === 'Failed to fetch items')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to fetch price list items.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchItemPricings();
-  }, [orgId, priceListId, getToken]);
+  }, [orgId, priceListId, apiGet]);
 
   // Fetch available items
+  const fetchItems = useCallback(async () => {
+    if (!orgId) return;
+    
+    try {
+      const data = await apiGet<{ data: Item[] }>('/api/items?activeOnly=true&limit=1000');
+      console.log('Items fetched:', data);
+      setAvailableItems(data.data || []);
+    } catch (error) {
+      console.error('Error fetching items:', error);
+    }
+  }, [orgId, apiGet]);
+
+  // Clear data and refetch when organization changes
   useEffect(() => {
-    const fetchItems = async () => {
-      if (!orgId) return;
-      
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/items?activeOnly=true&limit=1000`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch items');
-          return;
-        }
-
-        const data = await response.json();
-        console.log('Items fetched:', data);
-        setAvailableItems(data.data || []);
-      } catch (error) {
-        console.error('Error fetching items:', error);
-      }
-    };
-
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setPriceList(null);
+      setItemPricings([]);
+      setAvailableItems([]);
+      previousOrgIdRef.current = orgId;
+    }
+    fetchPriceList();
+    fetchItemPricings();
     fetchItems();
-  }, [orgId, getToken]);
+  }, [orgId, fetchPriceList, fetchItemPricings, fetchItems]);
 
   // Handle form submission for create
   const onSubmit = async (values: ItemPricingFormValues) => {
@@ -261,35 +208,13 @@ export default function PriceListItemsPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/price-lists/${priceListId}/items`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemId: values.itemId,
-          unitPrice: parseFloat(values.unitPrice),
-          minQuantity: parseFloat(values.minQuantity),
-          effectiveDate: values.effectiveDate,
-          expirationDate: values.expirationDate || undefined,
-        }),
+      await apiPost(`/api/price-lists/${priceListId}/items`, {
+        itemId: values.itemId,
+        unitPrice: parseFloat(values.unitPrice),
+        minQuantity: parseFloat(values.minQuantity),
+        effectiveDate: values.effectiveDate,
+        expirationDate: values.expirationDate || undefined,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to add item to price list.');
-        throw new Error('Failed to add item');
-      }
-
-      const result = await response.json();
       
       toast.success('Item added to price list successfully!');
       setIsDialogOpen(false);
@@ -299,9 +224,7 @@ export default function PriceListItemsPage() {
       await fetchItemPricings();
     } catch (error) {
       console.error('Error adding item:', error);
-      if (!(error instanceof Error && error.message === 'Failed to add item')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to add item to price list.');
     } finally {
       setIsSubmitting(false);
     }
@@ -316,19 +239,8 @@ export default function PriceListItemsPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/item-pricing/${editingPricing.id}`, {
+      const response = await apiClient(`/api/item-pricing/${editingPricing.id}`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           unitPrice: parseFloat(values.unitPrice),
           minQuantity: parseFloat(values.minQuantity),
@@ -336,14 +248,10 @@ export default function PriceListItemsPage() {
           expirationDate: values.expirationDate || undefined,
         }),
       });
-
+      
       if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to update item pricing.');
-        throw new Error('Failed to update pricing');
+        throw new Error('Failed to update item pricing');
       }
-
-      const result = await response.json();
       
       toast.success('Item pricing updated successfully!');
       setIsEditDialogOpen(false);
@@ -354,9 +262,7 @@ export default function PriceListItemsPage() {
       await fetchItemPricings();
     } catch (error) {
       console.error('Error updating pricing:', error);
-      if (!(error instanceof Error && error.message === 'Failed to update pricing')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to update item pricing.');
     } finally {
       setIsSubmitting(false);
     }
@@ -369,31 +275,12 @@ export default function PriceListItemsPage() {
     }
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/item-pricing/${itemPricingId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to remove item from price list.');
-        throw new Error('Failed to remove item');
-      }
-
+      await apiDelete(`/api/item-pricing/${itemPricingId}`);
       toast.success('Item removed from price list successfully!');
       await fetchItemPricings();
     } catch (error) {
       console.error('Error removing item:', error);
-      toast.error('An unexpected error occurred.');
+      toast.error('Failed to remove item from price list.');
     }
   };
 

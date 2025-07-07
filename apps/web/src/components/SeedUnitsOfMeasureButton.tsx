@@ -2,25 +2,24 @@
 
 import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
 export function SeedUnitsOfMeasureButton() {
-  const { getToken } = useAuth();
+  const { orgId } = useAuth();
+  const { apiPost } = useApiClient();
   const [isSeeding, setIsSeeding] = useState(false);
 
   const seedUnits = async () => {
+    if (!orgId) {
+      toast.error('No active organization selected. Please select or create an organization.');
+      return;
+    }
+
     setIsSeeding(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      
       // Common units of measure to seed
       const unitsToSeed = [
         // Weight
@@ -57,26 +56,14 @@ export function SeedUnitsOfMeasureButton() {
 
       for (const unit of unitsToSeed) {
         try {
-          const response = await fetch(`${apiUrl}/api/units-of-measure`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              code: unit.code,
-              name: unit.name,
-              abbreviation: unit.abbreviation,
-              baseConversionFactor: unit.baseConversionFactor,
-              decimalPlaces: unit.decimalPlaces,
-            }),
+          await apiPost('/api/units-of-measure', {
+            code: unit.code,
+            name: unit.name,
+            abbreviation: unit.abbreviation,
+            baseConversionFactor: unit.baseConversionFactor,
+            decimalPlaces: unit.decimalPlaces,
           });
-
-          if (response.ok) {
-            successCount++;
-          } else {
-            errorCount++;
-          }
+          successCount++;
         } catch (error) {
           errorCount++;
         }
@@ -102,7 +89,7 @@ export function SeedUnitsOfMeasureButton() {
   return (
     <Button
       onClick={seedUnits}
-      disabled={isSeeding}
+      disabled={isSeeding || !orgId}
       variant="outline"
     >
       {isSeeding ? (
