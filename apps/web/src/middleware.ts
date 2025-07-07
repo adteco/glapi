@@ -54,11 +54,10 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * - favicon.ico, robots.txt, sitemap.xml (public files)
      * - public folder files
+     * - any file with an extension (e.g., .css, .js, .jpg, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)' ,
   ],
 }; 

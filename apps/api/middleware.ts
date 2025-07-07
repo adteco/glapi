@@ -70,15 +70,16 @@ export function middleware(request: NextRequest): NextResponse | Response {
     
     // If no API key, check for x-organization-id header from client
     const clientOrgId = request.headers.get('x-organization-id');
+    const clientUserId = request.headers.get('x-user-id');
+    
     if (clientOrgId) {
       // Pass through the client's organization ID
       response.headers.set('x-organization-id', clientOrgId);
-      response.headers.set('x-user-id', request.headers.get('x-user-id') || 'user_development');
-    } else {
-      // Only use fallback if no org ID is provided
-      response.headers.set('x-organization-id', 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2'); // Use existing Adteco org UUID
-      response.headers.set('x-user-id', 'user_development');
+      if (clientUserId) {
+        response.headers.set('x-user-id', clientUserId);
+      }
     }
+    // No fallback - if no org ID is provided, the request should fail at the route handler level
   }
   
   return response;
