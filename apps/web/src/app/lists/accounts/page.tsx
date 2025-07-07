@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge'; // For displaying account category
+import { Badge } from '@/components/ui/badge';
 import { SeedAccountsButton } from '@/components/SeedAccountsButton';
 import { ChevronRight, ChevronDown, Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -110,17 +110,53 @@ function getParentAccountNumber(accountNumber: string): string | null {
 }
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
-  const previousOrgIdRef = useRef<string | null>(null);
+  const { orgId } = useAuth();
+  
+  // TRPC queries and mutations
+  const { data: accountsData, isLoading, refetch } = trpc.accounts.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const createAccountMutation = trpc.accounts.create.useMutation({
+    onSuccess: () => {
+      toast.success('Account created successfully');
+      setIsAddDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create account');
+    },
+  });
+  
+  const updateAccountMutation = trpc.accounts.update.useMutation({
+    onSuccess: () => {
+      toast.success('Account updated successfully');
+      setIsEditDialogOpen(false);
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update account');
+    },
+  });
+  
+  const deleteAccountMutation = trpc.accounts.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Account deleted successfully');
+      setIsDeleteDialogOpen(false);
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete account');
+    },
+  });
+
+  const accounts = accountsData?.data || [];
 
   const form = useForm<AccountFormValues>({
     // Temporarily remove zodResolver to fix build issue
@@ -135,33 +171,6 @@ export default function AccountsPage() {
     },
   });
 
-  const fetchAccounts = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await apiGet<{ data: Account[] }>('/api/gl/accounts');
-      setAccounts(data.data || []);
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-      toast.error('Failed to fetch accounts.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setAccounts([]);
-      setExpandedAccounts(new Set());
-      previousOrgIdRef.current = orgId;
-    }
-    fetchAccounts();
-  }, [orgId, fetchAccounts]);
 
   // Toggle expansion of a parent account
   const toggleExpanded = (accountNumber: string) => {
@@ -178,55 +187,22 @@ export default function AccountsPage() {
 
   // Handle add account
   const handleAddAccount = async (values: AccountFormValues) => {
-    setIsSubmitting(true);
-    try {
-      await apiPost('/api/gl/accounts', values);
-      toast.success('Account created successfully');
-      setIsAddDialogOpen(false);
-      form.reset();
-      fetchAccounts();
-    } catch (error) {
-      console.error('Error creating account:', error);
-      toast.error('Failed to create account');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createAccountMutation.mutate(values);
   };
 
   // Handle edit account
   const handleEditAccount = async (values: AccountFormValues) => {
     if (!selectedAccount) return;
-    
-    setIsSubmitting(true);
-    try {
-      await apiPut(`/api/gl/accounts/${selectedAccount.id}`, values);
-      toast.success('Account updated successfully');
-      setIsEditDialogOpen(false);
-      fetchAccounts();
-    } catch (error) {
-      console.error('Error updating account:', error);
-      toast.error('Failed to update account');
-    } finally {
-      setIsSubmitting(false);
-    }
+    updateAccountMutation.mutate({
+      id: selectedAccount.id,
+      data: values,
+    });
   };
 
   // Handle delete account
   const handleDeleteAccount = async () => {
     if (!selectedAccount) return;
-    
-    setIsSubmitting(true);
-    try {
-      await apiDelete(`/api/gl/accounts/${selectedAccount.id}`);
-      toast.success('Account deleted successfully');
-      setIsDeleteDialogOpen(false);
-      fetchAccounts();
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      toast.error('Failed to delete account');
-    } finally {
-      setIsSubmitting(false);
-    }
+    deleteAccountMutation.mutate({ id: selectedAccount.id });
   };
 
   // Open edit dialog with account data
@@ -280,7 +256,7 @@ export default function AccountsPage() {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-bold mb-6">Chart of Accounts</h1>
         <p className="mb-4">No accounts found for this organization. You might need to seed them.</p>
-        <SeedAccountsButton onSuccess={fetchAccounts} />
+        <SeedAccountsButton onSuccess={refetch} />
       </div>
     );
   }
@@ -528,8 +504,8 @@ export default function AccountsPage() {
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create Account"}
+                <Button type="submit" disabled={createAccountMutation.isPending}>
+                  {createAccountMutation.isPending ? "Creating..." : "Create Account"}
                 </Button>
               </DialogFooter>
             </form>
@@ -645,8 +621,8 @@ export default function AccountsPage() {
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Updating..." : "Update Account"}
+                <Button type="submit" disabled={updateAccountMutation.isPending}>
+                  {updateAccountMutation.isPending ? "Updating..." : "Update Account"}
                 </Button>
               </DialogFooter>
             </form>
@@ -668,10 +644,10 @@ export default function AccountsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteAccount}
-              disabled={isSubmitting}
+              disabled={deleteAccountMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
-              {isSubmitting ? "Deleting..." : "Delete"}
+              {deleteAccountMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
