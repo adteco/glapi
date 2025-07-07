@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Building2, Edit, Trash, DollarSign } from 'lucide-react';
+import { useApiClient } from '@/lib/api-client.client';
 import {
   Dialog,
   DialogContent,
@@ -85,6 +86,8 @@ export default function WarehousesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseFormSchema),
@@ -107,48 +110,33 @@ export default function WarehousesPage() {
   });
 
   // Fetch warehouses
-  const fetchWarehouses = async () => {
+  const fetchWarehouses = useCallback(async () => {
     if (!orgId) {
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouses`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || errorResult.error || 'Failed to fetch warehouses.');
-        throw new Error('Failed to fetch warehouses');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<{ data: Warehouse[] }>('/api/warehouses');
       setWarehouses(data.data || []);
     } catch (error) {
       console.error('Error fetching warehouses:', error);
-      if (!(error instanceof Error && error.message === 'Failed to fetch warehouses')) {
-        toast.error('An unexpected error occurred while fetching warehouses.');
-      }
+      toast.error('Failed to fetch warehouses.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orgId, apiGet]);
 
+  // Clear data and refetch when organization changes
   useEffect(() => {
+    if (orgId && orgId !== previousOrgIdRef.current) {
+      // Clear existing data immediately when org changes
+      setWarehouses([]);
+      setLocations([]);
+      previousOrgIdRef.current = orgId;
+    }
     fetchWarehouses();
-  }, [orgId, getToken]);
+  }, [orgId, fetchWarehouses]);
 
   // Fetch locations
   useEffect(() => {
@@ -156,22 +144,7 @@ export default function WarehousesPage() {
       if (!orgId) return;
       
       try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/locations`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch locations');
-          return;
-        }
-
-        const data = await response.json();
+        const data = await apiGet<{ data: Location[] }>('/api/locations');
         setLocations(data.data || []);
       } catch (error) {
         console.error('Error fetching locations:', error);
@@ -179,7 +152,7 @@ export default function WarehousesPage() {
     };
 
     fetchLocations();
-  }, [orgId, getToken]);
+  }, [orgId, apiGet]);
 
   // Handle form submission
   const onSubmit = async (values: WarehouseFormValues) => {
@@ -190,34 +163,12 @@ export default function WarehousesPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouses`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          warehouseId: values.warehouseId,
-          name: values.name,
-          locationId: values.locationId === 'no-location' ? undefined : values.locationId,
-          isActive: values.isActive,
-        }),
+      await apiPost('/api/warehouses', {
+        warehouseId: values.warehouseId,
+        name: values.name,
+        locationId: values.locationId === 'no-location' ? undefined : values.locationId,
+        isActive: values.isActive,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to create warehouse.');
-        throw new Error('Failed to create warehouse');
-      }
-
-      const result = await response.json();
       
       toast.success('Warehouse created successfully!');
       setIsDialogOpen(false);
@@ -244,34 +195,12 @@ export default function WarehousesPage() {
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouses/${editingWarehouse.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          warehouseId: values.warehouseId,
-          name: values.name,
-          locationId: values.locationId === 'no-location' ? undefined : values.locationId,
-          isActive: values.isActive,
-        }),
+      await apiPut(`/api/warehouses/${editingWarehouse.id}`, {
+        warehouseId: values.warehouseId,
+        name: values.name,
+        locationId: values.locationId === 'no-location' ? undefined : values.locationId,
+        isActive: values.isActive,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to update warehouse.');
-        throw new Error('Failed to update warehouse');
-      }
-
-      const result = await response.json();
       
       toast.success('Warehouse updated successfully!');
       setIsEditDialogOpen(false);
@@ -297,31 +226,12 @@ export default function WarehousesPage() {
     }
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouses/${warehouse.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to delete warehouse.');
-        throw new Error('Failed to delete warehouse');
-      }
-
+      await apiDelete(`/api/warehouses/${warehouse.id}`);
       toast.success('Warehouse deleted successfully!');
       await fetchWarehouses();
     } catch (error) {
       console.error('Error deleting warehouse:', error);
-      toast.error('An unexpected error occurred.');
+      toast.error('Failed to delete warehouse.');
     }
   };
 
