@@ -8,7 +8,7 @@ export async function apiClient(
   endpoint: string,
   options: ApiClientOptions = {}
 ): Promise<Response> {
-  const { getToken, orgId } = await auth();
+  const { getToken, orgId, userId } = await auth();
   const token = await getToken();
   
   const { includeOrgId = true, headers, ...restOptions } = options;
@@ -43,6 +43,10 @@ export async function apiClient(
   
   if (includeOrgId && orgId) {
     requestHeaders['x-organization-id'] = orgId;
+  }
+  
+  if (userId) {
+    requestHeaders['x-user-id'] = userId;
   }
   
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
