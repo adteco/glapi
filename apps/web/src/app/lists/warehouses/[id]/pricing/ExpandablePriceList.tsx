@@ -57,8 +57,8 @@ export function ExpandablePriceList({ priceList, priority }: ExpandablePriceList
       
       setIsLoading(true);
       try {
-        const data = await apiGet<ItemPricing[]>(`/api/price-lists/${priceList.id}/items?limit=100`);
-        const pricings = Array.isArray(data) ? data : (data.data || []);
+        const response = await apiGet<{ data: ItemPricing[] } | ItemPricing[]>(`/api/price-lists/${priceList.id}/items?limit=100`);
+        const pricings = Array.isArray(response) ? response : ((response as any).data || []);
         
         // Fetch item details for each pricing
         const enrichedPricings = await Promise.all(

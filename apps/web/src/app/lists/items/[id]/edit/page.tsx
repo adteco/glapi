@@ -144,7 +144,23 @@ export default function EditItemPage() {
         <h1 className="text-3xl font-bold mb-6">Edit Item</h1>
         
         <ItemForm
-          initialData={item}
+          initialData={{
+            ...item,
+            description: item.description ?? undefined,
+            categoryId: item.categoryId ?? undefined,
+            incomeAccountId: item.incomeAccountId ?? undefined,
+            expenseAccountId: item.expenseAccountId ?? undefined,
+            assetAccountId: item.assetAccountId ?? undefined,
+            cogsAccountId: item.cogsAccountId ?? undefined,
+            defaultPrice: item.defaultPrice ?? undefined,
+            defaultCost: item.defaultCost ?? undefined,
+            taxCode: item.taxCode ?? undefined,
+            sku: item.sku ?? undefined,
+            upc: item.upc ?? undefined,
+            manufacturerPartNumber: item.manufacturerPartNumber ?? undefined,
+            weight: item.weight ?? undefined,
+            weightUnit: item.weightUnit ?? undefined,
+          }}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           isSubmitting={isSubmitting}

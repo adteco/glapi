@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button'; // Assuming you have a Button component from Shadcn/ui
 import { toast } from 'sonner'; // Assuming you use sonner for toasts
+import { useApiClient } from '@/lib/api-client.client';
 
 interface SeedAccountsButtonProps {
   onSuccess?: () => void;
@@ -11,7 +12,8 @@ interface SeedAccountsButtonProps {
 
 export function SeedAccountsButton({ onSuccess }: SeedAccountsButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { getToken, orgId } = useAuth(); // Get token and current orgId
+  const { orgId } = useAuth(); // Get current orgId
+  const { apiPost } = useApiClient();
 
   const handleSeedAccounts = async () => {
     if (!orgId) {
@@ -21,33 +23,11 @@ export function SeedAccountsButton({ onSuccess }: SeedAccountsButtonProps) {
 
     setIsLoading(true);
     try {
-      const token = await getToken(); // Get the default Clerk JWT token
-      if (!token) {
-        toast.error('Authentication token not available. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Adjust the API URL based on your setup (e.g., if API is on a different port/domain)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'; 
-      const response = await fetch(`${apiUrl}/api/gl/accounts/seed`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          // The orgId is already part of the JWT claim and used by the backend
-        },
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        toast.success(result.message || 'Default accounts seeded successfully!');
-        if (onSuccess) {
-          onSuccess();
-        }
-      } else {
-        toast.error(result.message || result.error || 'Failed to seed accounts.');
+      const result = await apiPost<{ message?: string; error?: string }>('/api/gl/accounts/seed', {});
+      
+      toast.success(result.message || 'Default accounts seeded successfully!');
+      if (onSuccess) {
+        onSuccess();
       }
     } catch (error) {
       console.error('Error seeding accounts:', error);

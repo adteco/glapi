@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useApiClient } from '@/lib/api-client.client';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
@@ -98,6 +99,8 @@ export function CustomerWarehouseAssignments({ customerId, customerName }: Custo
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken, orgId } = useAuth();
+  const { apiGet, apiPost, apiDelete } = useApiClient();
+  const previousOrgIdRef = useRef<string | null>(null);
 
   const form = useForm<AssignmentFormValues>({
     resolver: zodResolver(assignmentFormSchema),
@@ -111,7 +114,7 @@ export function CustomerWarehouseAssignments({ customerId, customerName }: Custo
   });
 
   // Fetch customer warehouse assignments
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     if (!orgId || !customerId) {
       setIsLoading(false);
       return;
@@ -119,103 +122,66 @@ export function CustomerWarehouseAssignments({ customerId, customerName }: Custo
     
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/customers/${customerId}/warehouse-assignments`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to fetch warehouse assignments.');
-        throw new Error('Failed to fetch assignments');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<CustomerWarehouseAssignment[]>(`/api/customers/${customerId}/warehouse-assignments`);
       setAssignments(data);
     } catch (error) {
       console.error('Error fetching assignments:', error);
-      if (!(error instanceof Error && error.message === 'Failed to fetch assignments')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to fetch warehouse assignments.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [apiGet, orgId, customerId]);
+
+  // Detect organization changes and clear data
+  useEffect(() => {
+    const currentOrgId = orgId || null;
+    
+    if (previousOrgIdRef.current && previousOrgIdRef.current !== currentOrgId) {
+      // Organization changed, clear data
+      setAssignments([]);
+      setItems([]);
+      setWarehouses([]);
+      setIsLoading(true);
+    }
+    
+    previousOrgIdRef.current = currentOrgId;
+  }, [orgId]);
 
   useEffect(() => {
     fetchAssignments();
-  }, [orgId, customerId, getToken]);
+  }, [fetchAssignments]);
 
   // Fetch items
+  const fetchItems = useCallback(async () => {
+    if (!orgId) return;
+    
+    try {
+      const data = await apiGet<{ data: Item[] }>('/api/items?activeOnly=true&limit=1000');
+      setItems(data.data || []);
+    } catch (error) {
+      console.error('Error fetching items:', error);
+    }
+  }, [apiGet, orgId]);
+
   useEffect(() => {
-    const fetchItems = async () => {
-      if (!orgId) return;
-      
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/items?activeOnly=true&limit=1000`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch items');
-          return;
-        }
-
-        const data = await response.json();
-        setItems(data.data || []);
-      } catch (error) {
-        console.error('Error fetching items:', error);
-      }
-    };
-
     fetchItems();
-  }, [orgId, getToken]);
+  }, [fetchItems]);
 
   // Fetch warehouses
+  const fetchWarehouses = useCallback(async () => {
+    if (!orgId) return;
+    
+    try {
+      const data = await apiGet<{ data: Warehouse[] }>('/api/warehouses?activeOnly=true');
+      setWarehouses(data.data || []);
+    } catch (error) {
+      console.error('Error fetching warehouses:', error);
+    }
+  }, [apiGet, orgId]);
+
   useEffect(() => {
-    const fetchWarehouses = async () => {
-      if (!orgId) return;
-      
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/warehouses?activeOnly=true`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch warehouses');
-          return;
-        }
-
-        const data = await response.json();
-        setWarehouses(data.data || []);
-      } catch (error) {
-        console.error('Error fetching warehouses:', error);
-      }
-    };
-
     fetchWarehouses();
-  }, [orgId, getToken]);
+  }, [fetchWarehouses]);
 
   // Handle form submission
   const onSubmit = async (values: AssignmentFormValues) => {
@@ -226,35 +192,13 @@ export function CustomerWarehouseAssignments({ customerId, customerName }: Custo
 
     setIsSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/customers/${customerId}/warehouse-assignments`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemId: values.itemId,
-          warehouseId: values.warehouseId,
-          isDefault: values.isDefault,
-          effectiveDate: values.effectiveDate || undefined,
-          expirationDate: values.expirationDate || undefined,
-        }),
+      await apiPost(`/api/customers/${customerId}/warehouse-assignments`, {
+        itemId: values.itemId,
+        warehouseId: values.warehouseId,
+        isDefault: values.isDefault,
+        effectiveDate: values.effectiveDate || undefined,
+        expirationDate: values.expirationDate || undefined,
       });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to create assignment.');
-        throw new Error('Failed to create assignment');
-      }
-
-      const result = await response.json();
       
       toast.success('Warehouse assignment created successfully!');
       setIsDialogOpen(false);
@@ -264,9 +208,7 @@ export function CustomerWarehouseAssignments({ customerId, customerName }: Custo
       await fetchAssignments();
     } catch (error) {
       console.error('Error creating assignment:', error);
-      if (!(error instanceof Error && error.message === 'Failed to create assignment')) {
-        toast.error('An unexpected error occurred.');
-      }
+      toast.error('Failed to create assignment.');
     } finally {
       setIsSubmitting(false);
     }
@@ -279,31 +221,12 @@ export function CustomerWarehouseAssignments({ customerId, customerName }: Custo
     }
 
     try {
-      const token = await getToken();
-      if (!token) {
-        toast.error('Authentication token not available.');
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/warehouse-assignments/${assignmentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        toast.error(errorResult.message || 'Failed to remove assignment.');
-        throw new Error('Failed to remove assignment');
-      }
-
+      await apiDelete(`/api/warehouse-assignments/${assignmentId}`);
       toast.success('Assignment removed successfully!');
       await fetchAssignments();
     } catch (error) {
       console.error('Error removing assignment:', error);
-      toast.error('An unexpected error occurred.');
+      toast.error('Failed to remove assignment.');
     }
   };
 
