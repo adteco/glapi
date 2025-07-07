@@ -1,64 +1,54 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-// Define routes that should be public (not require authentication)
+// Define public routes - these won't require authentication
 const isPublicRoute = createRouteMatcher([
-  '/', // Make the landing page public
-  '/sign-in(.*)', // Matches /sign-in and /sign-in/*
-  '/sign-up(.*)', // Matches /sign-up and /sign-up/*
-  '/api/clerk-webhook(.*)', // Example: if you have a Clerk webhook
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/api/clerk-webhook(.*)',
   '/privacy-policy(.*)',
   '/terms-of-service(.*)',
   '/security(.*)',
   '/pricing(.*)',
   '/product(.*)',
-  '/contact(.*)', // Add contact route
-  // Add any other public routes here, e.g., landing page, public API routes
-  // '/', // If your landing page is public
+  '/contact(.*)',
+  '/terms(.*)',
+  '/_next/static(.*)',  // Add static files as public
+  '/_next/image(.*)',   // Add image optimization as public
+  '/favicon.ico',       // Add favicon as public
 ]);
 
-// Updated to align with common Clerk patterns
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
   const { pathname } = req.nextUrl;
 
-  // If the user is signed in and on the public landing page, redirect to dashboard
-  if (userId && pathname === '/') {
-    const dashboardUrl = new URL('/dashboard', req.url);
-    return NextResponse.redirect(dashboardUrl);
+  // For public routes, don't do any authentication checks
+  if (isPublicRoute(req)) {
+    // If signed in user visits landing page, redirect to dashboard
+    if (userId && pathname === '/') {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    // If signed in user visits sign-in/sign-up, redirect to dashboard
+    if (userId && (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    return NextResponse.next();
   }
 
-  // If the user is not signed in and trying to access a protected route, redirect to landing page
-  if (!userId && !isPublicRoute(req)) {
-    const landingUrl = new URL('/', req.url);
-    // Optionally, you could pass a parameter to the landing page to show a message
-    // landingUrl.searchParams.set('reason', 'unauthenticated');
-    // Or pass the intended redirect URL for after sign-in on the landing page (more complex flow)
-    // landingUrl.searchParams.set('redirect_url', req.url);
-    return NextResponse.redirect(landingUrl);
+  // For protected routes, check authentication
+  if (!userId) {
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
-  // If the user is signed in and tries to access Clerk's sign-in/sign-up pages, redirect to dashboard
-  if (userId && (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
-    const dashboardUrl = new URL('/dashboard', req.url);
-    return NextResponse.redirect(dashboardUrl);
-  }
-
-  // Allow the request to proceed if none of the above conditions are met
   return NextResponse.next();
 });
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder files
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // Skip Next.js internals and all static files, unless found in search params
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     // Always run for API routes
     '/(api|trpc)(.*)',
   ],
-}; 
+};
