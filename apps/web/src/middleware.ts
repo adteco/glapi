@@ -43,6 +43,5 @@ export default clerkMiddleware(async (auth, req) => {
 });
 
 export const config = {
-  // Only run middleware on actual page/API routes, not static files
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
+  matcher: '/((?!.*\\..*|_next).*)',
 };
