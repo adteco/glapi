@@ -7,7 +7,7 @@ interface ApiClientOptions extends RequestInit {
 }
 
 export function useApiClient() {
-  const { getToken, orgId } = useAuth();
+  const { getToken, orgId, userId } = useAuth();
   
   const apiClient = async (
     endpoint: string,
@@ -36,6 +36,10 @@ export function useApiClient() {
     
     if (includeOrgId && orgId) {
       requestHeaders['x-organization-id'] = orgId;
+    }
+    
+    if (userId) {
+      requestHeaders['x-user-id'] = userId;
     }
     
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
