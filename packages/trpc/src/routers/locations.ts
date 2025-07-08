@@ -5,12 +5,15 @@ import { TRPCError } from '@trpc/server';
 
 const locationSchema = z.object({
   name: z.string().min(1),
-  code: z.string().min(1),
-  address: z.string().optional(),
+  code: z.string().optional(),
+  description: z.string().optional(),
+  subsidiaryId: z.string(),
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().optional(),
+  stateProvince: z.string().optional(),
   postalCode: z.string().optional(),
-  country: z.string().optional(),
+  countryCode: z.string().optional(),
   isActive: z.boolean().default(true),
 });
 

@@ -109,7 +109,7 @@ export default function ClassesPage() {
 
     createClassMutation.mutate({
       name: values.name,
-      code: values.code || undefined,
+      code: values.code && values.code.trim() ? values.code.trim() : undefined,
       isActive: true,
     });
   };

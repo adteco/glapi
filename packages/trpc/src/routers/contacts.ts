@@ -36,7 +36,7 @@ export const contactsRouter = router({
     .input(contactQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new ContactService();
-      const { page, limit, search, isActive } = input;
+      const { page = 1, limit = 10, search, isActive } = input;
       
       return await service.listContacts(ctx.user.organizationId, {
         page,
