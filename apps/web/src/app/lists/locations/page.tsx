@@ -39,7 +39,7 @@ import * as z from "zod";
 
 // Define interfaces
 interface Location {
-  id: string;
+  id?: string;
   name: string;
   code?: string | null;
   description?: string | null;
@@ -52,8 +52,8 @@ interface Location {
   postalCode?: string | null;
   countryCode?: string | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: Date;
+  updatedAt?: Date;
   subsidiary?: {
     id: string;
     name: string;
@@ -107,8 +107,8 @@ export default function LocationsPage() {
     },
   });
 
-  const locations = locationsData?.data || [];
-  const subsidiaries = subsidiariesData?.data || [];
+  const locations = locationsData || [];
+  const subsidiaries = subsidiariesData || [];
 
   const form = useForm<LocationFormValues>({
     // resolver: zodResolver(locationFormSchema),
@@ -135,15 +135,16 @@ export default function LocationsPage() {
 
     createLocationMutation.mutate({
       name: values.name,
-      code: values.code || undefined,
-      description: values.description || undefined,
+      code: values.code && values.code.trim() ? values.code.trim() : undefined,
+      description: values.description && values.description.trim() ? values.description.trim() : undefined,
       subsidiaryId: values.subsidiaryId,
-      addressLine1: values.addressLine1 || undefined,
-      addressLine2: values.addressLine2 || undefined,
-      city: values.city || undefined,
-      stateProvince: values.stateProvince || undefined,
-      postalCode: values.postalCode || undefined,
-      countryCode: values.countryCode || undefined,
+      addressLine1: values.addressLine1 && values.addressLine1.trim() ? values.addressLine1.trim() : undefined,
+      addressLine2: values.addressLine2 && values.addressLine2.trim() ? values.addressLine2.trim() : undefined,
+      city: values.city && values.city.trim() ? values.city.trim() : undefined,
+      stateProvince: values.stateProvince && values.stateProvince.trim() ? values.stateProvince.trim() : undefined,
+      postalCode: values.postalCode && values.postalCode.trim() ? values.postalCode.trim() : undefined,
+      countryCode: values.countryCode && values.countryCode.trim() ? values.countryCode.trim() : undefined,
+      isActive: true,
     });
   };
 
@@ -245,8 +246,8 @@ export default function LocationsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {subsidiaries.map((subsidiary) => (
-                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
+                          {subsidiaries.filter(subsidiary => subsidiary.id).map((subsidiary) => (
+                            <SelectItem key={subsidiary.id} value={subsidiary.id!}>
                               {subsidiary.name}
                             </SelectItem>
                           ))}
@@ -401,14 +402,14 @@ export default function LocationsPage() {
                 <TableCell>{location.code || '-'}</TableCell>
                 <TableCell>{location.description || '-'}</TableCell>
                 <TableCell className="max-w-xs truncate">{formatAddress(location)}</TableCell>
-                <TableCell>{location.subsidiary?.name || '-'}</TableCell>
+                <TableCell>{subsidiaries.find(s => s.id === location.subsidiaryId)?.name || '-'}</TableCell>
                 <TableCell>
                   <Badge variant={location.isActive ? 'default' : 'secondary'}>
                     {location.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {new Date(location.createdAt).toLocaleDateString()}
+                  {location.createdAt ? new Date(location.createdAt).toLocaleDateString() : '-'}
                 </TableCell>
               </TableRow>
             ))}

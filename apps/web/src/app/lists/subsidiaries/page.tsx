@@ -72,7 +72,7 @@ export default function SubsidiariesPage() {
     },
   });
 
-  const subsidiaries = subsidiariesData?.data || [];
+  const subsidiaries = subsidiariesData || [];
 
   const form = useForm<SubsidiaryFormValues>({
     // resolver: zodResolver(subsidiaryFormSchema),
@@ -87,8 +87,8 @@ export default function SubsidiariesPage() {
   const handleCreateSubsidiary = async (values: SubsidiaryFormValues) => {
     createSubsidiaryMutation.mutate({
       name: values.name,
-      code: values.code || undefined,
-      description: values.description || undefined,
+      code: values.code && values.code.trim() ? values.code.trim() : undefined,
+      description: values.description && values.description.trim() ? values.description.trim() : undefined,
     });
   };
 

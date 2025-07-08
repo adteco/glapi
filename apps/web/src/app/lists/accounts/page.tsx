@@ -51,17 +51,24 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// Define an interface for the Account data
+// Define an interface for the Account data matching TRPC return type
 interface Account {
   id: string;
   organizationId: string;
   accountNumber: string;
   accountName: string;
   accountCategory: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'COGS' | 'Expense';
+  accountSubcategory?: string | null;
+  normalBalance?: string | null;
+  financialStatementLine?: string | null;
+  isControlAccount: boolean;
+  rollupAccountId?: string | null;
+  gaapClassification?: string | null;
+  cashFlowCategory?: string | null;
   description?: string | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Form schema

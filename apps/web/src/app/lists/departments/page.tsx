@@ -203,8 +203,8 @@ export default function DepartmentsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {subsidiaries.map((subsidiary) => (
-                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
+                          {subsidiaries.filter(subsidiary => subsidiary.id).map((subsidiary) => (
+                            <SelectItem key={subsidiary.id} value={subsidiary.id!}>
                               {subsidiary.name}
                             </SelectItem>
                           ))}
@@ -263,14 +263,14 @@ export default function DepartmentsPage() {
                 <TableCell className="font-medium">{department.name}</TableCell>
                 <TableCell>{department.code || '-'}</TableCell>
                 <TableCell>{department.description || '-'}</TableCell>
-                <TableCell>{department.subsidiary?.name || '-'}</TableCell>
+                <TableCell>{subsidiaries.find(s => s.id === department.subsidiaryId)?.name || '-'}</TableCell>
                 <TableCell>
                   <Badge variant={department.isActive ? 'default' : 'secondary'}>
                     {department.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {new Date(department.createdAt).toLocaleDateString()}
+                  {department.createdAt ? new Date(department.createdAt).toLocaleDateString() : '-'}
                 </TableCell>
               </TableRow>
             ))}
