@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -71,14 +71,30 @@ const departmentFormSchema = z.object({
 type DepartmentFormValues = z.infer<typeof departmentFormSchema>;
 
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost } = useApiClient();
-  const previousOrgIdRef = useRef<string | null>(null);
+  const { orgId } = useAuth();
+  
+  // TRPC queries
+  const { data: departments = [], isLoading, refetch: refetchDepartments } = trpc.departments.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const { data: subsidiaries = [] } = trpc.subsidiaries.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  // TRPC mutations
+  const createDepartmentMutation = trpc.departments.create.useMutation({
+    onSuccess: () => {
+      toast.success('Department created successfully!');
+      setIsDialogOpen(false);
+      form.reset();
+      refetchDepartments();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create department');
+    },
+  });
 
   const form = useForm<DepartmentFormValues>({
     // resolver: zodResolver(departmentFormSchema),
@@ -91,49 +107,6 @@ export default function DepartmentsPage() {
   });
 
   // Fetch departments
-  const fetchDepartments = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await apiGet<{ data: Department[] }>('/api/departments');
-      setDepartments(data.data || []);
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-      toast.error('Failed to fetch departments.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setDepartments([]);
-      setSubsidiaries([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchDepartments();
-  }, [orgId, fetchDepartments]);
-
-  // Fetch subsidiaries
-  useEffect(() => {
-    const fetchSubsidiaries = async () => {
-      if (!orgId) return;
-      
-      try {
-        const data = await apiGet<{ data: Subsidiary[] }>('/api/subsidiaries');
-        setSubsidiaries(data.data || []);
-      } catch (error) {
-        console.error('Error fetching subsidiaries:', error);
-      }
-    };
-
-    fetchSubsidiaries();
-  }, [orgId, apiGet]);
 
   // Handle form submission
   const onSubmit = async (values: DepartmentFormValues) => {
@@ -142,27 +115,11 @@ export default function DepartmentsPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPost('/api/departments', {
-        name: values.name,
-        code: values.code || undefined,
-        description: values.description || undefined,
-        subsidiaryId: values.subsidiaryId,
-      });
-      
-      toast.success('Department created successfully!');
-      setIsDialogOpen(false);
-      form.reset();
-      
-      // Refresh the departments list
-      await fetchDepartments();
-    } catch (error) {
-      console.error('Error creating department:', error);
-      toast.error('Failed to create department.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createDepartmentMutation.mutate({
+      name: values.name,
+      code: values.code || undefined,
+      subsidiaryId: values.subsidiaryId,
+    });
   };
 
   return (
@@ -246,8 +203,8 @@ export default function DepartmentsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {subsidiaries.map((subsidiary) => (
-                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
+                          {subsidiaries.filter(subsidiary => subsidiary.id).map((subsidiary) => (
+                            <SelectItem key={subsidiary.id} value={subsidiary.id!}>
                               {subsidiary.name}
                             </SelectItem>
                           ))}
@@ -271,8 +228,8 @@ export default function DepartmentsPage() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Creating...' : 'Create Department'}
+                  <Button type="submit" disabled={createDepartmentMutation.isPending}>
+                    {createDepartmentMutation.isPending ? 'Creating...' : 'Create Department'}
                   </Button>
                 </div>
               </form>
@@ -306,14 +263,14 @@ export default function DepartmentsPage() {
                 <TableCell className="font-medium">{department.name}</TableCell>
                 <TableCell>{department.code || '-'}</TableCell>
                 <TableCell>{department.description || '-'}</TableCell>
-                <TableCell>{department.subsidiary?.name || '-'}</TableCell>
+                <TableCell>{subsidiaries.find(s => s.id === department.subsidiaryId)?.name || '-'}</TableCell>
                 <TableCell>
                   <Badge variant={department.isActive ? 'default' : 'secondary'}>
                     {department.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {new Date(department.createdAt).toLocaleDateString()}
+                  {department.createdAt ? new Date(department.createdAt).toLocaleDateString() : '-'}
                 </TableCell>
               </TableRow>
             ))}

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { AuthenticationError } from './auth';
 
 export interface ServiceError extends Error {
   statusCode: number;
@@ -16,8 +17,24 @@ export function isServiceError(error: unknown): error is ServiceError {
   );
 }
 
+export function isAuthenticationError(error: unknown): error is AuthenticationError {
+  return error instanceof AuthenticationError;
+}
+
 export function handleApiError(error: unknown) {
   console.error('API Error:', error);
+  
+  // Handle authentication errors
+  if (isAuthenticationError(error)) {
+    return NextResponse.json(
+      {
+        error: 'Authentication required',
+        message: error.message,
+        code: 'AUTHENTICATION_REQUIRED'
+      },
+      { status: 401 }
+    );
+  }
   
   // Check if it's a ServiceError
   if (isServiceError(error)) {
@@ -34,7 +51,9 @@ export function handleApiError(error: unknown) {
   // Generic error handling
   if (error instanceof Error) {
     return NextResponse.json(
-      { message: error.message },
+      { 
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      },
       { status: 500 }
     );
   }

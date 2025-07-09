@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -64,114 +64,41 @@ interface Subsidiary {
 const classFormSchema = z.object({
   name: z.string().min(1, "Name is required").max(255),
   code: z.string().max(50).optional().or(z.literal('')),
-  description: z.string().max(1000).optional().or(z.literal('')),
-  subsidiaryId: z.string().min(1, "Subsidiary is required"),
 });
 
 type ClassFormValues = z.infer<typeof classFormSchema>;
 
 export default function ClassesPage() {
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost } = useApiClient();
-  const previousOrgIdRef = useRef<string | null>(null);
+  const { orgId } = useAuth();
+  
+  // TRPC queries
+  const { data: classes = [], isLoading: classesLoading, refetch: refetchClasses } = trpc.classes.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  
+  // TRPC mutations
+  const createClassMutation = trpc.classes.create.useMutation({
+    onSuccess: () => {
+      toast.success('Class created successfully!');
+      setIsDialogOpen(false);
+      form.reset();
+      refetchClasses();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create class');
+    },
+  });
 
   const form = useForm<ClassFormValues>({
     // resolver: zodResolver(classFormSchema),
     defaultValues: {
       name: "",
       code: "",
-      description: "",
-      subsidiaryId: "",
     },
   });
 
-  // Fetch classes
-  const fetchClasses = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await apiGet<{ data: Class[] }>('/api/classes');
-      setClasses(data.data || []);
-    } catch (error) {
-      console.error('Error fetching classes:', error);
-      toast.error('Failed to fetch classes.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Create default class
-  const createDefaultClass = useCallback(async (subsidiaryId: string) => {
-    try {
-      const newClass = await apiPost<Class>('/api/classes', {
-        name: 'Default Class',
-        code: 'DEFAULT',
-        description: 'Default class for transactions',
-        subsidiaryId: subsidiaryId,
-      });
-      setClasses([newClass]);
-    } catch (error) {
-      console.error('Error creating default class:', error);
-    }
-  }, [apiPost]);
-
-  // Create default subsidiary
-  const createDefaultSubsidiary = useCallback(async () => {
-    try {
-      const newSubsidiary = await apiPost<Subsidiary>('/api/subsidiaries', {
-        name: 'Default Subsidiary',
-        code: 'DEFAULT',
-        description: 'Default subsidiary for the organization',
-      });
-      setSubsidiaries([newSubsidiary]);
-      
-      // Create default class
-      await createDefaultClass(newSubsidiary.id);
-    } catch (error) {
-      console.error('Error creating default subsidiary:', error);
-    }
-  }, [apiPost, createDefaultClass]);
-
-  // Fetch subsidiaries
-  const fetchSubsidiaries = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      const data = await apiGet<{ data: Subsidiary[] }>('/api/subsidiaries');
-      const subs = data.data || [];
-      setSubsidiaries(subs);
-      
-      // Create default subsidiary if none exist
-      if (subs.length === 0) {
-        await createDefaultSubsidiary();
-      }
-    } catch (error) {
-      console.error('Error fetching subsidiaries:', error);
-    }
-  }, [orgId, apiGet, createDefaultSubsidiary]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setClasses([]);
-      setSubsidiaries([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchClasses();
-  }, [orgId, fetchClasses]);
-
-  useEffect(() => {
-    fetchSubsidiaries();
-  }, [fetchSubsidiaries]);
 
   // Submit form
   const onSubmit = async (values: ClassFormValues) => {
@@ -180,26 +107,14 @@ export default function ClassesPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const response = await apiPost<{ data: Class }>('/api/classes', {
-        ...values,
-        code: values.code || undefined,
-        description: values.description || undefined,
-      });
-      setClasses([...classes, response.data]);
-      toast.success('Class created successfully!');
-      setIsDialogOpen(false);
-      form.reset();
-    } catch (error) {
-      console.error('Error creating class:', error);
-      toast.error('Failed to create class.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createClassMutation.mutate({
+      name: values.name,
+      code: values.code && values.code.trim() ? values.code.trim() : undefined,
+      isActive: true,
+    });
   };
 
-  if (isLoading) {
+  if (classesLoading) {
     return <div className="container mx-auto py-10"><p>Loading classes...</p></div>;
   }
 
@@ -259,46 +174,6 @@ export default function ClassesPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="subsidiaryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Subsidiary</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a subsidiary" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {subsidiaries.map((subsidiary) => (
-                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
-                              {subsidiary.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Select the subsidiary for this class
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Brief description..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <div className="flex justify-end space-x-2 pt-4">
                   <Button
                     type="button"
@@ -310,8 +185,8 @@ export default function ClassesPage() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Creating...' : 'Create'}
+                  <Button type="submit" disabled={createClassMutation.isPending}>
+                    {createClassMutation.isPending ? 'Creating...' : 'Create'}
                   </Button>
                 </div>
               </form>
@@ -320,7 +195,7 @@ export default function ClassesPage() {
         </Dialog>
       </div>
       
-      {classes.length === 0 && !isLoading ? (
+      {classes.length === 0 && !classesLoading ? (
         <div>
           <p className="mb-4">No classes found. Create your first class using the button above.</p>
         </div>
@@ -331,7 +206,6 @@ export default function ClassesPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Code</TableHead>
-              <TableHead>Subsidiary</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Active</TableHead>
             </TableRow>
@@ -341,7 +215,6 @@ export default function ClassesPage() {
               <TableRow key={classItem.id}>
                 <TableCell className="font-medium">{classItem.name}</TableCell>
                 <TableCell>{classItem.code || '-'}</TableCell>
-                <TableCell>{classItem.subsidiary?.name || 'N/A'}</TableCell>
                 <TableCell>{classItem.description || '-'}</TableCell>
                 <TableCell className="text-right">
                   <Badge variant={classItem.isActive ? 'default' : 'secondary'}>
