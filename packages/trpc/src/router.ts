@@ -10,6 +10,11 @@ import { priceListsRouter } from './routers/price-lists';
 import { warehousesRouter } from './routers/warehouses';
 import { vendorsRouter } from './routers/vendors';
 import { accountsRouter } from './routers/accounts';
+import { leadsRouter } from './routers/leads';
+import { employeesRouter } from './routers/employees';
+import { prospectsRouter } from './routers/prospects';
+import { contactsRouter } from './routers/contacts';
+import { unitsOfMeasureRouter } from './routers/units-of-measure';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -23,6 +28,11 @@ export const appRouter = router({
   warehouses: warehousesRouter,
   vendors: vendorsRouter,
   accounts: accountsRouter,
+  leads: leadsRouter,
+  employees: employeesRouter,
+  prospects: prospectsRouter,
+  contacts: contactsRouter,
+  unitsOfMeasure: unitsOfMeasureRouter,
 });
 
 export type AppRouter = typeof appRouter;

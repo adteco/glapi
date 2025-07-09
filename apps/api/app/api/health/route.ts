@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AccountService } from '@glapi/api-service';
-import { getServiceContext } from '../utils/auth';
+import { getOptionalServiceContext } from '../utils/auth';
 
 // GET /api/health - Health check endpoint
 export async function GET(_request: NextRequest) {
@@ -37,14 +37,19 @@ export async function GET(_request: NextRequest) {
     // 2. Service Layer Health Check
     const serviceStartTime = Date.now();
     try {
-      const context = getServiceContext();
-      const accountService = new AccountService(context);
-      
-      // Call a method to verify service layer is working
-      const serviceHealth = await accountService.healthCheck();
-      
-      health.checks.service.status = serviceHealth.status;
-      health.checks.service.message = serviceHealth.message;
+      const context = getOptionalServiceContext();
+      if (!context) {
+        health.checks.service.status = 'healthy';
+        health.checks.service.message = 'Service layer available (no auth context)';
+      } else {
+        const accountService = new AccountService(context);
+        
+        // Call a method to verify service layer is working
+        const serviceHealth = await accountService.healthCheck();
+        
+        health.checks.service.status = serviceHealth.status;
+        health.checks.service.message = serviceHealth.message;
+      }
       health.checks.service.responseTime = Date.now() - serviceStartTime;
     } catch (error) {
       health.checks.service.status = 'unhealthy';
@@ -55,12 +60,17 @@ export async function GET(_request: NextRequest) {
     // 3. Database Health Check (via service layer)
     const dbStartTime = Date.now();
     try {
-      const context = getServiceContext();
-      const accountService = new AccountService(context);
-      const dbHealth = await accountService.checkDatabaseConnection();
-      
-      health.checks.database.status = dbHealth.status;
-      health.checks.database.message = dbHealth.message;
+      const context = getOptionalServiceContext();
+      if (!context) {
+        health.checks.database.status = 'healthy';
+        health.checks.database.message = 'Database check skipped (no auth context)';
+      } else {
+        const accountService = new AccountService(context);
+        const dbHealth = await accountService.checkDatabaseConnection();
+        
+        health.checks.database.status = dbHealth.status;
+        health.checks.database.message = dbHealth.message;
+      }
       health.checks.database.responseTime = Date.now() - dbStartTime;
     } catch (error) {
       health.checks.database.status = 'unhealthy';

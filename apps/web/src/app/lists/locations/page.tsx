@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -39,7 +39,7 @@ import * as z from "zod";
 
 // Define interfaces
 interface Location {
-  id: string;
+  id?: string;
   name: string;
   code?: string | null;
   description?: string | null;
@@ -52,8 +52,8 @@ interface Location {
   postalCode?: string | null;
   countryCode?: string | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: Date;
+  updatedAt?: Date;
   subsidiary?: {
     id: string;
     name: string;
@@ -83,14 +83,32 @@ const locationFormSchema = z.object({
 type LocationFormValues = z.infer<typeof locationFormSchema>;
 
 export default function LocationsPage() {
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost } = useApiClient();
-  const previousOrgIdRef = useRef<string | null>(null);
+  const { orgId } = useAuth();
+  
+  // TRPC queries and mutations
+  const { data: locationsData, isLoading, refetch } = trpc.locations.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const { data: subsidiariesData } = trpc.subsidiaries.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const createLocationMutation = trpc.locations.create.useMutation({
+    onSuccess: () => {
+      toast.success('Location created successfully');
+      setIsDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create location');
+    },
+  });
+
+  const locations = locationsData || [];
+  const subsidiaries = subsidiariesData || [];
 
   const form = useForm<LocationFormValues>({
     // resolver: zodResolver(locationFormSchema),
@@ -108,51 +126,6 @@ export default function LocationsPage() {
     },
   });
 
-  // Fetch locations
-  const fetchLocations = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await apiGet<{ data: Location[] }>('/api/locations');
-      setLocations(data.data || []);
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-      toast.error('Failed to fetch locations.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setLocations([]);
-      setSubsidiaries([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchLocations();
-  }, [orgId, fetchLocations]);
-
-  // Fetch subsidiaries
-  useEffect(() => {
-    const fetchSubsidiaries = async () => {
-      if (!orgId) return;
-      
-      try {
-        const data = await apiGet<{ data: Subsidiary[] }>('/api/subsidiaries');
-        setSubsidiaries(data.data || []);
-      } catch (error) {
-        console.error('Error fetching subsidiaries:', error);
-      }
-    };
-
-    fetchSubsidiaries();
-  }, [orgId, apiGet]);
-
   // Handle form submission
   const onSubmit = async (values: LocationFormValues) => {
     if (!orgId) {
@@ -160,33 +133,19 @@ export default function LocationsPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPost('/api/locations', {
-        name: values.name,
-        code: values.code || undefined,
-        description: values.description || undefined,
-        subsidiaryId: values.subsidiaryId,
-        addressLine1: values.addressLine1 || undefined,
-        addressLine2: values.addressLine2 || undefined,
-        city: values.city || undefined,
-        stateProvince: values.stateProvince || undefined,
-        postalCode: values.postalCode || undefined,
-        countryCode: values.countryCode || undefined,
-      });
-      
-      toast.success('Location created successfully!');
-      setIsDialogOpen(false);
-      form.reset();
-      
-      // Refresh the locations list
-      await fetchLocations();
-    } catch (error) {
-      console.error('Error creating location:', error);
-      toast.error('Failed to create location.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createLocationMutation.mutate({
+      name: values.name,
+      code: values.code && values.code.trim() ? values.code.trim() : undefined,
+      description: values.description && values.description.trim() ? values.description.trim() : undefined,
+      subsidiaryId: values.subsidiaryId,
+      addressLine1: values.addressLine1 && values.addressLine1.trim() ? values.addressLine1.trim() : undefined,
+      addressLine2: values.addressLine2 && values.addressLine2.trim() ? values.addressLine2.trim() : undefined,
+      city: values.city && values.city.trim() ? values.city.trim() : undefined,
+      stateProvince: values.stateProvince && values.stateProvince.trim() ? values.stateProvince.trim() : undefined,
+      postalCode: values.postalCode && values.postalCode.trim() ? values.postalCode.trim() : undefined,
+      countryCode: values.countryCode && values.countryCode.trim() ? values.countryCode.trim() : undefined,
+      isActive: true,
+    });
   };
 
   // Format address for display
@@ -202,6 +161,14 @@ export default function LocationsPage() {
     
     return parts.length > 0 ? parts.join(', ') : '-';
   };
+
+  if (isLoading) {
+    return <div className="container mx-auto py-10"><p>Loading locations...</p></div>;
+  }
+
+  if (!orgId) {
+    return <div className="container mx-auto py-10"><p>Please select an organization to view locations.</p></div>;
+  }
 
   return (
     <div className="container mx-auto py-10">
@@ -279,8 +246,8 @@ export default function LocationsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {subsidiaries.map((subsidiary) => (
-                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
+                          {subsidiaries.filter(subsidiary => subsidiary.id).map((subsidiary) => (
+                            <SelectItem key={subsidiary.id} value={subsidiary.id!}>
                               {subsidiary.name}
                             </SelectItem>
                           ))}
@@ -400,8 +367,8 @@ export default function LocationsPage() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Creating...' : 'Create Location'}
+                  <Button type="submit" disabled={createLocationMutation.isPending}>
+                    {createLocationMutation.isPending ? 'Creating...' : 'Create Location'}
                   </Button>
                 </div>
               </form>
@@ -410,9 +377,7 @@ export default function LocationsPage() {
         </Dialog>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-10">Loading locations...</div>
-      ) : locations.length === 0 ? (
+      {locations.length === 0 ? (
         <div className="text-center py-10">
           <p className="text-muted-foreground mb-4">No locations found. Create your first location to get started.</p>
         </div>
@@ -437,14 +402,14 @@ export default function LocationsPage() {
                 <TableCell>{location.code || '-'}</TableCell>
                 <TableCell>{location.description || '-'}</TableCell>
                 <TableCell className="max-w-xs truncate">{formatAddress(location)}</TableCell>
-                <TableCell>{location.subsidiary?.name || '-'}</TableCell>
+                <TableCell>{subsidiaries.find(s => s.id === location.subsidiaryId)?.name || '-'}</TableCell>
                 <TableCell>
                   <Badge variant={location.isActive ? 'default' : 'secondary'}>
                     {location.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {new Date(location.createdAt).toLocaleDateString()}
+                  {location.createdAt ? new Date(location.createdAt).toLocaleDateString() : '-'}
                 </TableCell>
               </TableRow>
             ))}
