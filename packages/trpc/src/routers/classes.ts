@@ -7,7 +7,7 @@ const classSchema = z.object({
   name: z.string().min(1),
   code: z.string().optional(),
   description: z.string().optional(),
-  subsidiaryId: z.string().optional(),
+  subsidiaryId: z.string().min(1, "Subsidiary is required"),
   isActive: z.boolean().default(true),
 });
 
@@ -51,8 +51,6 @@ export const classesRouter = router({
       return service.createClass({
         ...input,
         organizationId: ctx.serviceContext!.organizationId,
-        // TODO: This should come from form - using temp default for now
-        subsidiaryId: input.subsidiaryId || '00000000-0000-0000-0000-000000000000',
       });
     }),
 

@@ -30,7 +30,7 @@ export async function GET(
           debug: {
             requestedId: id,
             organizationId: context.organizationId,
-            stytchOrgId: context.stytchOrganizationId
+            clerkOrgId: context.clerkOrganizationId
           }
         },
         { status: 404 }

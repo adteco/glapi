@@ -39,9 +39,9 @@ describe('Items API Routes', () => {
     
     mockContext = {
       organizationId: 'test-org-123',
-      stytchOrganizationId: 'stytch-org-123',
+      clerkOrganizationId: 'clerk-org-123',
       userId: 'test-user-123',
-      stytchUserId: 'stytch-user-123',
+      clerkUserId: 'clerk-user-123',
     };
     
     (auth.getServiceContext as jest.Mock).mockReturnValue(mockContext);

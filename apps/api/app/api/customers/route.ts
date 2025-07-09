@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     
     console.log('[CustomerRoutes:List] Attempting to list customers with resolved context:', {
       organizationId: context.organizationId,
-      stytchOrganizationId: context.stytchOrganizationId,
+      clerkOrganizationId: context.clerkOrganizationId,
       userId: context.userId,
       parsedQueryParams: {
         page,

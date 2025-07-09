@@ -40,9 +40,9 @@ describe('ItemsService', () => {
     
     context = {
       organizationId: 'test-org-123',
-      stytchOrganizationId: 'stytch-org-123',
+      clerkOrganizationId: 'clerk-org-123',
       userId: 'test-user-123',
-      stytchUserId: 'stytch-user-123',
+      clerkUserId: 'clerk-user-123',
     };
     
     service = new ItemsService(context);

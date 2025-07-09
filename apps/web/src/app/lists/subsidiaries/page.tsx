@@ -75,7 +75,7 @@ export default function SubsidiariesPage() {
   const subsidiaries = subsidiariesData || [];
 
   const form = useForm<SubsidiaryFormValues>({
-    // resolver: zodResolver(subsidiaryFormSchema),
+    resolver: zodResolver(subsidiaryFormSchema),
     defaultValues: {
       name: "",
       code: "",
@@ -85,6 +85,7 @@ export default function SubsidiariesPage() {
 
   // Handle form submission
   const handleCreateSubsidiary = async (values: SubsidiaryFormValues) => {
+    console.log('Form values:', values);
     createSubsidiaryMutation.mutate({
       name: values.name,
       code: values.code && values.code.trim() ? values.code.trim() : undefined,
@@ -128,7 +129,7 @@ export default function SubsidiariesPage() {
                       <FormItem>
                         <FormLabel>Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., North America Division" {...field} />
+                          <Input placeholder="e.g., North America Division" {...field} value={field.value || ''} />
                         </FormControl>
                         <FormDescription>
                           The name of the subsidiary
@@ -144,7 +145,7 @@ export default function SubsidiariesPage() {
                       <FormItem>
                         <FormLabel>Code (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., NA-DIV" {...field} />
+                          <Input placeholder="e.g., NA-DIV" {...field} value={field.value || ''} />
                         </FormControl>
                         <FormDescription>
                           A short code for the subsidiary
@@ -160,7 +161,7 @@ export default function SubsidiariesPage() {
                       <FormItem>
                         <FormLabel>Description (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="Brief description..." {...field} />
+                          <Input placeholder="Brief description..." {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

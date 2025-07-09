@@ -4,7 +4,6 @@ import {
   CreateItemInput,
   UpdateItemInput,
   GenerateVariantsInput,
-  VariantAttribute,
   createItemSchema,
   updateItemSchema,
   generateVariantsSchema,

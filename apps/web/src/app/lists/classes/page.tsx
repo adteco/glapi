@@ -64,6 +64,7 @@ interface Subsidiary {
 const classFormSchema = z.object({
   name: z.string().min(1, "Name is required").max(255),
   code: z.string().max(50).optional().or(z.literal('')),
+  subsidiaryId: z.string().min(1, "Subsidiary is required"),
 });
 
 type ClassFormValues = z.infer<typeof classFormSchema>;
@@ -74,6 +75,10 @@ export default function ClassesPage() {
   
   // TRPC queries
   const { data: classes = [], isLoading: classesLoading, refetch: refetchClasses } = trpc.classes.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const { data: subsidiaries = [], isLoading: subsidiariesLoading } = trpc.subsidiaries.list.useQuery({}, {
     enabled: !!orgId,
   });
   
@@ -92,10 +97,11 @@ export default function ClassesPage() {
   });
 
   const form = useForm<ClassFormValues>({
-    // resolver: zodResolver(classFormSchema),
+    resolver: zodResolver(classFormSchema),
     defaultValues: {
       name: "",
       code: "",
+      subsidiaryId: "",
     },
   });
 
@@ -110,6 +116,7 @@ export default function ClassesPage() {
     createClassMutation.mutate({
       name: values.name,
       code: values.code && values.code.trim() ? values.code.trim() : undefined,
+      subsidiaryId: values.subsidiaryId,
       isActive: true,
     });
   };
@@ -169,6 +176,33 @@ export default function ClassesPage() {
                       </FormControl>
                       <FormDescription>
                         A short code for the class
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="subsidiaryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Subsidiary</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a subsidiary" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {subsidiaries.map((subsidiary) => (
+                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
+                              {subsidiary.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        The subsidiary this class belongs to
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
