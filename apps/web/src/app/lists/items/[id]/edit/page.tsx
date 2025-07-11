@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { ItemForm } from '@/components/forms/item-form';
 
@@ -42,62 +42,22 @@ export default function EditItemPage() {
   const router = useRouter();
   const params = useParams();
   const { orgId } = useAuth();
-  const { apiGet, apiPut } = useApiClient();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [item, setItem] = useState<Item | null>(null);
-  const previousOrgIdRef = useRef<string | null>(null);
-
   const itemId = params.id as string;
 
-  const fetchItem = useCallback(async () => {
-    if (!orgId || !itemId) {
-      setIsLoading(false);
-      return;
-    }
+  // tRPC queries
+  const { data: item, isLoading, error } = trpc.items.getById.useQuery(itemId, {
+    enabled: !!orgId && !!itemId,
+  });
 
-    try {
-      const data = await apiGet<Item>(`/api/items/${itemId}`);
-      
-      // Convert null values to undefined for form compatibility
-      const transformedData = {
-        ...data,
-        description: data.description ?? undefined,
-        categoryId: data.categoryId ?? undefined,
-        incomeAccountId: data.incomeAccountId ?? undefined,
-        expenseAccountId: data.expenseAccountId ?? undefined,
-        assetAccountId: data.assetAccountId ?? undefined,
-        cogsAccountId: data.cogsAccountId ?? undefined,
-        defaultPrice: data.defaultPrice ?? undefined,
-        defaultCost: data.defaultCost ?? undefined,
-        taxCode: data.taxCode ?? undefined,
-        sku: data.sku ?? undefined,
-        upc: data.upc ?? undefined,
-        manufacturerPartNumber: data.manufacturerPartNumber ?? undefined,
-        weight: data.weight ?? undefined,
-        weightUnit: data.weightUnit ?? undefined,
-      };
-      setItem(transformedData);
-    } catch (error) {
-      console.error('Error fetching item:', error);
-      toast.error('Failed to fetch item');
+  const updateItemMutation = trpc.items.update.useMutation({
+    onSuccess: () => {
+      toast.success('Item updated successfully');
       router.push('/lists/items');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, itemId, apiGet, router]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setItem(null);
-      previousOrgIdRef.current = orgId;
-    }
-    if (itemId) {
-      fetchItem();
-    }
-  }, [orgId, itemId, fetchItem]);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update item');
+    },
+  });
 
   const handleSubmit = async (values: any) => {
     if (!orgId) {
@@ -105,17 +65,10 @@ export default function EditItemPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPut(`/api/items/${itemId}`, values);
-      toast.success('Item updated successfully');
-      router.push('/lists/items');
-    } catch (error) {
-      console.error('Error updating item:', error);
-      toast.error('Failed to update item');
-    } finally {
-      setIsSubmitting(false);
-    }
+    updateItemMutation.mutate({
+      id: itemId,
+      data: values,
+    });
   };
 
   const handleCancel = () => {
@@ -130,7 +83,7 @@ export default function EditItemPage() {
     );
   }
 
-  if (!item) {
+  if (error || !item) {
     return (
       <div className="container mx-auto py-10">
         <p>Item not found</p>
@@ -163,7 +116,7 @@ export default function EditItemPage() {
           }}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
-          isSubmitting={isSubmitting}
+          isSubmitting={updateItemMutation.isPending}
         />
       </div>
     </div>

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
 import { toast } from 'sonner';
+import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -31,73 +31,61 @@ export default function ItemVariantsPage() {
   const router = useRouter();
   const params = useParams();
   const { orgId } = useAuth();
-  const { apiGet, apiPost, apiPut } = useApiClient();
-  const [isLoading, setIsLoading] = useState(true);
-  const [parentItem, setParentItem] = useState<Item | null>(null);
-  const [variants, setVariants] = useState<Item[]>([]);
   const [attributes, setAttributes] = useState<VariantAttribute[]>([]);
   const [newAttributeName, setNewAttributeName] = useState('');
   const [newAttributeValue, setNewAttributeValue] = useState('');
   const [selectedAttribute, setSelectedAttribute] = useState<number | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const previousOrgIdRef = useRef<string | null>(null);
 
   const itemId = params.id as string;
 
-  const fetchItemAndVariants = useCallback(async () => {
-    if (!orgId || !itemId) {
-      setIsLoading(false);
-      return;
-    }
+  // tRPC queries and mutations
+  const { data: parentItem, isLoading } = trpc.items.getById.useQuery(itemId, {
+    enabled: !!orgId && !!itemId,
+  });
 
-    try {
-      // Fetch parent item
-      const item = await apiGet<Item>(`/api/items/${itemId}`);
-      setParentItem(item);
+  const { data: variants = [] } = trpc.items.getVariants.useQuery(itemId, {
+    enabled: !!orgId && !!itemId,
+  });
 
-      // Load existing variant attributes if any
-      if (item.variantAttributes) {
-        const attrs: VariantAttribute[] = [];
-        for (const [name, values] of Object.entries(item.variantAttributes)) {
-          attrs.push({ name, values: values as string[] });
-        }
-        setAttributes(attrs);
+  const generateVariantsMutation = trpc.items.generateVariants.useMutation({
+    onSuccess: (newVariants) => {
+      toast.success(`Successfully generated ${newVariants.length} variants`);
+      // Data will be refetched automatically
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to generate variants');
+    },
+  });
+
+  const updateItemMutation = trpc.items.update.useMutation({
+    onSuccess: () => {
+      // Data will be refetched automatically
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update item');
+    },
+  });
+
+  // Load existing variant attributes when parent item loads
+  useEffect(() => {
+    if (parentItem?.variantAttributes) {
+      const attrs: VariantAttribute[] = [];
+      for (const [name, values] of Object.entries(parentItem.variantAttributes)) {
+        attrs.push({ name, values: values as string[] });
       }
-
-      // Fetch existing variants
-      try {
-        const variantsData = await apiGet<Item[]>(`/api/items/${itemId}/variants`);
-        setVariants(variantsData);
-      } catch (error) {
-        // It's okay if variants don't exist yet
-        setVariants([]);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to fetch item');
-      router.push('/lists/items');
-    } finally {
-      setIsLoading(false);
+      setAttributes(attrs);
     }
-  }, [orgId, itemId, apiGet, router]);
+  }, [parentItem]);
 
-  // Clear data and refetch when organization changes
+  // Clear data when organization changes
   useEffect(() => {
     if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setParentItem(null);
-      setVariants([]);
       setAttributes([]);
       setSelectedAttribute(null);
       previousOrgIdRef.current = orgId;
     }
   }, [orgId]);
-
-  useEffect(() => {
-    if (itemId && orgId) {
-      fetchItemAndVariants();
-    }
-  }, [itemId, orgId, fetchItemAndVariants]);
 
   const addAttribute = () => {
     if (!newAttributeName.trim()) {
@@ -175,36 +163,26 @@ export default function ItemVariantsPage() {
       }
     }
 
-    setIsGenerating(true);
-    try {
-      // Convert attributes to object format
-      const attributesObject: Record<string, string[]> = {};
-      attributes.forEach(attr => {
-        attributesObject[attr.name] = attr.values;
-      });
+    // Convert attributes to object format
+    const attributesObject: Record<string, string[]> = {};
+    attributes.forEach(attr => {
+      attributesObject[attr.name] = attr.values;
+    });
 
-      const newVariants = await apiPost<Item[]>(`/api/items/${itemId}/variants`, {
-        attributes: attributesObject,
-      });
-
-      toast.success(`Successfully generated ${newVariants.length} variants`);
-      setVariants(newVariants);
-      
-      // Update parent item to be marked as parent
-      if (!parentItem?.isParent) {
-        await apiPut(`/api/items/${itemId}`, {
+    generateVariantsMutation.mutate({
+      itemId,
+      attributes: attributesObject,
+    });
+    
+    // Update parent item to be marked as parent if not already
+    if (!parentItem?.isParent) {
+      updateItemMutation.mutate({
+        id: itemId,
+        data: {
           isParent: true,
           variantAttributes: attributesObject,
-        });
-        
-        // Update local state
-        setParentItem(prev => prev ? { ...prev, isParent: true, variantAttributes: attributesObject } : null);
-      }
-    } catch (error) {
-      console.error('Error generating variants:', error);
-      toast.error('Failed to generate variants');
-    } finally {
-      setIsGenerating(false);
+        },
+      });
     }
   };
 
@@ -372,9 +350,9 @@ export default function ItemVariantsPage() {
             <Button
               className="w-full mt-4"
               onClick={generateVariants}
-              disabled={calculateVariantCount() === 0 || isGenerating}
+              disabled={calculateVariantCount() === 0 || generateVariantsMutation.isPending}
             >
-              {isGenerating ? (
+              {generateVariantsMutation.isPending ? (
                 'Generating...'
               ) : (
                 <>

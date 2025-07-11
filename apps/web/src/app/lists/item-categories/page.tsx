@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Plus, ChevronRight, ChevronDown, Edit, Trash2, Folder, FolderOpen } from 'lucide-react';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -60,17 +60,60 @@ const categoryFormSchema = z.object({
 type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 
 export default function ItemCategoriesPage() {
-  const [categories, setCategories] = useState<ItemCategory[]>([]);
-  const [flatCategories, setFlatCategories] = useState<ItemCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
-  const previousOrgIdRef = useRef<string | null>(null);
+  const { orgId } = useAuth();
+
+  // TRPC queries - using items router since itemCategories doesn't exist
+  const { data: categoriesData, isLoading, refetch } = trpc.items.categories.tree.useQuery(undefined, {
+    enabled: !!orgId,
+  });
+  
+  const { data: flatCategoriesData } = trpc.items.categories.list.useQuery({
+    page: 1,
+    limit: 1000,
+  }, {
+    enabled: !!orgId,
+  });
+
+  const createCategoryMutation = trpc.items.categories.create.useMutation({
+    onSuccess: () => {
+      toast.success('Category created successfully');
+      setIsAddDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create category');
+    },
+  });
+
+  const updateCategoryMutation = trpc.items.categories.update.useMutation({
+    onSuccess: () => {
+      toast.success('Category updated successfully');
+      setIsEditDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update category');
+    },
+  });
+
+  const deleteCategoryMutation = trpc.items.categories.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Category deleted successfully');
+      refetch();
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete category');
+    },
+  });
+
+  const categories = categoriesData || [];
+  const flatCategories = flatCategoriesData?.data || [];
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
@@ -82,39 +125,6 @@ export default function ItemCategoriesPage() {
     },
   });
 
-  const fetchCategories = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      // Fetch tree structure
-      const treeData = await apiGet<ItemCategory[]>('/api/item-categories/tree');
-      setCategories(treeData);
-
-      // Also fetch flat list for form selects
-      const listData = await apiGet<{ data: ItemCategory[] }>('/api/item-categories');
-      setFlatCategories(listData.data || []);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to fetch categories.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setCategories([]);
-      setFlatCategories([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchCategories();
-  }, [orgId, fetchCategories]);
 
   const toggleExpanded = (categoryId: string) => {
     setExpandedCategories(prev => {
@@ -129,44 +139,22 @@ export default function ItemCategoriesPage() {
   };
 
   const handleAddCategory = async (values: CategoryFormValues) => {
-    setIsSubmitting(true);
-    try {
-      await apiPost('/api/item-categories', {
-        ...values,
-        parentCategoryId: values.parentCategoryId || null,
-      });
-
-      toast.success('Category created successfully');
-      setIsAddDialogOpen(false);
-      form.reset();
-      await fetchCategories();
-    } catch (error) {
-      console.error('Error creating category:', error);
-      toast.error('Failed to create category');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createCategoryMutation.mutate({
+      ...values,
+      parentCategoryId: values.parentCategoryId || undefined,
+    });
   };
 
   const handleEditCategory = async (values: CategoryFormValues) => {
     if (!selectedCategory) return;
     
-    setIsSubmitting(true);
-    try {
-      await apiPut(`/api/item-categories/${selectedCategory.id}`, {
+    updateCategoryMutation.mutate({
+      id: selectedCategory.id,
+      data: {
         ...values,
-        parentCategoryId: values.parentCategoryId || null,
-      });
-
-      toast.success('Category updated successfully');
-      setIsEditDialogOpen(false);
-      await fetchCategories();
-    } catch (error) {
-      console.error('Error updating category:', error);
-      toast.error('Failed to update category');
-    } finally {
-      setIsSubmitting(false);
-    }
+        parentCategoryId: values.parentCategoryId || undefined,
+      },
+    });
   };
 
   const handleDeleteCategory = async (category: ItemCategory) => {
@@ -174,14 +162,7 @@ export default function ItemCategoriesPage() {
       return;
     }
 
-    try {
-      await apiDelete(`/api/item-categories/${category.id}`);
-      toast.success('Category deleted successfully');
-      await fetchCategories();
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      toast.error('Failed to delete category');
-    }
+    deleteCategoryMutation.mutate(category.id);
   };
 
   const openEditDialog = (category: ItemCategory) => {
@@ -253,7 +234,7 @@ export default function ItemCategoriesPage() {
 
         {hasChildren && isExpanded && (
           <div>
-            {category.children!.map(child => renderCategory(child, level + 1))}
+            {category.children!.map((child: ItemCategory) => renderCategory(child, level + 1))}
           </div>
         )}
       </div>
@@ -288,7 +269,7 @@ export default function ItemCategoriesPage() {
         </div>
       ) : (
         <div className="space-y-1">
-          {categories.map(category => renderCategory(category))}
+          {categories.map((category: ItemCategory) => renderCategory(category))}
         </div>
       )}
 
@@ -347,7 +328,7 @@ export default function ItemCategoriesPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {flatCategories.map(category => (
+                        {flatCategories.map((category: ItemCategory) => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.path ? category.path.replace(/\//g, ' → ') : category.name}
                           </SelectItem>
@@ -387,8 +368,8 @@ export default function ItemCategoriesPage() {
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create Category"}
+                <Button type="submit" disabled={createCategoryMutation.isPending}>
+                  {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
                 </Button>
               </DialogFooter>
             </form>
@@ -487,8 +468,8 @@ export default function ItemCategoriesPage() {
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Updating..." : "Update Category"}
+                <Button type="submit" disabled={updateCategoryMutation.isPending}>
+                  {updateCategoryMutation.isPending ? "Updating..." : "Update Category"}
                 </Button>
               </DialogFooter>
             </form>
