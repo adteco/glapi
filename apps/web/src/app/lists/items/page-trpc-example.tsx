@@ -206,7 +206,7 @@ export default function ItemsPageWithTRPC() {
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {categories?.map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               {category.name}
@@ -268,7 +268,7 @@ export default function ItemsPageWithTRPC() {
                 <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All categories</SelectItem>
+                <SelectItem value="all">All categories</SelectItem>
                 {categories?.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}

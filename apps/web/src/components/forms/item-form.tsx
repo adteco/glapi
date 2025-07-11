@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -78,11 +78,30 @@ interface ItemFormProps {
 
 export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: ItemFormProps) {
   const { orgId } = useAuth();
-  const { apiGet } = useApiClient();
-  const [categories, setCategories] = useState<any[]>([]);
-  const [unitsOfMeasure, setUnitsOfMeasure] = useState<any[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
   const previousOrgIdRef = useRef<string | null>(null);
+
+  // tRPC queries
+  const { data: categoriesData } = trpc.items.categories.list.useQuery({
+    page: 1,
+    limit: 100,
+  }, {
+    enabled: !!orgId,
+  });
+
+  const { data: unitsOfMeasureData } = trpc.unitsOfMeasure.list.useQuery({
+    page: 1,
+    limit: 100,
+  }, {
+    enabled: !!orgId,
+  });
+
+  const { data: accountsData } = trpc.accounts.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+
+  const categories = categoriesData?.data || [];
+  const unitsOfMeasure = unitsOfMeasureData?.data || [];
+  const accounts = accountsData?.data || [];
 
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemFormSchema),
@@ -106,55 +125,28 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
   const watchItemType = form.watch('itemType');
   const watchTrackQuantity = form.watch('trackQuantity');
 
-  const fetchCategories = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      const response = await apiGet<{ data: any[] }>('/api/item-categories');
-      setCategories(response.data || []);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  }, [orgId, apiGet]);
-
-  const fetchUnitsOfMeasure = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      const response = await apiGet<{ data: any[] }>('/api/units-of-measure');
-      setUnitsOfMeasure(response.data || []);
-    } catch (error) {
-      console.error('Error fetching units of measure:', error);
-    }
-  }, [orgId, apiGet]);
-
-  const fetchAccounts = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      const response = await apiGet<{ data: any[] }>('/api/gl/accounts');
-      setAccounts(response.data || []);
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
+  // Clear form when organization changes
   useEffect(() => {
     if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setCategories([]);
-      setUnitsOfMeasure([]);
-      setAccounts([]);
       previousOrgIdRef.current = orgId;
+      // Reset form to defaults when org changes
+      form.reset({
+        itemCode: '',
+        name: '',
+        description: '',
+        itemType: 'INVENTORY_ITEM',
+        isActive: true,
+        isPurchasable: false,
+        isSaleable: false,
+        trackQuantity: false,
+        trackLotNumbers: false,
+        trackSerialNumbers: false,
+        isTaxable: false,
+        isParent: false,
+        ...initialData,
+      });
     }
-    
-    if (orgId) {
-      fetchCategories();
-      fetchUnitsOfMeasure();
-      fetchAccounts();
-    }
-  }, [orgId, fetchCategories, fetchUnitsOfMeasure, fetchAccounts]);
+  }, [orgId, form, initialData]);
 
   const getAccountsByCategory = (category: string) => {
     return accounts.filter(account => account.accountCategory === category);

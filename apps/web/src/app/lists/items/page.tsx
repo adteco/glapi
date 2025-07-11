@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -52,92 +52,46 @@ interface ItemCategory {
 }
 
 export default function ItemsPage() {
-  const [items, setItems] = useState<Item[]>([]);
-  const [categories, setCategories] = useState<ItemCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
   const { orgId } = useAuth();
   const router = useRouter();
-  const { apiGet, apiDelete } = useApiClient();
-  const previousOrgIdRef = useRef<string | null>(null);
 
-  const itemsPerPage = 20;
+  // TRPC queries
+  const { data: itemsData, isLoading: itemsLoading, refetch: refetchItems } = trpc.items.list.useQuery({
+    search: searchQuery || undefined,
+    categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
+    includeInactive: !showActiveOnly,
+  }, {
+    enabled: !!orgId,
+  });
 
-  const fetchCategories = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      const data = await apiGet<{ data: ItemCategory[] }>('/api/item-categories');
-      setCategories(data.data || []);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  }, [orgId, apiGet]);
+  const { data: categoriesData, isLoading: categoriesLoading } = trpc.items.categories.list.useQuery({
+    page: 1,
+    limit: 100,
+  }, {
+    enabled: !!orgId,
+  });
 
-  const fetchItems = useCallback(async (page: number = 1) => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: itemsPerPage.toString(),
-        isActive: showActiveOnly.toString(),
-      });
+  const deleteItemMutation = trpc.items.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Item deleted successfully');
+      refetchItems();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete item');
+    },
+  });
 
-      if (searchQuery) {
-        params.append('search', searchQuery);
-      }
-      if (selectedType !== 'all') {
-        params.append('itemType', selectedType);
-      }
-      if (selectedCategory !== 'all') {
-        params.append('categoryId', selectedCategory);
-      }
+  const items = itemsData || [];
+  const categories = categoriesData?.data || [];
+  const isLoading = itemsLoading || categoriesLoading;
 
-      const data = await apiGet<{
-        data: Item[];
-        total: number;
-        pages: number;
-        page: number;
-      }>(`/api/items?${params}`);
-      
-      setItems(data.data || []);
-      setTotal(data.total || 0);
-      setTotalPages(data.pages || 1);
-      setCurrentPage(data.page || 1);
-    } catch (error) {
-      console.error('Error fetching items:', error);
-      toast.error('Failed to fetch items.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet, searchQuery, selectedType, selectedCategory, showActiveOnly, itemsPerPage]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setItems([]);
-      setCategories([]);
-      setCurrentPage(1);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchCategories();
-  }, [orgId, fetchCategories]);
-
-  useEffect(() => {
-    fetchItems(currentPage);
-  }, [currentPage, fetchItems]);
+  const totalPages = Math.ceil(items.length / 20);
+  const total = items.length;
 
   const handleEdit = (item: Item) => {
     router.push(`/lists/items/${item.id}/edit`);
@@ -148,14 +102,7 @@ export default function ItemsPage() {
       return;
     }
 
-    try {
-      await apiDelete(`/api/items/${item.id}`);
-      toast.success('Item deleted successfully');
-      fetchItems(currentPage);
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      toast.error('Failed to delete item');
-    }
+    deleteItemMutation.mutate({ id: item.id });
   };
 
   const handleDuplicate = (item: Item) => {
@@ -235,7 +182,7 @@ export default function ItemsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(category => (
+            {categories.map((category: any) => (
               <SelectItem key={category.id} value={category.id}>
                 {category.name}
               </SelectItem>
@@ -273,8 +220,8 @@ export default function ItemsPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => {
-            const category = categories.find(c => c.id === item.categoryId);
+          {items.map((item: Item) => {
+            const category = categories.find((c: any) => c.id === item.categoryId);
             
             return (
               <TableRow key={item.id}>

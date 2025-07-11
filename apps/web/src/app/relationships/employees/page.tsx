@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,225 +12,157 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface EmployeeMetadata {
-  employeeId?: string;
-  department?: string;
-  title?: string;
-  reportsTo?: string;
-  startDate?: string;
-  employmentType?: string;
-}
 
 interface Employee {
   id: string;
-  name: string;
-  displayName?: string | null;
-  code?: string | null;
+  employeeCode?: string | null;
+  firstName: string;
+  lastName: string;
   email?: string | null;
   phone?: string | null;
-  metadata?: EmployeeMetadata | null;
-  status: string;
-  isActive: boolean;
+  title?: string | null;
+  departmentId?: string | null;
+  status: 'active' | 'inactive' | 'terminated';
   createdAt: string;
   updatedAt: string;
 }
 
 export default function EmployeesPage() {
   const { orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
   const router = useRouter();
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const previousOrgIdRef = useRef<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    displayName: '',
-    code: '',
-    email: '',
-    phone: '',
-    status: 'active',
-    metadata: {
-      employeeId: '',
-      department: '',
-      title: '',
-      employmentType: 'full-time',
-      startDate: '',
-    }
+
+  // TRPC queries and mutations
+  const { data: employeesData, isLoading, refetch } = trpc.employees.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const createEmployeeMutation = trpc.employees.create.useMutation({
+    onSuccess: () => {
+      toast.success('Employee created successfully');
+      setIsCreateOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create employee');
+    },
+  });
+  
+  const updateEmployeeMutation = trpc.employees.update.useMutation({
+    onSuccess: () => {
+      toast.success('Employee updated successfully');
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update employee');
+    },
+  });
+  
+  const deleteEmployeeMutation = trpc.employees.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Employee deleted successfully');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete employee');
+    },
   });
 
-  const fetchEmployees = useCallback(async () => {
-    if (!orgId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await apiGet<{ data: Employee[] }>('/api/employees');
-      console.log('Fetched employees:', data);
-      setEmployees(data.data || []);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      toast.error('Failed to fetch employees.');
-    } finally {
-      setLoading(false);
-    }
-  }, [orgId, apiGet]);
+  const employees = (employeesData?.data || []).map(employee => ({
+    ...employee,
+    id: employee.id || '',
+    createdAt: employee.createdAt?.toString() || new Date().toISOString(),
+    updatedAt: employee.updatedAt?.toString() || new Date().toISOString(),
+  }));
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    employeeCode: '',
+    email: '',
+    phone: '',
+    title: '',
+    departmentId: '',
+    status: 'active' as 'active' | 'inactive' | 'terminated',
+  });
 
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setEmployees([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchEmployees();
-  }, [orgId, fetchEmployees]);
 
 
   const handleCreate = async () => {
-    try {
-      if (!formData.name) {
-        toast.error('Full name is required');
-        return;
-      }
-
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      const newEmployee = await apiPost<Employee>('/api/employees', {
-        name: formData.name,
-        displayName: formData.displayName || undefined,
-        code: formData.code || undefined,
-        entityTypes: ['Employee'],
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        status: formData.status,
-        isActive: true,
-        metadata: {
-          employeeId: formData.metadata.employeeId || undefined,
-          department: formData.metadata.department || undefined,
-          title: formData.metadata.title || undefined,
-          employmentType: formData.metadata.employmentType || undefined,
-          startDate: formData.metadata.startDate || undefined,
-        },
-      });
-      
-      console.log('Employee created successfully:', newEmployee);
-      toast.success('Employee created successfully.');
-      
-      await fetchEmployees();
-      setIsCreateOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error creating employee:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create employee');
+    if (!formData.firstName) {
+      toast.error('First name is required');
+      return;
     }
+
+    createEmployeeMutation.mutate({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      employeeCode: formData.employeeCode || undefined,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      title: formData.title || undefined,
+      departmentId: formData.departmentId || undefined,
+      status: formData.status,
+    });
   };
 
   const handleUpdate = async () => {
     if (!selectedEmployee) return;
     
-    try {
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      await apiPut(`/api/employees/${selectedEmployee.id}`, {
-        name: formData.name,
-        displayName: formData.displayName || undefined,
-        code: formData.code || undefined,
-        entityTypes: ['Employee'],
+    updateEmployeeMutation.mutate({
+      id: selectedEmployee.id,
+      data: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        employeeCode: formData.employeeCode || undefined,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
+        title: formData.title || undefined,
+        departmentId: formData.departmentId || undefined,
         status: formData.status,
-        isActive: true,
-        metadata: {
-          employeeId: formData.metadata.employeeId || undefined,
-          department: formData.metadata.department || undefined,
-          title: formData.metadata.title || undefined,
-          employmentType: formData.metadata.employmentType || undefined,
-          startDate: formData.metadata.startDate || undefined,
-        },
-      });
-      
-      console.log('Employee updated successfully');
-      toast.success('Employee updated successfully.');
-      
-      await fetchEmployees();
-      setIsEditOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error updating employee:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update employee');
-    }
+      },
+    });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this employee?')) return;
     
-    try {
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      await apiDelete(`/api/employees/${id}`);
-      
-      console.log('Employee deleted successfully');
-      toast.success('Employee deleted successfully.');
-      
-      await fetchEmployees();
-    } catch (error) {
-      console.error('Error deleting employee:', error);
-      toast.error('Failed to delete employee');
-    }
+    deleteEmployeeMutation.mutate(id);
   };
 
   const openEditDialog = (employee: Employee) => {
     setSelectedEmployee(employee);
     setFormData({
-      name: employee.name,
-      displayName: employee.displayName || '',
-      code: employee.code || '',
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      employeeCode: employee.employeeCode || '',
       email: employee.email || '',
       phone: employee.phone || '',
+      title: employee.title || '',
+      departmentId: employee.departmentId || '',
       status: employee.status,
-      metadata: {
-        employeeId: employee.metadata?.employeeId || '',
-        department: employee.metadata?.department || '',
-        title: employee.metadata?.title || '',
-        employmentType: employee.metadata?.employmentType || 'full-time',
-        startDate: employee.metadata?.startDate || '',
-      }
     });
     setIsEditOpen(true);
   };
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      displayName: '',
-      code: '',
+      firstName: '',
+      lastName: '',
+      employeeCode: '',
       email: '',
       phone: '',
+      title: '',
+      departmentId: '',
       status: 'active',
-      metadata: {
-        employeeId: '',
-        department: '',
-        title: '',
-        employmentType: 'full-time',
-        startDate: '',
-      }
     });
     setSelectedEmployee(null);
   };
@@ -239,7 +171,13 @@ export default function EmployeesPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (isLoading) {
+    return <div className="container mx-auto py-10"><p>Loading employees...</p></div>;
+  }
+
+  if (!orgId) {
+    return <div className="container mx-auto py-10"><p>Please select an organization to view employees.</p></div>;
+  }
 
   return (
     <div className="container mx-auto py-10">
@@ -265,23 +203,28 @@ export default function EmployeesPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Full Name*</Label>
+                      <Label htmlFor="firstName">First Name*</Label>
                       <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        id="firstName"
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="employeeId">Employee ID</Label>
+                      <Label htmlFor="lastName">Last Name</Label>
                       <Input
-                        id="employeeId"
-                        value={formData.metadata.employeeId}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          metadata: { ...formData.metadata, employeeId: e.target.value }
-                        })}
+                        id="lastName"
+                        value={formData.lastName}
+                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="employeeCode">Employee Code</Label>
+                      <Input
+                        id="employeeCode"
+                        value={formData.employeeCode}
+                        onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -305,55 +248,36 @@ export default function EmployeesPage() {
                       <Label htmlFor="title">Job Title</Label>
                       <Input
                         id="title"
-                        value={formData.metadata.title}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          metadata: { ...formData.metadata, title: e.target.value }
-                        })}
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
+                      <Label htmlFor="departmentId">Department ID</Label>
                       <Input
-                        id="department"
-                        value={formData.metadata.department}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          metadata: { ...formData.metadata, department: e.target.value }
-                        })}
+                        id="departmentId"
+                        value={formData.departmentId}
+                        onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="employmentType">Employment Type</Label>
+                      <Label htmlFor="status">Status</Label>
                       <Select
-                        value={formData.metadata.employmentType}
+                        value={formData.status}
                         onValueChange={(value) => setFormData({ 
                           ...formData, 
-                          metadata: { ...formData.metadata, employmentType: value }
+                          status: value as 'active' | 'inactive' | 'terminated'
                         })}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="full-time">Full Time</SelectItem>
-                          <SelectItem value="part-time">Part Time</SelectItem>
-                          <SelectItem value="contractor">Contractor</SelectItem>
-                          <SelectItem value="intern">Intern</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="terminated">Terminated</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Start Date</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        value={formData.metadata.startDate}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          metadata: { ...formData.metadata, startDate: e.target.value }
-                        })}
-                      />
                     </div>
                   </div>
                 </div>
@@ -385,15 +309,15 @@ export default function EmployeesPage() {
               {employees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableCell className="font-medium">
-                    {employee.displayName || employee.name}
+                    {employee.firstName} {employee.lastName}
                   </TableCell>
-                  <TableCell>{employee.metadata?.employeeId || employee.code || '-'}</TableCell>
-                  <TableCell>{employee.metadata?.title || '-'}</TableCell>
-                  <TableCell>{employee.metadata?.department || '-'}</TableCell>
+                  <TableCell>{employee.employeeCode || '-'}</TableCell>
+                  <TableCell>{employee.title || '-'}</TableCell>
+                  <TableCell>{employee.departmentId || '-'}</TableCell>
                   <TableCell>{employee.email || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">
-                      {employee.metadata?.employmentType || 'full-time'}
+                      Employee
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -455,23 +379,28 @@ export default function EmployeesPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Full Name*</Label>
+                <Label htmlFor="edit-firstName">First Name*</Label>
                 <Input
-                  id="edit-name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  id="edit-firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-employeeId">Employee ID</Label>
+                <Label htmlFor="edit-lastName">Last Name</Label>
                 <Input
-                  id="edit-employeeId"
-                  value={formData.metadata.employeeId}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    metadata: { ...formData.metadata, employeeId: e.target.value }
-                  })}
+                  id="edit-lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-employeeCode">Employee Code</Label>
+                <Input
+                  id="edit-employeeCode"
+                  value={formData.employeeCode}
+                  onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -495,55 +424,36 @@ export default function EmployeesPage() {
                 <Label htmlFor="edit-title">Job Title</Label>
                 <Input
                   id="edit-title"
-                  value={formData.metadata.title}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    metadata: { ...formData.metadata, title: e.target.value }
-                  })}
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-department">Department</Label>
+                <Label htmlFor="edit-departmentId">Department ID</Label>
                 <Input
-                  id="edit-department"
-                  value={formData.metadata.department}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    metadata: { ...formData.metadata, department: e.target.value }
-                  })}
+                  id="edit-departmentId"
+                  value={formData.departmentId}
+                  onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-employmentType">Employment Type</Label>
+                <Label htmlFor="edit-status">Status</Label>
                 <Select
-                  value={formData.metadata.employmentType}
+                  value={formData.status}
                   onValueChange={(value) => setFormData({ 
                     ...formData, 
-                    metadata: { ...formData.metadata, employmentType: value }
+                    status: value as 'active' | 'inactive' | 'terminated'
                   })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="full-time">Full Time</SelectItem>
-                    <SelectItem value="part-time">Part Time</SelectItem>
-                    <SelectItem value="contractor">Contractor</SelectItem>
-                    <SelectItem value="intern">Intern</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="terminated">Terminated</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-startDate">Start Date</Label>
-                <Input
-                  id="edit-startDate"
-                  type="date"
-                  value={formData.metadata.startDate}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    metadata: { ...formData.metadata, startDate: e.target.value }
-                  })}
-                />
               </div>
             </div>
           </div>

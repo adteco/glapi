@@ -450,7 +450,7 @@ export default function AccountsPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {accounts
                           .filter(a => a.accountNumber.endsWith('000') || a.accountNumber.endsWith('0000'))
                           .map(account => (
