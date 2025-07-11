@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, DollarSign, Edit, Trash, Package } from 'lucide-react';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -61,15 +61,56 @@ type PriceListFormValues = z.infer<typeof priceListFormSchema>;
 
 export default function PriceListsPage() {
   const router = useRouter();
-  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingPriceList, setEditingPriceList] = useState<PriceList | null>(null);
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const { orgId } = useAuth();
   const previousOrgIdRef = useRef<string | null>(null);
+
+  // tRPC queries and mutations
+  const { data: priceListsData, isLoading, refetch } = trpc.priceLists.list.useQuery({
+    activeOnly: false,
+    limit: 100,
+  }, {
+    enabled: !!orgId,
+  });
+
+  const createPriceListMutation = trpc.priceLists.create.useMutation({
+    onSuccess: () => {
+      toast.success('Price list created successfully!');
+      setIsDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create price list');
+    },
+  });
+
+  const updatePriceListMutation = trpc.priceLists.update.useMutation({
+    onSuccess: () => {
+      toast.success('Price list updated successfully!');
+      setIsEditDialogOpen(false);
+      setEditingPriceList(null);
+      editForm.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update price list');
+    },
+  });
+
+  const deletePriceListMutation = trpc.priceLists.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Price list deleted successfully!');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete price list');
+    },
+  });
+
+  const priceLists = priceListsData?.data || [];
 
   const form = useForm<PriceListFormValues>({
     resolver: zodResolver(priceListFormSchema),
@@ -95,34 +136,14 @@ export default function PriceListsPage() {
     },
   });
 
-  // Fetch price lists
-  const fetchPriceLists = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const data = await apiGet<{ data: PriceList[] }>('/api/price-lists?activeOnly=false&limit=100');
-      setPriceLists(data.data || []);
-    } catch (error) {
-      console.error('Error fetching price lists:', error);
-      toast.error('Failed to fetch price lists.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
+  // Clear state when organization changes
   useEffect(() => {
     if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setPriceLists([]);
       previousOrgIdRef.current = orgId;
+      form.reset();
+      editForm.reset();
     }
-    fetchPriceLists();
-  }, [orgId, fetchPriceLists]);
+  }, [orgId, form, editForm]);
 
   // Handle form submission for create
   const onSubmit = async (values: PriceListFormValues) => {
@@ -131,22 +152,7 @@ export default function PriceListsPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPost('/api/price-lists', values);
-      
-      toast.success('Price list created successfully!');
-      setIsDialogOpen(false);
-      form.reset();
-      
-      // Refresh the price lists list
-      await fetchPriceLists();
-    } catch (error) {
-      console.error('Error creating price list:', error);
-      toast.error('Failed to create price list.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createPriceListMutation.mutate(values);
   };
 
   // Handle form submission for edit
@@ -156,23 +162,10 @@ export default function PriceListsPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPut(`/api/price-lists/${editingPriceList.id}`, values);
-      
-      toast.success('Price list updated successfully!');
-      setIsEditDialogOpen(false);
-      setEditingPriceList(null);
-      editForm.reset();
-      
-      // Refresh the price lists list
-      await fetchPriceLists();
-    } catch (error) {
-      console.error('Error updating price list:', error);
-      toast.error('Failed to update price list.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    updatePriceListMutation.mutate({
+      id: editingPriceList.id,
+      data: values,
+    });
   };
 
   // Handle delete
@@ -181,14 +174,7 @@ export default function PriceListsPage() {
       return;
     }
 
-    try {
-      await apiDelete(`/api/price-lists/${priceList.id}`);
-      toast.success('Price list deleted successfully!');
-      await fetchPriceLists();
-    } catch (error) {
-      console.error('Error deleting price list:', error);
-      toast.error('Failed to delete price list.');
-    }
+    deletePriceListMutation.mutate({ id: priceList.id });
   };
 
   // Open edit dialog
@@ -342,8 +328,8 @@ export default function PriceListsPage() {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? 'Creating...' : 'Create Price List'}
+                    <Button type="submit" disabled={createPriceListMutation.isPending}>
+                      {createPriceListMutation.isPending ? 'Creating...' : 'Create Price List'}
                     </Button>
                   </div>
                 </form>
@@ -481,8 +467,8 @@ export default function PriceListsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Updating...' : 'Update Price List'}
+                <Button type="submit" disabled={updatePriceListMutation.isPending}>
+                  {updatePriceListMutation.isPending ? 'Updating...' : 'Update Price List'}
                 </Button>
               </div>
             </form>
