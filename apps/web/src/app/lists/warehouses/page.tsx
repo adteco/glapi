@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Building2, Edit, Trash, DollarSign } from 'lucide-react';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -78,16 +78,58 @@ type WarehouseFormValues = z.infer<typeof warehouseFormSchema>;
 
 export default function WarehousesPage() {
   const router = useRouter();
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const { orgId } = useAuth();
   const previousOrgIdRef = useRef<string | null>(null);
+
+  // tRPC queries and mutations
+  const { data: warehousesData, isLoading, refetch } = trpc.warehouses.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+
+  const { data: locationsData } = trpc.locations.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+
+  const createWarehouseMutation = trpc.warehouses.create.useMutation({
+    onSuccess: () => {
+      toast.success('Warehouse created successfully!');
+      setIsDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create warehouse');
+    },
+  });
+
+  const updateWarehouseMutation = trpc.warehouses.update.useMutation({
+    onSuccess: () => {
+      toast.success('Warehouse updated successfully!');
+      setIsEditDialogOpen(false);
+      setEditingWarehouse(null);
+      editForm.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update warehouse');
+    },
+  });
+
+  const deleteWarehouseMutation = trpc.warehouses.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Warehouse deleted successfully!');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete warehouse');
+    },
+  });
+
+  const warehouses = warehousesData?.data || [];
+  const locations = locationsData?.data || [];
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseFormSchema),
@@ -109,50 +151,14 @@ export default function WarehousesPage() {
     },
   });
 
-  // Fetch warehouses
-  const fetchWarehouses = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await apiGet<{ data: Warehouse[] }>('/api/warehouses');
-      setWarehouses(data.data || []);
-    } catch (error) {
-      console.error('Error fetching warehouses:', error);
-      toast.error('Failed to fetch warehouses.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
+  // Clear state when organization changes
   useEffect(() => {
     if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setWarehouses([]);
-      setLocations([]);
       previousOrgIdRef.current = orgId;
+      form.reset();
+      editForm.reset();
     }
-    fetchWarehouses();
-  }, [orgId, fetchWarehouses]);
-
-  // Fetch locations
-  useEffect(() => {
-    const fetchLocations = async () => {
-      if (!orgId) return;
-      
-      try {
-        const data = await apiGet<{ data: Location[] }>('/api/locations');
-        setLocations(data.data || []);
-      } catch (error) {
-        console.error('Error fetching locations:', error);
-      }
-    };
-
-    fetchLocations();
-  }, [orgId, apiGet]);
+  }, [orgId, form, editForm]);
 
   // Handle form submission
   const onSubmit = async (values: WarehouseFormValues) => {
@@ -161,29 +167,12 @@ export default function WarehousesPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPost('/api/warehouses', {
-        warehouseId: values.warehouseId,
-        name: values.name,
-        locationId: values.locationId === 'no-location' ? undefined : values.locationId,
-        isActive: values.isActive,
-      });
-      
-      toast.success('Warehouse created successfully!');
-      setIsDialogOpen(false);
-      form.reset();
-      
-      // Refresh the warehouses list
-      await fetchWarehouses();
-    } catch (error) {
-      console.error('Error creating warehouse:', error);
-      if (!(error instanceof Error && error.message === 'Failed to create warehouse')) {
-        toast.error('An unexpected error occurred.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    createWarehouseMutation.mutate({
+      warehouseId: values.warehouseId,
+      name: values.name,
+      locationId: values.locationId === 'no-location' ? undefined : values.locationId,
+      isActive: values.isActive,
+    });
   };
 
   // Handle edit form submission
@@ -193,30 +182,15 @@ export default function WarehousesPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPut(`/api/warehouses/${editingWarehouse.id}`, {
+    updateWarehouseMutation.mutate({
+      id: editingWarehouse.id,
+      data: {
         warehouseId: values.warehouseId,
         name: values.name,
         locationId: values.locationId === 'no-location' ? undefined : values.locationId,
         isActive: values.isActive,
-      });
-      
-      toast.success('Warehouse updated successfully!');
-      setIsEditDialogOpen(false);
-      setEditingWarehouse(null);
-      editForm.reset();
-      
-      // Refresh the warehouses list
-      await fetchWarehouses();
-    } catch (error) {
-      console.error('Error updating warehouse:', error);
-      if (!(error instanceof Error && error.message === 'Failed to update warehouse')) {
-        toast.error('An unexpected error occurred.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+      },
+    });
   };
 
   // Handle delete
@@ -225,14 +199,7 @@ export default function WarehousesPage() {
       return;
     }
 
-    try {
-      await apiDelete(`/api/warehouses/${warehouse.id}`);
-      toast.success('Warehouse deleted successfully!');
-      await fetchWarehouses();
-    } catch (error) {
-      console.error('Error deleting warehouse:', error);
-      toast.error('Failed to delete warehouse.');
-    }
+    deleteWarehouseMutation.mutate({ id: warehouse.id });
   };
 
   // Open edit dialog
@@ -374,8 +341,8 @@ export default function WarehousesPage() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Creating...' : 'Create Warehouse'}
+                  <Button type="submit" disabled={createWarehouseMutation.isPending}>
+                    {createWarehouseMutation.isPending ? 'Creating...' : 'Create Warehouse'}
                   </Button>
                 </div>
               </form>
@@ -487,8 +454,8 @@ export default function WarehousesPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Updating...' : 'Update Warehouse'}
+                <Button type="submit" disabled={updateWarehouseMutation.isPending}>
+                  {updateWarehouseMutation.isPending ? 'Updating...' : 'Update Warehouse'}
                 </Button>
               </div>
             </form>
