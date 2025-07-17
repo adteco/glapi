@@ -1,0 +1,42 @@
+name = "glapi-mcp-server"
+main = "src/index.ts"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+[env.development]
+name = "glapi-mcp-server-dev"
+[env.development.vars]
+MCP_SERVER_VERSION = "0.1.0"
+LOG_LEVEL = "debug"
+RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
+RATE_LIMIT_BURST = "10"
+CACHE_TTL_SECONDS = "300"
+MAX_CACHE_SIZE = "100"
+
+[env.staging]
+name = "glapi-mcp-server-staging"
+[env.staging.vars]
+MCP_SERVER_VERSION = "0.1.0"
+LOG_LEVEL = "info"
+RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
+RATE_LIMIT_BURST = "10"
+CACHE_TTL_SECONDS = "300"
+MAX_CACHE_SIZE = "100"
+
+[env.production]
+name = "glapi-mcp-server-prod"
+routes = [
+  { pattern = "mcp.glapi.net", custom_domain = true }
+]
+[env.production.vars]
+MCP_SERVER_VERSION = "0.1.0"
+LOG_LEVEL = "info"
+RATE_LIMIT_REQUESTS_PER_MINUTE = "120"
+RATE_LIMIT_BURST = "20"
+CACHE_TTL_SECONDS = "600"
+MAX_CACHE_SIZE = "200"
+
+# Environment variables (set via `wrangler secret put`)
+# CLERK_SECRET_KEY - Clerk JWT validation
+# GLAPI_API_URL - Backend API URL
+# OPENAI_API_KEY - Optional: for enhanced AI features

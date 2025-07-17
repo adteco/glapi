@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ProspectMetadata {
-  source?: string;
+  prospect_source?: string;
+  prospect_status?: string;
+  qualification_score?: number;
+  next_action?: string;
+  follow_up_date?: string;
   industry?: string;
   annualRevenue?: number;
   numberOfEmployees?: number;
@@ -28,6 +32,7 @@ interface Prospect {
   id: string;
   name: string;
   displayName?: string | null;
+  entityId?: string | null;
   code?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -41,21 +46,57 @@ interface Prospect {
 
 export default function ProspectsPage() {
   const { orgId } = useAuth();
-  const { apiGet, apiPost } = useApiClient();
   const router = useRouter();
-  const [prospects, setProspects] = useState<Prospect[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const previousOrgIdRef = useRef<string | null>(null);
+
+  // TRPC queries and mutations
+  const { data: prospectsData, isLoading, refetch } = trpc.prospects.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+
+  const createProspectMutation = trpc.prospects.create.useMutation({
+    onSuccess: () => {
+      toast.success('Prospect created successfully');
+      setIsCreateOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create prospect');
+    },
+  });
+
+  const convertToLeadMutation = trpc.prospects.convertToLead.useMutation({
+    onSuccess: () => {
+      toast.success('Successfully converted prospect to lead');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to convert prospect to lead');
+    },
+  });
+
+  const convertToCustomerMutation = trpc.prospects.convertToCustomer.useMutation({
+    onSuccess: () => {
+      toast.success('Successfully converted prospect to customer');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to convert prospect to customer');
+    },
+  });
+
+  const prospects = prospectsData?.data || [];
+
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
     email: '',
     phone: '',
     website: '',
-    status: 'active',
+    notes: '',
     metadata: {
-      source: '',
+      prospect_source: '',
       industry: '',
       annualRevenue: 0,
       numberOfEmployees: 0,
@@ -63,72 +104,28 @@ export default function ProspectsPage() {
     }
   });
 
-  const fetchProspects = useCallback(async () => {
-    if (!orgId) {
-      setLoading(false);
+  const handleCreate = async () => {
+    if (!formData.name) {
+      toast.error('Company name is required');
       return;
     }
-    setLoading(true);
-    try {
-      const data = await apiGet<{ data: Prospect[] }>('/api/prospects');
-      console.log('Fetched prospects:', data);
-      setProspects(data.data || []);
-    } catch (error) {
-      console.error('Error fetching prospects:', error);
-      toast.error('Failed to fetch prospects.');
-    } finally {
-      setLoading(false);
-    }
-  }, [orgId, apiGet]);
 
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setProspects([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchProspects();
-  }, [orgId, fetchProspects]);
-
-  const handleCreate = async () => {
-    try {
-      if (!formData.name) {
-        toast.error('Company name is required');
-        return;
-      }
-
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      await apiPost('/api/prospects', {
-        name: formData.name,
-        displayName: formData.displayName || undefined,
-        entityTypes: ['Prospect'],
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        website: formData.website || undefined,
-        status: formData.status,
-        isActive: true,
-        metadata: {
-          source: formData.metadata.source || undefined,
-          industry: formData.metadata.industry || undefined,
-          annualRevenue: formData.metadata.annualRevenue || undefined,
-          numberOfEmployees: formData.metadata.numberOfEmployees || undefined,
-          assignedTo: formData.metadata.assignedTo || undefined,
-        },
-      });
-      
-      await fetchProspects();
-      setIsCreateOpen(false);
-      resetForm();
-      toast.success('Prospect created successfully');
-    } catch (error) {
-      console.error('Error creating prospect:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create prospect');
-    }
+    createProspectMutation.mutate({
+      name: formData.name,
+      legalName: formData.displayName || undefined,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      website: formData.website || undefined,
+      notes: formData.notes || undefined,
+      isActive: true,
+      metadata: {
+        prospect_source: formData.metadata.prospect_source || undefined,
+        industry: formData.metadata.industry || undefined,
+        annualRevenue: formData.metadata.annualRevenue || undefined,
+        numberOfEmployees: formData.metadata.numberOfEmployees || undefined,
+        assignedTo: formData.metadata.assignedTo || undefined,
+      },
+    });
   };
 
   const handleConvert = async (prospectId: string, convertTo: 'lead' | 'customer') => {
@@ -138,18 +135,10 @@ export default function ProspectsPage() {
       
     if (!confirm(confirmMsg)) return;
     
-    try {
-      const endpoint = convertTo === 'lead' 
-        ? `/api/prospects/${prospectId}/convert-to-lead`
-        : `/api/prospects/${prospectId}/convert-to-customer`;
-        
-      await apiPost(endpoint, {});
-      
-      await fetchProspects();
-      toast.success(`Successfully converted prospect to ${convertTo}`);
-    } catch (error) {
-      console.error('Error converting prospect:', error);
-      toast.error(`Failed to convert prospect to ${convertTo}`);
+    if (convertTo === 'lead') {
+      convertToLeadMutation.mutate({ id: prospectId });
+    } else {
+      convertToCustomerMutation.mutate({ id: prospectId });
     }
   };
 
@@ -160,9 +149,9 @@ export default function ProspectsPage() {
       email: '',
       phone: '',
       website: '',
-      status: 'active',
+      notes: '',
       metadata: {
-        source: '',
+        prospect_source: '',
         industry: '',
         annualRevenue: 0,
         numberOfEmployees: 0,
@@ -179,7 +168,7 @@ export default function ProspectsPage() {
     }).format(amount);
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (isLoading) return <div>Loading...</div>;
 
   return (
     <div className="container mx-auto py-10">
@@ -217,10 +206,10 @@ export default function ProspectsPage() {
                       <Label htmlFor="source">Source</Label>
                       <Input
                         id="source"
-                        value={formData.metadata.source}
+                        value={formData.metadata.prospect_source}
                         onChange={(e) => setFormData({ 
                           ...formData, 
-                          metadata: { ...formData.metadata, source: e.target.value }
+                          metadata: { ...formData.metadata, prospect_source: e.target.value }
                         })}
                         placeholder="e.g., Cold Outreach, Research"
                       />
@@ -286,12 +275,24 @@ export default function ProspectsPage() {
                       />
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Additional notes about this prospect"
+                      rows={3}
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreate}>Create</Button>
+                  <Button onClick={handleCreate} disabled={createProspectMutation.isPending}>
+                    {createProspectMutation.isPending ? 'Creating...' : 'Create'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -323,8 +324,8 @@ export default function ProspectsPage() {
                   <TableCell>{prospect.metadata?.numberOfEmployees || '-'}</TableCell>
                   <TableCell>{prospect.email || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={prospect.status === 'active' ? 'default' : 'secondary'}>
-                      {prospect.status}
+                    <Badge variant={prospect.isActive ? 'default' : 'secondary'}>
+                      {prospect.isActive ? 'active' : 'inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -341,7 +342,17 @@ export default function ProspectsPage() {
                       <Button 
                         variant="ghost" 
                         size="icon"
+                        onClick={() => router.push(`/relationships/prospects/${prospect.id}/edit`)}
+                        title="Edit prospect"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
                         onClick={() => handleConvert(prospect.id, 'lead')}
+                        disabled={convertToLeadMutation.isPending}
                         title="Convert to lead"
                       >
                         <ArrowRight className="h-4 w-4" />
@@ -351,6 +362,7 @@ export default function ProspectsPage() {
                         variant="ghost" 
                         size="icon"
                         onClick={() => handleConvert(prospect.id, 'customer')}
+                        disabled={convertToCustomerMutation.isPending}
                         title="Convert to customer"
                       >
                         <ArrowRight className="h-4 w-4 rotate-45" />

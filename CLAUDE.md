@@ -82,7 +82,7 @@ The project follows a monorepo structure using Turborepo for task orchestration 
 
 2. **Web Application (apps/web)**:
    - Next.js application with App Router
-   - Stytch for authentication and user management
+   - Clerk for authentication and user management
    - shadcn/ui components with Radix UI primitives
    - Forms with react-hook-form and zod validation
    - CRUD interfaces for accounting dimensions

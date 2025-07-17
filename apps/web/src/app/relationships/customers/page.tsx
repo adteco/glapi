@@ -239,8 +239,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData, cust
 );
 
 export default function CustomersPage() {
-  const { orgId } = useAuth();
+  const { orgId, isLoaded } = useAuth();
   const router = useRouter();
+  
+  console.log('[CustomersPage] Auth state:', { orgId, isLoaded });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -268,6 +270,12 @@ export default function CustomersPage() {
   // TRPC queries and mutations
   const { data: customersData, isLoading, refetch } = trpc.customers.list.useQuery({}, {
     enabled: !!orgId,
+    onError: (error) => {
+      console.error('[CustomersPage] Query error:', error);
+    },
+    onSuccess: (data) => {
+      console.log('[CustomersPage] Query success:', data);
+    }
   });
   
   const createCustomerMutation = trpc.customers.create.useMutation({

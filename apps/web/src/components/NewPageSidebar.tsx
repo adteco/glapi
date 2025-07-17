@@ -37,7 +37,8 @@ import {
   Truck as TruckIcon,
   Warehouse as WarehouseIcon,
   Calendar as CalendarIcon,
-  DollarSign as DollarSignIcon
+  DollarSign as DollarSignIcon,
+  MessageCircle as MessageCircleIcon
 } from 'lucide-react';
 
 const NewPageSidebar = () => {
@@ -111,6 +112,15 @@ const NewPageSidebar = () => {
         <div>
           <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Main</h3>
           <ul className="space-y-1">
+            <li>
+              {/* @ts-ignore */}
+              <Link href="/chat"
+                    className={`${baseLinkClass} ${isActive('/chat') ? activeLinkClass : inactiveLinkClass}`}>
+                {/* @ts-ignore */}
+                <MessageCircleIcon className="h-5 w-5" />
+                <span>Chat</span>
+              </Link>
+            </li>
             <li>
               {/* @ts-ignore */}
               <Link href="/dashboard"
@@ -411,6 +421,14 @@ const NewPageSidebar = () => {
                         <span>Journal</span>
                       </Link>
                     </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/management/budgets" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/management/budgets') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <CalendarIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Budgets</span>
+                      </Link>
+                    </li>
                   </ul>
                 )}
               </div>
@@ -463,6 +481,14 @@ const NewPageSidebar = () => {
                         <span>Fulfillment</span>
                       </Link>
                     </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/sales/invoices" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/invoices') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <FileTextIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Invoices</span>
+                      </Link>
+                    </li>
                   </ul>
                 )}
               </div>
@@ -505,6 +531,14 @@ const NewPageSidebar = () => {
                         {/* @ts-ignore */}
                         <PackageIcon className={`h-3 w-3 opacity-75`} />
                         <span>Receipts</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/inventory/purchase-orders" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/purchase-orders') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <ShoppingCartIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Purchase Orders</span>
                       </Link>
                     </li>
                   </ul>

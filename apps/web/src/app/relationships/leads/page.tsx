@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Slider } from '@/components/ui/slider';
 import { Eye, Pencil, Trash2, Plus, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -43,12 +43,10 @@ interface Lead {
 
 export default function LeadsPage() {
   const { orgId } = useAuth();
-  const { apiGet, apiPost } = useApiClient();
   const router = useRouter();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const previousOrgIdRef = useRef<string | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -66,90 +64,142 @@ export default function LeadsPage() {
     }
   });
 
-  const fetchLeads = useCallback(async () => {
-    if (!orgId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await apiGet<{ data: Lead[] }>('/api/leads');
-      console.log('Fetched leads:', data);
-      setLeads(data.data || []);
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-      toast.error('Failed to fetch leads.');
-    } finally {
-      setLoading(false);
-    }
-  }, [orgId, apiGet]);
+  // TRPC queries and mutations
+  const { data: leadsData, isLoading, refetch } = trpc.leads.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const createLeadMutation = trpc.leads.create.useMutation({
+    onSuccess: () => {
+      toast.success('Lead created successfully');
+      setIsCreateOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create lead');
+    },
+  });
+  
+  const updateLeadMutation = trpc.leads.update.useMutation({
+    onSuccess: () => {
+      toast.success('Lead updated successfully');
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update lead');
+    },
+  });
+  
+  const deleteLeadMutation = trpc.leads.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Lead deleted successfully');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete lead');
+    },
+  });
+  
+  const convertToCustomerMutation = trpc.leads.convertToCustomer.useMutation({
+    onSuccess: () => {
+      toast.success('Lead converted to customer successfully');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to convert lead');
+    },
+  });
 
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setLeads([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchLeads();
-  }, [orgId, fetchLeads]);
+  const leads = (leadsData?.data || []).map(lead => ({
+    ...lead,
+    id: lead.id || '',
+    createdAt: lead.createdAt?.toString() || new Date().toISOString(),
+    updatedAt: lead.updatedAt?.toString() || new Date().toISOString(),
+  }));
 
   const handleCreate = async () => {
-    try {
-      if (!formData.name) {
-        toast.error('Company name is required');
-        return;
-      }
+    if (!formData.name) {
+      toast.error('Company name is required');
+      return;
+    }
 
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
+    createLeadMutation.mutate({
+      name: formData.name,
+      displayName: formData.displayName || undefined,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      website: formData.website || undefined,
+      isActive: true,
+      metadata: {
+        source: formData.metadata.source || undefined,
+        industry: formData.metadata.industry || undefined,
+        annualRevenue: formData.metadata.annualRevenue || undefined,
+        numberOfEmployees: formData.metadata.numberOfEmployees || undefined,
+        leadScore: formData.metadata.leadScore || undefined,
+        assignedTo: formData.metadata.assignedTo || undefined,
+      },
+    });
+  };
 
-      await apiPost('/api/leads', {
+  const handleUpdate = async () => {
+    if (!selectedLead) return;
+    
+    updateLeadMutation.mutate({
+      id: selectedLead.id,
+      data: {
         name: formData.name,
         displayName: formData.displayName || undefined,
-        entityTypes: ['Lead'],
         email: formData.email || undefined,
         phone: formData.phone || undefined,
         website: formData.website || undefined,
-        status: formData.status,
         isActive: true,
         metadata: {
           source: formData.metadata.source || undefined,
           industry: formData.metadata.industry || undefined,
+          annualRevenue: formData.metadata.annualRevenue || undefined,
+          numberOfEmployees: formData.metadata.numberOfEmployees || undefined,
           leadScore: formData.metadata.leadScore || undefined,
+          assignedTo: formData.metadata.assignedTo || undefined,
         },
-      });
-
-      toast.success('Lead created successfully.');
-      await fetchLeads();
-      setIsCreateOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error creating lead:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create lead');
-    }
+      },
+    });
   };
 
-  const handleConvertToCustomer = useCallback(async (leadId: string) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this lead?')) return;
+    
+    deleteLeadMutation.mutate({ id });
+  };
+
+  const handleConvertToCustomer = async (leadId: string) => {
     if (!confirm('Convert this lead to a customer?')) return;
     
-    try {
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
+    convertToCustomerMutation.mutate({ id: leadId });
+  };
 
-      await apiPost(`/api/leads/${leadId}/convert-to-customer`, {});
-      
-      toast.success('Lead converted to customer successfully.');
-      await fetchLeads();
-    } catch (error) {
-      console.error('Error converting lead:', error);
-      toast.error('Failed to convert lead to customer.');
-    }
-  }, [orgId, apiPost, fetchLeads]);
+  const openEditDialog = (lead: Lead) => {
+    setSelectedLead(lead);
+    setFormData({
+      name: lead.name,
+      displayName: lead.displayName || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      website: lead.website || '',
+      status: lead.status,
+      metadata: {
+        source: lead.metadata?.source || '',
+        industry: lead.metadata?.industry || '',
+        annualRevenue: lead.metadata?.annualRevenue || 0,
+        numberOfEmployees: lead.metadata?.numberOfEmployees || 0,
+        leadScore: lead.metadata?.leadScore || 50,
+        assignedTo: lead.metadata?.assignedTo || '',
+      }
+    });
+    setIsEditOpen(true);
+  };
 
   const resetForm = () => {
     setFormData({
@@ -168,6 +218,7 @@ export default function LeadsPage() {
         assignedTo: '',
       }
     });
+    setSelectedLead(null);
   };
 
   const getScoreColor = (score: number) => {
@@ -184,8 +235,12 @@ export default function LeadsPage() {
     }).format(amount);
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
+  if (isLoading) {
+    return <div className="container mx-auto py-10"><p>Loading leads...</p></div>;
+  }
+
+  if (!orgId) {
+    return <div className="container mx-auto py-10"><p>Please select an organization to view leads.</p></div>;
   }
 
   return (
@@ -313,7 +368,9 @@ export default function LeadsPage() {
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreate}>Create</Button>
+                  <Button onClick={handleCreate} disabled={createLeadMutation.isPending}>
+                    {createLeadMutation.isPending ? 'Creating...' : 'Create'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -369,6 +426,25 @@ export default function LeadsPage() {
                       <Button 
                         variant="ghost" 
                         size="icon"
+                        onClick={() => openEditDialog(lead)}
+                        title="Edit lead"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleDelete(lead.id)}
+                        title="Delete lead"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
                         onClick={() => handleConvertToCustomer(lead.id)}
                         title="Convert to customer"
                       >
@@ -389,6 +465,123 @@ export default function LeadsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Lead</DialogTitle>
+            <DialogDescription>Update lead information</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Company Name*</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-source">Lead Source</Label>
+                <Input
+                  id="edit-source"
+                  value={formData.metadata.source}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    metadata: { ...formData.metadata, source: e.target.value }
+                  })}
+                  placeholder="e.g., Website, Referral, Trade Show"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input
+                  id="edit-phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-website">Website</Label>
+                <Input
+                  id="edit-website"
+                  value={formData.website}
+                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-industry">Industry</Label>
+                <Input
+                  id="edit-industry"
+                  value={formData.metadata.industry}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    metadata: { ...formData.metadata, industry: e.target.value }
+                  })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-revenue">Annual Revenue</Label>
+                <Input
+                  id="edit-revenue"
+                  type="number"
+                  value={formData.metadata.annualRevenue}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    metadata: { ...formData.metadata, annualRevenue: Number(e.target.value) }
+                  })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-employees">Number of Employees</Label>
+                <Input
+                  id="edit-employees"
+                  type="number"
+                  value={formData.metadata.numberOfEmployees}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    metadata: { ...formData.metadata, numberOfEmployees: Number(e.target.value) }
+                  })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-leadScore">Lead Score: {formData.metadata.leadScore}</Label>
+              <Slider
+                id="edit-leadScore"
+                min={0}
+                max={100}
+                step={5}
+                value={[formData.metadata.leadScore]}
+                onValueChange={(value) => setFormData({ 
+                  ...formData, 
+                  metadata: { ...formData.metadata, leadScore: value[0] }
+                })}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdate} disabled={updateLeadMutation.isPending}>
+              {updateLeadMutation.isPending ? 'Updating...' : 'Update'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { employeesRouter } from './routers/employees';
 import { prospectsRouter } from './routers/prospects';
 import { contactsRouter } from './routers/contacts';
 import { unitsOfMeasureRouter } from './routers/units-of-measure';
+import { businessTransactionsRouter } from './routers/business-transactions';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -33,6 +34,7 @@ export const appRouter = router({
   prospects: prospectsRouter,
   contacts: contactsRouter,
   unitsOfMeasure: unitsOfMeasureRouter,
+  businessTransactions: businessTransactionsRouter,
 });
 
 export type AppRouter = typeof appRouter;
