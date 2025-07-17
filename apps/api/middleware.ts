@@ -18,6 +18,8 @@ const VALID_API_KEYS: Record<string, {
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3002',
+  'http://localhost:3020',  // Web app on port 3020
+  'http://localhost:8787',  // MCP server
   'https://web.glapi.net',
   'https://www.glapi.net',
   'https://glapi.net',
@@ -34,7 +36,7 @@ export function middleware(request: NextRequest): NextResponse | Response {
     response.headers.set('Access-Control-Allow-Origin', origin || '*');
     response.headers.set('Access-Control-Allow-Credentials', 'true');
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id, x-stytch-organization-id');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id, x-clerk-organization-id, x-clerk-user-id');
   }
   
   // Handle preflight requests
@@ -69,8 +71,8 @@ export function middleware(request: NextRequest): NextResponse | Response {
     }
     
     // If no API key, check for x-organization-id header from client
-    const clientOrgId = request.headers.get('x-organization-id');
-    const clientUserId = request.headers.get('x-user-id');
+    const clientOrgId = request.headers.get('x-organization-id') || request.headers.get('x-clerk-organization-id');
+    const clientUserId = request.headers.get('x-user-id') || request.headers.get('x-clerk-user-id');
     
     if (clientOrgId) {
       // Pass through the client's organization ID

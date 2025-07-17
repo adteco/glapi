@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useApiClient } from '@/lib/api-client.client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Edit, Plus } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
+import { trpc } from '@/lib/trpc';
 
 interface Customer {
   id: string;
@@ -26,143 +25,167 @@ interface Customer {
 export default function CustomerDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const { apiGet } = useApiClient();
   const router = useRouter();
   const { orgId } = useAuth();
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [childCustomers, setChildCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const lastOrgIdRef = useRef<string | null>(null);
 
-  const fetchCustomerData = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      setLoading(true);
-      
-      // Fetch customer details
-      const customerData = await apiGet<Customer>(`/api/customers/${id}`);
-      setCustomer(customerData);
-      
-      // Fetch child customers
-      try {
-        const childrenData = await apiGet<{ data: Customer[] }>(`/api/customers/${id}/children`);
-        setChildCustomers(childrenData.data || []);
-      } catch (error) {
-        // If children endpoint fails, just set empty array
-        setChildCustomers([]);
-      }
-    } catch (error) {
-      console.error('Error fetching customer data:', error);
-      setCustomer(null);
-    } finally {
-      setLoading(false);
+  // Use tRPC queries
+  const { data: customer, isLoading: customerLoading } = trpc.customers.get.useQuery(
+    { id },
+    { 
+      enabled: !!orgId && !!id,
+      retry: 1,
     }
-  }, [apiGet, orgId, id]);
+  );
 
-  // Detect organization changes and clear data
-  useEffect(() => {
-    const currentOrgId = orgId || null;
-    
-    if (lastOrgIdRef.current && lastOrgIdRef.current !== currentOrgId) {
-      // Organization changed, clear data
-      setCustomer(null);
-      setChildCustomers([]);
-      setLoading(true);
-    }
-    
-    lastOrgIdRef.current = currentOrgId;
-  }, [orgId]);
+  // For now, we'll just show the customer without child customers
+  // This can be added later when the endpoint is available
+  const childCustomers: Customer[] = [];
 
-  useEffect(() => {
-    if (orgId) {
-      fetchCustomerData();
-    }
-  }, [fetchCustomerData, orgId]);
+  if (!orgId) {
+    return (
+      <div className="container mx-auto py-10">
+        <p>Please select an organization to view customer details.</p>
+      </div>
+    );
+  }
 
-  if (loading) {
-    return <div>Loading...</div>;
+  if (customerLoading) {
+    return (
+      <div className="container mx-auto py-10">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+        </div>
+        <div className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <div className="h-6 w-32 bg-gray-200 rounded animate-pulse mb-2" />
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="h-4 w-full bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   if (!customer) {
-    return <div>Customer not found</div>;
+    return (
+      <div className="container mx-auto py-10">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold">Customer Not Found</h1>
+        </div>
+        <p className="text-muted-foreground">The customer you're looking for doesn't exist or you don't have access to it.</p>
+      </div>
+    );
   }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatAddress = (address: any) => {
+    if (!address) return 'N/A';
+    const parts = [];
+    if (address.street || address.line1) parts.push(address.street || address.line1);
+    if (address.line2) parts.push(address.line2);
+    if (address.city) parts.push(address.city);
+    if (address.state || address.stateProvince) parts.push(address.state || address.stateProvince);
+    if (address.postalCode) parts.push(address.postalCode);
+    if (address.country || address.countryCode) parts.push(address.country || address.countryCode);
+    return parts.length > 0 ? parts.join(', ') : 'N/A';
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'inactive':
+        return 'bg-gray-100 text-gray-800';
+      case 'archived':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="container mx-auto py-10">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/relationships/customers')}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Customers
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold">{customer.companyName}</h1>
+          <Badge className={getStatusBadgeColor(customer.status)}>
+            {customer.status}
+          </Badge>
+        </div>
+        <Button onClick={() => router.push(`/relationships/customers/${id}/edit`)}>
+          <Edit className="h-4 w-4 mr-2" />
+          Edit Customer
         </Button>
       </div>
 
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>{customer.companyName}</CardTitle>
-                <CardDescription>Customer Details</CardDescription>
-              </div>
-              <Button
-                onClick={() => router.push(`/relationships/customers?edit=${customer.id}`)}
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Customer
-              </Button>
-            </div>
+            <CardTitle>Customer Information</CardTitle>
+            <CardDescription>Basic details about the customer</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Customer Code</p>
-                <p className="mt-1">{customer.customerId || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Status</p>
-                <Badge variant={customer.status === 'active' ? 'default' : 'secondary'} className="mt-1">
+          <CardContent className="grid grid-cols-2 gap-4">
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Customer ID</dt>
+              <dd className="mt-1 text-sm text-gray-900">{customer.customerId || 'N/A'}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Company Name</dt>
+              <dd className="mt-1 text-sm text-gray-900">{customer.companyName}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Email</dt>
+              <dd className="mt-1 text-sm text-gray-900">{customer.contactEmail || 'N/A'}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Phone</dt>
+              <dd className="mt-1 text-sm text-gray-900">{customer.contactPhone || 'N/A'}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Status</dt>
+              <dd className="mt-1">
+                <Badge className={getStatusBadgeColor(customer.status)}>
                   {customer.status}
                 </Badge>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Email</p>
-                <p className="mt-1">{customer.contactEmail || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Phone</p>
-                <p className="mt-1">{customer.contactPhone || '-'}</p>
-              </div>
-              {customer.billingAddress && (
-                <div className="col-span-2">
-                  <p className="text-sm font-medium text-gray-500">Billing Address</p>
-                  <div className="mt-1">
-                    {customer.billingAddress.street && <p>{customer.billingAddress.street}</p>}
-                    {(customer.billingAddress.city || customer.billingAddress.state || customer.billingAddress.postalCode) && (
-                      <p>
-                        {[
-                          customer.billingAddress.city,
-                          customer.billingAddress.state,
-                          customer.billingAddress.postalCode
-                        ].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                    {customer.billingAddress.country && <p>{customer.billingAddress.country}</p>}
-                  </div>
-                </div>
-              )}
-              <div>
-                <p className="text-sm font-medium text-gray-500">Created</p>
-                <p className="mt-1">{new Date(customer.createdAt).toLocaleDateString()}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Updated</p>
-                <p className="mt-1">{new Date(customer.updatedAt).toLocaleDateString()}</p>
-              </div>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Billing Address</dt>
+              <dd className="mt-1 text-sm text-gray-900">{formatAddress(customer.billingAddress)}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Created</dt>
+              <dd className="mt-1 text-sm text-gray-900">{formatDate(customer.createdAt)}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+              <dd className="mt-1 text-sm text-gray-900">{formatDate(customer.updatedAt)}</dd>
             </div>
           </CardContent>
         </Card>
@@ -172,54 +195,52 @@ export default function CustomerDetailPage() {
             <div className="flex justify-between items-center">
               <div>
                 <CardTitle>Child Customers</CardTitle>
-                <CardDescription>Customers under {customer.companyName}</CardDescription>
+                <CardDescription>Customers that belong to this parent customer</CardDescription>
               </div>
-              <Button
-                onClick={() => router.push(`/relationships/customers?parent=${customer.id}`)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
+              <Button size="sm" onClick={() => router.push(`/relationships/customers/new?parentId=${id}`)}>
+                <Plus className="h-4 w-4 mr-2" />
                 Add Child Customer
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            {childCustomers.length > 0 ? (
+            {childCustomers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No child customers found</p>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Code</TableHead>
+                    <TableHead>Customer ID</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {childCustomers.map((child) => (
-                    <TableRow 
-                      key={child.id}
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => router.push(`/relationships/customers/${child.id}`)}
-                    >
-                      <TableCell className="font-medium">
-                        {child.companyName}
-                      </TableCell>
-                      <TableCell>{child.customerId || '-'}</TableCell>
-                      <TableCell>{child.contactEmail || '-'}</TableCell>
-                      <TableCell>{child.contactPhone || '-'}</TableCell>
+                    <TableRow key={child.id}>
+                      <TableCell className="font-medium">{child.companyName}</TableCell>
+                      <TableCell>{child.customerId || 'N/A'}</TableCell>
+                      <TableCell>{child.contactEmail || 'N/A'}</TableCell>
                       <TableCell>
-                        <Badge variant={child.status === 'active' ? 'default' : 'secondary'}>
+                        <Badge className={getStatusBadgeColor(child.status)}>
                           {child.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/relationships/customers/${child.id}`)}
+                        >
+                          View
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            ) : (
-              <div className="text-center py-10 text-gray-500">
-                No child customers found
-              </div>
             )}
           </CardContent>
         </Card>

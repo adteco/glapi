@@ -30,5 +30,8 @@ export const authenticatedProcedure = t.procedure.use(async ({ ctx, next }) => {
   });
 });
 
+// Alias for backwards compatibility
+export const protectedProcedure = authenticatedProcedure;
+
 export const middleware = t.middleware;
 export const createCallerFactory = t.createCallerFactory;

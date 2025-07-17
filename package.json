@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "dev:no-mcp": "turbo dev --filter='!@glapi/mcp-server'",
+    "dev:mcp": "cd packages/mcp-server && nvm use 20 && pnpm dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
@@ -16,7 +18,12 @@
     "lint:fix": "turbo lint:fix",
     "api:mock": "prism mock docs/api-specs/*.openapi.yaml",
     "api:validate": "prism validate docs/api-specs/*.openapi.yaml",
-    "api:generate-sdk": "openapi --input docs/api-specs --output packages/sdk --client axios"
+    "api:generate-sdk": "openapi --input docs/api-specs --output packages/sdk --client axios",
+    "test:playwright": "playwright test",
+    "test:playwright:ui": "playwright test --ui",
+    "test:playwright:headed": "playwright test --headed",
+    "test:playwright:debug": "playwright test --debug",
+    "test:playwright:install": "playwright install"
   },
   "workspaces": [
     "packages/*",
@@ -25,6 +32,7 @@
   ],
   "devDependencies": {
     "@pact-foundation/pact": "^15.0.1",
+    "@playwright/test": "^1.40.0",
     "@stoplight/prism-cli": "^5.14.2",
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",

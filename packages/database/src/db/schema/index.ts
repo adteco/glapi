@@ -36,6 +36,8 @@ import * as inventoryTracking from './inventory-tracking';
 import * as assembliesKits from './assemblies-kits';
 import * as itemAuditLog from './item-audit-log';
 
+// Order-to-Cash transaction system uses existing business transaction system
+
 // Note: Relations defined within schema files are automatically picked up by Drizzle
 // when they are imported alongside their corresponding tables.
 
@@ -74,6 +76,7 @@ export const schema = {
   ...inventoryTracking,
   ...assembliesKits,
   ...itemAuditLog,
+  // Order-to-Cash transaction system uses existing business transaction system
   // GL and transaction schemas
   ...transactionTypes,
   ...glTransactions,
