@@ -4,26 +4,40 @@ import { createBackendClient, handleAPIError } from '../services/trpc-client';
 import { createToolResponse, createDataResponse } from './index';
 import { checkPermission } from '../mcp/auth';
 
-// Type for employee from the API
-interface Employee {
-  id?: string;
-  organizationId: string;
-  employeeCode?: string | null;
-  firstName: string;
-  lastName: string;
-  email?: string | null;
-  phone?: string | null;
-  title?: string | null;
-  departmentId?: string | null;
-  status: 'active' | 'inactive' | 'terminated';
-  metadata?: any;
-  createdAt?: Date;
-  updatedAt?: Date;
+// Type for entity list response
+interface EntityListResponse {
+  data: BaseEntity[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
-/**
- * Register employee management tools
- */
+// Type for employee from the API (BaseEntity)
+interface BaseEntity {
+  id: string;
+  organizationId: string;
+  name: string;
+  displayName?: string | null;
+  code?: string | null;
+  entityTypes: string[];
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  address?: any;
+  parentEntityId?: string | null;
+  primaryContactId?: string | null;
+  taxId?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  customFields?: Record<string, any> | null;
+  metadata?: Record<string, any> | null;
+  status: 'active' | 'inactive' | 'archived';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function registerEmployeeTools(server: MCPServer): void {
   // List employees
   server.registerTool(
@@ -39,13 +53,9 @@ export function registerEmployeeTools(server: MCPServer): void {
           },
           status: {
             type: 'string',
-            enum: ['active', 'inactive', 'terminated', 'all'],
+            enum: ['active', 'inactive', 'all'],
             description: 'Filter by employee status',
             default: 'active',
-          },
-          departmentId: {
-            type: 'string',
-            description: 'Filter by department ID',
           },
           limit: {
             type: 'number',
@@ -59,64 +69,45 @@ export function registerEmployeeTools(server: MCPServer): void {
     },
     async (args, context) => {
       try {
-        checkPermission(context, 'employees:read');
+        checkPermission(context, 'entities:read');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        const employees: Employee[] = await client.employees.list.query({});
+        const result: EntityListResponse = await client.employees.list.query({
+          search: args.search,
+          isActive: args.status === 'all' ? undefined : args.status === 'active',
+          limit: args.limit || 50,
+          page: 1,
+        });
+
+        const employees = result.data;
         
-        // Filter employees based on search term if provided
-        let filteredEmployees = employees;
-        if (args.search) {
-          const searchLower = args.search.toLowerCase();
-          filteredEmployees = employees.filter((employee: Employee) => 
-            employee.firstName.toLowerCase().includes(searchLower) ||
-            employee.lastName.toLowerCase().includes(searchLower) ||
-            (employee.email && employee.email.toLowerCase().includes(searchLower)) ||
-            (employee.employeeCode && employee.employeeCode.toLowerCase().includes(searchLower))
-          );
-        }
-        
-        // Apply status filter
-        if (args.status !== 'all') {
-          filteredEmployees = filteredEmployees.filter((e: Employee) => e.status === args.status);
-        }
-        
-        // Apply department filter
-        if (args.departmentId) {
-          filteredEmployees = filteredEmployees.filter((e: Employee) => e.departmentId === args.departmentId);
-        }
-        
-        // Apply limit
-        const limitedEmployees = filteredEmployees.slice(0, args.limit || 50);
-        
-        if (limitedEmployees.length === 0) {
+        if (employees.length === 0) {
           return createToolResponse('No employees found matching the criteria.');
         }
-        
-        const summary = `Found ${limitedEmployees.length} employee(s):`;
+
+        const summary = `Found ${employees.length} employee(s):`;
         
         return createDataResponse(summary, {
-          employees: limitedEmployees.map((employee: Employee) => ({
+          total: result.total,
+          employees: employees.map(employee => ({
             id: employee.id,
-            name: `${employee.firstName} ${employee.lastName}`,
-            employeeCode: employee.employeeCode || 'N/A',
+            name: employee.name,
             email: employee.email || 'N/A',
             phone: employee.phone || 'N/A',
-            title: employee.title || 'N/A',
-            department: employee.departmentId || 'N/A',
             status: employee.status,
+            type: employee.entityTypes.join(', '),
+            metadata: employee.metadata || {},
             createdAt: employee.createdAt,
           })),
         });
-        
       } catch (error) {
         handleAPIError(error);
       }
     }
   );
 
-  // Get employee by ID
+  // Get employee details
   server.registerTool(
     {
       name: 'get_employee',
@@ -134,36 +125,37 @@ export function registerEmployeeTools(server: MCPServer): void {
     },
     async (args, context) => {
       try {
-        checkPermission(context, 'employees:read');
+        checkPermission(context, 'entities:read');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        const employee: Employee = await client.employees.get.query({ id: args.id });
+        const employee = await client.employees.getById.query({ id: args.id });
+        
+        if (!employee) {
+          return createToolResponse(`Employee with ID ${args.id} not found`, true);
+        }
         
         return createDataResponse(
-          `Employee details for ${employee.firstName} ${employee.lastName}:`,
+          `Employee details for ${employee.name}:`,
           {
             id: employee.id,
-            name: `${employee.firstName} ${employee.lastName}`,
-            employeeCode: employee.employeeCode,
+            name: employee.name,
             email: employee.email || 'N/A',
             phone: employee.phone || 'N/A',
-            title: employee.title || 'N/A',
-            departmentId: employee.departmentId,
             status: employee.status,
-            metadata: employee.metadata,
+            type: employee.entityTypes.join(', '),
+            metadata: employee.metadata || {},
             createdAt: employee.createdAt,
             updatedAt: employee.updatedAt,
           }
         );
-        
       } catch (error) {
         handleAPIError(error);
       }
     }
   );
 
-  // Create new employee
+  // Create employee
   server.registerTool(
     {
       name: 'create_employee',
@@ -171,17 +163,9 @@ export function registerEmployeeTools(server: MCPServer): void {
       inputSchema: {
         type: 'object',
         properties: {
-          firstName: {
+          name: {
             type: 'string',
-            description: 'Employee first name',
-          },
-          lastName: {
-            type: 'string',
-            description: 'Employee last name',
-          },
-          employeeCode: {
-            type: 'string',
-            description: 'Unique employee code/ID',
+            description: 'Employee full name',
           },
           email: {
             type: 'string',
@@ -192,60 +176,52 @@ export function registerEmployeeTools(server: MCPServer): void {
             type: 'string',
             description: 'Employee phone number',
           },
+          employeeId: {
+            type: 'string',
+            description: 'Employee ID or code',
+          },
+          department: {
+            type: 'string',
+            description: 'Department name',
+          },
           title: {
             type: 'string',
             description: 'Job title',
           },
-          departmentId: {
-            type: 'string',
-            description: 'Department ID (UUID)',
-          },
-          status: {
-            type: 'string',
-            enum: ['active', 'inactive'],
-            description: 'Employee status',
-            default: 'active',
-          },
         },
-        required: ['firstName', 'lastName'],
+        required: ['name'],
       },
     },
     async (args, context) => {
       try {
-        console.log('[Employees Tool] Create employee called with:', args);
-        
-        checkPermission(context, 'employees:create');
+        checkPermission(context, 'entities:create');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        console.log('[Employees Tool] Calling tRPC to create employee...');
-        const employee: Employee = await client.employees.create.mutate({
-          organizationId: context.organizationId,
-          firstName: args.firstName,
-          lastName: args.lastName,
-          employeeCode: args.employeeCode || undefined,
-          email: args.email || undefined,
-          phone: args.phone || undefined,
-          title: args.title || undefined,
-          departmentId: args.departmentId || undefined,
-          status: args.status || 'active',
+        const employee: BaseEntity = await client.employees.create.mutate({
+          name: args.name,
+          email: args.email,
+          phone: args.phone,
+          isActive: true,
+          metadata: {
+            employee_id: args.employeeId,
+            department: args.department,
+            position: args.title,
+          },
         });
-        console.log('[Employees Tool] Employee created:', employee);
         
         return createDataResponse(
-          `✅ Successfully created employee "${employee.firstName} ${employee.lastName}"`,
+          `Successfully created employee: ${employee.name}`,
           {
             id: employee.id,
-            name: `${employee.firstName} ${employee.lastName}`,
-            employeeCode: employee.employeeCode,
+            name: employee.name,
             email: employee.email || 'N/A',
             phone: employee.phone || 'N/A',
-            title: employee.title || 'N/A',
             status: employee.status,
+            metadata: employee.metadata || {},
             createdAt: employee.createdAt,
           }
         );
-        
       } catch (error) {
         handleAPIError(error);
       }
@@ -264,17 +240,9 @@ export function registerEmployeeTools(server: MCPServer): void {
             type: 'string',
             description: 'Employee ID (UUID)',
           },
-          firstName: {
+          name: {
             type: 'string',
-            description: 'Employee first name',
-          },
-          lastName: {
-            type: 'string',
-            description: 'Employee last name',
-          },
-          employeeCode: {
-            type: 'string',
-            description: 'Unique employee code/ID',
+            description: 'Employee full name',
           },
           email: {
             type: 'string',
@@ -285,17 +253,21 @@ export function registerEmployeeTools(server: MCPServer): void {
             type: 'string',
             description: 'Employee phone number',
           },
+          employeeId: {
+            type: 'string',
+            description: 'Employee ID or code',
+          },
+          department: {
+            type: 'string',
+            description: 'Department name',
+          },
           title: {
             type: 'string',
             description: 'Job title',
           },
-          departmentId: {
-            type: 'string',
-            description: 'Department ID (UUID)',
-          },
           status: {
             type: 'string',
-            enum: ['active', 'inactive', 'terminated'],
+            enum: ['active', 'inactive', 'archived'],
             description: 'Employee status',
           },
         },
@@ -304,89 +276,50 @@ export function registerEmployeeTools(server: MCPServer): void {
     },
     async (args, context) => {
       try {
-        console.log('[Employees Tool] Update employee called with:', args);
-        
-        checkPermission(context, 'employees:update');
+        checkPermission(context, 'entities:update');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        // Build update data - only include fields that were provided
         const updateData: any = {};
-        if (args.firstName !== undefined) updateData.firstName = args.firstName;
-        if (args.lastName !== undefined) updateData.lastName = args.lastName;
-        if (args.employeeCode !== undefined) updateData.employeeCode = args.employeeCode;
+        if (args.name !== undefined) updateData.name = args.name;
         if (args.email !== undefined) updateData.email = args.email;
         if (args.phone !== undefined) updateData.phone = args.phone;
-        if (args.title !== undefined) updateData.title = args.title;
-        if (args.departmentId !== undefined) updateData.departmentId = args.departmentId;
-        if (args.status !== undefined) updateData.status = args.status;
+        if (args.status !== undefined) {
+          updateData.status = args.status;
+          updateData.isActive = args.status === 'active';
+        }
         
-        console.log('[Employees Tool] Calling tRPC to update employee...');
-        const employee: Employee = await client.employees.update.mutate({
+        // Handle metadata updates
+        if (args.employeeId !== undefined || args.department !== undefined || args.title !== undefined) {
+          updateData.metadata = {
+            ...(args.employeeId && { employee_id: args.employeeId }),
+            ...(args.department && { department: args.department }),
+            ...(args.title && { title: args.title }),
+          };
+        }
+        
+        const employee: BaseEntity = await client.employees.update.mutate({
           id: args.id,
           data: updateData,
         });
-        console.log('[Employees Tool] Employee updated:', employee);
         
         return createDataResponse(
-          `✅ Successfully updated employee "${employee.firstName} ${employee.lastName}"`,
+          `Successfully updated employee: ${employee.name}`,
           {
             id: employee.id,
-            name: `${employee.firstName} ${employee.lastName}`,
-            employeeCode: employee.employeeCode,
+            name: employee.name,
             email: employee.email || 'N/A',
             phone: employee.phone || 'N/A',
-            title: employee.title || 'N/A',
             status: employee.status,
+            metadata: employee.metadata || {},
             updatedAt: employee.updatedAt,
           }
         );
-        
       } catch (error) {
         handleAPIError(error);
       }
     }
   );
 
-  // Delete employee
-  server.registerTool(
-    {
-      name: 'delete_employee',
-      description: 'Delete an employee record',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: {
-            type: 'string',
-            description: 'Employee ID (UUID)',
-          },
-        },
-        required: ['id'],
-      },
-    },
-    async (args, context) => {
-      try {
-        console.log('[Employees Tool] Delete employee called with:', args);
-        
-        checkPermission(context, 'employees:delete');
-        
-        const client = createBackendClient(context.env.GLAPI_API_URL, context);
-        
-        // Get employee name before deletion for confirmation
-        const employee: Employee = await client.employees.get.query({ id: args.id });
-        const employeeName = `${employee.firstName} ${employee.lastName}`;
-        
-        console.log('[Employees Tool] Calling tRPC to delete employee...');
-        await client.employees.delete.mutate(args.id);
-        console.log('[Employees Tool] Employee deleted');
-        
-        return createToolResponse(
-          `✅ Successfully deleted employee "${employeeName}"`
-        );
-        
-      } catch (error) {
-        handleAPIError(error);
-      }
-    }
-  );
+  console.log('Employee tools registered successfully');
 }

@@ -4,37 +4,40 @@ import { createBackendClient, handleAPIError } from '../services/trpc-client';
 import { createToolResponse, createDataResponse } from './index';
 import { checkPermission } from '../mcp/auth';
 
-// Type for contact from the API
-interface Contact {
-  id?: string;
+// Type for entity list response
+interface EntityListResponse {
+  data: BaseEntity[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// Type for contact from the API (BaseEntity)
+interface BaseEntity {
+  id: string;
   organizationId: string;
   name: string;
   displayName?: string | null;
-  entityId?: string | null;
+  code?: string | null;
+  entityTypes: string[];
   email?: string | null;
   phone?: string | null;
   website?: string | null;
-  notes?: string | null;
+  address?: any;
   parentEntityId?: string | null;
-  metadata?: {
-    first_name?: string;
-    last_name?: string;
-    title?: string;
-    company?: string;
-    department?: string;
-    contact_type?: string;
-    preferred_communication?: string;
-    mobilePhone?: string;
-    workPhone?: string;
-  } | null;
+  primaryContactId?: string | null;
+  taxId?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  customFields?: Record<string, any> | null;
+  metadata?: Record<string, any> | null;
+  status: 'active' | 'inactive' | 'archived';
   isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * Register contact management tools
- */
 export function registerContactTools(server: MCPServer): void {
   // List contacts
   server.registerTool(
@@ -48,13 +51,11 @@ export function registerContactTools(server: MCPServer): void {
             type: 'string',
             description: 'Search term for contact name or email',
           },
-          isActive: {
-            type: 'boolean',
-            description: 'Filter by active status',
-          },
-          companyId: {
+          status: {
             type: 'string',
-            description: 'Filter by company ID',
+            enum: ['active', 'inactive', 'all'],
+            description: 'Filter by contact status',
+            default: 'active',
           },
           limit: {
             type: 'number',
@@ -63,71 +64,94 @@ export function registerContactTools(server: MCPServer): void {
             minimum: 1,
             maximum: 100,
           },
-          page: {
-            type: 'number',
-            description: 'Page number for pagination',
-            default: 1,
-            minimum: 1,
-          },
         },
       },
     },
     async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'read', 'contacts')) {
-        return createToolResponse('Permission denied: cannot read contacts', true);
-      }
-
       try {
-        const client = await createBackendClient(context);
-        const result = await client.contacts.list.query({
+        checkPermission(context, 'entities:read');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
+        const result: EntityListResponse = await client.contacts.list.query({
           search: args.search,
-          isActive: args.isActive,
+          isActive: args.status === 'all' ? undefined : args.status === 'active',
           limit: args.limit || 50,
-          page: args.page || 1,
+          page: 1,
         });
 
-        return createDataResponse(
-          `Found ${result.total} contacts (showing ${result.data.length})`,
-          result
-        );
+        const contacts = result.data;
+        
+        if (contacts.length === 0) {
+          return createToolResponse('No contacts found matching the criteria.');
+        }
+
+        const summary = `Found ${contacts.length} contact(s):`;
+        
+        return createDataResponse(summary, {
+          total: result.total,
+          contacts: contacts.map(contact => ({
+            id: contact.id,
+            name: contact.name,
+            email: contact.email || 'N/A',
+            phone: contact.phone || 'N/A',
+            status: contact.status,
+            type: contact.entityTypes.join(', '),
+            createdAt: contact.createdAt,
+          })),
+        });
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
 
-  // Get single contact
+  // Get contact details
   server.registerTool(
     {
       name: 'get_contact',
-      description: 'Retrieve a single contact by ID',
+      description: 'Get detailed information for a specific contact',
       inputSchema: {
         type: 'object',
         properties: {
           id: {
             type: 'string',
-            description: 'The contact ID',
+            description: 'Contact ID (UUID)',
           },
         },
         required: ['id'],
       },
     },
     async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'read', 'contacts')) {
-        return createToolResponse('Permission denied: cannot read contacts', true);
-      }
-
       try {
-        const client = await createBackendClient(context);
+        checkPermission(context, 'entities:read');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
         const contact = await client.contacts.getById.query({ id: args.id });
-
+        
         if (!contact) {
-          return createToolResponse('Contact not found', true);
+          return createToolResponse(`Contact with ID ${args.id} not found`, true);
         }
-
-        return createDataResponse('Contact retrieved successfully', contact);
+        
+        return createDataResponse(
+          `Contact details for ${contact.name}:`,
+          {
+            id: contact.id,
+            name: contact.name,
+            email: contact.email || 'N/A',
+            phone: contact.phone || 'N/A',
+            website: contact.website || 'N/A',
+            status: contact.status,
+            type: contact.entityTypes.join(', '),
+            notes: contact.notes || 'N/A',
+            metadata: contact.metadata || {},
+            createdAt: contact.createdAt,
+            updatedAt: contact.updatedAt,
+          }
+        );
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
@@ -142,81 +166,57 @@ export function registerContactTools(server: MCPServer): void {
         properties: {
           name: {
             type: 'string',
-            description: 'Full name of the contact',
+            description: 'Contact name',
           },
           email: {
             type: 'string',
+            format: 'email',
             description: 'Contact email address',
           },
           phone: {
             type: 'string',
             description: 'Contact phone number',
           },
+          website: {
+            type: 'string',
+            description: 'Contact website',
+          },
           notes: {
             type: 'string',
-            description: 'Additional notes',
-          },
-          metadata: {
-            type: 'object',
-            properties: {
-              first_name: {
-                type: 'string',
-                description: 'First name',
-              },
-              last_name: {
-                type: 'string',
-                description: 'Last name',
-              },
-              title: {
-                type: 'string',
-                description: 'Job title',
-              },
-              company: {
-                type: 'string',
-                description: 'Company ID this contact belongs to',
-              },
-              department: {
-                type: 'string',
-                description: 'Department',
-              },
-              mobilePhone: {
-                type: 'string',
-                description: 'Mobile phone number',
-              },
-              workPhone: {
-                type: 'string',
-                description: 'Work phone number',
-              },
-              preferred_communication: {
-                type: 'string',
-                enum: ['email', 'phone', 'mobile'],
-                description: 'Preferred communication method',
-              },
-            },
+            description: 'Notes about the contact',
           },
         },
         required: ['name'],
       },
     },
     async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'contacts')) {
-        return createToolResponse('Permission denied: cannot create contacts', true);
-      }
-
       try {
-        const client = await createBackendClient(context);
-        const contact = await client.contacts.create.mutate({
+        checkPermission(context, 'entities:create');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
+        const contact: BaseEntity = await client.contacts.create.mutate({
           name: args.name,
           email: args.email,
           phone: args.phone,
+          website: args.website,
           notes: args.notes,
           isActive: true,
-          metadata: args.metadata,
         });
-
-        return createDataResponse('Contact created successfully', contact);
+        
+        return createDataResponse(
+          `Successfully created contact: ${contact.name}`,
+          {
+            id: contact.id,
+            name: contact.name,
+            email: contact.email || 'N/A',
+            phone: contact.phone || 'N/A',
+            status: contact.status,
+            createdAt: contact.createdAt,
+          }
+        );
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
@@ -231,252 +231,76 @@ export function registerContactTools(server: MCPServer): void {
         properties: {
           id: {
             type: 'string',
-            description: 'The contact ID to update',
+            description: 'Contact ID (UUID)',
           },
           name: {
             type: 'string',
-            description: 'Full name of the contact',
+            description: 'Contact name',
           },
           email: {
             type: 'string',
+            format: 'email',
             description: 'Contact email address',
           },
           phone: {
             type: 'string',
             description: 'Contact phone number',
           },
+          website: {
+            type: 'string',
+            description: 'Contact website',
+          },
           notes: {
             type: 'string',
-            description: 'Additional notes',
+            description: 'Notes about the contact',
           },
-          isActive: {
-            type: 'boolean',
-            description: 'Whether the contact is active',
-          },
-          metadata: {
-            type: 'object',
-            properties: {
-              first_name: {
-                type: 'string',
-                description: 'First name',
-              },
-              last_name: {
-                type: 'string',
-                description: 'Last name',
-              },
-              title: {
-                type: 'string',
-                description: 'Job title',
-              },
-              company: {
-                type: 'string',
-                description: 'Company ID this contact belongs to',
-              },
-              department: {
-                type: 'string',
-                description: 'Department',
-              },
-              mobilePhone: {
-                type: 'string',
-                description: 'Mobile phone number',
-              },
-              workPhone: {
-                type: 'string',
-                description: 'Work phone number',
-              },
-              preferred_communication: {
-                type: 'string',
-                enum: ['email', 'phone', 'mobile'],
-                description: 'Preferred communication method',
-              },
-              contact_type: {
-                type: 'string',
-                description: 'Type of contact',
-              },
-            },
+          status: {
+            type: 'string',
+            enum: ['active', 'inactive', 'archived'],
+            description: 'Contact status',
           },
         },
         required: ['id'],
       },
     },
     async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'contacts')) {
-        return createToolResponse('Permission denied: cannot update contacts', true);
-      }
-
       try {
-        const client = await createBackendClient(context);
-        const { id, ...data } = args;
-        const contact = await client.contacts.update.mutate({
-          id,
-          data,
-        });
-
-        return createDataResponse('Contact updated successfully', contact);
-      } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
-      }
-    }
-  );
-
-  // Delete contact
-  server.registerTool(
-    {
-      name: 'delete_contact',
-      description: 'Delete a contact record',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: {
-            type: 'string',
-            description: 'The contact ID to delete',
-          },
-        },
-        required: ['id'],
-      },
-    },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'contacts')) {
-        return createToolResponse('Permission denied: cannot delete contacts', true);
-      }
-
-      try {
-        const client = await createBackendClient(context);
-        await client.contacts.delete.mutate({ id: args.id });
-
-        return createToolResponse('Contact deleted successfully');
-      } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
-      }
-    }
-  );
-
-  // Get contacts by company
-  server.registerTool(
-    {
-      name: 'get_contacts_by_company',
-      description: 'Get all contacts associated with a specific company',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          companyId: {
-            type: 'string',
-            description: 'The company ID to find contacts for',
-          },
-        },
-        required: ['companyId'],
-      },
-    },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'read', 'contacts')) {
-        return createToolResponse('Permission denied: cannot read contacts', true);
-      }
-
-      try {
-        const client = await createBackendClient(context);
-        const result = await client.contacts.list.query({
-          limit: 100,
-          page: 1,
-        });
-
-        // Filter contacts by company ID in metadata
-        const companyContacts = result.data.filter(
-          contact => contact.metadata?.company === args.companyId || contact.parentEntityId === args.companyId
-        );
-
-        return createDataResponse(
-          `Found ${companyContacts.length} contacts for the company`,
-          companyContacts
-        );
-      } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
-      }
-    }
-  );
-
-  // Search contacts
-  server.registerTool(
-    {
-      name: 'search_contacts',
-      description: 'Search contacts by name, email, or company',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Search query string',
-          },
-          filters: {
-            type: 'object',
-            properties: {
-              companyId: {
-                type: 'string',
-                description: 'Filter by company ID',
-              },
-              title: {
-                type: 'string',
-                description: 'Filter by job title',
-              },
-              department: {
-                type: 'string',
-                description: 'Filter by department',
-              },
-              contactType: {
-                type: 'string',
-                description: 'Filter by contact type',
-              },
-            },
-          },
-        },
-        required: ['query'],
-      },
-    },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'read', 'contacts')) {
-        return createToolResponse('Permission denied: cannot search contacts', true);
-      }
-
-      try {
-        const client = await createBackendClient(context);
-        const result = await client.contacts.list.query({
-          search: args.query,
-          limit: 100,
-          page: 1,
-        });
-
-        let filteredContacts = result.data;
-
-        // Apply additional filters if provided
-        if (args.filters) {
-          if (args.filters.companyId) {
-            filteredContacts = filteredContacts.filter(
-              contact => contact.metadata?.company === args.filters.companyId || contact.parentEntityId === args.filters.companyId
-            );
-          }
-          if (args.filters.title) {
-            filteredContacts = filteredContacts.filter(
-              contact => contact.metadata?.title?.toLowerCase().includes(args.filters.title.toLowerCase())
-            );
-          }
-          if (args.filters.department) {
-            filteredContacts = filteredContacts.filter(
-              contact => contact.metadata?.department?.toLowerCase().includes(args.filters.department.toLowerCase())
-            );
-          }
-          if (args.filters.contactType) {
-            filteredContacts = filteredContacts.filter(
-              contact => contact.metadata?.contact_type === args.filters.contactType
-            );
-          }
+        checkPermission(context, 'entities:update');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
+        const updateData: any = {};
+        if (args.name !== undefined) updateData.name = args.name;
+        if (args.email !== undefined) updateData.email = args.email;
+        if (args.phone !== undefined) updateData.phone = args.phone;
+        if (args.website !== undefined) updateData.website = args.website;
+        if (args.notes !== undefined) updateData.notes = args.notes;
+        if (args.status !== undefined) {
+          updateData.status = args.status;
+          updateData.isActive = args.status === 'active';
         }
-
+        
+        const contact: BaseEntity = await client.contacts.update.mutate({
+          id: args.id,
+          data: updateData,
+        });
+        
         return createDataResponse(
-          `Found ${filteredContacts.length} contacts matching "${args.query}"`,
-          filteredContacts
+          `Successfully updated contact: ${contact.name}`,
+          {
+            id: contact.id,
+            name: contact.name,
+            email: contact.email || 'N/A',
+            phone: contact.phone || 'N/A',
+            status: contact.status,
+            updatedAt: contact.updatedAt,
+          }
         );
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
+
+  console.log('Contact tools registered successfully');
 }
