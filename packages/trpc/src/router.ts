@@ -16,6 +16,7 @@ import { prospectsRouter } from './routers/prospects';
 import { contactsRouter } from './routers/contacts';
 import { unitsOfMeasureRouter } from './routers/units-of-measure';
 import { businessTransactionsRouter } from './routers/business-transactions';
+import { subscriptionsRouter } from './routers/subscriptions';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -35,6 +36,7 @@ export const appRouter = router({
   contacts: contactsRouter,
   unitsOfMeasure: unitsOfMeasureRouter,
   businessTransactions: businessTransactionsRouter,
+  subscriptions: subscriptionsRouter,
 });
 
 export type AppRouter = typeof appRouter;

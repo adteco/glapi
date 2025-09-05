@@ -25,6 +25,12 @@ export * from './inventory-tracking-repository';
 export * from './assemblies-kits-repository';
 export * from './warehouse-repository';
 
+// Export subscription repositories
+export * from './subscription-repository';
+export * from './subscription-item-repository';
+export * from './invoice-repository';
+export * from './payment-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -41,6 +47,10 @@ import { VendorItemsRepository } from './vendor-items-repository';
 import { InventoryTrackingRepository } from './inventory-tracking-repository';
 import { AssembliesKitsRepository } from './assemblies-kits-repository';
 import { WarehouseRepository } from './warehouse-repository';
+import { SubscriptionRepository } from './subscription-repository';
+import { SubscriptionItemRepository } from './subscription-item-repository';
+import { InvoiceRepository } from './invoice-repository';
+import { PaymentRepository } from './payment-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -58,3 +68,7 @@ export const vendorItemsRepository = new VendorItemsRepository();
 export const inventoryTrackingRepository = new InventoryTrackingRepository();
 export const assembliesKitsRepository = new AssembliesKitsRepository();
 export const warehouseRepository = new WarehouseRepository();
+export const subscriptionRepository = new SubscriptionRepository();
+export const subscriptionItemRepository = new SubscriptionItemRepository();
+export const invoiceRepository = new InvoiceRepository();
+export const paymentRepository = new PaymentRepository();

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, decimal, pgEnum, date, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, decimal, pgEnum, date, boolean, jsonb, integer } from "drizzle-orm/pg-core";
 import { entities } from "./entities";
 import { organizations } from "./organizations";
 import { relations } from "drizzle-orm";
@@ -33,6 +33,7 @@ export const subscriptions = pgTable("subscriptions", {
   contractValue: decimal("contract_value", { precision: 12, scale: 2 }),
   billingFrequency: billingFrequencyEnum("billing_frequency"),
   autoRenew: boolean("auto_renew").default(false),
+  renewalTermMonths: integer("renewal_term_months"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow()
