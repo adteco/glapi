@@ -41,6 +41,19 @@ import * as itemAuditLog from './item-audit-log';
 // Note: Relations defined within schema files are automatically picked up by Drizzle
 // when they are imported alongside their corresponding tables.
 
+// 606 Ledger schemas
+import * as subscriptions from './subscriptions';
+import * as subscriptionItems from './subscription-items';
+import * as invoices from './invoices';
+import * as payments from './payments';
+import * as revenueEnums from './revenue-enums';
+import * as performanceObligationsNew from './performance-obligations';
+import * as revenueSchedulesNew from './revenue-schedules';
+import * as sspEvidenceNew from './ssp-evidence';
+import * as contractSspAllocationsNew from './contract-ssp-allocations';
+import * as revenueJournalEntriesNew from './revenue-journal-entries';
+import * as kitComponents from './kit-components';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -83,5 +96,23 @@ export const schema = {
   ...accountingPeriods,
   ...rlsAccessControl,
   ...taxCodes,
-  ...activityCodes
+  ...activityCodes,
+  // 606 Ledger schemas
+  ...subscriptions,
+  ...subscriptionItems,
+  ...invoices,
+  ...payments,
+  ...revenueEnums,
+  ...performanceObligationsNew,
+  ...revenueSchedulesNew,
+  ...sspEvidenceNew,
+  ...contractSspAllocationsNew,
+  ...revenueJournalEntriesNew,
+  ...kitComponents
 };
+
+// Re-export specific types from new schemas
+export type { Subscription, NewSubscription, UpdateSubscription } from './subscriptions';
+export type { SubscriptionItem, NewSubscriptionItem, UpdateSubscriptionItem } from './subscription-items';
+export type { Invoice, NewInvoice, UpdateInvoice } from './invoices';
+export type { Payment, NewPayment, UpdatePayment } from './payments';

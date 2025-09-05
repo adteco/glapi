@@ -1,11 +1,13 @@
 import { pgTable, uuid, timestamp, decimal, date, jsonb } from "drizzle-orm/pg-core";
 import { subscriptions } from "./subscriptions";
 import { items } from "./items";
+import { organizations } from "./organizations";
 import { relations } from "drizzle-orm";
 
 // Subscription items table
 export const subscriptionItems = pgTable("subscription_items", {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
   subscriptionId: uuid("subscription_id").references(() => subscriptions.id, { onDelete: "cascade" }).notNull(),
   itemId: uuid("item_id").references(() => items.id).notNull(),
   quantity: decimal("quantity", { precision: 10, scale: 4 }).notNull().default("1"),
@@ -20,6 +22,10 @@ export const subscriptionItems = pgTable("subscription_items", {
 
 // Relations
 export const subscriptionItemsRelations = relations(subscriptionItems, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [subscriptionItems.organizationId],
+    references: [organizations.id]
+  }),
   subscription: one(subscriptions, {
     fields: [subscriptionItems.subscriptionId],
     references: [subscriptions.id]

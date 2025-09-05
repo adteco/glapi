@@ -14,3 +14,4 @@ export * from './employees';
 export * from './prospects';
 export * from './contacts';
 export * from './units-of-measure';
+export * from './subscriptions';

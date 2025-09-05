@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   contract_value DECIMAL(12,2),
   billing_frequency billing_frequency,
   auto_renew BOOLEAN DEFAULT false,
+  renewal_term_months INTEGER,
   metadata JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- Create subscription_items table
 CREATE TABLE IF NOT EXISTS subscription_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
   subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
   item_id UUID NOT NULL REFERENCES items(id),
   quantity DECIMAL(10,4) NOT NULL DEFAULT 1,
@@ -53,6 +55,7 @@ CREATE INDEX idx_subscriptions_entity_id ON subscriptions(entity_id);
 CREATE INDEX idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX idx_subscriptions_start_date ON subscriptions(start_date);
 CREATE INDEX idx_subscriptions_number ON subscriptions(subscription_number);
+CREATE INDEX idx_subscription_items_organization_id ON subscription_items(organization_id);
 CREATE INDEX idx_subscription_items_subscription_id ON subscription_items(subscription_id);
 CREATE INDEX idx_subscription_items_item_id ON subscription_items(item_id);
 
