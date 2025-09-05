@@ -4,37 +4,40 @@ import { createBackendClient, handleAPIError } from '../services/trpc-client';
 import { createToolResponse, createDataResponse } from './index';
 import { checkPermission } from '../mcp/auth';
 
-// Type for prospect from the API
-interface Prospect {
-  id?: string;
+// Type for entity list response
+interface EntityListResponse {
+  data: BaseEntity[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// Type for prospect from the API (BaseEntity)
+interface BaseEntity {
+  id: string;
   organizationId: string;
   name: string;
   displayName?: string | null;
-  entityId?: string | null;
   code?: string | null;
+  entityTypes: string[];
   email?: string | null;
   phone?: string | null;
   website?: string | null;
-  metadata?: {
-    prospect_source?: string;
-    prospect_status?: string;
-    qualification_score?: number;
-    next_action?: string;
-    follow_up_date?: string;
-    industry?: string;
-    annualRevenue?: number;
-    numberOfEmployees?: number;
-    assignedTo?: string;
-  } | null;
-  status?: string;
+  address?: any;
+  parentEntityId?: string | null;
+  primaryContactId?: string | null;
+  taxId?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  customFields?: Record<string, any> | null;
+  metadata?: Record<string, any> | null;
+  status: 'active' | 'inactive' | 'archived';
   isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * Register prospect management tools
- */
 export function registerProspectTools(server: MCPServer): void {
   // List prospects
   server.registerTool(
@@ -48,9 +51,11 @@ export function registerProspectTools(server: MCPServer): void {
             type: 'string',
             description: 'Search term for prospect name or email',
           },
-          isActive: {
-            type: 'boolean',
-            description: 'Filter by active status',
+          status: {
+            type: 'string',
+            enum: ['active', 'inactive', 'all'],
+            description: 'Filter by prospect status',
+            default: 'active',
           },
           limit: {
             type: 'number',
@@ -59,71 +64,95 @@ export function registerProspectTools(server: MCPServer): void {
             minimum: 1,
             maximum: 100,
           },
-          page: {
-            type: 'number',
-            description: 'Page number for pagination',
-            default: 1,
-            minimum: 1,
-          },
         },
       },
     },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'read', 'prospects')) {
-        return createToolResponse('Permission denied: cannot read prospects', true);
-      }
-
+    async (args, context) => {
       try {
-        const client = await createBackendClient(context);
-        const result = await client.prospects.list.query({
+        checkPermission(context, 'entities:read');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
+        const result: EntityListResponse = await client.prospects.list.query({
           search: args.search,
-          isActive: args.isActive,
+          isActive: args.status === 'all' ? undefined : args.status === 'active',
           limit: args.limit || 50,
-          page: args.page || 1,
+          page: 1,
         });
 
-        return createDataResponse(
-          `Found ${result.total} prospects (showing ${result.data.length})`,
-          result
-        );
+        const prospects = result.data;
+        
+        if (prospects.length === 0) {
+          return createToolResponse('No prospects found matching the criteria.');
+        }
+
+        const summary = `Found ${prospects.length} prospect(s):`;
+        
+        return createDataResponse(summary, {
+          total: result.total,
+          prospects: prospects.map(prospect => ({
+            id: prospect.id,
+            name: prospect.name,
+            email: prospect.email || 'N/A',
+            phone: prospect.phone || 'N/A',
+            status: prospect.status,
+            type: prospect.entityTypes.join(', '),
+            metadata: prospect.metadata || {},
+            createdAt: prospect.createdAt,
+          })),
+        });
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
 
-  // Get single prospect
+  // Get prospect details
   server.registerTool(
     {
       name: 'get_prospect',
-      description: 'Retrieve a single prospect by ID',
+      description: 'Get detailed information for a specific prospect',
       inputSchema: {
         type: 'object',
         properties: {
           id: {
             type: 'string',
-            description: 'The prospect ID',
+            description: 'Prospect ID (UUID)',
           },
         },
         required: ['id'],
       },
     },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'read', 'prospects')) {
-        return createToolResponse('Permission denied: cannot read prospects', true);
-      }
-
+    async (args, context) => {
       try {
-        const client = await createBackendClient(context);
+        checkPermission(context, 'entities:read');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
         const prospect = await client.prospects.getById.query({ id: args.id });
-
+        
         if (!prospect) {
-          return createToolResponse('Prospect not found', true);
+          return createToolResponse(`Prospect with ID ${args.id} not found`, true);
         }
-
-        return createDataResponse('Prospect retrieved successfully', prospect);
+        
+        return createDataResponse(
+          `Prospect details for ${prospect.name}:`,
+          {
+            id: prospect.id,
+            name: prospect.name,
+            email: prospect.email || 'N/A',
+            phone: prospect.phone || 'N/A',
+            website: prospect.website || 'N/A',
+            status: prospect.status,
+            type: prospect.entityTypes.join(', '),
+            notes: prospect.notes || 'N/A',
+            metadata: prospect.metadata || {},
+            createdAt: prospect.createdAt,
+            updatedAt: prospect.updatedAt,
+          }
+        );
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
@@ -138,73 +167,70 @@ export function registerProspectTools(server: MCPServer): void {
         properties: {
           name: {
             type: 'string',
-            description: 'Company name',
+            description: 'Prospect name or company name',
           },
           email: {
             type: 'string',
-            description: 'Contact email address',
+            format: 'email',
+            description: 'Prospect email address',
           },
           phone: {
             type: 'string',
-            description: 'Contact phone number',
+            description: 'Prospect phone number',
           },
           website: {
             type: 'string',
-            description: 'Company website',
+            description: 'Prospect website',
+          },
+          source: {
+            type: 'string',
+            description: 'Prospect source (e.g., Marketing Campaign, Cold Outreach)',
+          },
+          stage: {
+            type: 'string',
+            description: 'Sales stage (e.g., Qualification, Negotiation)',
           },
           notes: {
             type: 'string',
-            description: 'Additional notes',
-          },
-          metadata: {
-            type: 'object',
-            properties: {
-              prospect_source: {
-                type: 'string',
-                description: 'Source of the prospect',
-              },
-              industry: {
-                type: 'string',
-                description: 'Industry sector',
-              },
-              annualRevenue: {
-                type: 'number',
-                description: 'Estimated annual revenue',
-              },
-              numberOfEmployees: {
-                type: 'number',
-                description: 'Number of employees',
-              },
-              assignedTo: {
-                type: 'string',
-                description: 'Assigned sales person',
-              },
-            },
+            description: 'Notes about the prospect',
           },
         },
         required: ['name'],
       },
     },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'prospects')) {
-        return createToolResponse('Permission denied: cannot create prospects', true);
-      }
-
+    async (args, context) => {
       try {
-        const client = await createBackendClient(context);
-        const prospect = await client.prospects.create.mutate({
+        checkPermission(context, 'entities:create');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
+        const prospect: BaseEntity = await client.prospects.create.mutate({
           name: args.name,
           email: args.email,
           phone: args.phone,
           website: args.website,
           notes: args.notes,
           isActive: true,
-          metadata: args.metadata,
+          metadata: {
+            prospect_source: args.source,
+            prospect_status: args.stage,
+          },
         });
-
-        return createDataResponse('Prospect created successfully', prospect);
+        
+        return createDataResponse(
+          `Successfully created prospect: ${prospect.name}`,
+          {
+            id: prospect.id,
+            name: prospect.name,
+            email: prospect.email || 'N/A',
+            phone: prospect.phone || 'N/A',
+            status: prospect.status,
+            metadata: prospect.metadata || {},
+            createdAt: prospect.createdAt,
+          }
+        );
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
@@ -219,157 +245,90 @@ export function registerProspectTools(server: MCPServer): void {
         properties: {
           id: {
             type: 'string',
-            description: 'The prospect ID to update',
+            description: 'Prospect ID (UUID)',
           },
           name: {
             type: 'string',
-            description: 'Company name',
+            description: 'Prospect name or company name',
           },
           email: {
             type: 'string',
-            description: 'Contact email address',
+            format: 'email',
+            description: 'Prospect email address',
           },
           phone: {
             type: 'string',
-            description: 'Contact phone number',
+            description: 'Prospect phone number',
           },
           website: {
             type: 'string',
-            description: 'Company website',
+            description: 'Prospect website',
+          },
+          source: {
+            type: 'string',
+            description: 'Prospect source (e.g., Marketing Campaign, Cold Outreach)',
+          },
+          stage: {
+            type: 'string',
+            description: 'Sales stage (e.g., Qualification, Negotiation)',
           },
           notes: {
             type: 'string',
-            description: 'Additional notes',
+            description: 'Notes about the prospect',
           },
-          isActive: {
-            type: 'boolean',
-            description: 'Whether the prospect is active',
-          },
-          metadata: {
-            type: 'object',
-            properties: {
-              prospect_source: {
-                type: 'string',
-                description: 'Source of the prospect',
-              },
-              prospect_status: {
-                type: 'string',
-                description: 'Current status',
-              },
-              qualification_score: {
-                type: 'number',
-                description: 'Qualification score (0-100)',
-              },
-              next_action: {
-                type: 'string',
-                description: 'Next action to take',
-              },
-              follow_up_date: {
-                type: 'string',
-                description: 'Follow-up date',
-              },
-              industry: {
-                type: 'string',
-                description: 'Industry sector',
-              },
-              annualRevenue: {
-                type: 'number',
-                description: 'Estimated annual revenue',
-              },
-              numberOfEmployees: {
-                type: 'number',
-                description: 'Number of employees',
-              },
-              assignedTo: {
-                type: 'string',
-                description: 'Assigned sales person',
-              },
-            },
+          status: {
+            type: 'string',
+            enum: ['active', 'inactive', 'archived'],
+            description: 'Prospect status',
           },
         },
         required: ['id'],
       },
     },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'prospects')) {
-        return createToolResponse('Permission denied: cannot update prospects', true);
-      }
-
+    async (args, context) => {
       try {
-        const client = await createBackendClient(context);
-        const { id, ...data } = args;
-        const prospect = await client.prospects.update.mutate({
-          id,
-          data,
+        checkPermission(context, 'entities:update');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
+        const updateData: any = {};
+        if (args.name !== undefined) updateData.name = args.name;
+        if (args.email !== undefined) updateData.email = args.email;
+        if (args.phone !== undefined) updateData.phone = args.phone;
+        if (args.website !== undefined) updateData.website = args.website;
+        if (args.notes !== undefined) updateData.notes = args.notes;
+        if (args.status !== undefined) {
+          updateData.status = args.status;
+          updateData.isActive = args.status === 'active';
+        }
+        
+        // Handle metadata updates
+        if (args.source !== undefined || args.stage !== undefined) {
+          updateData.metadata = {
+            ...(args.source && { prospect_source: args.source }),
+            ...(args.stage && { prospect_status: args.stage }),
+          };
+        }
+        
+        const prospect: BaseEntity = await client.prospects.update.mutate({
+          id: args.id,
+          data: updateData,
         });
-
-        return createDataResponse('Prospect updated successfully', prospect);
+        
+        return createDataResponse(
+          `Successfully updated prospect: ${prospect.name}`,
+          {
+            id: prospect.id,
+            name: prospect.name,
+            email: prospect.email || 'N/A',
+            phone: prospect.phone || 'N/A',
+            status: prospect.status,
+            metadata: prospect.metadata || {},
+            updatedAt: prospect.updatedAt,
+          }
+        );
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
-      }
-    }
-  );
-
-  // Delete prospect
-  server.registerTool(
-    {
-      name: 'delete_prospect',
-      description: 'Delete a prospect record',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: {
-            type: 'string',
-            description: 'The prospect ID to delete',
-          },
-        },
-        required: ['id'],
-      },
-    },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'prospects')) {
-        return createToolResponse('Permission denied: cannot delete prospects', true);
-      }
-
-      try {
-        const client = await createBackendClient(context);
-        await client.prospects.delete.mutate({ id: args.id });
-
-        return createToolResponse('Prospect deleted successfully');
-      } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
-      }
-    }
-  );
-
-  // Convert prospect to lead
-  server.registerTool(
-    {
-      name: 'convert_prospect_to_lead',
-      description: 'Convert a prospect to a lead',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: {
-            type: 'string',
-            description: 'The prospect ID to convert',
-          },
-        },
-        required: ['id'],
-      },
-    },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'prospects')) {
-        return createToolResponse('Permission denied: cannot convert prospects', true);
-      }
-
-      try {
-        const client = await createBackendClient(context);
-        const lead = await client.prospects.convertToLead.mutate({ id: args.id });
-
-        return createDataResponse('Prospect converted to lead successfully', lead);
-      } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
@@ -378,31 +337,62 @@ export function registerProspectTools(server: MCPServer): void {
   server.registerTool(
     {
       name: 'convert_prospect_to_customer',
-      description: 'Convert a prospect directly to a customer',
+      description: 'Convert a prospect to a customer',
       inputSchema: {
         type: 'object',
         properties: {
           id: {
             type: 'string',
-            description: 'The prospect ID to convert',
+            description: 'Prospect ID (UUID) to convert',
           },
         },
         required: ['id'],
       },
     },
-    async (args: any, context: AuthContext) => {
-      if (!checkPermission(context, 'write', 'prospects')) {
-        return createToolResponse('Permission denied: cannot convert prospects', true);
-      }
-
+    async (args, context) => {
       try {
-        const client = await createBackendClient(context);
-        const customer = await client.prospects.convertToCustomer.mutate({ id: args.id });
-
-        return createDataResponse('Prospect converted to customer successfully', customer);
+        checkPermission(context, 'entities:update');
+        checkPermission(context, 'entities:create');
+        
+        const client = createBackendClient(context.env.GLAPI_API_URL, context);
+        
+        // Get the prospect details first
+        const prospect = await client.prospects.getById.query({ id: args.id });
+        
+        if (!prospect) {
+          return createToolResponse(`Prospect with ID ${args.id} not found`, true);
+        }
+        
+        // Create customer with prospect data
+        const customer = await client.customers.create.mutate({
+          companyName: prospect.name,
+          contactEmail: prospect.email,
+          contactPhone: prospect.phone,
+          status: 'active',
+        });
+        
+        // Archive the prospect
+        await client.prospects.update.mutate({
+          id: args.id,
+          data: {
+            isActive: false,
+            notes: `${prospect.notes || ''}\n\nConverted to customer ${customer.id} on ${new Date().toISOString()}`,
+          },
+        });
+        
+        return createDataResponse(
+          `Successfully converted prospect "${prospect.name}" to customer`,
+          {
+            customerId: customer.id,
+            customerName: customer.companyName,
+            originalProspectId: prospect.id,
+          }
+        );
       } catch (error) {
-        return createToolResponse(handleAPIError(error), true);
+        handleAPIError(error);
       }
     }
   );
+
+  console.log('Prospect tools registered successfully');
 }

@@ -4,29 +4,40 @@ import { createBackendClient, handleAPIError } from '../services/trpc-client';
 import { createToolResponse, createDataResponse } from './index';
 import { checkPermission } from '../mcp/auth';
 
-// Type for vendor from the API
-interface Vendor {
-  id?: string;
+// Type for entity list response
+interface EntityListResponse {
+  data: BaseEntity[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// Type for vendor from the API (BaseEntity)
+interface BaseEntity {
+  id: string;
   organizationId: string;
   name: string;
   displayName?: string | null;
   code?: string | null;
+  entityTypes: string[];
   email?: string | null;
   phone?: string | null;
   website?: string | null;
   address?: any;
+  parentEntityId?: string | null;
+  primaryContactId?: string | null;
   taxId?: string | null;
   description?: string | null;
   notes?: string | null;
-  metadata?: any;
+  customFields?: Record<string, any> | null;
+  metadata?: Record<string, any> | null;
   status: 'active' | 'inactive' | 'archived';
-  createdAt?: Date;
-  updatedAt?: Date;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * Register vendor management tools
- */
 export function registerVendorTools(server: MCPServer): void {
   // List vendors
   server.registerTool(
@@ -58,61 +69,45 @@ export function registerVendorTools(server: MCPServer): void {
     },
     async (args, context) => {
       try {
-        checkPermission(context, 'vendors:read');
+        checkPermission(context, 'entities:read');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        const vendors: Vendor[] = await client.vendors.list.query({
-          includeInactive: args.status === 'all' || args.status === 'inactive',
+        const result: EntityListResponse = await client.vendors.list.query({
+          search: args.search,
+          isActive: args.status === 'all' ? undefined : args.status === 'active',
+          limit: args.limit || 50,
+          page: 1,
         });
+
+        const vendors = result.data;
         
-        // Filter vendors based on search term if provided
-        let filteredVendors = vendors;
-        if (args.search) {
-          const searchLower = args.search.toLowerCase();
-          filteredVendors = vendors.filter((vendor: Vendor) => 
-            vendor.name.toLowerCase().includes(searchLower) ||
-            (vendor.displayName && vendor.displayName.toLowerCase().includes(searchLower)) ||
-            (vendor.email && vendor.email.toLowerCase().includes(searchLower))
-          );
-        }
-        
-        // Apply status filter
-        if (args.status === 'active') {
-          filteredVendors = filteredVendors.filter((v: Vendor) => v.status === 'active');
-        } else if (args.status === 'inactive') {
-          filteredVendors = filteredVendors.filter((v: Vendor) => v.status === 'inactive');
-        }
-        
-        // Apply limit
-        const limitedVendors = filteredVendors.slice(0, args.limit || 50);
-        
-        if (limitedVendors.length === 0) {
+        if (vendors.length === 0) {
           return createToolResponse('No vendors found matching the criteria.');
         }
-        
-        const summary = `Found ${limitedVendors.length} vendor(s):`;
+
+        const summary = `Found ${vendors.length} vendor(s):`;
         
         return createDataResponse(summary, {
-          vendors: limitedVendors.map((vendor: Vendor) => ({
+          total: result.total,
+          vendors: vendors.map(vendor => ({
             id: vendor.id,
             name: vendor.name,
-            displayName: vendor.displayName || vendor.name,
             email: vendor.email || 'N/A',
             phone: vendor.phone || 'N/A',
             status: vendor.status,
-            code: vendor.code,
+            type: vendor.entityTypes.join(', '),
+            metadata: vendor.metadata || {},
             createdAt: vendor.createdAt,
           })),
         });
-        
       } catch (error) {
         handleAPIError(error);
       }
     }
   );
 
-  // Get vendor by ID
+  // Get vendor details
   server.registerTool(
     {
       name: 'get_vendor',
@@ -130,40 +125,39 @@ export function registerVendorTools(server: MCPServer): void {
     },
     async (args, context) => {
       try {
-        checkPermission(context, 'vendors:read');
+        checkPermission(context, 'entities:read');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        const vendor: Vendor = await client.vendors.get.query({ id: args.id });
+        const vendor = await client.vendors.getById.query({ id: args.id });
+        
+        if (!vendor) {
+          return createToolResponse(`Vendor with ID ${args.id} not found`, true);
+        }
         
         return createDataResponse(
-          `Vendor details for ${vendor.displayName || vendor.name}:`,
+          `Vendor details for ${vendor.name}:`,
           {
             id: vendor.id,
             name: vendor.name,
-            displayName: vendor.displayName,
-            code: vendor.code,
             email: vendor.email || 'N/A',
             phone: vendor.phone || 'N/A',
             website: vendor.website || 'N/A',
             status: vendor.status,
-            taxId: vendor.taxId,
-            address: vendor.address,
-            description: vendor.description,
-            notes: vendor.notes,
-            metadata: vendor.metadata,
+            type: vendor.entityTypes.join(', '),
+            taxId: vendor.taxId || 'N/A',
+            metadata: vendor.metadata || {},
             createdAt: vendor.createdAt,
             updatedAt: vendor.updatedAt,
           }
         );
-        
       } catch (error) {
         handleAPIError(error);
       }
     }
   );
 
-  // Create new vendor
+  // Create vendor
   server.registerTool(
     {
       name: 'create_vendor',
@@ -173,11 +167,7 @@ export function registerVendorTools(server: MCPServer): void {
         properties: {
           name: {
             type: 'string',
-            description: 'Vendor name',
-          },
-          displayName: {
-            type: 'string',
-            description: 'Display name for the vendor',
+            description: 'Vendor company name',
           },
           email: {
             type: 'string',
@@ -190,11 +180,15 @@ export function registerVendorTools(server: MCPServer): void {
           },
           website: {
             type: 'string',
-            description: 'Vendor website URL',
+            description: 'Vendor website',
           },
           taxId: {
             type: 'string',
-            description: 'Tax identification number',
+            description: 'Tax ID / EIN',
+          },
+          paymentTerms: {
+            type: 'string',
+            description: 'Payment terms (e.g., Net 30)',
           },
         },
         required: ['name'],
@@ -202,40 +196,34 @@ export function registerVendorTools(server: MCPServer): void {
     },
     async (args, context) => {
       try {
-        console.log('[Vendors Tool] Create vendor called with:', args);
-        
-        checkPermission(context, 'vendors:create');
+        checkPermission(context, 'entities:create');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        console.log('[Vendors Tool] Calling tRPC to create vendor...');
-        const vendor: Vendor = await client.vendors.create.mutate({
-          organizationId: context.organizationId,
+        const vendor: BaseEntity = await client.vendors.create.mutate({
           name: args.name,
-          displayName: args.displayName || undefined,
-          email: args.email || undefined,
-          phone: args.phone || undefined,
-          website: args.website || undefined,
-          taxId: args.taxId || undefined,
-          status: 'active',
+          email: args.email,
+          phone: args.phone,
+          website: args.website,
+          taxIdNumber: args.taxId,
+          isActive: true,
+          metadata: {
+            terms: args.paymentTerms,
+          },
         });
-        console.log('[Vendors Tool] Vendor created:', vendor);
         
         return createDataResponse(
-          `✅ Successfully created vendor "${vendor.displayName || vendor.name}"`,
+          `Successfully created vendor: ${vendor.name}`,
           {
             id: vendor.id,
             name: vendor.name,
-            displayName: vendor.displayName,
             email: vendor.email || 'N/A',
             phone: vendor.phone || 'N/A',
-            website: vendor.website || 'N/A',
             status: vendor.status,
-            code: vendor.code,
+            metadata: vendor.metadata || {},
             createdAt: vendor.createdAt,
           }
         );
-        
       } catch (error) {
         handleAPIError(error);
       }
@@ -256,11 +244,7 @@ export function registerVendorTools(server: MCPServer): void {
           },
           name: {
             type: 'string',
-            description: 'Vendor name',
-          },
-          displayName: {
-            type: 'string',
-            description: 'Display name for the vendor',
+            description: 'Vendor company name',
           },
           email: {
             type: 'string',
@@ -273,11 +257,15 @@ export function registerVendorTools(server: MCPServer): void {
           },
           website: {
             type: 'string',
-            description: 'Vendor website URL',
+            description: 'Vendor website',
           },
           taxId: {
             type: 'string',
-            description: 'Tax identification number',
+            description: 'Tax ID / EIN',
+          },
+          paymentTerms: {
+            type: 'string',
+            description: 'Payment terms (e.g., Net 30)',
           },
           status: {
             type: 'string',
@@ -290,89 +278,50 @@ export function registerVendorTools(server: MCPServer): void {
     },
     async (args, context) => {
       try {
-        console.log('[Vendors Tool] Update vendor called with:', args);
-        
-        checkPermission(context, 'vendors:update');
+        checkPermission(context, 'entities:update');
         
         const client = createBackendClient(context.env.GLAPI_API_URL, context);
         
-        // Build update data - only include fields that were provided
         const updateData: any = {};
         if (args.name !== undefined) updateData.name = args.name;
-        if (args.displayName !== undefined) updateData.displayName = args.displayName;
         if (args.email !== undefined) updateData.email = args.email;
         if (args.phone !== undefined) updateData.phone = args.phone;
         if (args.website !== undefined) updateData.website = args.website;
         if (args.taxId !== undefined) updateData.taxId = args.taxId;
-        if (args.status !== undefined) updateData.status = args.status;
+        if (args.status !== undefined) {
+          updateData.status = args.status;
+          updateData.isActive = args.status === 'active';
+        }
         
-        console.log('[Vendors Tool] Calling tRPC to update vendor...');
-        const vendor: Vendor = await client.vendors.update.mutate({
+        // Handle metadata updates
+        if (args.paymentTerms !== undefined) {
+          updateData.metadata = {
+            terms: args.paymentTerms,
+          };
+        }
+        
+        const vendor: BaseEntity = await client.vendors.update.mutate({
           id: args.id,
           data: updateData,
         });
-        console.log('[Vendors Tool] Vendor updated:', vendor);
         
         return createDataResponse(
-          `✅ Successfully updated vendor "${vendor.displayName || vendor.name}"`,
+          `Successfully updated vendor: ${vendor.name}`,
           {
             id: vendor.id,
             name: vendor.name,
-            displayName: vendor.displayName,
             email: vendor.email || 'N/A',
             phone: vendor.phone || 'N/A',
-            website: vendor.website || 'N/A',
             status: vendor.status,
-            code: vendor.code,
+            metadata: vendor.metadata || {},
             updatedAt: vendor.updatedAt,
           }
         );
-        
       } catch (error) {
         handleAPIError(error);
       }
     }
   );
 
-  // Delete vendor
-  server.registerTool(
-    {
-      name: 'delete_vendor',
-      description: 'Delete a vendor record',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: {
-            type: 'string',
-            description: 'Vendor ID (UUID)',
-          },
-        },
-        required: ['id'],
-      },
-    },
-    async (args, context) => {
-      try {
-        console.log('[Vendors Tool] Delete vendor called with:', args);
-        
-        checkPermission(context, 'vendors:delete');
-        
-        const client = createBackendClient(context.env.GLAPI_API_URL, context);
-        
-        // Get vendor name before deletion for confirmation
-        const vendor: Vendor = await client.vendors.get.query({ id: args.id });
-        const vendorName = vendor.displayName || vendor.name;
-        
-        console.log('[Vendors Tool] Calling tRPC to delete vendor...');
-        await client.vendors.delete.mutate({ id: args.id });
-        console.log('[Vendors Tool] Vendor deleted');
-        
-        return createToolResponse(
-          `✅ Successfully deleted vendor "${vendorName}"`
-        );
-        
-      } catch (error) {
-        handleAPIError(error);
-      }
-    }
-  );
+  console.log('Vendor tools registered successfully');
 }
