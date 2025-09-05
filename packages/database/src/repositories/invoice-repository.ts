@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lte, or, ilike, sql } from "drizzle-orm";
-import { db } from "../db";
-import { invoices, invoiceLineItems, type Invoice, type NewInvoice, type UpdateInvoice } from "../db/schema/invoices";
+import { invoices, type Invoice, type NewInvoice, type UpdateInvoice } from "../db/schema/invoices";
+import { invoiceLineItems } from "../db/schema/invoice-line-items";
 import { type NewInvoiceLineItem, type InvoiceLineItem } from "../db/schema/invoice-line-items";
 import { payments } from "../db/schema/payments";
 import { BaseRepository } from "./base-repository";
@@ -25,9 +25,20 @@ export interface InvoiceListOptions {
   search?: string;
 }
 
-export class InvoiceRepository extends BaseRepository<typeof invoices> {
+export class InvoiceRepository extends BaseRepository {
   constructor() {
-    super(db, invoices);
+    super();
+  }
+
+  /**
+   * Create a new invoice
+   */
+  async create(data: NewInvoice): Promise<Invoice> {
+    const [result] = await this.db
+      .insert(invoices)
+      .values(data)
+      .returning();
+    return result;
   }
 
   /**

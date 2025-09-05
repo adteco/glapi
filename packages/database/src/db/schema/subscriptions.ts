@@ -2,8 +2,6 @@ import { pgTable, uuid, varchar, timestamp, decimal, pgEnum, date, boolean, json
 import { entities } from "./entities";
 import { organizations } from "./organizations";
 import { relations } from "drizzle-orm";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 // Enum for subscription status
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
@@ -56,35 +54,7 @@ export const subscriptionsRelations = relations(subscriptions, ({ one, many }) =
 // Import subscription items after defining subscriptions to avoid circular dependency
 import { subscriptionItems } from "./subscription-items";
 
-// Zod schemas for validation
-export const insertSubscriptionSchema = createInsertSchema(subscriptions, {
-  subscriptionNumber: z.string().min(1).max(100),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional(),
-  contractValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid decimal format"),
-  metadata: z.record(z.any()).optional()
-}).refine(
-  (data) => {
-    if (data.endDate && data.startDate) {
-      return new Date(data.endDate) > new Date(data.startDate);
-    }
-    return true;
-  },
-  {
-    message: "End date must be after start date",
-    path: ["endDate"]
-  }
-);
-
-export const selectSubscriptionSchema = createSelectSchema(subscriptions);
-
-export const updateSubscriptionSchema = insertSubscriptionSchema.partial().omit({ 
-  id: true, 
-  organizationId: true,
-  createdAt: true,
-  updatedAt: true 
-});
-
-export type Subscription = z.infer<typeof selectSubscriptionSchema>;
-export type NewSubscription = z.infer<typeof insertSubscriptionSchema>;
-export type UpdateSubscription = z.infer<typeof updateSubscriptionSchema>;
+// Type exports
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;
+export type UpdateSubscription = Partial<NewSubscription>;
