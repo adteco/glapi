@@ -1,5 +1,4 @@
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
-import { db } from "../db";
 import { payments, type Payment, type NewPayment, type UpdatePayment } from "../db/schema/payments";
 import { invoices } from "../db/schema/invoices";
 import { BaseRepository } from "./base-repository";
@@ -25,12 +24,23 @@ export interface PaymentListOptions {
   paymentMethod?: string;
 }
 
-export class PaymentRepository extends BaseRepository<typeof payments> {
+export class PaymentRepository extends BaseRepository {
   private invoiceRepository: InvoiceRepository;
 
   constructor() {
-    super(db, payments);
+    super();
     this.invoiceRepository = new InvoiceRepository();
+  }
+
+  /**
+   * Create a new payment
+   */
+  async create(data: NewPayment): Promise<Payment> {
+    const [result] = await this.db
+      .insert(payments)
+      .values(data)
+      .returning();
+    return result;
   }
 
   /**
@@ -132,7 +142,7 @@ export class PaymentRepository extends BaseRepository<typeof payments> {
       if (payment.invoiceId) {
         const invoice = await this.invoiceRepository.findByIdWithDetails(payment.invoiceId);
         if (invoice) {
-          const balanceDue = parseFloat(invoice.balanceDue || invoice.totalAmount);
+          const balanceDue = parseFloat(invoice.balanceDue || "0");
           const paymentAmount = parseFloat(payment.amount);
 
           if (paymentAmount > balanceDue) {
@@ -338,7 +348,7 @@ export class PaymentRepository extends BaseRepository<typeof payments> {
             invoiceId: allocation.invoiceId,
             amount: allocation.amount,
             metadata: {
-              ...payment.metadata,
+              ...(payment.metadata as Record<string, any> || {}),
               splitPayment: true,
               originalAmount: payment.amount
             }

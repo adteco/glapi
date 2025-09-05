@@ -26,7 +26,9 @@
   "devDependencies": {
     "@types/node": "^20.11.16",
     "drizzle-kit": "^0.31.4",
+    "drizzle-zod": "^0.8.3",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
   }
 }

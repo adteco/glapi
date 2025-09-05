@@ -1,6 +1,6 @@
-import { eq, and, desc, gte, lte, or, ilike } from "drizzle-orm";
-import { db } from "../db";
-import { subscriptions, subscriptionItems, type Subscription, type NewSubscription, type UpdateSubscription } from "../db/schema/subscriptions";
+import { eq, and, desc, gte, lte, or, ilike, sql } from "drizzle-orm";
+import { subscriptions, type Subscription, type NewSubscription, type UpdateSubscription } from "../db/schema/subscriptions";
+import { subscriptionItems } from "../db/schema/subscription-items";
 import { type NewSubscriptionItem, type UpdateSubscriptionItem } from "../db/schema/subscription-items";
 import { BaseRepository } from "./base-repository";
 
@@ -28,9 +28,20 @@ export interface SubscriptionListOptions {
   search?: string;
 }
 
-export class SubscriptionRepository extends BaseRepository<typeof subscriptions> {
+export class SubscriptionRepository extends BaseRepository {
   constructor() {
-    super(db, subscriptions);
+    super();
+  }
+
+  /**
+   * Create a new subscription
+   */
+  async create(data: NewSubscription): Promise<Subscription> {
+    const [result] = await this.db
+      .insert(subscriptions)
+      .values(data)
+      .returning();
+    return result;
   }
 
   /**

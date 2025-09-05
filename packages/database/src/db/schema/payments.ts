@@ -2,8 +2,6 @@ import { pgTable, uuid, varchar, timestamp, decimal, pgEnum, date, jsonb } from 
 import { organizations } from "./organizations";
 import { invoices } from "./invoices";
 import { relations } from "drizzle-orm";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 // Enum for payment status
 export const paymentStatusEnum = pgEnum("payment_status", [
@@ -52,25 +50,7 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   })
 }));
 
-// Zod schemas for validation
-export const insertPaymentSchema = createInsertSchema(payments, {
-  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-  amount: z.string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Amount must be a valid decimal with up to 2 decimal places")
-    .refine((val) => parseFloat(val) > 0, "Amount must be greater than 0"),
-  transactionReference: z.string().max(255).optional(),
-  metadata: z.record(z.any()).optional()
-});
-
-export const selectPaymentSchema = createSelectSchema(payments);
-
-export const updatePaymentSchema = insertPaymentSchema.partial().omit({ 
-  id: true, 
-  organizationId: true,
-  createdAt: true,
-  updatedAt: true 
-});
-
-export type Payment = z.infer<typeof selectPaymentSchema>;
-export type NewPayment = z.infer<typeof insertPaymentSchema>;
-export type UpdatePayment = z.infer<typeof updatePaymentSchema>;
+// Type exports
+export type Payment = typeof payments.$inferSelect;
+export type NewPayment = typeof payments.$inferInsert;
+export type UpdatePayment = Partial<NewPayment>;
