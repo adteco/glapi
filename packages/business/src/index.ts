@@ -13,6 +13,11 @@
 // Export placeholder from transaction.ts for now
 export * from './transaction';
 
+// Export revenue calculation services
+export * from './services/revenue-calculation-engine';
+export * from './services/kit-service';
+export * from './types/revenue-calculation-types';
+
 export const placeholderBusinessLogic = () => {
   console.log('Business logic package placeholder');
 }; 
