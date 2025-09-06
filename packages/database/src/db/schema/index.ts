@@ -129,3 +129,5 @@ export { sspEvidence } from './ssp-evidence';
 export { contractSspAllocations } from './contract-ssp-allocations';
 export { revenueJournalEntries } from './revenue-journal-entries';
 export { items } from './items';
+export { kitComponents } from './kit-components';
+export type { KitComponent } from './kit-components';
