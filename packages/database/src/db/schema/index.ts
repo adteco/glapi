@@ -116,3 +116,16 @@ export type { Subscription, NewSubscription, UpdateSubscription } from './subscr
 export type { SubscriptionItem, NewSubscriptionItem, UpdateSubscriptionItem } from './subscription-items';
 export type { Invoice, NewInvoice, UpdateInvoice } from './invoices';
 export type { Payment, NewPayment, UpdatePayment } from './payments';
+export type { PerformanceObligation, NewPerformanceObligation } from './performance-obligations';
+export type { RevenueSchedule, NewRevenueSchedule } from './revenue-schedules';
+export type { SspEvidence as SSPEvidence, NewSspEvidence as NewSSPEvidence } from './ssp-evidence';
+export type { ContractSspAllocation as ContractSSPAllocation, NewContractSspAllocation as NewContractSSPAllocation } from './contract-ssp-allocations';
+export type { RevenueJournalEntry, NewRevenueJournalEntry } from './revenue-journal-entries';
+
+// Re-export tables from new schemas with correct names
+export { performanceObligations } from './performance-obligations';
+export { revenueSchedules } from './revenue-schedules';
+export { sspEvidence } from './ssp-evidence';
+export { contractSspAllocations } from './contract-ssp-allocations';
+export { revenueJournalEntries } from './revenue-journal-entries';
+export { items } from './items';
