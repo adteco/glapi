@@ -131,3 +131,7 @@ export { revenueJournalEntries } from './revenue-journal-entries';
 export { items } from './items';
 export { kitComponents } from './kit-components';
 export type { KitComponent } from './kit-components';
+export { subscriptions } from './subscriptions';
+export { subscriptionItems } from './subscription-items';
+export { invoices } from './invoices';
+export { payments } from './payments';
