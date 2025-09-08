@@ -239,7 +239,10 @@ export const revenueRouter = router({
         const service = new SSPService(ctx.serviceContext);
         
         try {
-          return await service.createSSPEvidence(input);
+          return await service.createSSPEvidence({
+            ...input,
+            sspAmount: input.sspAmount
+          });
         } catch (error: any) {
           if (error.code === 'ITEM_NOT_FOUND') {
             throw new TRPCError({
@@ -283,7 +286,14 @@ export const revenueRouter = router({
         const service = new SSPService(ctx.serviceContext);
         
         try {
-          const updated = await service.updateSSPEvidence(input.id, input.data);
+          const updated = await service.updateSSPEvidence(input.id, {
+            ...input.data,
+            evidenceDate: input.data.evidenceDate 
+              ? (typeof input.data.evidenceDate === 'string' 
+                  ? input.data.evidenceDate 
+                  : input.data.evidenceDate.toISOString().split('T')[0])
+              : undefined
+          });
           
           if (!updated) {
             throw new TRPCError({
@@ -372,7 +382,12 @@ export const revenueRouter = router({
       }))
       .query(async ({ ctx, input }) => {
         const service = new RevenueService(ctx.serviceContext);
-        return service.getRevenueSummary(input);
+        return service.getRevenueSummary({
+          startDate: input.startDate,
+          endDate: input.endDate,
+          groupBy: input.groupBy || 'month',
+          entityId: input.entityId
+        });
       }),
 
     // Deferred revenue balance
@@ -416,7 +431,11 @@ export const revenueRouter = router({
       }))
       .query(async ({ ctx, input }) => {
         const service = new RevenueService(ctx.serviceContext);
-        return service.getRevenueWaterfall(input);
+        return service.getRevenueWaterfall({
+          startDate: input.startDate,
+          endDate: input.endDate,
+          compareToASC605: input.compareToASC605 || false
+        });
       }),
 
     // Recognition history
