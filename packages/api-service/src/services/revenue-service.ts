@@ -17,6 +17,7 @@ import {
   type NewRevenueSchedule
 } from '@glapi/database/src/db/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { RevenueCalculationEngine, type CalculationResult } from '@glapi/business';
 
 export interface CalculateRevenueOptions {
   forceRecalculation?: boolean;
@@ -76,12 +77,14 @@ export class RevenueService extends BaseService {
   private subscriptionRepository: SubscriptionRepository;
   private subscriptionItemRepository: SubscriptionItemRepository;
   private invoiceRepository: InvoiceRepository;
+  private calculationEngine: RevenueCalculationEngine;
 
   constructor(context: ServiceContext = {}) {
     super(context);
     this.subscriptionRepository = new SubscriptionRepository();
     this.subscriptionItemRepository = new SubscriptionItemRepository();
     this.invoiceRepository = new InvoiceRepository();
+    this.calculationEngine = new RevenueCalculationEngine();
   }
 
   async calculateRevenue(
@@ -92,47 +95,43 @@ export class RevenueService extends BaseService {
   ): Promise<RevenueCalculationResult> {
     const organizationId = this.requireOrganizationContext();
     
-    // Step 1: Identify the contract (subscription)
+    // Validate subscription exists and belongs to organization
     const subscription = await this.subscriptionRepository.findByIdWithItems(subscriptionId);
     if (!subscription || subscription.organizationId !== organizationId) {
       throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
     }
 
-    // Step 2: Identify performance obligations
-    const obligations = await this.identifyPerformanceObligations(subscription);
+    // Use the RevenueCalculationEngine for ASC 606 compliant calculation
+    const effectiveDateObj = typeof effectiveDate === 'string' ? new Date(effectiveDate) : effectiveDate;
     
-    // Step 3: Determine transaction price
-    const totalContractValue = this.calculateTotalContractValue(subscription);
+    const calculationResult = await this.calculationEngine.calculate({
+      subscriptionId,
+      organizationId,
+      calculationType,
+      effectiveDate: effectiveDateObj,
+      options: {
+        forceRecalculation: options.forceRecalculation,
+        includeHistorical: options.includeHistorical,
+        dryRun: false
+      }
+    });
     
-    // Step 4: Allocate price to performance obligations using SSP
-    const allocatedObligations = await this.allocatePriceToObligations(
-      obligations,
-      totalContractValue,
-      subscriptionId
-    );
-    
-    // Step 5: Create revenue schedules based on satisfaction method
-    const schedules = await this.createRevenueSchedules(
-      allocatedObligations,
-      subscription,
-      effectiveDate
-    );
-    
+    // Transform engine result to API format
     return {
       subscriptionId,
-      performanceObligations: allocatedObligations.map(o => ({
+      performanceObligations: calculationResult.performanceObligations.map(o => ({
         itemId: o.itemId,
         obligationType: o.obligationType,
-        allocatedAmount: parseFloat(o.allocatedAmount),
+        allocatedAmount: o.allocatedAmount,
         satisfactionMethod: o.satisfactionMethod,
-        satisfactionPeriodMonths: o.satisfactionPeriodMonths || undefined
+        satisfactionPeriodMonths: o.satisfactionPeriodMonths
       })),
-      totalContractValue,
-      recognitionPattern: 'straight_line', // Simplified for now
-      schedules: schedules.map(s => ({
-        periodStart: s.periodStartDate,
-        periodEnd: s.periodEndDate,
-        amount: parseFloat(s.scheduledAmount)
+      totalContractValue: calculationResult.transactionPrice,
+      recognitionPattern: 'straight_line',
+      schedules: calculationResult.schedules.map(s => ({
+        periodStart: s.periodStartDate.toISOString().split('T')[0],
+        periodEnd: s.periodEndDate.toISOString().split('T')[0],
+        amount: s.scheduledAmount
       }))
     };
   }
@@ -452,17 +451,192 @@ export class RevenueService extends BaseService {
     };
   }
 
+  async getRecognitionHistory(input: {
+    subscriptionId?: string;
+    startDate?: Date | string;
+    endDate?: Date | string;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<PaginatedResult<any>> {
+    const organizationId = this.requireOrganizationContext();
+    const { skip, take, page, limit } = this.getPaginationParams(input);
+    
+    const conditions = [eq(revenueJournalEntries.organizationId, organizationId)];
+    
+    if (input.subscriptionId) {
+      // Join with revenue schedules to filter by subscription
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${revenueSchedules} rs
+          JOIN ${performanceObligations} po ON rs.performance_obligation_id = po.id
+          WHERE rs.id = ${revenueJournalEntries.revenueScheduleId}
+          AND po.subscription_id = ${input.subscriptionId}
+        )`
+      );
+    }
+    
+    if (input.startDate) {
+      const startDateStr = typeof input.startDate === 'string' ? input.startDate : input.startDate.toISOString().split('T')[0];
+      conditions.push(gte(revenueJournalEntries.entryDate, startDateStr));
+    }
+    
+    if (input.endDate) {
+      const endDateStr = typeof input.endDate === 'string' ? input.endDate : input.endDate.toISOString().split('T')[0];
+      conditions.push(lte(revenueJournalEntries.entryDate, endDateStr));
+    }
+    
+    const whereClause = and(...conditions);
+    
+    const [data, totalResult] = await Promise.all([
+      db.select({
+        id: revenueJournalEntries.id,
+        entryDate: revenueJournalEntries.entryDate,
+        recognizedAmount: revenueJournalEntries.recognizedRevenueAmount,
+        deferredAmount: revenueJournalEntries.deferredRevenueAmount,
+        status: revenueJournalEntries.status,
+        scheduleId: revenueJournalEntries.revenueScheduleId,
+        createdAt: revenueJournalEntries.createdAt
+      })
+        .from(revenueJournalEntries)
+        .where(whereClause)
+        .orderBy(desc(revenueJournalEntries.entryDate), desc(revenueJournalEntries.createdAt))
+        .limit(take)
+        .offset(skip),
+      db.select({ count: sql`count(*)::int`.mapWith(Number) })
+        .from(revenueJournalEntries)
+        .where(whereClause)
+    ]);
+    
+    // Transform the data to include additional context
+    const enrichedData = await Promise.all(data.map(async (entry) => {
+      // Get schedule details
+      const [schedule] = await db.select({
+        periodStart: revenueSchedules.periodStartDate,
+        periodEnd: revenueSchedules.periodEndDate,
+        performanceObligationId: revenueSchedules.performanceObligationId
+      })
+        .from(revenueSchedules)
+        .where(eq(revenueSchedules.id, entry.scheduleId))
+        .limit(1);
+      
+      let subscriptionInfo = null;
+      if (schedule?.performanceObligationId) {
+        const [obligation] = await db.select({
+          subscriptionId: performanceObligations.subscriptionId,
+          itemId: performanceObligations.itemId,
+          obligationType: performanceObligations.obligationType
+        })
+          .from(performanceObligations)
+          .where(eq(performanceObligations.id, schedule.performanceObligationId))
+          .limit(1);
+        
+        subscriptionInfo = obligation;
+      }
+      
+      return {
+        ...entry,
+        recognizedAmount: parseFloat(entry.recognizedAmount || '0'),
+        deferredAmount: parseFloat(entry.deferredAmount || '0'),
+        schedule: schedule ? {
+          periodStart: schedule.periodStart,
+          periodEnd: schedule.periodEnd
+        } : null,
+        subscription: subscriptionInfo
+      };
+    }));
+    
+    return this.createPaginatedResult(enrichedData, totalResult[0].count, page || 1, limit || 50);
+  }
+
   async compareASC605vs606(subscriptionId: string, comparisonDate?: Date | string): Promise<any> {
     const organizationId = this.requireOrganizationContext();
     
+    // Validate subscription exists
+    const subscription = await this.subscriptionRepository.findByIdWithItems(subscriptionId);
+    if (!subscription || subscription.organizationId !== organizationId) {
+      throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
+    }
+    
+    const effectiveDate = comparisonDate 
+      ? (typeof comparisonDate === 'string' ? new Date(comparisonDate) : comparisonDate)
+      : new Date();
+    
+    // Get ASC 606 calculation
+    const calculationResult = await this.calculationEngine.calculate({
+      subscriptionId,
+      organizationId,
+      calculationType: 'initial',
+      effectiveDate,
+      options: { dryRun: true }
+    });
+    
+    // ASC 605 would recognize revenue more simply (often upfront or ratably)
+    const asc605Revenue = parseFloat(subscription.contractValue || '0');
+    const asc606Revenue = calculationResult.transactionPrice;
+    const difference = asc606Revenue - asc605Revenue;
+    const percentageChange = asc605Revenue !== 0 ? (difference / asc605Revenue) * 100 : 0;
+    
     return {
       subscriptionId,
-      comparisonDate: comparisonDate || new Date().toISOString().split('T')[0],
-      asc605Revenue: 0,
-      asc606Revenue: 0,
-      difference: 0,
-      percentageChange: 0,
-      message: 'ASC 605 vs 606 comparison will be fully implemented in production'
+      comparisonDate: effectiveDate.toISOString().split('T')[0],
+      asc605Revenue,
+      asc606Revenue,
+      difference,
+      percentageChange,
+      impactAnalysis: {
+        allocations: calculationResult.allocations,
+        performanceObligations: calculationResult.performanceObligations.length,
+        recognitionPattern: 'ASC 606 allocates based on SSP and satisfaction patterns'
+      }
+    };
+  }
+
+  async previewAllocation(subscriptionId: string, effectiveDate: Date | string): Promise<any> {
+    const organizationId = this.requireOrganizationContext();
+    
+    // Validate subscription exists
+    const subscription = await this.subscriptionRepository.findByIdWithItems(subscriptionId);
+    if (!subscription || subscription.organizationId !== organizationId) {
+      throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
+    }
+    
+    const effectiveDateObj = typeof effectiveDate === 'string' ? new Date(effectiveDate) : effectiveDate;
+    
+    // Run calculation in dry-run mode for preview
+    const calculationResult = await this.calculationEngine.calculate({
+      subscriptionId,
+      organizationId,
+      calculationType: 'initial',
+      effectiveDate: effectiveDateObj,
+      options: { dryRun: true }
+    });
+    
+    return {
+      subscriptionId,
+      effectiveDate: effectiveDateObj.toISOString().split('T')[0],
+      transactionPrice: calculationResult.transactionPrice,
+      performanceObligations: calculationResult.performanceObligations.map(o => ({
+        itemId: o.itemId,
+        itemName: o.itemName,
+        obligationType: o.obligationType,
+        satisfactionMethod: o.satisfactionMethod,
+        satisfactionPeriodMonths: o.satisfactionPeriodMonths,
+        startDate: o.startDate.toISOString().split('T')[0],
+        endDate: o.endDate.toISOString().split('T')[0]
+      })),
+      allocations: calculationResult.allocations.map(a => ({
+        itemId: a.itemId,
+        sspAmount: a.sspAmount,
+        allocatedAmount: a.allocatedAmount,
+        allocationPercentage: (a.allocationPercentage * 100).toFixed(2) + '%',
+        allocationMethod: a.allocationMethod
+      })),
+      schedulePreview: calculationResult.schedules.slice(0, 12).map(s => ({
+        period: `${s.periodStartDate.toISOString().split('T')[0]} to ${s.periodEndDate.toISOString().split('T')[0]}`,
+        amount: s.scheduledAmount,
+        recognitionPattern: s.recognitionPattern
+      })),
+      totalSchedules: calculationResult.schedules.length
     };
   }
 
