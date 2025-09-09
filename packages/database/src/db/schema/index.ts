@@ -62,6 +62,12 @@ import * as glAccountMappings from './gl-account-mappings';
 import * as revenueForecastingSchemas from './revenue-forecasting';
 import * as sspAnalyticsSchemas from './ssp-analytics';
 
+// Additional analytics schemas
+import * as churnPredictions from './churn-predictions';
+import * as cohortAnalysisSchemas from './cohort-analysis';
+import * as scenarioAnalysisSchemas from './scenario-analysis';
+import * as journalEntryBatchSchemas from './journal-entry-batches';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -123,7 +129,12 @@ export const schema = {
   ...catchUpAdjustments,
   ...glAccountMappings,
   ...revenueForecastingSchemas,
-  ...sspAnalyticsSchemas
+  ...sspAnalyticsSchemas,
+  // Additional analytics schemas
+  ...churnPredictions,
+  ...cohortAnalysisSchemas,
+  ...scenarioAnalysisSchemas,
+  ...journalEntryBatchSchemas
 };
 
 // Re-export specific types from new schemas
@@ -173,7 +184,6 @@ export type {
   CatchUpAdjustment,
   NewCatchUpAdjustment
 } from './catch-up-adjustments';
-export { glAccountMappings } from './gl-account-mappings';
 
 // Re-export SSP analytics schemas
 export {
@@ -196,3 +206,54 @@ export type {
   SSPException,
   NewSSPException
 } from './ssp-analytics';
+
+// Re-export GL account mappings
+export { 
+  glAccountMappings,
+  journalEntryBatches,
+  AccountTypes,
+  TransactionTypes,
+  ExternalSystems,
+  BatchStatuses
+} from './gl-account-mappings';
+export type {
+  GLAccountMapping,
+  NewGLAccountMapping,
+  JournalEntryBatch,
+  NewJournalEntryBatch
+} from './gl-account-mappings';
+
+// Re-export forecasting schemas
+export {
+  revenueForecastRuns,
+  revenueForecastDetails,
+  forecastModelEnum as ForecastModel
+} from './revenue-forecasting';
+export type {
+  RevenueForecastRun,
+  NewRevenueForecastRun,
+  RevenueForecastDetail,
+  NewRevenueForecastDetail
+} from './revenue-forecasting';
+
+// Re-export analytics schemas
+export { churnPredictions } from './churn-predictions';
+export type { ChurnPrediction, NewChurnPrediction } from './churn-predictions';
+
+export { cohortAnalysis, deferredRevenueRollforward } from './cohort-analysis';
+export type { 
+  CohortAnalysis, 
+  NewCohortAnalysis,
+  DeferredRevenueRollforward,
+  NewDeferredRevenueRollforward
+} from './cohort-analysis';
+
+export { scenarioAnalysis } from './scenario-analysis';
+export type { ScenarioAnalysis, NewScenarioAnalysis } from './scenario-analysis';
+
+// Re-export modification approval history
+export { modificationApprovalHistory } from './contract-modifications';
+export type { 
+  ModificationApprovalHistory,
+  NewModificationApprovalHistory
+} from './contract-modifications';

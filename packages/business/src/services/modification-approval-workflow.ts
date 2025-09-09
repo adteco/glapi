@@ -26,7 +26,7 @@ export interface ApprovalRequest {
 
 export interface ApprovalStatus {
   modificationId: string;
-  currentStatus: string;
+  status: string;
   requiredApprovals: ApprovalRule[];
   completedApprovals: Array<{
     level: string;
@@ -37,6 +37,20 @@ export interface ApprovalStatus {
   pendingApprovals: string[];
   canApprove: boolean;
   nextApprover?: string;
+  rejectionReason?: string;
+  infoRequests?: Array<{
+    requestedBy: string;
+    requestedAt: Date;
+    information: string;
+    response?: string;
+  }>;
+  approvalHistory?: Array<{
+    action: string;
+    actor: string;
+    timestamp: Date;
+    notes?: string;
+  }>;
+  conditions?: string[];
 }
 
 export interface EscalationRule {
@@ -351,7 +365,7 @@ export class ModificationApprovalWorkflow {
 
     return {
       modificationId,
-      currentStatus: modification.status,
+      status: modification.status,
       requiredApprovals,
       completedApprovals,
       pendingApprovals,
