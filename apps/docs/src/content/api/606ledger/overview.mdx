@@ -1,0 +1,270 @@
+---
+title: 606Ledger API Overview
+description: Complete API documentation for the ASC 606 revenue recognition system
+---
+
+# 606Ledger API Overview
+
+The 606Ledger API provides comprehensive revenue recognition capabilities compliant with ASC 606 standards. This API enables organizations to manage subscriptions, calculate revenue, and generate financial reports with full audit trails.
+
+## Base URLs
+
+```
+Production: https://api.glapi.com/v1/606ledger
+Staging:    https://staging-api.glapi.com/v1/606ledger
+```
+
+## Authentication
+
+All API requests require authentication using API keys. Include your API key in the request headers:
+
+```http
+Authorization: Bearer YOUR_API_KEY
+X-Organization-ID: YOUR_ORG_ID
+```
+
+## Quick Start
+
+### 1. Create a Subscription
+
+```typescript
+POST /subscriptions
+Content-Type: application/json
+
+{
+  "entityId": "customer-123",
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
+  "items": [
+    {
+      "itemId": "item-001",
+      "quantity": 1,
+      "unitPrice": 12000,
+      "itemType": "license"
+    },
+    {
+      "itemId": "item-002",
+      "quantity": 1,
+      "unitPrice": 2400,
+      "itemType": "maintenance"
+    }
+  ],
+  "billingFrequency": "annual",
+  "paymentTerms": "net_30"
+}
+```
+
+### 2. Calculate Revenue Recognition
+
+```typescript
+POST /subscriptions/{subscriptionId}/calculate-revenue
+Content-Type: application/json
+
+{
+  "calculationType": "initial",
+  "effectiveDate": "2024-01-01",
+  "options": {
+    "compareToASC605": true,
+    "generateSchedules": true
+  }
+}
+```
+
+### 3. Get Revenue Schedules
+
+```typescript
+GET /revenue-schedules?subscriptionId={subscriptionId}
+```
+
+## Core Resources
+
+### Subscriptions
+
+Manage customer subscriptions and contract terms.
+
+- `GET /subscriptions` - List all subscriptions
+- `GET /subscriptions/{id}` - Get subscription details
+- `POST /subscriptions` - Create new subscription
+- `PUT /subscriptions/{id}` - Update subscription
+- `POST /subscriptions/{id}/activate` - Activate subscription
+- `POST /subscriptions/{id}/cancel` - Cancel subscription
+
+### Performance Obligations
+
+Track distinct performance obligations within subscriptions.
+
+- `GET /performance-obligations` - List performance obligations
+- `GET /performance-obligations/{id}` - Get obligation details
+- `PUT /performance-obligations/{id}` - Update obligation
+- `POST /performance-obligations/{id}/satisfy` - Mark as satisfied
+
+### Revenue Schedules
+
+Manage revenue recognition schedules.
+
+- `GET /revenue-schedules` - List schedules
+- `GET /revenue-schedules/{id}` - Get schedule details
+- `POST /revenue-schedules/recognize` - Recognize revenue for period
+- `GET /revenue-schedules/forecast` - Get revenue forecast
+
+### Revenue Calculations
+
+Execute revenue calculations and adjustments.
+
+- `POST /revenue/calculate` - Calculate revenue for subscription
+- `POST /revenue/recalculate` - Recalculate after modification
+- `GET /revenue/ssp/{itemId}` - Get standalone selling price
+- `POST /revenue/allocate` - Allocate transaction price
+
+### Reports
+
+Generate revenue recognition reports.
+
+- `GET /reports/arr` - Annual Recurring Revenue report
+- `GET /reports/mrr` - Monthly Recurring Revenue report
+- `GET /reports/deferred-balance` - Deferred revenue balance
+- `GET /reports/waterfall` - Revenue waterfall analysis
+- `GET /reports/asc605-comparison` - ASC 605 vs 606 comparison
+
+### Journal Entries
+
+Track revenue recognition journal entries.
+
+- `GET /journal-entries` - List journal entries
+- `GET /journal-entries/{id}` - Get entry details
+- `POST /journal-entries/export` - Export entries for GL
+
+## Response Format
+
+All API responses follow a consistent format:
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data
+  },
+  "metadata": {
+    "timestamp": "2024-01-01T00:00:00Z",
+    "requestId": "req_123abc"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid subscription date range",
+    "details": {
+      "field": "endDate",
+      "reason": "End date must be after start date"
+    }
+  },
+  "metadata": {
+    "timestamp": "2024-01-01T00:00:00Z",
+    "requestId": "req_123abc"
+  }
+}
+```
+
+## Error Codes
+
+| Code | Description | HTTP Status |
+|------|-------------|-------------|
+| `AUTHENTICATION_ERROR` | Invalid or missing API key | 401 |
+| `AUTHORIZATION_ERROR` | Insufficient permissions | 403 |
+| `VALIDATION_ERROR` | Invalid request parameters | 400 |
+| `NOT_FOUND` | Resource not found | 404 |
+| `CONFLICT` | Resource conflict | 409 |
+| `CALCULATION_ERROR` | Revenue calculation failed | 422 |
+| `RATE_LIMIT_EXCEEDED` | Too many requests | 429 |
+| `INTERNAL_ERROR` | Server error | 500 |
+
+## Rate Limiting
+
+API requests are rate limited to ensure fair usage:
+
+- **Standard tier**: 1000 requests per hour
+- **Premium tier**: 10000 requests per hour
+- **Enterprise tier**: Unlimited
+
+Rate limit headers are included in all responses:
+
+```http
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1704067200
+```
+
+## Pagination
+
+List endpoints support pagination using cursor-based pagination:
+
+```http
+GET /subscriptions?limit=20&cursor=eyJpZCI6MTIzfQ
+```
+
+Response includes pagination metadata:
+
+```json
+{
+  "data": [...],
+  "pagination": {
+    "hasMore": true,
+    "nextCursor": "eyJpZCI6MTQzfQ",
+    "totalCount": 150
+  }
+}
+```
+
+## Webhooks
+
+Configure webhooks to receive real-time updates:
+
+### Available Events
+
+- `subscription.created`
+- `subscription.activated`
+- `subscription.modified`
+- `subscription.cancelled`
+- `revenue.calculated`
+- `revenue.recognized`
+- `journal_entry.created`
+
+### Webhook Payload
+
+```json
+{
+  "event": "subscription.activated",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "data": {
+    "subscriptionId": "sub_123",
+    "organizationId": "org_456"
+  }
+}
+```
+
+## SDK Support
+
+Official SDKs are available for:
+
+- **JavaScript/TypeScript**: `npm install @glapi/606ledger-sdk`
+- **Python**: `pip install glapi-606ledger`
+- **Go**: `go get github.com/glapi/606ledger-go`
+
+## Versioning
+
+The API uses URL versioning. The current version is `v1`. Breaking changes will result in a new version.
+
+## Support
+
+- **Documentation**: https://docs.glapi.com/606ledger
+- **API Status**: https://status.glapi.com
+- **Support Email**: support@glapi.com
+- **Developer Forum**: https://forum.glapi.com
