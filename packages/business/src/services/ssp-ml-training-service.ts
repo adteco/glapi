@@ -50,13 +50,13 @@ interface ModelConfig {
 }
 
 export class SSPMLTrainingService {
-  private db: Database;
+  private db: typeof Database;
   private model: tf.LayersModel | null = null;
   private modelVersion: string = '1.0.0';
   private featureScaler: { mean: number[]; std: number[] } | null = null;
   private labelScaler: { mean: number; std: number } | null = null;
 
-  constructor(db: Database) {
+  constructor(db: typeof Database) {
     this.db = db;
   }
 

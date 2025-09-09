@@ -54,12 +54,12 @@ interface ExceptionSummary {
 }
 
 export class SSPExceptionMonitor {
-  private db: Database;
+  private db: typeof Database;
   private emailService: EmailNotificationService;
   private slackService: SlackNotificationService;
   private config: ExceptionDetectionConfig;
 
-  constructor(db: Database) {
+  constructor(db: typeof Database) {
     this.db = db;
     this.emailService = new EmailNotificationService();
     this.slackService = new SlackNotificationService();

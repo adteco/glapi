@@ -77,7 +77,7 @@ export class ChurnPredictionService {
   private modelWeights: Record<string, number>;
   
   constructor(
-    private db: Database,
+    private db: typeof Database,
     private organizationId: string
   ) {
     // Initialize model weights (would be loaded from trained model)

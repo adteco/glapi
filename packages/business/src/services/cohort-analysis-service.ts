@@ -58,7 +58,7 @@ export interface DeferredRevenueSummary {
 
 export class CohortAnalysisService {
   constructor(
-    private db: Database,
+    private db: typeof Database,
     private organizationId: string
   ) {}
 

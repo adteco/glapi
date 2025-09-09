@@ -18,7 +18,7 @@ const mockDb = {
   delete: vi.fn(),
   execute: vi.fn(),
   transaction: vi.fn()
-} as unknown as Database;
+} as unknown as typeof Database;
 
 // Mock query builders
 const createMockQueryBuilder = () => ({

@@ -94,7 +94,7 @@ export class ScenarioAnalysisService {
   private forecastingEngine: RevenueForecastingEngine;
   
   constructor(
-    private db: Database,
+    private db: typeof Database,
     private organizationId: string
   ) {
     this.forecastingEngine = new RevenueForecastingEngine(db, organizationId);
