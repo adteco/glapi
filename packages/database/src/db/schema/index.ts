@@ -54,6 +54,14 @@ import * as contractSspAllocationsNew from './contract-ssp-allocations';
 import * as revenueJournalEntriesNew from './revenue-journal-entries';
 import * as kitComponents from './kit-components';
 
+// Contract modification schemas
+import * as contractModifications from './contract-modifications';
+import * as modificationLineItems from './modification-line-items';
+import * as catchUpAdjustments from './catch-up-adjustments';
+import * as glAccountMappings from './gl-account-mappings';
+import * as revenueForecastingSchemas from './revenue-forecasting';
+import * as sspAnalyticsSchemas from './ssp-analytics';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -108,7 +116,14 @@ export const schema = {
   ...sspEvidenceNew,
   ...contractSspAllocationsNew,
   ...revenueJournalEntriesNew,
-  ...kitComponents
+  ...kitComponents,
+  // Contract modification schemas
+  ...contractModifications,
+  ...modificationLineItems,
+  ...catchUpAdjustments,
+  ...glAccountMappings,
+  ...revenueForecastingSchemas,
+  ...sspAnalyticsSchemas
 };
 
 // Re-export specific types from new schemas
@@ -135,3 +150,36 @@ export { subscriptions } from './subscriptions';
 export { subscriptionItems } from './subscription-items';
 export { invoices } from './invoices';
 export { payments } from './payments';
+
+// Re-export contract modification schemas
+export { 
+  contractModifications, 
+  modificationMethodEnum as ModificationMethod,
+  modificationTypeEnum as ModificationType,
+  modificationStatusEnum as ModificationStatus
+} from './contract-modifications';
+export { modificationLineItems } from './modification-line-items';
+export { catchUpAdjustments } from './catch-up-adjustments';
+export { glAccountMappings } from './gl-account-mappings';
+
+// Re-export SSP analytics schemas
+export {
+  sspCalculationRuns,
+  vsoeEvidence,
+  sspPricingBands,
+  sspExceptions,
+  CalculationMethods,
+  ExceptionTypes,
+  ExceptionSeverity,
+  RunStatus
+} from './ssp-analytics';
+export type {
+  SSPCalculationRun,
+  NewSSPCalculationRun,
+  VSOEEvidence,
+  NewVSOEEvidence,
+  SSPPricingBand,
+  NewSSPPricingBand,
+  SSPException,
+  NewSSPException
+} from './ssp-analytics';
