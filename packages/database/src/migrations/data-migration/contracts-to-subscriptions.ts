@@ -393,16 +393,15 @@ async function createPerformanceObligations(context: MigrationContext): Promise<
         for (const item of items) {
           const obligation: NewPerformanceObligation = {
             id: uuidv4(),
+            organizationId: item.organizationId,
             subscriptionId,
-            subscriptionItemId: item.id,
+            itemId: item.itemId,
             obligationType: determineObligationType(item),
-            obligationName: `PO-${item.id}`,
+            allocatedAmount: item.unitPrice, // Will be adjusted by SSP allocation
             satisfactionMethod: determineSatisfactionMethod(item),
-            transactionPrice: item.totalPrice,
-            allocatedPrice: item.totalPrice, // Will be adjusted by SSP allocation
             startDate: item.startDate,
             endDate: item.endDate,
-            status: 'pending',
+            status: 'active' as const,
             createdAt: new Date(),
             updatedAt: new Date()
           };
@@ -486,12 +485,11 @@ function transformContract(contract: LegacyContract): any {
     organizationId: contract.organizationId,
     entityId: contract.customerId,
     subscriptionNumber: contract.contractNumber,
-    status: statusMap[contract.status] || 'draft',
+    status: (statusMap[contract.status] || 'draft') as "active" | "draft" | "suspended" | "cancelled" | "expired",
     startDate: contract.startDate,
     endDate: contract.endDate,
     contractValue: contract.totalValue.toString(),
-    billingFrequency: contract.billingFrequency || 'annual',
-    paymentTerms: contract.paymentTerms || 'net_30',
+    billingFrequency: (contract.billingFrequency || 'annual') as "custom" | "monthly" | "quarterly" | "semi_annual" | "annual",
     autoRenew: false,
     metadata: {
       legacyContractId: contract.id,
@@ -505,11 +503,11 @@ function transformContract(contract: LegacyContract): any {
   // Transform line items
   const items: NewSubscriptionItem[] = contract.lineItems.map(lineItem => ({
     id: uuidv4(),
+    organizationId: contract.organizationId,
     subscriptionId,
     itemId: lineItem.itemId,
     quantity: lineItem.quantity.toString(),
     unitPrice: lineItem.unitPrice.toString(),
-    totalPrice: lineItem.totalPrice.toString(),
     startDate: lineItem.startDate || contract.startDate,
     endDate: lineItem.endDate || contract.endDate,
     metadata: {
@@ -527,7 +525,7 @@ function transformContract(contract: LegacyContract): any {
   };
 }
 
-function determineObligationType(item: any): string {
+function determineObligationType(item: any): "professional_services" | "other" | "product_license" | "maintenance_support" | "hosting_services" {
   // Logic to determine obligation type based on item properties
   // This would be customized based on business rules
   if (item.metadata?.itemType === 'license') {
@@ -540,13 +538,13 @@ function determineObligationType(item: any): string {
   return 'other';
 }
 
-function determineSatisfactionMethod(item: any): 'point_in_time' | 'over_time' | 'milestone' {
+function determineSatisfactionMethod(item: any): 'point_in_time' | 'over_time' {
   // Logic to determine satisfaction method
   if (item.metadata?.recognitionPattern === 'immediate') {
     return 'point_in_time';
-  } else if (item.metadata?.recognitionPattern === 'milestone') {
-    return 'milestone';
   }
+  // Note: 'milestone' is not a valid satisfaction method in the schema
+  // Treating milestone as over_time recognition
   return 'over_time';
 }
 
