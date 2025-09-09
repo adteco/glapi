@@ -101,19 +101,19 @@ export class RevenueForecastingEngine {
       let forecast: ForecastResult;
       
       switch (selectedModel) {
-        case ForecastModel.LINEAR_REGRESSION:
+        case "linear_regression":
           forecast = await this.linearRegression(historicalData, request, forecastRun.id);
           break;
-        case ForecastModel.EXPONENTIAL_SMOOTHING:
+        case "exponential_smoothing":
           forecast = await this.exponentialSmoothing(historicalData, request, forecastRun.id);
           break;
-        case ForecastModel.WEIGHTED_AVERAGE:
+        case "weighted_average":
           forecast = await this.weightedAverageForecast(historicalData, request, forecastRun.id);
           break;
-        case ForecastModel.ARIMA:
+        case "arima":
           forecast = await this.arimaForecast(historicalData, request, forecastRun.id);
           break;
-        case ForecastModel.ML_ENSEMBLE:
+        case "ml_ensemble":
           forecast = await this.mlEnsembleForecast(historicalData, request, forecastRun.id);
           break;
         default:
@@ -636,22 +636,22 @@ export class RevenueForecastingEngine {
   ): Promise<string> {
     // Simple heuristic for model selection
     if (patterns.volatility > 0.3) {
-      return ForecastModel.ML_ENSEMBLE; // High volatility - use ensemble
+      return "ml_ensemble"; // High volatility - use ensemble
     }
     
     if (patterns.seasonality && patterns.seasonalStrength! > 0.5) {
-      return ForecastModel.ARIMA; // Strong seasonality - use ARIMA
+      return "arima"; // Strong seasonality - use ARIMA
     }
     
     if (patterns.trend !== 'stable' && patterns.trendStrength > 0.2) {
-      return ForecastModel.EXPONENTIAL_SMOOTHING; // Clear trend - use exponential smoothing
+      return "exponential_smoothing"; // Clear trend - use exponential smoothing
     }
     
     if (data.length > 36) {
-      return ForecastModel.LINEAR_REGRESSION; // Lots of data - linear regression works well
+      return "linear_regression"; // Lots of data - linear regression works well
     }
     
-    return ForecastModel.WEIGHTED_AVERAGE; // Default to weighted average
+    return "weighted_average"; // Default to weighted average
   }
 
   /**
@@ -878,14 +878,14 @@ export class RevenueForecastingEngine {
   
   private mapRequestModelToForecastModel(model: string): string {
     const mapping: Record<string, string> = {
-      'linear': ForecastModel.LINEAR_REGRESSION,
-      'arima': ForecastModel.ARIMA,
-      'prophet': ForecastModel.PROPHET,
-      'ml_ensemble': ForecastModel.ML_ENSEMBLE,
-      'weighted_average': ForecastModel.WEIGHTED_AVERAGE,
-      'exponential_smoothing': ForecastModel.EXPONENTIAL_SMOOTHING
+      'linear': "linear_regression",
+      'arima': "arima",
+      'prophet': "prophet",
+      'ml_ensemble': "ml_ensemble",
+      'weighted_average': "weighted_average",
+      'exponential_smoothing': "exponential_smoothing"
     };
-    return mapping[model] || ForecastModel.WEIGHTED_AVERAGE;
+    return mapping[model] || "weighted_average";
   }
 
   private addPeriods(date: Date, periods: number, periodType: string): Date {

@@ -38,9 +38,10 @@ const createMockQueryBuilder = () => ({
 
 describe('SSPAnalyticsEngine', () => {
   let engine: SSPAnalyticsEngine;
+  const organizationId = 'org-123';
 
   beforeEach(() => {
-    engine = new SSPAnalyticsEngine(mockDb);
+    engine = new SSPAnalyticsEngine(mockDb, organizationId);
     vi.clearAllMocks();
   });
 
@@ -67,20 +68,19 @@ describe('SSPAnalyticsEngine', () => {
         returning: vi.fn().mockResolvedValue([{ id: 'evidence1' }])
       });
 
-      const result = await engine.calculateSSP(
-        'org1',
-        '2024-01-01',
-        '2024-12-31',
-        {
-          calculationRunId: 'run1',
-          minTransactions: 2,
-          confidenceThreshold: 0.8,
-          method: CalculationMethods.HYBRID
-        }
-      );
+      const result = await engine.calculateSSP({
+        organizationId: 'org1',
+        startDate: '2024-01-01',
+        endDate: '2024-12-31',
+        calculationRunId: 'run1',
+        minTransactions: 2,
+        confidenceThreshold: 0.8,
+        method: CalculationMethods.HYBRID
+      });
 
       expect(result.itemsProcessed).toBe(2);
-      expect(result.vsoeCount).toBeGreaterThanOrEqual(0);
+      expect(result.vsoeResults).toBeDefined();
+      expect(result.vsoeResults.length).toBeGreaterThanOrEqual(0);
       expect(mockDb.select).toHaveBeenCalled();
     });
 
@@ -540,7 +540,8 @@ describe('SSPMLTrainingService', () => {
 
 describe('Integration Tests', () => {
   it('should complete full SSP calculation workflow', async () => {
-    const engine = new SSPAnalyticsEngine(mockDb);
+    const organizationId = 'org-123';
+    const engine = new SSPAnalyticsEngine(mockDb, organizationId);
     const monitor = new SSPExceptionMonitor(mockDb);
 
     // Mock database responses for full workflow
@@ -563,17 +564,15 @@ describe('Integration Tests', () => {
     });
 
     // Run calculation
-    const result = await engine.calculateSSP(
-      'org1',
-      '2024-01-01',
-      '2024-12-31',
-      {
-        calculationRunId: 'run1',
-        minTransactions: 5,
-        confidenceThreshold: 0.8,
-        method: CalculationMethods.HYBRID
-      }
-    );
+    const result = await engine.calculateSSP({
+      organizationId: 'org1',
+      startDate: '2024-01-01',
+      endDate: '2024-12-31',
+      calculationRunId: 'run1',
+      minTransactions: 5,
+      confidenceThreshold: 0.8,
+      method: CalculationMethods.HYBRID
+    });
 
     expect(result.itemsProcessed).toBeGreaterThan(0);
 
