@@ -19,6 +19,7 @@ import {
   type SubscriptionItem
 } from '@glapi/database/src/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
+import { ASC605Comparison } from '../types/revenue-reporting-types';
 
 export interface CalculationParams {
   subscriptionId: string;
@@ -74,12 +75,6 @@ export interface RevenueScheduleResult {
   status: 'scheduled' | 'recognized' | 'deferred';
 }
 
-export interface ASC605Comparison {
-  asc605Revenue: number;
-  asc606Revenue: number;
-  difference: number;
-  percentageChange: number;
-}
 
 export interface ContractModification {
   newSubscriptionId?: string;
@@ -600,13 +595,13 @@ export class RevenueCalculationEngine {
     // Calculate what revenue would be under ASC 605 (simpler model)
     const asc605Revenue = parseFloat(contract.contractValue);
     const difference = asc606Revenue - asc605Revenue;
-    const percentageChange = asc605Revenue !== 0 ? (difference / asc605Revenue) * 100 : 0;
+    const percentageDifference = asc605Revenue !== 0 ? (difference / asc605Revenue) * 100 : 0;
     
     return {
       asc605Revenue,
       asc606Revenue,
       difference,
-      percentageChange
+      percentageDifference
     };
   }
 

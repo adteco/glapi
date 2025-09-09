@@ -16,7 +16,9 @@ export * from './transaction';
 // Export revenue calculation services
 export * from './services/revenue-calculation-engine';
 export * from './services/kit-service';
+export * from './services/revenue-reporting-service';
 export * from './types/revenue-calculation-types';
+export * from './types/revenue-reporting-types';
 
 export const placeholderBusinessLogic = () => {
   console.log('Business logic package placeholder');
