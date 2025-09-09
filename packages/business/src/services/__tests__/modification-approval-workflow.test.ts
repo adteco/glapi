@@ -31,7 +31,7 @@ describe('ModificationApprovalWorkflow', () => {
       transaction: vi.fn((callback) => callback(mockDb))
     };
 
-    workflow = new ModificationApprovalWorkflow(mockDb as Database);
+    workflow = new ModificationApprovalWorkflow(mockDb as typeof Database);
     
     // Clear all timers after each test
     vi.clearAllTimers();
@@ -49,7 +49,7 @@ describe('ModificationApprovalWorkflow', () => {
       // Mock modification lookup
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.DRAFT,
+        status: "draft",
         modificationType: 'add_items',
         adjustmentAmount: '5000'
       }]);
@@ -58,7 +58,7 @@ describe('ModificationApprovalWorkflow', () => {
       mockDb.where.mockImplementation(() => {
         mockDb.returning.mockResolvedValue([{
           id: modificationId,
-          status: ModificationStatus.PENDING_APPROVAL
+          status: "pending_approval"
         }]);
         return mockDb;
       });
@@ -82,7 +82,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.PENDING_APPROVAL
+        status: "pending_approval"
       }]);
 
       await expect(workflow.submitForApproval(modificationId, submitterId))
@@ -96,7 +96,7 @@ describe('ModificationApprovalWorkflow', () => {
       // High value modification
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.DRAFT,
+        status: "draft",
         modificationType: 'price_change',
         adjustmentAmount: '100000' // High value
       }]);
@@ -104,7 +104,7 @@ describe('ModificationApprovalWorkflow', () => {
       mockDb.where.mockImplementation(() => {
         mockDb.returning.mockResolvedValue([{
           id: modificationId,
-          status: ModificationStatus.PENDING_APPROVAL
+          status: "pending_approval"
         }]);
         return mockDb;
       });
@@ -124,7 +124,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.DRAFT,
+        status: "draft",
         modificationType: 'early_termination',
         adjustmentAmount: '10000'
       }]);
@@ -132,7 +132,7 @@ describe('ModificationApprovalWorkflow', () => {
       mockDb.where.mockImplementation(() => {
         mockDb.returning.mockResolvedValue([{
           id: modificationId,
-          status: ModificationStatus.PENDING_APPROVAL
+          status: "pending_approval"
         }]);
         return mockDb;
       });
@@ -158,7 +158,7 @@ describe('ModificationApprovalWorkflow', () => {
       // Mock modification
       mockDb.limit.mockResolvedValue([{
         id: 'mod-001',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'add_items',
         adjustmentAmount: '5000'
       }]);
@@ -195,7 +195,7 @@ describe('ModificationApprovalWorkflow', () => {
       // High value modification requiring multiple approvals
       mockDb.limit.mockResolvedValue([{
         id: 'mod-002',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'price_change',
         adjustmentAmount: '100000'
       }]);
@@ -231,7 +231,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: 'mod-003',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'add_items',
         adjustmentAmount: '5000'
       }]);
@@ -245,7 +245,7 @@ describe('ModificationApprovalWorkflow', () => {
       // Mock update to rejected status
       mockDb.where.mockImplementation(() => {
         mockDb.returning.mockResolvedValue([{
-          status: ModificationStatus.REJECTED
+          status: "rejected"
         }]);
         return mockDb;
       });
@@ -267,7 +267,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: 'mod-004',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'add_items',
         adjustmentAmount: '50000'
       }]);
@@ -300,7 +300,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: 'mod-005',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'price_change',
         adjustmentAmount: '100000'
       }]);
@@ -324,7 +324,7 @@ describe('ModificationApprovalWorkflow', () => {
       // Mock update to approved status
       mockDb.where.mockImplementation(() => {
         mockDb.returning.mockResolvedValue([{
-          status: ModificationStatus.APPROVED
+          status: "approved"
         }]);
         return mockDb;
       });
@@ -345,7 +345,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'add_items',
         adjustmentAmount: '5000'
       }]);
@@ -381,12 +381,12 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.PENDING_APPROVAL
+        status: "pending_approval"
       }]);
 
       mockDb.where.mockImplementation(() => {
         mockDb.returning.mockResolvedValue([{
-          status: ModificationStatus.DRAFT
+          status: "draft"
         }]);
         return mockDb;
       });
@@ -406,7 +406,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.APPROVED
+        status: "approved"
       }]);
 
       await expect(workflow.recallModification(modificationId, 'user-123', 'reason'))
@@ -423,7 +423,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.PENDING_APPROVAL
+        status: "pending_approval"
       }]);
 
       mockDb.returning.mockResolvedValue([{
@@ -447,7 +447,7 @@ describe('ModificationApprovalWorkflow', () => {
         mockDb.limit.mockResolvedValue([
           {
             id: 'mod-001',
-            status: ModificationStatus.PENDING_APPROVAL,
+            status: "pending_approval",
             modificationType: 'add_items',
             adjustmentAmount: '50000',
             requestDate: new Date('2024-01-01') // 14 days old
@@ -485,7 +485,7 @@ describe('ModificationApprovalWorkflow', () => {
         mockDb.limit.mockResolvedValue([
           {
             id: 'mod-002',
-            status: ModificationStatus.PENDING_APPROVAL,
+            status: "pending_approval",
             requestDate: new Date('2024-01-01') // 1 day old
           }
         ]);
@@ -529,7 +529,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: 'mod-001',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'add_items',
         adjustmentAmount: '5000'
       }]);
@@ -557,7 +557,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: 'mod-001',
-        status: ModificationStatus.PENDING_APPROVAL
+        status: "pending_approval"
       }]);
 
       await expect(workflow.processApproval(request))
@@ -578,7 +578,7 @@ describe('ModificationApprovalWorkflow', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: 'mod-001',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         modificationType: 'price_change',
         adjustmentAmount: '10000'
       }]);

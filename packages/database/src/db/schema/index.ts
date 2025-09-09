@@ -158,8 +158,21 @@ export {
   modificationTypeEnum as ModificationType,
   modificationStatusEnum as ModificationStatus
 } from './contract-modifications';
+export type { 
+  ContractModification,
+  NewContractModification,
+  UpdateContractModification
+} from './contract-modifications';
 export { modificationLineItems } from './modification-line-items';
+export type { 
+  ModificationLineItem,
+  NewModificationLineItem
+} from './modification-line-items';
 export { catchUpAdjustments } from './catch-up-adjustments';
+export type {
+  CatchUpAdjustment,
+  NewCatchUpAdjustment
+} from './catch-up-adjustments';
 export { glAccountMappings } from './gl-account-mappings';
 
 // Re-export SSP analytics schemas

@@ -50,7 +50,7 @@ export class ModificationApprovalWorkflow {
   private approvalRules: Map<string, ApprovalRule[]>;
   private escalationRules: Map<string, EscalationRule>;
 
-  constructor(private db: Database) {
+  constructor(private db: typeof Database) {
     this.approvalRules = this.initializeApprovalRules();
     this.escalationRules = this.initializeEscalationRules();
   }
@@ -134,7 +134,7 @@ export class ModificationApprovalWorkflow {
       throw new Error('Modification not found');
     }
 
-    if (modification.status !== ModificationStatus.DRAFT) {
+    if (modification.status !== "draft") {
       throw new Error('Only draft modifications can be submitted for approval');
     }
 
@@ -144,7 +144,7 @@ export class ModificationApprovalWorkflow {
     // Update modification status
     await this.db.update(contractModifications)
       .set({
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         requestedBy: submitterId,
         updatedAt: new Date()
       })
@@ -176,7 +176,7 @@ export class ModificationApprovalWorkflow {
       throw new Error('Modification not found');
     }
 
-    if (modification.status !== ModificationStatus.PENDING_APPROVAL) {
+    if (modification.status !== "pending_approval") {
       throw new Error('Modification is not pending approval');
     }
 
@@ -233,7 +233,7 @@ export class ModificationApprovalWorkflow {
       // Mark modification as approved
       await this.db.update(contractModifications)
         .set({
-          status: ModificationStatus.APPROVED,
+          status: "approved",
           approvedBy: request.approverId,
           approvalDate: new Date(),
           updatedAt: new Date()
@@ -279,7 +279,7 @@ export class ModificationApprovalWorkflow {
   ): Promise<void> {
     await this.db.update(contractModifications)
       .set({
-        status: ModificationStatus.REJECTED,
+        status: "rejected",
         rejectedBy: request.approverId,
         rejectionReason: request.comments,
         updatedAt: new Date()
@@ -347,7 +347,7 @@ export class ModificationApprovalWorkflow {
 
     // Determine if current user can approve
     const canApprove = pendingApprovals.length > 0 && 
-                      modification.status === ModificationStatus.PENDING_APPROVAL;
+                      modification.status === "pending_approval";
 
     return {
       modificationId,
@@ -367,7 +367,7 @@ export class ModificationApprovalWorkflow {
     // Get all pending approvals
     const pendingModifications = await this.db.select()
       .from(contractModifications)
-      .where(eq(contractModifications.status, ModificationStatus.PENDING_APPROVAL));
+      .where(eq(contractModifications.status, "pending_approval"));
 
     for (const modification of pendingModifications) {
       const approvalStatus = await this.getApprovalStatus(modification.id);
@@ -464,14 +464,14 @@ export class ModificationApprovalWorkflow {
       throw new Error('Modification not found');
     }
 
-    if (modification.status !== ModificationStatus.PENDING_APPROVAL) {
+    if (modification.status !== "pending_approval") {
       throw new Error('Can only recall modifications pending approval');
     }
 
     // Update status
     await this.db.update(contractModifications)
       .set({
-        status: ModificationStatus.DRAFT,
+        status: "draft",
         updatedAt: new Date()
       })
       .where(eq(contractModifications.id, modificationId));

@@ -94,7 +94,7 @@ export interface ModificationImpact {
 
 export class ContractModificationEngine {
   constructor(
-    private db: Database,
+    private db: typeof Database,
     private revenueEngine: RevenueCalculationEngine
   ) {}
 
@@ -151,8 +151,8 @@ export class ContractModificationEngine {
     const subscription = await this.getSubscription(request.subscriptionId);
     
     // Check for blend and extend scenario
-    if (request.modificationType === ModificationType.BLEND_EXTEND) {
-      return ModificationMethod.BLEND_EXTEND;
+    if (request.modificationType === "blend_extend") {
+      return "blend_extend";
     }
 
     // Check if modification adds distinct goods/services
@@ -167,7 +167,7 @@ export class ContractModificationEngine {
         
         if (reflectsSSP) {
           // Treat as separate contract per ASC 606-10-25-12(a)
-          return ModificationMethod.SEPARATE_CONTRACT;
+          return "separate_contract";
         }
       }
     }
@@ -180,11 +180,11 @@ export class ContractModificationEngine {
 
     if (!hasDistinctRemaining) {
       // Use cumulative catch-up per ASC 606-10-25-13(a)
-      return ModificationMethod.CUMULATIVE_CATCH_UP;
+      return "cumulative_catch_up";
     }
 
     // Default to prospective per ASC 606-10-25-13(b)
-    return ModificationMethod.PROSPECTIVE;
+    return "prospective";
   }
 
   /**
@@ -210,7 +210,7 @@ export class ContractModificationEngine {
     let impact: ModificationImpact;
 
     switch (method) {
-      case ModificationMethod.CUMULATIVE_CATCH_UP:
+      case "cumulative_catch_up":
         impact = await this.calculateCumulativeCatchUpImpact(
           subscription,
           modifiedContract,
@@ -220,7 +220,7 @@ export class ContractModificationEngine {
         );
         break;
 
-      case ModificationMethod.PROSPECTIVE:
+      case "prospective":
         impact = await this.calculateProspectiveImpact(
           subscription,
           modifiedContract,
@@ -229,7 +229,7 @@ export class ContractModificationEngine {
         );
         break;
 
-      case ModificationMethod.SEPARATE_CONTRACT:
+      case "separate_contract":
         impact = await this.calculateSeparateContractImpact(
           subscription,
           request.changes,
@@ -237,7 +237,7 @@ export class ContractModificationEngine {
         );
         break;
 
-      case ModificationMethod.BLEND_EXTEND:
+      case "blend_extend":
         impact = await this.calculateBlendExtendImpact(
           subscription,
           modifiedContract,
@@ -293,7 +293,7 @@ export class ContractModificationEngine {
     );
 
     return {
-      method: ModificationMethod.CUMULATIVE_CATCH_UP,
+      method: "cumulative_catch_up",
       financialImpact: {
         originalValue: parseFloat(originalContract.totalAmount),
         modifiedValue: modifiedCalculation.totalTransactionPrice,
@@ -338,7 +338,7 @@ export class ContractModificationEngine {
     );
 
     return {
-      method: ModificationMethod.PROSPECTIVE,
+      method: "prospective",
       financialImpact: {
         originalValue: parseFloat(originalContract.totalAmount),
         modifiedValue: parseFloat(modifiedContract.totalAmount),
@@ -410,7 +410,7 @@ export class ContractModificationEngine {
     // Create modification request
     const modificationRequest: ModificationRequest = {
       subscriptionId,
-      modificationType: ModificationType.PARTIAL_TERMINATION,
+      modificationType: "partial_termination",
       effectiveDate: terminationDate,
       changes: {
         partialTermination: {
@@ -480,7 +480,7 @@ export class ContractModificationEngine {
     // Create modification request
     const modificationRequest: ModificationRequest = {
       subscriptionId,
-      modificationType: isUpgrade ? ModificationType.UPGRADE : ModificationType.DOWNGRADE,
+      modificationType: isUpgrade ? "upgrade" : "downgrade",
       effectiveDate: changes.effectiveDate,
       changes: {
         removeItems: [changes.fromItemId],
@@ -551,7 +551,7 @@ export class ContractModificationEngine {
     // Create modification request
     const modificationRequest: ModificationRequest = {
       subscriptionId,
-      modificationType: ModificationType.BLEND_EXTEND,
+      modificationType: "blend_extend",
       effectiveDate: new Date(),
       changes: {
         termExtension: {
@@ -590,7 +590,7 @@ export class ContractModificationEngine {
       throw new Error('Modification not found');
     }
 
-    if (modification.status !== ModificationStatus.APPROVED) {
+    if (modification.status !== "approved") {
       throw new Error('Modification must be approved before applying');
     }
 
@@ -600,7 +600,7 @@ export class ContractModificationEngine {
       await this.applyLineItemChanges(tx, modificationId);
 
       // Apply catch-up adjustments if cumulative method
-      if (modification.modificationMethod === ModificationMethod.CUMULATIVE_CATCH_UP) {
+      if (modification.modificationMethod === "cumulative_catch_up") {
         await this.applyCatchUpAdjustments(tx, modificationId);
       }
 
@@ -610,7 +610,7 @@ export class ContractModificationEngine {
       // Update modification status
       await tx.update(contractModifications)
         .set({
-          status: ModificationStatus.APPLIED,
+          status: "applied",
           appliedDate: new Date(),
           updatedAt: new Date()
         })
@@ -973,7 +973,7 @@ export class ContractModificationEngine {
   ): Promise<ModificationImpact> {
     // Simplified blend and extend calculation
     return {
-      method: ModificationMethod.BLEND_EXTEND,
+      method: "blend_extend",
       financialImpact: {
         originalValue: parseFloat(subscription.totalAmount),
         modifiedValue: parseFloat(modifiedContract.totalAmount),
@@ -1003,7 +1003,7 @@ export class ContractModificationEngine {
       sum + (item.quantity * item.unitPrice), 0) || 0;
 
     return {
-      method: ModificationMethod.SEPARATE_CONTRACT,
+      method: "separate_contract",
       financialImpact: {
         originalValue: parseFloat(subscription.totalAmount),
         modifiedValue: parseFloat(subscription.totalAmount) + newContractValue,
@@ -1070,10 +1070,10 @@ export class ContractModificationEngine {
       obligationChanges: impact.obligationChanges,
       scheduleChanges: impact.scheduleChanges,
       cumulativeCatchUpAmount: impact.revenueImpact.cumulativeCatchUp?.toString(),
-      prospectiveAdjustmentAmount: method === ModificationMethod.PROSPECTIVE 
+      prospectiveAdjustmentAmount: method === "prospective" 
         ? impact.financialImpact.adjustment.toString() 
         : undefined,
-      status: ModificationStatus.DRAFT,
+      status: "draft",
       requestedBy: request.requestedBy,
       reason: request.reason,
       notes: request.notes,

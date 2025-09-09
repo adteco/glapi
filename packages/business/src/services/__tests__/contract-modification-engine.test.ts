@@ -52,14 +52,14 @@ describe('ContractModificationEngine', () => {
       recalculateSchedules: vi.fn().mockResolvedValue([])
     };
 
-    engine = new ContractModificationEngine(mockDb as Database, mockRevenueEngine);
+    engine = new ContractModificationEngine(mockDb as typeof Database, mockRevenueEngine);
   });
 
   describe('processModification', () => {
     it('should process a simple add items modification', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.ADD_ITEMS,
+        modificationType: "add_items",
         effectiveDate: new Date('2024-01-01'),
         changes: {
           addItems: [
@@ -107,13 +107,13 @@ describe('ContractModificationEngine', () => {
 
       expect(result.modificationId).toBe('mod-001');
       expect(result.impact).toBeDefined();
-      expect(result.impact.totalImpact).toBeGreaterThan(0);
+      expect(result.impact.financialImpact.adjustment).toBeGreaterThan(0);
     });
 
     it('should handle preview mode without persisting changes', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.PRICE_CHANGE,
+        modificationType: "price_change",
         effectiveDate: new Date('2024-01-01'),
         changes: {
           modifyItems: [
@@ -142,7 +142,7 @@ describe('ContractModificationEngine', () => {
     it('should determine SEPARATE_CONTRACT method for distinct items at SSP', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.ADD_ITEMS,
+        modificationType: "add_items",
         effectiveDate: new Date('2024-01-01'),
         changes: {
           addItems: [
@@ -176,18 +176,18 @@ describe('ContractModificationEngine', () => {
 
       mockDb.returning.mockResolvedValue([{
         id: 'mod-002',
-        modificationMethod: ModificationMethod.SEPARATE_CONTRACT
+        modificationMethod: "separate_contract"
       }]);
 
       const result = await engine.processModification(request);
 
-      expect(result.impact.accountingMethod).toBe(ModificationMethod.SEPARATE_CONTRACT);
+      expect(result.impact.method).toBe("separate_contract");
     });
 
     it('should calculate cumulative catch-up adjustment', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.PRICE_CHANGE,
+        modificationType: "price_change",
         effectiveDate: new Date('2024-01-01'),
         changes: {
           modifyItems: [
@@ -219,12 +219,12 @@ describe('ContractModificationEngine', () => {
 
       mockDb.returning.mockResolvedValue([{
         id: 'mod-003',
-        modificationMethod: ModificationMethod.CUMULATIVE_CATCH_UP
+        modificationMethod: "cumulative_catch_up"
       }]);
 
       const result = await engine.processModification(request);
 
-      expect(result.impact.accountingMethod).toBe(ModificationMethod.CUMULATIVE_CATCH_UP);
+      expect(result.impact.method).toBe("cumulative_catch_up");
       expect(mockRevenueEngine.calculateCatchUpAdjustment).toHaveBeenCalled();
     });
   });
@@ -427,8 +427,8 @@ describe('ContractModificationEngine', () => {
       // Mock modification lookup
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.APPROVED,
-        modificationType: ModificationType.ADD_ITEMS,
+        status: "approved",
+        modificationType: "add_items",
         effectiveDate: new Date('2024-01-01'),
         modificationDetails: {
           addItems: [{ itemId: 'item-123', quantity: 5 }]
@@ -464,7 +464,7 @@ describe('ContractModificationEngine', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.DRAFT
+        status: "draft"
       }]);
 
       await expect(engine.applyModification(modificationId))
@@ -476,8 +476,8 @@ describe('ContractModificationEngine', () => {
 
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.APPROVED,
-        modificationMethod: ModificationMethod.CUMULATIVE_CATCH_UP,
+        status: "approved",
+        modificationMethod: "cumulative_catch_up",
         cumulativeCatchUpAmount: '500'
       }]);
 
@@ -503,7 +503,7 @@ describe('ContractModificationEngine', () => {
     it('should handle modification with no changes', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.PRICE_CHANGE,
+        modificationType: "price_change",
         effectiveDate: new Date('2024-01-01'),
         changes: {},
         requestedBy: 'user-789'
@@ -516,7 +516,7 @@ describe('ContractModificationEngine', () => {
     it('should handle subscription not found', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'non-existent',
-        modificationType: ModificationType.ADD_ITEMS,
+        modificationType: "add_items",
         effectiveDate: new Date('2024-01-01'),
         changes: {
           addItems: [{ itemId: 'item-123', quantity: 1, unitPrice: 100 }]
@@ -533,7 +533,7 @@ describe('ContractModificationEngine', () => {
     it('should validate effective date is not in the past', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.ADD_ITEMS,
+        modificationType: "add_items",
         effectiveDate: new Date('2020-01-01'), // Past date
         changes: {
           addItems: [{ itemId: 'item-123', quantity: 1, unitPrice: 100 }]
@@ -556,7 +556,7 @@ describe('ContractModificationEngine', () => {
       // Mock modification with pending status
       mockDb.limit.mockResolvedValue([{
         id: modificationId,
-        status: ModificationStatus.PENDING_APPROVAL
+        status: "pending_approval"
       }]);
 
       await expect(engine.applyModification(modificationId))

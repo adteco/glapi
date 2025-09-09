@@ -36,7 +36,7 @@ describe('RevenueForecastingEngine', () => {
       set: vi.fn().mockReturnThis()
     };
 
-    engine = new RevenueForecastingEngine(mockDb as Database, organizationId);
+    engine = new RevenueForecastingEngine(mockDb as typeof Database, organizationId);
   });
 
   describe('generateForecast', () => {

@@ -53,7 +53,7 @@ describe('ContractModificationService', () => {
     it('should create a new modification', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.ADD_ITEMS,
+        modificationType: "add_items",
         effectiveDate: new Date('2024-06-01'),
         changes: {
           addItems: [
@@ -93,7 +93,7 @@ describe('ContractModificationService', () => {
     it('should handle preview mode', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.PRICE_CHANGE,
+        modificationType: "price_change",
         effectiveDate: new Date('2024-06-01'),
         changes: {
           modifyItems: [
@@ -127,7 +127,7 @@ describe('ContractModificationService', () => {
     it('should auto-submit for approval if requested', async () => {
       const request: ModificationRequest = {
         subscriptionId: 'sub-123',
-        modificationType: ModificationType.ADD_ITEMS,
+        modificationType: "add_items",
         effectiveDate: new Date('2024-06-01'),
         changes: {
           addItems: [{ itemId: 'item-456', quantity: 1, unitPrice: 100 }]
@@ -168,7 +168,7 @@ describe('ContractModificationService', () => {
         modificationNumber: 'MOD-001',
         subscriptionId: 'sub-123',
         modificationType: 'add_items',
-        status: ModificationStatus.PENDING_APPROVAL,
+        status: "pending_approval",
         effectiveDate: new Date('2024-06-01'),
         adjustmentAmount: '500',
         requestDate: new Date('2024-05-01'),
@@ -228,7 +228,7 @@ describe('ContractModificationService', () => {
     it('should list modifications with filters', async () => {
       const filters = {
         subscriptionId: 'sub-123',
-        status: ModificationStatus.APPROVED,
+        status: "approved",
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31')
       };
@@ -246,7 +246,7 @@ describe('ContractModificationService', () => {
           modificationNumber: 'MOD-001',
           subscriptionId: 'sub-123',
           modificationType: 'add_items',
-          status: ModificationStatus.APPROVED,
+          status: "approved",
           effectiveDate: new Date('2024-03-01'),
           adjustmentAmount: '500',
           requestDate: new Date('2024-02-01')
@@ -256,7 +256,7 @@ describe('ContractModificationService', () => {
           modificationNumber: 'MOD-002',
           subscriptionId: 'sub-123',
           modificationType: 'price_change',
-          status: ModificationStatus.APPROVED,
+          status: "approved",
           effectiveDate: new Date('2024-06-01'),
           adjustmentAmount: '200',
           requestDate: new Date('2024-05-01')
@@ -291,7 +291,7 @@ describe('ContractModificationService', () => {
               modificationNumber: 'MOD-010',
               subscriptionId: 'sub-123',
               modificationType: 'add_items',
-              status: ModificationStatus.APPLIED,
+              status: "applied",
               effectiveDate: new Date('2024-01-01'),
               adjustmentAmount: '100',
               requestDate: new Date('2023-12-01')
@@ -381,7 +381,7 @@ describe('ContractModificationService', () => {
           modificationNumber: 'MOD-001',
           subscriptionId: 'sub-123',
           modificationType: 'add_items',
-          status: ModificationStatus.PENDING_APPROVAL,
+          status: "pending_approval",
           effectiveDate: new Date('2024-06-01'),
           adjustmentAmount: '500',
           requestDate: new Date('2024-05-01')
@@ -391,7 +391,7 @@ describe('ContractModificationService', () => {
           modificationNumber: 'MOD-002',
           subscriptionId: 'sub-456',
           modificationType: 'price_change',
-          status: ModificationStatus.PENDING_APPROVAL,
+          status: "pending_approval",
           effectiveDate: new Date('2024-07-01'),
           adjustmentAmount: '1000',
           requestDate: new Date('2024-05-15')
@@ -439,9 +439,9 @@ describe('ContractModificationService', () => {
       // Mock by status
       mockDb.groupBy.mockImplementationOnce(() => {
         mockDb.limit.mockResolvedValueOnce([
-          { status: ModificationStatus.APPROVED, count: 12 },
-          { status: ModificationStatus.PENDING_APPROVAL, count: 3 },
-          { status: ModificationStatus.REJECTED, count: 2 }
+          { status: "approved", count: 12 },
+          { status: "pending_approval", count: 3 },
+          { status: "rejected", count: 2 }
         ]);
         return mockDb;
       });
@@ -462,7 +462,7 @@ describe('ContractModificationService', () => {
 
       expect(result.totalModifications).toBe(17);
       expect(result.byType['add_items']).toBe(10);
-      expect(result.byStatus[ModificationStatus.APPROVED]).toBe(12);
+      expect(result.byStatus["approved"]).toBe(12);
       expect(result.totalAdjustmentAmount).toBe(50000);
       expect(result.averageApprovalTime).toBe(48);
       expect(result.approvalRate).toBeCloseTo(0.706, 2);
@@ -478,14 +478,14 @@ describe('ContractModificationService', () => {
       // Mock modification lookup
       mockDb.limit.mockResolvedValueOnce([{
         id: modificationId,
-        status: ModificationStatus.DRAFT
+        status: "draft"
       }]);
 
       // Mock update
       mockDb.where.mockImplementationOnce(() => {
         mockDb.returning.mockResolvedValueOnce([{
           id: modificationId,
-          status: ModificationStatus.CANCELLED
+          status: "cancelled"
         }]);
         return mockDb;
       });
@@ -500,7 +500,7 @@ describe('ContractModificationService', () => {
 
       mockDb.limit.mockResolvedValueOnce([{
         id: modificationId,
-        status: ModificationStatus.APPROVED
+        status: "approved"
       }]);
 
       await expect(service.cancelModification(modificationId, 'user-123', 'reason'))

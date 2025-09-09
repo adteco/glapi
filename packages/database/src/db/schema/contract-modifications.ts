@@ -244,8 +244,6 @@ export const modificationApprovalHistory = pgTable('modification_approval_histor
 }));
 
 // Type exports
-export type ContractModification = typeof contractModifications.$inferSelect;
-export type NewContractModification = typeof contractModifications.$inferInsert;
 export type ModificationLineItem = typeof modificationLineItems.$inferSelect;
 export type NewModificationLineItem = typeof modificationLineItems.$inferInsert;
 export type CatchUpAdjustment = typeof catchUpAdjustments.$inferSelect;
@@ -283,3 +281,8 @@ export const ModificationStatus = {
   REJECTED: 'rejected',
   CANCELLED: 'cancelled'
 } as const;
+
+// Type exports
+export type ContractModification = typeof contractModifications.$inferSelect;
+export type NewContractModification = typeof contractModifications.$inferInsert;
+export type UpdateContractModification = Partial<NewContractModification>;
