@@ -50,7 +50,7 @@ export interface ApprovalStatus {
     timestamp: Date;
     notes?: string;
   }>;
-  conditions?: string[];
+  conditions?: Record<string, any>;
 }
 
 export interface EscalationRule {
@@ -363,6 +363,9 @@ export class ModificationApprovalWorkflow {
     const canApprove = pendingApprovals.length > 0 && 
                       modification.status === "pending_approval";
 
+    // Check for any conditional approvals
+    const conditionalApproval = approvalHistory.find(h => h.approvalAction === 'approved' && h.conditions);
+    
     return {
       modificationId,
       status: modification.status,
@@ -370,7 +373,8 @@ export class ModificationApprovalWorkflow {
       completedApprovals,
       pendingApprovals,
       canApprove,
-      nextApprover: pendingApprovals[0]
+      nextApprover: pendingApprovals[0],
+      conditions: conditionalApproval?.conditions || undefined
     };
   }
 

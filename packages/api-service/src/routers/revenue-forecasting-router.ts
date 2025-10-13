@@ -35,7 +35,7 @@ const scenarioAssumptionsSchema = z.object({
 
 const monteCarloRequestSchema = z.object({
   baseAssumptions: scenarioAssumptionsSchema,
-  varianceRanges: z.record(z.string(), z.object({
+  varianceRanges: z.record(z.object({
     min: z.number(),
     max: z.number()
   })),
@@ -96,7 +96,15 @@ export const revenueForecastingRouter = router({
       const service = new ForecastingService(ctx.db, ctx.user.organizationId);
       
       try {
-        const forecast = await service.generateForecast(input);
+        const forecast = await service.generateForecast({
+          forecastPeriods: input.forecastPeriods,
+          periodType: input.periodType,
+          model: input.model,
+          includeSeasonality: input.includeSeasonality,
+          includeExternalFactors: input.includeExternalFactors,
+          confidenceLevel: input.confidenceLevel,
+          name: input.name
+        });
         
         return {
           success: true,
@@ -254,9 +262,17 @@ export const revenueForecastingRouter = router({
       const service = new ForecastingService(ctx.db, ctx.user.organizationId);
       
       try {
+        // Ensure variance ranges have required min/max properties
+        const validatedRanges: Record<string, { min: number; max: number }> = {};
+        for (const [key, range] of Object.entries(input.varianceRanges)) {
+          if (range.min !== undefined && range.max !== undefined) {
+            validatedRanges[key] = { min: range.min, max: range.max };
+          }
+        }
+        
         const simulation = await service.runMonteCarloSimulation(
           input.baseAssumptions,
-          input.varianceRanges,
+          validatedRanges,
           input.scenarios,
           input.horizon
         );
@@ -290,8 +306,16 @@ export const revenueForecastingRouter = router({
       const service = new ForecastingService(ctx.db, ctx.user.organizationId);
       
       try {
+        // Ensure scenario objects have required properties
+        const validatedScenarios = input.scenarios.map(scenario => ({
+          name: scenario.name,
+          type: scenario.type,
+          assumptions: scenario.assumptions || {},
+          probability: scenario.probability
+        }));
+        
         const comparison = await service.compareScenarios(
-          input.scenarios,
+          validatedScenarios,
           input.horizon
         );
         

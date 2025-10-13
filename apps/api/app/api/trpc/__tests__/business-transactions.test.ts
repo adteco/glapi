@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { TRPCError } from '@trpc/server';
+// import { TRPCError } from '@trpc/server';
 import { createAuthenticatedCaller, createUnauthenticatedCaller } from '../../../../tests/utils/trpc-utils';
 import { TestDbUtils } from '../../../../tests/utils/db-utils';
 
@@ -238,7 +238,7 @@ describe('Business Transactions tRPC API (Order-to-Cash System)', () => {
         }]
       });
 
-      const regularTransaction = await caller.businessTransactions.create({
+      const _regularTransaction = await caller.businessTransactions.create({
         transactionTypeCode: 'PURCHASE_ORDER',
         entityId: testContext.vendor.id,
         entityType: 'VENDOR',

@@ -80,10 +80,10 @@ export const glAccountMappings = pgTable('gl_account_mappings', {
 }));
 
 /**
- * Journal Entry Batches Table
+ * GL Period End Batches Table
  * Manages batch processing of journal entries for period-end
  */
-export const journalEntryBatches = pgTable('journal_entry_batches', {
+export const glPeriodEndBatches = pgTable('gl_period_end_batches', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
   organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
@@ -178,8 +178,8 @@ export interface JournalBatchMetadata {
 // Type exports for better type safety
 export type GLAccountMapping = typeof glAccountMappings.$inferSelect;
 export type NewGLAccountMapping = typeof glAccountMappings.$inferInsert;
-export type JournalEntryBatch = typeof journalEntryBatches.$inferSelect;
-export type NewJournalEntryBatch = typeof journalEntryBatches.$inferInsert;
+export type GLPeriodEndBatch = typeof glPeriodEndBatches.$inferSelect;
+export type NewGLPeriodEndBatch = typeof glPeriodEndBatches.$inferInsert;
 
 // Enum exports for consistency
 export const AccountTypes = {
@@ -203,7 +203,7 @@ export const TransactionTypes = {
   RECLASSIFICATION: 'reclassification'
 } as const;
 
-export const BatchStatuses = {
+export const GLBatchStatuses = {
   DRAFT: 'draft',
   PENDING_APPROVAL: 'pending_approval',
   APPROVED: 'approved',

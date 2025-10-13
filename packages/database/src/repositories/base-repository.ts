@@ -7,7 +7,7 @@ import { db } from '../db';
  * All entity-specific repositories should extend this class
  */
 export abstract class BaseRepository {
-  protected db: NodePgDatabase;
+  protected db: NodePgDatabase<any>;
 
   constructor() {
     this.db = db;

@@ -36,7 +36,14 @@ describe('RevenueForecastingEngine', () => {
       set: vi.fn().mockReturnThis()
     };
 
-    engine = new RevenueForecastingEngine(mockDb as typeof Database, organizationId);
+    // Create a mock repository
+    const mockRepository = {
+      createForecastRun: vi.fn().mockResolvedValue({ id: 'forecast-123' }),
+      updateForecastRun: vi.fn().mockResolvedValue({}),
+      createForecastDetails: vi.fn().mockResolvedValue([])
+    };
+    
+    engine = new RevenueForecastingEngine(organizationId, mockRepository as any);
   });
 
   describe('generateForecast', () => {

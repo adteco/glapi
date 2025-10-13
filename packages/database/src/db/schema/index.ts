@@ -67,6 +67,7 @@ import * as churnPredictions from './churn-predictions';
 import * as cohortAnalysisSchemas from './cohort-analysis';
 import * as scenarioAnalysisSchemas from './scenario-analysis';
 import * as journalEntryBatchSchemas from './journal-entry-batches';
+import * as glJournalEntrySchemas from './gl-journal-entries';
 
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
@@ -134,7 +135,8 @@ export const schema = {
   ...churnPredictions,
   ...cohortAnalysisSchemas,
   ...scenarioAnalysisSchemas,
-  ...journalEntryBatchSchemas
+  ...journalEntryBatchSchemas,
+  ...glJournalEntrySchemas
 };
 
 // Re-export specific types from new schemas
@@ -210,18 +212,25 @@ export type {
 // Re-export GL account mappings
 export { 
   glAccountMappings,
-  journalEntryBatches,
+  glPeriodEndBatches,
   AccountTypes,
   TransactionTypes,
   ExternalSystems,
-  BatchStatuses
+  GLBatchStatuses
 } from './gl-account-mappings';
 export type {
   GLAccountMapping,
   NewGLAccountMapping,
-  JournalEntryBatch,
-  NewJournalEntryBatch
+  GLPeriodEndBatch,
+  NewGLPeriodEndBatch
 } from './gl-account-mappings';
+
+// Re-export journal entry batches
+export { journalEntryBatches, BatchStatuses } from './journal-entry-batches';
+export type { JournalEntryBatch, NewJournalEntryBatch } from './journal-entry-batches';
+
+// Re-export business transactions
+export { businessTransactions, businessTransactionLines, transactionTypes } from './transaction-types';
 
 // Re-export forecasting schemas
 export {
@@ -257,3 +266,10 @@ export type {
   ModificationApprovalHistory,
   NewModificationApprovalHistory
 } from './contract-modifications';
+
+// Re-export GL journal entries
+export { glJournalEntries, GLJournalStatus } from './gl-journal-entries';
+export type { GLJournalEntry, NewGLJournalEntry } from './gl-journal-entries';
+
+// Re-export accounting periods
+export { accountingPeriods } from './accounting-periods';

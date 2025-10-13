@@ -29,8 +29,7 @@ export async function GET(
           message: `Customer with ID "${id}" not found`,
           debug: {
             requestedId: id,
-            organizationId: context.organizationId,
-            stytchOrgId: context.stytchOrganizationId
+            organizationId: context.organizationId
           }
         },
         { status: 404 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
-import { PaymentService } from '@glapi/api-service';
+import { PaymentService, type CreatePaymentData } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
 
 // Zod schemas for validation
@@ -60,7 +60,7 @@ export const paymentsRouter = router({
         const payment = await service.createPayment({
           ...input,
           organizationId: ctx.organizationId
-        });
+        } as unknown as CreatePaymentData);
         
         // Trigger revenue recognition if payment completes invoice
         if (payment.status === 'completed') {
@@ -172,7 +172,7 @@ export const paymentsRouter = router({
           const payment = await service.createPayment({
             ...paymentData,
             organizationId: ctx.organizationId
-          });
+          } as unknown as CreatePaymentData);
           
           // Trigger revenue recognition if payment completes invoice
           if (payment.status === 'completed') {

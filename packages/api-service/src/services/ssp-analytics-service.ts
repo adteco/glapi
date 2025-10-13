@@ -1,4 +1,5 @@
-import { Database } from '@glapi/database';
+import { Database, schema } from '@glapi/database';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { 
   sspCalculationRuns,
   vsoeEvidence,
@@ -13,9 +14,11 @@ import {
   CalculationMethods
 } from '@glapi/database/schema';
 import { eq, and, desc, gte, lte, inArray, sql } from 'drizzle-orm';
-import { SSPAnalyticsEngine } from '@glapi/business/services/ssp-analytics-engine';
-import { SSPExceptionMonitor } from '@glapi/business/services/ssp-exception-monitor';
-import { SSPMLTrainingService } from '@glapi/business/services/ssp-ml-training-service';
+import { 
+  SSPAnalyticsEngine,
+  SSPExceptionMonitor,
+  SSPMLTrainingService
+} from '@glapi/business';
 import { createId } from '@paralleldrive/cuid2';
 
 export interface SSPAnalyticsRunConfig {
@@ -80,16 +83,16 @@ export interface SSPDashboardData {
 }
 
 export class SSPAnalyticsService {
-  private db: Database;
+  private db: NodePgDatabase<typeof schema>;
   private analyticsEngine: SSPAnalyticsEngine;
   private exceptionMonitor: SSPExceptionMonitor;
   private mlService: SSPMLTrainingService;
 
-  constructor(db: Database) {
+  constructor(db: NodePgDatabase<typeof schema>, organizationId: string) {
     this.db = db;
-    this.analyticsEngine = new SSPAnalyticsEngine(db);
-    this.exceptionMonitor = new SSPExceptionMonitor(db);
-    this.mlService = new SSPMLTrainingService(db);
+    this.analyticsEngine = new SSPAnalyticsEngine(db as any, organizationId);
+    this.exceptionMonitor = new SSPExceptionMonitor(db as any);
+    this.mlService = new SSPMLTrainingService(db as any);
   }
 
   /**
@@ -118,39 +121,46 @@ export class SSPAnalyticsService {
         updatedAt: new Date()
       });
 
-      // Run SSP calculations
-      const results = await this.analyticsEngine.calculateSSP(
-        config.organizationId,
-        config.startDate,
-        config.endDate,
-        {
-          calculationRunId: runId,
-          minTransactions: config.minTransactions || 5,
-          confidenceThreshold: config.confidenceThreshold || 0.8,
-          method: config.calculationMethod
+      // Map calculation method to supported values
+      const mapMethod = (method: string): 'vsoe' | 'statistical' | 'ml' | 'hybrid' => {
+        switch (method) {
+          case 'manual':
+          case 'vsoe':
+            return 'vsoe';
+          case 'statistical':
+            return 'statistical';
+          case 'ml':
+            return 'ml';
+          case 'hybrid':
+            return 'hybrid';
+          default:
+            return 'hybrid';
         }
-      );
+      };
+
+      // Run SSP calculations
+      const results = await this.analyticsEngine.calculateSSP({
+        startDate: new Date(config.startDate),
+        endDate: new Date(config.endDate),
+        method: mapMethod(config.calculationMethod),
+        minTransactions: config.minTransactions || 5,
+        confidenceThreshold: config.confidenceThreshold || 0.8
+      });
 
       // Detect and record exceptions
-      const exceptions = await this.exceptionMonitor.detectExceptions(
-        config.organizationId,
-        runId
-      );
+      const exceptions = results.exceptions;
 
       // Update run statistics
       const processingTime = Date.now() - startTime;
       await this.updateRunStatistics(runId, results, exceptions.length, processingTime);
 
-      // Auto-resolve previous exceptions if applicable
-      await this.exceptionMonitor.autoResolveExceptions(config.organizationId, runId);
-
       return {
         runId,
         status: RunStatus.COMPLETED,
         itemsProcessed: results.itemsProcessed,
-        itemsWithVSOE: results.vsoeCount,
-        itemsWithStatistical: results.statisticalCount,
-        itemsWithML: results.mlCount,
+        itemsWithVSOE: results.summary.vsoeCompliant,
+        itemsWithStatistical: results.summary.statisticallyDerived,
+        itemsWithML: results.summary.mlPredicted,
         exceptions: exceptions.length,
         processingTime
       };

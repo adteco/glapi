@@ -1,7 +1,7 @@
-import { Database } from '@glapi/database';
+import { ScenarioAnalysisRepository } from '@glapi/database';
 import {
-  scenarioAnalysis,
-  ScenarioAnalysis
+  ScenarioAnalysis,
+  NewScenarioAnalysis
 } from '@glapi/database/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import { RevenueForecastingEngine, ForecastResult } from './revenue-forecasting-engine';
@@ -94,10 +94,12 @@ export class ScenarioAnalysisService {
   private forecastingEngine: RevenueForecastingEngine;
   
   constructor(
-    private db: typeof Database,
+    private scenarioRepository: ScenarioAnalysisRepository,
     private organizationId: string
   ) {
-    this.forecastingEngine = new RevenueForecastingEngine(db, organizationId);
+    // Note: RevenueForecastingEngine constructor needs to be updated to use repository too
+    // For now, this will need to be fixed when we fix the forecasting engine
+    this.forecastingEngine = new RevenueForecastingEngine(organizationId);
   }
 
   /**
@@ -804,24 +806,32 @@ export class ScenarioAnalysisService {
     impact: any,
     recommendations: string[]
   ): Promise<string> {
-    const [saved] = await this.db.insert(scenarioAnalysis).values({
+    const scenarioData: NewScenarioAnalysis = {
       organizationId: this.organizationId,
       scenarioName: name,
-      scenarioType: type,
-      scenarioDescription: `${type} scenario with ${Object.keys(assumptions).length} assumptions`,
+      scenarioType: type as 'base' | 'optimistic' | 'pessimistic' | 'custom',
+      description: `${type} scenario with ${Object.keys(assumptions).length} assumptions`,
       assumptions,
-      baselineARR: String(baseline.arr),
-      scenarioARR: String(scenario.arr),
-      arrImpact: String(impact.arrDifference),
-      impactPercentage: String(impact.arrPercentChange),
-      analysisStartDate: new Date(),
-      analysisEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      probability: String(0.5), // Default probability
-      riskLevel: 'medium',
-      recommendations,
-      actionItems: []
-    }).returning();
+      variables: {
+        baseline: baseline,
+        scenario: scenario,
+        recommendations: recommendations
+      },
+      projectedRevenue: String(scenario.arr || 0),
+      projectedCosts: String(scenario.costs || 0),
+      projectedProfit: String((scenario.arr || 0) - (scenario.costs || 0)),
+      revenueImpact: {
+        arrDifference: impact.arrDifference,
+        arrPercentChange: impact.arrPercentChange
+      },
+      baselineComparison: {
+        baseline: baseline,
+        scenario: scenario,
+        impact: impact
+      }
+    };
     
+    const saved = await this.scenarioRepository.createScenario(scenarioData);
     return saved.id;
   }
 

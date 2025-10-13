@@ -15,7 +15,7 @@ import {
   type RevenueSchedule,
   type NewPerformanceObligation,
   type NewRevenueSchedule
-} from '@glapi/database/src/db/schema';
+} from '@glapi/database';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import { RevenueCalculationEngine, type CalculationResult } from '@glapi/business';
 

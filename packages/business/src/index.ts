@@ -17,6 +17,24 @@ export * from './transaction';
 export * from './services/revenue-calculation-engine';
 export * from './services/kit-service';
 export * from './services/revenue-reporting-service';
+
+// Export forecasting and analytics services
+export * from './services/revenue-forecasting-engine';
+export * from './services/cohort-analysis-service';
+export * from './services/churn-prediction-service';
+export * from './services/scenario-analysis-service';
+
+// Export contract modification services
+export * from './services/contract-modification-engine';
+export * from './services/modification-approval-workflow';
+
+// Export SSP analytics services
+export * from './services/ssp-analytics-engine';
+export * from './services/ssp-exception-monitor';
+// Export the wrapper instead of the actual service to avoid TensorFlow bundling issues
+export { SSPMLTrainingService, ModelMetrics } from './services/ssp-ml-training-service-wrapper';
+
+// Export types
 export * from './types/revenue-calculation-types';
 export * from './types/revenue-reporting-types';
 

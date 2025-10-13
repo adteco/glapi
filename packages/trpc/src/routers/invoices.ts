@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
-import { InvoiceService } from '@glapi/api-service';
+import { InvoiceService, type CreateInvoiceData, type GenerateInvoiceParams, type UpdateInvoiceData } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
 
 // Zod schemas for validation
@@ -72,7 +72,7 @@ export const invoicesRouter = router({
       const service = new InvoiceService(ctx.serviceContext);
       
       try {
-        return await service.createInvoice(input);
+        return await service.createInvoice(input as CreateInvoiceData);
       } catch (error: any) {
         if (error.code === 'NOT_FOUND') {
           throw new TRPCError({
@@ -96,7 +96,7 @@ export const invoicesRouter = router({
       const service = new InvoiceService(ctx.serviceContext);
       
       try {
-        return await service.generateFromSubscription(input);
+        return await service.generateFromSubscription(input as GenerateInvoiceParams);
       } catch (error: any) {
         if (error.code === 'NOT_FOUND') {
           throw new TRPCError({
@@ -124,7 +124,7 @@ export const invoicesRouter = router({
       const service = new InvoiceService(ctx.serviceContext);
       
       try {
-        const updated = await service.updateInvoice(input.id, input.data);
+        const updated = await service.updateInvoice(input.id, input.data as unknown as UpdateInvoiceData);
         
         if (!updated) {
           throw new TRPCError({
@@ -244,8 +244,9 @@ export const invoicesRouter = router({
       
       invoices.data.forEach(invoice => {
         const total = parseFloat(invoice.totalAmount || '0');
-        const paid = parseFloat(invoice.paidAmount || '0');
-        const balance = parseFloat(invoice.balanceDue || '0');
+        // TODO: Calculate paid amount from payments table
+        const paid = invoice.status === 'paid' ? total : 0;
+        const balance = invoice.status === 'paid' ? 0 : total;
         
         summary.totalAmount += total;
         summary.totalPaid += paid;

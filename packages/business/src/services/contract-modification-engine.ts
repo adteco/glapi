@@ -263,11 +263,15 @@ export class ContractModificationEngine {
     effectiveDate: Date
   ): Promise<ModificationImpact> {
     // Recalculate revenue from contract inception with modified terms
-    const modifiedCalculation = await this.revenueEngine.calculateRevenue({
+    const modifiedCalculation = await this.revenueEngine.calculate({
       subscriptionId: originalContract.id,
-      calculationType: 'modification_cumulative',
-      effectiveDate: effectiveDate.toISOString(),
-      modifiedTerms: modifiedContract
+      organizationId: originalContract.organizationId,
+      calculationType: 'modification',
+      effectiveDate: effectiveDate,
+      options: {
+        forceRecalculation: true,
+        includeHistorical: true
+      }
     });
 
     // Calculate what should have been recognized to date under modified terms
@@ -283,7 +287,7 @@ export class ContractModificationEngine {
     // Calculate obligation changes
     const obligationChanges = await this.compareObligations(
       currentObligations,
-      modifiedCalculation.obligations
+      modifiedCalculation.performanceObligations
     );
 
     // Calculate schedule changes
@@ -296,13 +300,13 @@ export class ContractModificationEngine {
       method: "cumulative_catch_up",
       financialImpact: {
         originalValue: parseFloat(originalContract.totalAmount),
-        modifiedValue: modifiedCalculation.totalTransactionPrice,
-        adjustment: modifiedCalculation.totalTransactionPrice - parseFloat(originalContract.totalAmount)
+        modifiedValue: modifiedCalculation.transactionPrice,
+        adjustment: modifiedCalculation.transactionPrice - parseFloat(originalContract.totalAmount)
       },
       obligationChanges,
       revenueImpact: {
         currentPeriodAdjustment: catchUpAdjustment,
-        futurePeriodImpact: modifiedCalculation.totalTransactionPrice - shouldHaveRecognized,
+        futurePeriodImpact: modifiedCalculation.transactionPrice - shouldHaveRecognized,
         cumulativeCatchUp: catchUpAdjustment
       },
       scheduleChanges
@@ -393,12 +397,15 @@ export class ContractModificationEngine {
       );
     }
 
+    // Get the item IDs for the subscription items to terminate (reuse from earlier query)
+    const itemIds = subscriptionItemsData.map(si => si.itemId);
+    
     // Get affected performance obligations
     const affectedObligations = await this.db.select()
       .from(performanceObligations)
       .where(and(
         eq(performanceObligations.subscriptionId, subscriptionId),
-        inArray(performanceObligations.subscriptionItemId, itemsToTerminate)
+        inArray(performanceObligations.itemId, itemIds)
       ));
 
     // Cancel future revenue schedules
@@ -663,8 +670,9 @@ export class ContractModificationEngine {
       total: sql<number>`SUM(${revenueSchedules.recognizedAmount})`
     })
     .from(revenueSchedules)
+    .innerJoin(performanceObligations, eq(revenueSchedules.performanceObligationId, performanceObligations.id))
     .where(and(
-      eq(revenueSchedules.subscriptionId, subscriptionId),
+      eq(performanceObligations.subscriptionId, subscriptionId),
       lte(revenueSchedules.recognitionDate, asOfDate.toISOString())
     ));
 
@@ -676,11 +684,12 @@ export class ContractModificationEngine {
     asOfDate: Date
   ): Promise<number> {
     const result = await this.db.select({
-      total: sql<number>`SUM(${revenueSchedules.deferredAmount})`
+      total: sql<number>`SUM(${revenueSchedules.scheduledAmount} - ${revenueSchedules.recognizedAmount})`
     })
     .from(revenueSchedules)
+    .innerJoin(performanceObligations, eq(revenueSchedules.performanceObligationId, performanceObligations.id))
     .where(and(
-      eq(revenueSchedules.subscriptionId, subscriptionId),
+      eq(performanceObligations.subscriptionId, subscriptionId),
       gte(revenueSchedules.recognitionDate, asOfDate.toISOString())
     ));
 
@@ -696,8 +705,8 @@ export class ContractModificationEngine {
     // Items are distinct if customer can benefit from each on its own
     // This is a simplified check - real implementation would be more complex
     return itemsData.every(item => 
-      item.type === 'non_inventory' || 
-      item.type === 'service'
+      item.itemType === 'NON_INVENTORY_ITEM' || 
+      item.itemType === 'SERVICE'
     );
   }
 
@@ -738,7 +747,9 @@ export class ContractModificationEngine {
       ));
 
     // Check if remaining obligations are distinct
-    return obligations.length > 0 && obligations.every(o => o.isDistinct);
+    // For simplicity, assuming obligations are distinct if they have different item IDs
+    const uniqueItemIds = new Set(obligations.map(o => o.itemId));
+    return obligations.length > 0 && uniqueItemIds.size === obligations.length;
   }
 
   private calculateRefund(
@@ -881,10 +892,11 @@ export class ContractModificationEngine {
   ): Promise<any> {
     const currentSchedules = await this.db.select()
       .from(revenueSchedules)
-      .where(eq(revenueSchedules.subscriptionId, subscriptionId));
+      .innerJoin(performanceObligations, eq(revenueSchedules.performanceObligationId, performanceObligations.id))
+      .where(eq(performanceObligations.subscriptionId, subscriptionId));
 
     return {
-      schedulesToCancel: currentSchedules.filter(c => c.status === 'scheduled').length,
+      schedulesToCancel: currentSchedules.filter(c => c.revenue_schedules.status === 'scheduled').length,
       schedulesToCreate: newSchedules.length,
       schedulesToModify: 0
     };
@@ -1109,13 +1121,12 @@ export class ContractModificationEngine {
       for (const item of changes.addItems) {
         lineItems.push({
           modificationId,
-          changeType: 'add',
-          newItemId: item.itemId,
+          action: 'add',
+          subscriptionItemId: item.itemId,
           newQuantity: item.quantity.toString(),
           newUnitPrice: item.unitPrice.toString(),
           newStartDate: item.startDate,
           newEndDate: item.endDate,
-          newDiscountPercent: item.discountPercent?.toString(),
           createdAt: new Date()
         });
       }
@@ -1126,8 +1137,8 @@ export class ContractModificationEngine {
       for (const itemId of changes.removeItems) {
         lineItems.push({
           modificationId,
-          changeType: 'remove',
-          originalSubscriptionItemId: itemId,
+          action: 'remove',
+          subscriptionItemId: itemId,
           createdAt: new Date()
         });
       }
@@ -1138,12 +1149,11 @@ export class ContractModificationEngine {
       for (const mod of changes.modifyItems) {
         lineItems.push({
           modificationId,
-          changeType: 'modify',
-          originalSubscriptionItemId: mod.subscriptionItemId,
+          action: 'modify',
+          subscriptionItemId: mod.subscriptionItemId,
           newQuantity: mod.newQuantity?.toString(),
           newUnitPrice: mod.newUnitPrice?.toString(),
           newEndDate: mod.newEndDate,
-          newDiscountPercent: mod.newDiscountPercent?.toString(),
           createdAt: new Date()
         });
       }
