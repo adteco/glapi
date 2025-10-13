@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,26 +12,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ContactMetadata {
+  first_name?: string;
+  last_name?: string;
   title?: string;
+  company?: string;
+  contact_type?: string;
+  preferred_communication?: string;
   department?: string;
   mobilePhone?: string;
   workPhone?: string;
-  preferredContactMethod?: 'email' | 'phone' | 'mobile';
 }
 
 interface Contact {
   id: string;
   name: string;
   displayName?: string | null;
+  entityId?: string | null;
   email?: string | null;
   phone?: string | null;
   parentEntityId?: string | null;
   metadata?: ContactMetadata | null;
-  status: string;
+  status?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -40,157 +46,140 @@ interface Contact {
 interface Entity {
   id: string;
   name: string;
-  entityTypes: string[];
+  entityTypes?: string[];
 }
 
 export default function ContactsPage() {
   const { orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
   const router = useRouter();
-  const prevOrgIdRef = useRef<string | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Entity[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+  // TRPC queries and mutations
+  const { data: contactsData, isLoading, refetch } = trpc.contacts.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+
+  const { data: customersData } = trpc.customers.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+
+  const { data: vendorsData } = trpc.vendors.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+
+  const createContactMutation = trpc.contacts.create.useMutation({
+    onSuccess: () => {
+      toast.success('Contact created successfully');
+      setIsCreateOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create contact');
+    },
+  });
+
+  const updateContactMutation = trpc.contacts.update.useMutation({
+    onSuccess: () => {
+      toast.success('Contact updated successfully');
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update contact');
+    },
+  });
+
+  const deleteContactMutation = trpc.contacts.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Contact deleted successfully');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete contact');
+    },
+  });
+
+  const contacts = contactsData?.data || [];
+  const companies = [
+    ...(customersData?.data || []),
+    ...(vendorsData?.data || [])
+  ];
+
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
     email: '',
     phone: '',
     parentEntityId: '',
-    status: 'active',
+    notes: '',
     metadata: {
+      first_name: '',
+      last_name: '',
       title: '',
       department: '',
       mobilePhone: '',
       workPhone: '',
-      preferredContactMethod: 'email' as 'email' | 'phone' | 'mobile',
+      preferred_communication: 'email' as string,
     }
   });
 
-  const fetchContacts = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      const data = await apiGet<{ data: Contact[] }>('/api/contacts');
-      setContacts(data.data || []);
-    } catch (error) {
-      console.error('Error fetching contacts:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [apiGet, orgId]);
-
-  const fetchCompanies = useCallback(async () => {
-    if (!orgId) return;
-    
-    try {
-      // Fetch all customers and vendors to use as parent companies
-      const [customers, vendors] = await Promise.all([
-        apiGet<{ data: Entity[] }>('/api/customers'),
-        apiGet<{ data: Entity[] }>('/api/vendors'),
-      ]);
-      
-      const allCompanies = [
-        ...(customers.data || []),
-        ...(vendors.data || [])
-      ];
-      
-      setCompanies(allCompanies);
-    } catch (error) {
-      console.error('Error fetching companies:', error);
-    }
-  }, [apiGet, orgId]);
-
-  useEffect(() => {
-    if (orgId && orgId !== prevOrgIdRef.current) {
-      // Organization changed, clear data
-      setContacts([]);
-      setCompanies([]);
-      setLoading(true);
-      prevOrgIdRef.current = orgId;
-    }
-  }, [orgId]);
-
-  useEffect(() => {
-    if (orgId) {
-      fetchContacts();
-      fetchCompanies();
-    }
-  }, [orgId, fetchContacts, fetchCompanies]);
-
   const handleCreate = async () => {
-    try {
-      await apiPost('/api/contacts', {
-        name: formData.name,
-        displayName: formData.displayName || undefined,
-        entityTypes: ['Contact'],
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        parentEntityId: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
-        status: formData.status,
-        isActive: true,
-        metadata: {
-          title: formData.metadata.title || undefined,
-          department: formData.metadata.department || undefined,
-          mobilePhone: formData.metadata.mobilePhone || undefined,
-          workPhone: formData.metadata.workPhone || undefined,
-          preferredContactMethod: formData.metadata.preferredContactMethod || undefined,
-        },
-      });
-      
-      await fetchContacts();
-      setIsCreateOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error creating contact:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create contact');
+    if (!formData.name) {
+      toast.error('Full name is required');
+      return;
     }
+
+    createContactMutation.mutate({
+      name: formData.name,
+      legalName: formData.displayName || undefined,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      notes: formData.notes || undefined,
+      isActive: true,
+      metadata: {
+        first_name: formData.metadata.first_name || undefined,
+        last_name: formData.metadata.last_name || undefined,
+        title: formData.metadata.title || undefined,
+        company: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
+        department: formData.metadata.department || undefined,
+        contact_type: 'Individual',
+        preferred_communication: formData.metadata.preferred_communication || undefined,
+      },
+    });
   };
 
   const handleUpdate = async () => {
     if (!selectedContact) return;
     
-    try {
-      await apiPut(`/api/contacts/${selectedContact.id}`, {
+    updateContactMutation.mutate({
+      id: selectedContact.id,
+      data: {
         name: formData.name,
-        displayName: formData.displayName || undefined,
-        entityTypes: ['Contact'],
+        legalName: formData.displayName || undefined,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
-        parentEntityId: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
-        status: formData.status,
+        notes: formData.notes || undefined,
         isActive: true,
         metadata: {
+          first_name: formData.metadata.first_name || undefined,
+          last_name: formData.metadata.last_name || undefined,
           title: formData.metadata.title || undefined,
+          company: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
           department: formData.metadata.department || undefined,
-          mobilePhone: formData.metadata.mobilePhone || undefined,
-          workPhone: formData.metadata.workPhone || undefined,
-          preferredContactMethod: formData.metadata.preferredContactMethod || undefined,
+          contact_type: 'Individual',
+          preferred_communication: formData.metadata.preferred_communication || undefined,
         },
-      });
-      
-      await fetchContacts();
-      setIsEditOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error updating contact:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update contact');
-    }
+      },
+    });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this contact?')) return;
-    
-    try {
-      await apiDelete(`/api/contacts/${id}`);
-      await fetchContacts();
-    } catch (error) {
-      console.error('Error deleting contact:', error);
-      alert('Failed to delete contact');
-    }
+    deleteContactMutation.mutate({ id });
   };
 
   const openEditDialog = (contact: Contact) => {
@@ -200,14 +189,16 @@ export default function ContactsPage() {
       displayName: contact.displayName || '',
       email: contact.email || '',
       phone: contact.phone || '',
-      parentEntityId: contact.parentEntityId || '',
-      status: contact.status,
+      parentEntityId: contact.metadata?.company || contact.parentEntityId || '',
+      notes: contact.notes || '',
       metadata: {
+        first_name: contact.metadata?.first_name || '',
+        last_name: contact.metadata?.last_name || '',
         title: contact.metadata?.title || '',
         department: contact.metadata?.department || '',
         mobilePhone: contact.metadata?.mobilePhone || '',
         workPhone: contact.metadata?.workPhone || '',
-        preferredContactMethod: (contact.metadata?.preferredContactMethod || 'email') as 'email' | 'phone' | 'mobile',
+        preferred_communication: contact.metadata?.preferred_communication || 'email',
       }
     });
     setIsEditOpen(true);
@@ -220,21 +211,24 @@ export default function ContactsPage() {
       email: '',
       phone: '',
       parentEntityId: '',
-      status: 'active',
+      notes: '',
       metadata: {
+        first_name: '',
+        last_name: '',
         title: '',
         department: '',
         mobilePhone: '',
         workPhone: '',
-        preferredContactMethod: 'email',
+        preferred_communication: 'email',
       }
     });
     setSelectedContact(null);
   };
 
-  const getCompanyName = (parentId: string | null | undefined) => {
-    if (!parentId) return 'Independent';
-    const company = companies.find(c => c.id === parentId);
+  const getCompanyName = (contact: Contact) => {
+    const companyId = contact.metadata?.company || contact.parentEntityId;
+    if (!companyId) return 'Independent';
+    const company = companies.find(c => c.id === companyId);
     return company?.name || 'Unknown';
   };
 
@@ -247,7 +241,7 @@ export default function ContactsPage() {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (isLoading) return <div>Loading...</div>;
 
   return (
     <div className="container mx-auto py-10">
@@ -294,7 +288,7 @@ export default function ContactsPage() {
                           <SelectItem value="none">No Company (Independent)</SelectItem>
                           {companies.map((company) => (
                             <SelectItem key={company.id} value={company.id}>
-                              {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : '(Customer)'}
+                              {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -364,10 +358,10 @@ export default function ContactsPage() {
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="preferredContactMethod">Preferred Contact Method</Label>
                       <Select
-                        value={formData.metadata.preferredContactMethod}
-                        onValueChange={(value: 'email' | 'phone' | 'mobile') => setFormData({ 
+                        value={formData.metadata.preferred_communication}
+                        onValueChange={(value) => setFormData({ 
                           ...formData, 
-                          metadata: { ...formData.metadata, preferredContactMethod: value }
+                          metadata: { ...formData.metadata, preferred_communication: value }
                         })}
                       >
                         <SelectTrigger>
@@ -381,12 +375,24 @@ export default function ContactsPage() {
                       </Select>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Additional notes about this contact"
+                      rows={3}
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreate}>Create</Button>
+                  <Button onClick={handleCreate} disabled={createContactMutation.isPending}>
+                    {createContactMutation.isPending ? 'Creating...' : 'Create'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -413,7 +419,7 @@ export default function ContactsPage() {
                   <TableCell className="font-medium">
                     {contact.displayName || contact.name}
                   </TableCell>
-                  <TableCell>{getCompanyName(contact.parentEntityId)}</TableCell>
+                  <TableCell>{getCompanyName(contact)}</TableCell>
                   <TableCell>{contact.metadata?.title || '-'}</TableCell>
                   <TableCell>{contact.metadata?.department || '-'}</TableCell>
                   <TableCell>{contact.email || '-'}</TableCell>
@@ -421,13 +427,13 @@ export default function ContactsPage() {
                     {contact.phone || contact.metadata?.workPhone || contact.metadata?.mobilePhone || '-'}
                   </TableCell>
                   <TableCell>
-                    <span title={contact.metadata?.preferredContactMethod || 'email'}>
-                      {getContactMethodIcon(contact.metadata?.preferredContactMethod || 'email')}
+                    <span title={contact.metadata?.preferred_communication || 'email'}>
+                      {getContactMethodIcon(contact.metadata?.preferred_communication || 'email')}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={contact.status === 'active' ? 'default' : 'secondary'}>
-                      {contact.status}
+                    <Badge variant={contact.isActive ? 'default' : 'secondary'}>
+                      {contact.isActive ? 'active' : 'inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -454,6 +460,7 @@ export default function ContactsPage() {
                         variant="ghost" 
                         size="icon"
                         onClick={() => handleDelete(contact.id)}
+                        disabled={deleteContactMutation.isPending}
                         title="Delete contact"
                         className="text-destructive hover:text-destructive"
                       >
@@ -505,7 +512,7 @@ export default function ContactsPage() {
                     <SelectItem value="none">No Company (Independent)</SelectItem>
                     {companies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
-                        {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : '(Customer)'}
+                        {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -575,10 +582,10 @@ export default function ContactsPage() {
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="edit-preferredContactMethod">Preferred Contact Method</Label>
                 <Select
-                  value={formData.metadata.preferredContactMethod}
-                  onValueChange={(value: 'email' | 'phone' | 'mobile') => setFormData({ 
+                  value={formData.metadata.preferred_communication}
+                  onValueChange={(value) => setFormData({ 
                     ...formData, 
-                    metadata: { ...formData.metadata, preferredContactMethod: value }
+                    metadata: { ...formData.metadata, preferred_communication: value }
                   })}
                 >
                   <SelectTrigger>
@@ -592,12 +599,24 @@ export default function ContactsPage() {
                 </Select>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Additional notes about this contact"
+                rows={3}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdate}>Update</Button>
+            <Button onClick={handleUpdate} disabled={updateContactMutation.isPending}>
+              {updateContactMutation.isPending ? 'Updating...' : 'Update'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

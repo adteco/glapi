@@ -29,7 +29,16 @@ import {
   Package as PackageIcon,
   Ruler as RulerIcon,
   Tags as TagsIcon,
-  Building2 as Building2Icon
+  Building2 as Building2Icon,
+  BookOpen as BookOpenIcon,
+  ShoppingCart as ShoppingCartIcon,
+  FileBarChart as FileBarChartIcon,
+  Target as TargetIcon,
+  Truck as TruckIcon,
+  Warehouse as WarehouseIcon,
+  Calendar as CalendarIcon,
+  DollarSign as DollarSignIcon,
+  MessageCircle as MessageCircleIcon
 } from 'lucide-react';
 
 const NewPageSidebar = () => {
@@ -41,6 +50,10 @@ const NewPageSidebar = () => {
   const [isRelationshipsOpen, setIsRelationshipsOpen] = useState(false);
   const [isItemsOpen, setIsItemsOpen] = useState(false);
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
+  const [isTransactionManagementOpen, setIsTransactionManagementOpen] = useState(false);
+  const [isTransactionSalesOpen, setIsTransactionSalesOpen] = useState(false);
+  const [isTransactionInventoryOpen, setIsTransactionInventoryOpen] = useState(false);
+  const [isTransactionRecurringOpen, setIsTransactionRecurringOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const isActive = (itemPath: string) => {
@@ -99,6 +112,15 @@ const NewPageSidebar = () => {
         <div>
           <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Main</h3>
           <ul className="space-y-1">
+            <li>
+              {/* @ts-ignore */}
+              <Link href="/chat"
+                    className={`${baseLinkClass} ${isActive('/chat') ? activeLinkClass : inactiveLinkClass}`}>
+                {/* @ts-ignore */}
+                <MessageCircleIcon className="h-5 w-5" />
+                <span>Chat</span>
+              </Link>
+            </li>
             <li>
               {/* @ts-ignore */}
               <Link href="/dashboard"
@@ -374,11 +396,199 @@ const NewPageSidebar = () => {
             {isTransactionsOpen ? <ChevronDownIcon className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
           </button>
           {isTransactionsOpen && (
-            <ul className="mt-1 space-y-1">
-              {/* Placeholder for future transaction sub-items */}
-              <li><span className={`${baseSubLinkClass} text-gray-400`}>Sub-item A</span></li>
-              <li><span className={`${baseSubLinkClass} text-gray-400`}>Sub-item B</span></li>
-            </ul>
+            <div className="mt-1 space-y-1">
+              {/* Management Section */}
+              <div>
+                <button 
+                  onClick={() => setIsTransactionManagementOpen(!isTransactionManagementOpen)}
+                  className={`${baseSubLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
+                >
+                  <div className="flex items-center space-x-3">
+                    {/* @ts-ignore */}
+                    <Settings2Icon className="h-4 w-4" />
+                    <span>Management</span>
+                  </div>
+                  {/* @ts-ignore */}
+                  {isTransactionManagementOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+                </button>
+                {isTransactionManagementOpen && (
+                  <ul className="mt-1 space-y-1">
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/management/journal" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/management/journal') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <BookOpenIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Journal</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/management/budgets" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/management/budgets') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <CalendarIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Budgets</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </div>
+              
+              {/* Sales Section */}
+              <div>
+                <button 
+                  onClick={() => setIsTransactionSalesOpen(!isTransactionSalesOpen)}
+                  className={`${baseSubLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
+                >
+                  <div className="flex items-center space-x-3">
+                    {/* @ts-ignore */}
+                    <ShoppingCartIcon className="h-4 w-4" />
+                    <span>Sales</span>
+                  </div>
+                  {/* @ts-ignore */}
+                  {isTransactionSalesOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+                </button>
+                {isTransactionSalesOpen && (
+                  <ul className="mt-1 space-y-1">
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/sales/estimates" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/estimates') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <FileBarChartIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Estimates</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/sales/sales-orders" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/sales-orders') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <ListOrderedIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Sales Orders</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/sales/opportunities" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/opportunities') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <TargetIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Opportunities</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/sales/fulfillment" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/fulfillment') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <TruckIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Fulfillment</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/sales/invoices" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/invoices') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <FileTextIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Invoices</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </div>
+              
+              {/* Inventory Section */}
+              <div>
+                <button 
+                  onClick={() => setIsTransactionInventoryOpen(!isTransactionInventoryOpen)}
+                  className={`${baseSubLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
+                >
+                  <div className="flex items-center space-x-3">
+                    {/* @ts-ignore */}
+                    <WarehouseIcon className="h-4 w-4" />
+                    <span>Inventory</span>
+                  </div>
+                  {/* @ts-ignore */}
+                  {isTransactionInventoryOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+                </button>
+                {isTransactionInventoryOpen && (
+                  <ul className="mt-1 space-y-1">
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/inventory/adjustments" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/adjustments') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <Settings2Icon className={`h-3 w-3 opacity-75`} />
+                        <span>Adjustments</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/inventory/transfers" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/transfers') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <ArrowRightLeftIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Transfers</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/inventory/receipts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/receipts') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <PackageIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Receipts</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/inventory/purchase-orders" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/purchase-orders') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <ShoppingCartIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Purchase Orders</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </div>
+              
+              {/* Recurring Revenue (ASC606) Section */}
+              <div>
+                <button 
+                  onClick={() => setIsTransactionRecurringOpen(!isTransactionRecurringOpen)}
+                  className={`${baseSubLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
+                >
+                  <div className="flex items-center space-x-3">
+                    {/* @ts-ignore */}
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>Recurring Revenue</span>
+                  </div>
+                  {/* @ts-ignore */}
+                  {isTransactionRecurringOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+                </button>
+                {isTransactionRecurringOpen && (
+                  <ul className="mt-1 space-y-1">
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/recurring/contracts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/recurring/contracts') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <FileTextIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Contracts</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/recurring/performance-obligations" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/recurring/performance-obligations') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <TargetIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Performance Obligations</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/transactions/recurring/revenue-recognition" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/recurring/revenue-recognition') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <DollarSignIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Revenue Recognition</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </div>
+            </div>
           )}
         </div>
 

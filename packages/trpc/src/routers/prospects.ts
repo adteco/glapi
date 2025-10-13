@@ -75,4 +75,18 @@ export const prospectsRouter = router({
       const service = new ProspectService();
       return await service.delete(input.id, ctx.user.organizationId);
     }),
+
+  convertToLead: authenticatedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new ProspectService();
+      return await service.convertToLead(input.id, ctx.user.organizationId);
+    }),
+
+  convertToCustomer: authenticatedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new ProspectService();
+      return await service.convertToCustomer(input.id, ctx.user.organizationId);
+    }),
 });

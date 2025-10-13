@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -64,16 +64,57 @@ interface UnitOfMeasure {
 }
 
 export default function UnitsOfMeasurePage() {
-  const { getToken, orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const { orgId } = useAuth();
   const previousOrgIdRef = useRef<string | null>(null);
-  const [units, setUnits] = useState<UnitOfMeasure[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<UnitOfMeasure | null>(null);
   const [deleteUnit, setDeleteUnit] = useState<UnitOfMeasure | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // tRPC queries and mutations
+  const { data: unitsData, isLoading, refetch } = trpc.unitsOfMeasure.list.useQuery({
+    page: 1,
+    limit: 100,
+  }, {
+    enabled: !!orgId,
+  });
+
+  const createUnitMutation = trpc.unitsOfMeasure.create.useMutation({
+    onSuccess: () => {
+      toast.success('Unit of measure created successfully');
+      setIsAddDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create unit of measure');
+    },
+  });
+
+  const updateUnitMutation = trpc.unitsOfMeasure.update.useMutation({
+    onSuccess: () => {
+      toast.success('Unit of measure updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedUnit(null);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update unit of measure');
+    },
+  });
+
+  const deleteUnitMutation = trpc.unitsOfMeasure.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Unit of measure deleted successfully');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete unit of measure');
+    },
+  });
+
+  const units = unitsData?.data || [];
 
   const form = useForm<UnitFormValues>({
     resolver: zodResolver(unitFormSchema),
@@ -87,33 +128,14 @@ export default function UnitsOfMeasurePage() {
     },
   });
 
-  const fetchUnits = useCallback(async () => {
-    if (!orgId) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const data = await apiGet<{ data: UnitOfMeasure[] }>('/api/units-of-measure');
-      setUnits(data.data || []);
-    } catch (error) {
-      console.error('Error fetching units:', error);
-      toast.error('Failed to load units of measure');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
+  // Clear state when organization changes
   useEffect(() => {
     if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setUnits([]);
       previousOrgIdRef.current = orgId;
+      // Reset form when org changes
+      form.reset();
     }
-    fetchUnits();
-  }, [orgId, fetchUnits]);
+  }, [orgId, form]);
 
   const handleAddUnit = async (values: UnitFormValues) => {
     if (!orgId) {
@@ -121,22 +143,7 @@ export default function UnitsOfMeasurePage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiPost('/api/units-of-measure', values);
-      
-      toast.success('Unit of measure created successfully');
-      setIsAddDialogOpen(false);
-      form.reset();
-      
-      // Refresh the units list
-      await fetchUnits();
-    } catch (error) {
-      console.error('Error creating unit:', error);
-      toast.error('Failed to create unit of measure');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createUnitMutation.mutate(values);
   };
 
   const handleEditUnit = async (values: UnitFormValues) => {
@@ -145,23 +152,10 @@ export default function UnitsOfMeasurePage() {
       return;
     }
     
-    setIsSubmitting(true);
-    try {
-      await apiPut(`/api/units-of-measure/${selectedUnit.id}`, values);
-      
-      toast.success('Unit of measure updated successfully');
-      setIsEditDialogOpen(false);
-      setSelectedUnit(null);
-      form.reset();
-      
-      // Refresh the units list
-      await fetchUnits();
-    } catch (error) {
-      console.error('Error updating unit:', error);
-      toast.error('Failed to update unit of measure');
-    } finally {
-      setIsSubmitting(false);
-    }
+    updateUnitMutation.mutate({
+      id: selectedUnit.id,
+      data: values,
+    });
   };
 
   const handleDeleteUnit = async (unit: UnitOfMeasure) => {
@@ -170,15 +164,7 @@ export default function UnitsOfMeasurePage() {
       return;
     }
 
-    try {
-      await apiDelete(`/api/units-of-measure/${unit.id}`);
-      
-      toast.success('Unit of measure deleted successfully');
-      await fetchUnits();
-    } catch (error) {
-      console.error('Error deleting unit:', error);
-      toast.error('Failed to delete unit of measure');
-    }
+    deleteUnitMutation.mutate({ id: unit.id });
   };
 
   const openEditDialog = (unit: UnitOfMeasure) => {
@@ -401,8 +387,8 @@ export default function UnitsOfMeasurePage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Creating...' : 'Create Unit'}
+                <Button type="submit" disabled={createUnitMutation.isPending}>
+                  {createUnitMutation.isPending ? 'Creating...' : 'Create Unit'}
                 </Button>
               </DialogFooter>
             </form>
@@ -536,8 +522,8 @@ export default function UnitsOfMeasurePage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                <Button type="submit" disabled={updateUnitMutation.isPending}>
+                  {updateUnitMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </DialogFooter>
             </form>

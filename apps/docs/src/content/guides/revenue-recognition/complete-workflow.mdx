@@ -1,0 +1,399 @@
+---
+title: Complete Revenue Recognition Workflow
+description: Step-by-step guide for implementing ASC 606 revenue recognition
+---
+
+# Complete Revenue Recognition Workflow
+
+This guide walks through the complete revenue recognition workflow using the 606Ledger system, from subscription creation to journal entry generation.
+
+## Overview
+
+The ASC 606 revenue recognition standard requires a five-step process:
+
+1. **Identify the contract** with a customer
+2. **Identify the performance obligations** in the contract
+3. **Determine the transaction price**
+4. **Allocate the transaction price** to performance obligations
+5. **Recognize revenue** when performance obligations are satisfied
+
+## Step 1: Create a Subscription
+
+Start by creating a subscription that represents your customer contract.
+
+### Example: Software License with Support
+
+```typescript
+const subscription = await api.subscriptions.create({
+  entityId: "customer-123",
+  subscriptionNumber: "SUB-2024-001",
+  startDate: "2024-01-01",
+  endDate: "2024-12-31",
+  items: [
+    {
+      itemId: "software-license",
+      itemName: "Enterprise Software License",
+      quantity: 1,
+      unitPrice: 100000,
+      itemType: "license",
+      recognitionPattern: "point_in_time"
+    },
+    {
+      itemId: "annual-support",
+      itemName: "Annual Support & Maintenance",
+      quantity: 1,
+      unitPrice: 20000,
+      itemType: "maintenance",
+      recognitionPattern: "over_time"
+    }
+  ],
+  billingFrequency: "annual",
+  paymentTerms: "net_30",
+  contractValue: 120000
+});
+```
+
+### Key Considerations
+
+- **Item Types**: Properly classify items (license, maintenance, service, etc.)
+- **Recognition Patterns**: Define how revenue should be recognized
+  - `point_in_time`: Recognized immediately upon delivery
+  - `over_time`: Recognized ratably over the period
+  - `milestone`: Recognized upon milestone completion
+- **Contract Terms**: Accurate start and end dates are critical
+
+## Step 2: Calculate Revenue Recognition
+
+Once the subscription is created, calculate revenue recognition according to ASC 606.
+
+```typescript
+const calculation = await api.revenue.calculate({
+  subscriptionId: subscription.id,
+  calculationType: "initial",
+  effectiveDate: "2024-01-01",
+  options: {
+    compareToASC605: true,
+    generateSchedules: true,
+    validateSSP: true
+  }
+});
+```
+
+### What Happens During Calculation
+
+1. **Performance Obligations Identification**
+   - Each distinct good or service becomes a performance obligation
+   - Bundled items may be separated based on distinct criteria
+
+2. **SSP (Standalone Selling Price) Determination**
+   - Observable prices from similar transactions
+   - Adjusted market assessment approach
+   - Expected cost plus margin approach
+
+3. **Transaction Price Allocation**
+   - Allocate based on relative SSP
+   - Handle variable consideration
+   - Apply constraints as needed
+
+4. **Revenue Schedule Generation**
+   - Create schedules based on satisfaction patterns
+   - Account for contract modifications
+   - Generate deferred revenue balances
+
+### Calculation Results
+
+```json
+{
+  "performanceObligations": [
+    {
+      "id": "po-001",
+      "obligationType": "product_license",
+      "obligationName": "Enterprise Software License",
+      "satisfactionMethod": "point_in_time",
+      "transactionPrice": 100000,
+      "allocatedPrice": 100000,
+      "ssp": 100000
+    },
+    {
+      "id": "po-002",
+      "obligationType": "maintenance_support",
+      "obligationName": "Annual Support",
+      "satisfactionMethod": "over_time",
+      "transactionPrice": 20000,
+      "allocatedPrice": 20000,
+      "ssp": 20000
+    }
+  ],
+  "revenueSchedules": [
+    {
+      "obligationId": "po-001",
+      "periodStart": "2024-01-01",
+      "periodEnd": "2024-01-31",
+      "scheduledAmount": 100000,
+      "recognitionPattern": "immediate"
+    },
+    // ... 12 monthly schedules for support
+  ],
+  "totals": {
+    "transactionPrice": 120000,
+    "allocatedAmount": 120000,
+    "immediateRecognition": 100000,
+    "deferredRevenue": 20000
+  }
+}
+```
+
+## Step 3: Generate Invoices
+
+Create invoices based on billing frequency and payment terms.
+
+```typescript
+const invoice = await api.invoices.create({
+  subscriptionId: subscription.id,
+  invoiceDate: "2024-01-01",
+  dueDate: "2024-01-31",
+  billingPeriodStart: "2024-01-01",
+  billingPeriodEnd: "2024-12-31",
+  lineItems: [
+    {
+      description: "Enterprise Software License",
+      quantity: 1,
+      unitPrice: 100000,
+      amount: 100000
+    },
+    {
+      description: "Annual Support & Maintenance",
+      quantity: 1,
+      unitPrice: 20000,
+      amount: 20000
+    }
+  ],
+  subtotal: 120000,
+  taxAmount: 0,
+  totalAmount: 120000
+});
+```
+
+## Step 4: Recognize Revenue
+
+Execute revenue recognition for the period.
+
+### Monthly Recognition Process
+
+```typescript
+// Recognize revenue for January 2024
+const recognition = await api.revenue.recognize({
+  periodDate: "2024-01-31",
+  options: {
+    includeManualAdjustments: true,
+    generateJournalEntries: true,
+    validateBeforeRecognition: true
+  }
+});
+```
+
+### Recognition Results
+
+```json
+{
+  "periodDate": "2024-01-31",
+  "totalRecognized": 101666.67,
+  "journalEntries": [
+    {
+      "entryDate": "2024-01-31",
+      "description": "Software License - Immediate Recognition",
+      "debitAccount": "1200", // Accounts Receivable
+      "creditAccount": "4000", // Revenue
+      "amount": 100000
+    },
+    {
+      "entryDate": "2024-01-31",
+      "description": "Support - Monthly Recognition",
+      "debitAccount": "2100", // Deferred Revenue
+      "creditAccount": "4000", // Revenue
+      "amount": 1666.67
+    }
+  ],
+  "schedules": [
+    {
+      "scheduleId": "sched-001",
+      "status": "recognized",
+      "recognizedAmount": 100000
+    },
+    {
+      "scheduleId": "sched-002",
+      "status": "recognized",
+      "recognizedAmount": 1666.67
+    }
+  ]
+}
+```
+
+## Step 5: Handle Contract Modifications
+
+When contracts change, recalculate revenue recognition.
+
+### Add New Item to Subscription
+
+```typescript
+// Add professional services to existing subscription
+const modification = await api.subscriptions.modify({
+  subscriptionId: subscription.id,
+  effectiveDate: "2024-04-01",
+  modifications: {
+    addItems: [
+      {
+        itemId: "prof-services",
+        itemName: "Implementation Services",
+        quantity: 100,
+        unitPrice: 500,
+        totalPrice: 50000,
+        itemType: "service",
+        recognitionPattern: "milestone"
+      }
+    ]
+  }
+});
+
+// Recalculate revenue
+const recalculation = await api.revenue.recalculate({
+  subscriptionId: subscription.id,
+  modificationType: "prospective",
+  effectiveDate: "2024-04-01"
+});
+```
+
+### Modification Types
+
+- **Prospective**: Changes apply from modification date forward
+- **Cumulative Catch-up**: Adjust as if modification existed from start
+- **Separate Contract**: Treat modification as new contract
+
+## Step 6: Generate Reports
+
+### Annual Recurring Revenue (ARR)
+
+```typescript
+const arrReport = await api.reports.arr({
+  asOfDate: "2024-01-31",
+  groupBy: "customer",
+  includeMetrics: ["new", "expansion", "contraction", "churn"]
+});
+```
+
+### Deferred Revenue Balance
+
+```typescript
+const deferredReport = await api.reports.deferredBalance({
+  asOfDate: "2024-01-31",
+  aging: true,
+  byCustomer: true
+});
+```
+
+### Revenue Waterfall
+
+```typescript
+const waterfallReport = await api.reports.waterfall({
+  startDate: "2024-01-01",
+  endDate: "2024-01-31",
+  compareToASC605: true
+});
+```
+
+## Key Concepts
+
+### Performance Obligations
+
+A performance obligation is a promise to transfer a distinct good or service to a customer. Key criteria:
+
+- **Distinct**: Customer can benefit from the good/service on its own
+- **Separately Identifiable**: Promise is distinct within the contract context
+
+### Standalone Selling Price (SSP)
+
+The price at which an entity would sell a promised good or service separately. Methods:
+
+1. **Observable Price**: Actual selling price when sold separately
+2. **Market Assessment**: Competitor prices for similar items
+3. **Cost Plus Margin**: Expected costs plus appropriate margin
+
+### Revenue Recognition Timing
+
+- **Point in Time**: Control transfers at specific moment
+  - Customer has physical possession
+  - Customer has legal title
+  - Customer has risks and rewards of ownership
+  
+- **Over Time**: Control transfers continuously
+  - Customer receives and consumes benefits
+  - Entity's performance creates/enhances customer asset
+  - No alternative use and enforceable payment right
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Issue: SSP Calculation Warnings
+
+```json
+{
+  "warning": "No observable price for item",
+  "itemId": "custom-service",
+  "fallbackMethod": "cost_plus_margin"
+}
+```
+
+**Solution**: Establish pricing history or define SSP ranges in item configuration.
+
+#### Issue: Allocation Exceeds Transaction Price
+
+```json
+{
+  "error": "Total SSP exceeds transaction price",
+  "transactionPrice": 100000,
+  "totalSSP": 120000
+}
+```
+
+**Solution**: System will automatically allocate based on relative SSP ratios.
+
+#### Issue: Recognition Pattern Mismatch
+
+```json
+{
+  "error": "Recognition pattern conflicts with obligation type",
+  "obligationType": "license",
+  "pattern": "over_time"
+}
+```
+
+**Solution**: Review and correct item configuration to match business model.
+
+## Best Practices
+
+1. **Consistent Item Setup**
+   - Standardize item types and recognition patterns
+   - Maintain SSP documentation
+   - Regular SSP validation
+
+2. **Timely Processing**
+   - Recognize revenue monthly
+   - Process modifications promptly
+   - Regular reconciliation with GL
+
+3. **Audit Trail**
+   - Document calculation assumptions
+   - Maintain modification history
+   - Archive recognition reports
+
+4. **Data Quality**
+   - Validate subscription data on entry
+   - Regular data consistency checks
+   - Monitor for anomalies
+
+## Next Steps
+
+- [Advanced Revenue Scenarios](/guides/revenue-recognition/advanced-scenarios)
+- [Integration with ERP Systems](/guides/revenue-recognition/erp-integration)
+- [Compliance and Audit](/guides/revenue-recognition/compliance)

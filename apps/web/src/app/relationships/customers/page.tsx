@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -155,7 +155,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData, cust
           <SelectValue placeholder="Select parent customer (optional)" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">None</SelectItem>
+          <SelectItem value="none">None</SelectItem>
           {customers
             .filter(c => c.id !== currentCustomerId) // Don't show current customer as its own parent
             .map(customer => (
@@ -239,15 +239,13 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData, cust
 );
 
 export default function CustomersPage() {
-  const { orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
+  const { orgId, isLoaded } = useAuth();
   const router = useRouter();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  console.log('[CustomersPage] Auth state:', { orgId, isLoaded });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const previousOrgIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -259,7 +257,7 @@ export default function CustomersPage() {
     description: '',
     notes: '',
     status: 'active',
-    parentCustomerId: '',
+    parentCustomerId: 'none',
     address: {
       street: '',
       city: '',
@@ -269,90 +267,97 @@ export default function CustomersPage() {
     }
   });
 
-  const fetchCustomers = useCallback(async () => {
-    if (!orgId) {
-      setLoading(false);
-      return;
+  // TRPC queries and mutations
+  const { data: customersData, isLoading, refetch } = trpc.customers.list.useQuery({}, {
+    enabled: !!orgId,
+    onError: (error) => {
+      console.error('[CustomersPage] Query error:', error);
+    },
+    onSuccess: (data) => {
+      console.log('[CustomersPage] Query success:', data);
     }
-    setLoading(true);
-    try {
-      const data = await apiGet<{ data: Customer[] }>('/api/customers');
-      console.log('Fetched customers:', data);
-      setCustomers(data.data || []);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      toast.error('Failed to fetch customers.');
-    } finally {
-      setLoading(false);
-    }
-  }, [orgId, apiGet]);
-
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setCustomers([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchCustomers();
-  }, [orgId, fetchCustomers]);
-
-  const handleCreate = async () => {
-    try {
-      if (!formData.name) {
-        toast.error('Company name is required');
-        return;
-      }
-
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      const newCustomer = await apiPost<Customer>('/api/customers', {
-        companyName: formData.name,
-        customerId: formData.code || undefined,
-        contactEmail: formData.email || undefined,
-        contactPhone: formData.phone || undefined,
-        status: formData.status,
-        parentCustomerId: formData.parentCustomerId || undefined,
-        billingAddress: formData.address.street || formData.address.city ? {
-          street: formData.address.street || undefined,
-          city: formData.address.city || undefined,
-          state: formData.address.state || undefined,
-          postalCode: formData.address.postalCode || undefined,
-          country: formData.address.country || undefined,
-        } : undefined,
-      });
-      
-      console.log('Customer created successfully:', newCustomer);
-      toast.success('Customer created successfully.');
-      
-      await fetchCustomers();
+  });
+  
+  const createCustomerMutation = trpc.customers.create.useMutation({
+    onSuccess: () => {
+      toast.success('Customer created successfully');
       setIsCreateOpen(false);
       resetForm();
-    } catch (error) {
-      console.error('Error creating customer:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create customer');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create customer');
+    },
+  });
+  
+  const updateCustomerMutation = trpc.customers.update.useMutation({
+    onSuccess: () => {
+      toast.success('Customer updated successfully');
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update customer');
+    },
+  });
+  
+  const deleteCustomerMutation = trpc.customers.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Customer deleted successfully');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete customer');
+    },
+  });
+
+  const customers = (customersData || []).map(customer => ({
+    ...customer,
+    id: customer.id || '',
+    createdAt: customer.createdAt?.toString() || new Date().toISOString(),
+    updatedAt: customer.updatedAt?.toString() || new Date().toISOString(),
+  }));
+
+  const handleCreate = async () => {
+    if (!formData.name) {
+      toast.error('Company name is required');
+      return;
     }
+
+    createCustomerMutation.mutate({
+      companyName: formData.name,
+      customerId: formData.code || undefined,
+      contactEmail: formData.email || undefined,
+      contactPhone: formData.phone || undefined,
+      status: formData.status,
+      parentCustomerId: formData.parentCustomerId && formData.parentCustomerId !== 'none' ? formData.parentCustomerId : undefined,
+      billingAddress: formData.address.street || formData.address.city ? {
+        street: formData.address.street || undefined,
+        city: formData.address.city || undefined,
+        state: formData.address.state || undefined,
+        postalCode: formData.address.postalCode || undefined,
+        country: formData.address.country || undefined,
+      } : undefined,
+    });
   };
 
   const handleUpdate = async () => {
     if (!selectedCustomer) return;
     
-    try {
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      await apiPut(`/api/customers/${selectedCustomer.id}`, {
+    updateCustomerMutation.mutate({
+      id: selectedCustomer.id,
+      data: {
         companyName: formData.name,
         customerId: formData.code || undefined,
         contactEmail: formData.email || undefined,
         contactPhone: formData.phone || undefined,
+        website: formData.website || undefined,
+        taxId: formData.taxId || undefined,
+        description: formData.description || undefined,
+        notes: formData.notes || undefined,
         status: formData.status,
-        parentCustomerId: formData.parentCustomerId || undefined,
+        parentCustomerId: formData.parentCustomerId && formData.parentCustomerId !== 'none' ? formData.parentCustomerId : undefined,
         billingAddress: formData.address.street || formData.address.city ? {
           street: formData.address.street || undefined,
           city: formData.address.city || undefined,
@@ -360,45 +365,30 @@ export default function CustomersPage() {
           postalCode: formData.address.postalCode || undefined,
           country: formData.address.country || undefined,
         } : undefined,
-      });
-      
-      toast.success('Customer updated successfully.');
-      await fetchCustomers();
-      setIsEditOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error updating customer:', error);
-      toast.error('Failed to update customer.');
-    }
+      },
+    });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this customer?')) return;
     
-    try {
-      await apiDelete(`/api/customers/${id}`);
-      toast.success('Customer deleted successfully.');
-      await fetchCustomers();
-    } catch (error) {
-      console.error('Error deleting customer:', error);
-      toast.error('Failed to delete customer.');
-    }
+    deleteCustomerMutation.mutate({ id });
   };
 
-  const openEditDialog = (customer: Customer) => {
+  const openEditDialog = (customer: any) => {
     setSelectedCustomer(customer);
     setFormData({
-      name: customer.companyName,
-      displayName: '',
+      name: customer.companyName || '',
+      displayName: customer.displayName || '',
       code: customer.customerId || '',
       email: customer.contactEmail || '',
       phone: customer.contactPhone || '',
-      website: '',
-      taxId: '',
-      description: '',
-      notes: '',
-      status: customer.status,
-      parentCustomerId: customer.parentCustomerId || '',
+      website: customer.website || '',
+      taxId: customer.taxId || '',
+      description: customer.description || '',
+      notes: customer.notes || '',
+      status: customer.status || 'active',
+      parentCustomerId: customer.parentCustomerId || 'none',
       address: {
         street: customer.billingAddress?.street || '',
         city: customer.billingAddress?.city || '',
@@ -422,7 +412,7 @@ export default function CustomersPage() {
       description: '',
       notes: '',
       status: 'active',
-      parentCustomerId: '',
+      parentCustomerId: 'none',
       address: {
         street: '',
         city: '',
@@ -440,8 +430,12 @@ export default function CustomersPage() {
 
   // Remove the CustomerForm definition from here since it's now outside
 
-  if (loading) {
-    return <div>Loading...</div>;
+  if (isLoading) {
+    return <div className="container mx-auto py-10"><p>Loading customers...</p></div>;
+  }
+
+  if (!orgId) {
+    return <div className="container mx-auto py-10"><p>Please select an organization to view customers.</p></div>;
   }
 
   return (
@@ -472,7 +466,9 @@ export default function CustomersPage() {
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreate}>Create</Button>
+                  <Button onClick={handleCreate} disabled={createCustomerMutation.isPending}>
+                    {createCustomerMutation.isPending ? 'Creating...' : 'Create'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -493,7 +489,7 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.map((customer) => (
+              {customers.map((customer: any) => (
                 <TableRow key={customer.id}>
                   <TableCell className="font-medium">
                     {customer.companyName}
@@ -571,7 +567,9 @@ export default function CustomersPage() {
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdate}>Update</Button>
+            <Button onClick={handleUpdate} disabled={updateCustomerMutation.isPending}>
+              {updateCustomerMutation.isPending ? 'Updating...' : 'Update'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

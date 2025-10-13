@@ -15,6 +15,11 @@ import { employeesRouter } from './routers/employees';
 import { prospectsRouter } from './routers/prospects';
 import { contactsRouter } from './routers/contacts';
 import { unitsOfMeasureRouter } from './routers/units-of-measure';
+import { businessTransactionsRouter } from './routers/business-transactions';
+import { subscriptionsRouter } from './routers/subscriptions';
+import { invoicesRouter } from './routers/invoices';
+import { paymentsRouter } from './routers/payments';
+import { revenueRouter } from './routers/revenue';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -33,6 +38,11 @@ export const appRouter = router({
   prospects: prospectsRouter,
   contacts: contactsRouter,
   unitsOfMeasure: unitsOfMeasureRouter,
+  businessTransactions: businessTransactionsRouter,
+  subscriptions: subscriptionsRouter,
+  invoices: invoicesRouter,
+  payments: paymentsRouter,
+  revenue: revenueRouter,
 });
 
 export type AppRouter = typeof appRouter;

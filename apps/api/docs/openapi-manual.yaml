@@ -1,0 +1,1110 @@
+openapi: 3.0.3
+info:
+  title: GLAPI - General Ledger API
+  description: |
+    A comprehensive API for managing accounting dimensions, revenue recognition, and financial data.
+    
+    ## Features
+    - **Multi-tenant**: All data is scoped to the authenticated user's organization
+    - **Type-safe**: Built with tRPC for end-to-end type safety
+    - **Accounting-focused**: Designed specifically for financial and accounting applications
+    - **Revenue Recognition**: ASC 606 compliant revenue recognition system
+    - **Comprehensive**: Covers all major accounting dimensions and relationships
+    
+    ## Authentication
+    All endpoints require authentication using Bearer tokens. Include your JWT token in the Authorization header:
+    ```
+    Authorization: Bearer YOUR_JWT_TOKEN
+    ```
+    
+    ## Pagination
+    List endpoints support cursor-based pagination with the following parameters:
+    - `page`: Page number (default: 1)
+    - `limit`: Number of items per page (default: 10, max: 100)
+    
+    ## Error Handling
+    The API uses standard HTTP status codes and returns detailed error messages:
+    - `400`: Bad Request - Invalid input data
+    - `401`: Unauthorized - Missing or invalid authentication
+    - `403`: Forbidden - Insufficient permissions
+    - `404`: Not Found - Resource not found
+    - `409`: Conflict - Resource already exists or validation error
+    - `500`: Internal Server Error - Server-side error
+    
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://glapi.com/support
+    email: support@glapi.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001/api/trpc
+    description: Development server (tRPC)
+  - url: https://api.glapi.com/trpc
+    description: Production server (tRPC)
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Base schemas
+    PaginationParams:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of items per page
+        search:
+          type: string
+          description: Search query
+    
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {}
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number
+        limit:
+          type: integer
+          description: Items per page
+        pages:
+          type: integer
+          description: Total number of pages
+      required:
+        - data
+        - total
+        - page
+        - limit
+        - pages
+    
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+          description: Street address
+        city:
+          type: string
+          description: City
+        state:
+          type: string
+          description: State or province
+        postalCode:
+          type: string
+          description: Postal/ZIP code
+        country:
+          type: string
+          description: Country
+      required:
+        - street
+        - city
+        - state
+        - postalCode
+        - country
+    
+    # Customer schemas
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique customer identifier
+        companyName:
+          type: string
+          minLength: 1
+          description: Company name
+        customerId:
+          type: string
+          nullable: true
+          description: Customer code/ID
+        contactEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Contact email
+        contactPhone:
+          type: string
+          nullable: true
+          description: Contact phone number
+        billingAddress:
+          $ref: '#/components/schemas/Address'
+          nullable: true
+        shippingAddress:
+          $ref: '#/components/schemas/Address'
+          nullable: true
+        parentCustomerId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent customer ID for hierarchical relationships
+        taxId:
+          type: string
+          nullable: true
+          description: Tax ID number
+        paymentTerms:
+          type: string
+          nullable: true
+          description: Payment terms
+        creditLimit:
+          type: number
+          nullable: true
+          description: Credit limit
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+          description: Customer status
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - companyName
+        - status
+        - createdAt
+        - updatedAt
+    
+    CustomerCreateRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+          minLength: 1
+          description: Company name
+        customerId:
+          type: string
+          description: Customer code/ID
+        contactEmail:
+          type: string
+          format: email
+          description: Contact email
+        contactPhone:
+          type: string
+          description: Contact phone number
+        billingAddress:
+          $ref: '#/components/schemas/Address'
+        shippingAddress:
+          $ref: '#/components/schemas/Address'
+        parentCustomerId:
+          type: string
+          format: uuid
+          description: Parent customer ID
+        taxId:
+          type: string
+          description: Tax ID number
+        paymentTerms:
+          type: string
+          description: Payment terms
+        creditLimit:
+          type: number
+          description: Credit limit
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+          description: Customer status
+      required:
+        - companyName
+    
+    CustomerUpdateRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+          minLength: 1
+          description: Company name
+        customerId:
+          type: string
+          description: Customer code/ID
+        contactEmail:
+          type: string
+          format: email
+          description: Contact email
+        contactPhone:
+          type: string
+          description: Contact phone number
+        billingAddress:
+          $ref: '#/components/schemas/Address'
+        shippingAddress:
+          $ref: '#/components/schemas/Address'
+        parentCustomerId:
+          type: string
+          format: uuid
+          description: Parent customer ID
+        taxId:
+          type: string
+          description: Tax ID number
+        paymentTerms:
+          type: string
+          description: Payment terms
+        creditLimit:
+          type: number
+          description: Credit limit
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          description: Customer status
+    
+    # Employee schemas
+    Employee:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique employee identifier
+        employeeCode:
+          type: string
+          description: Employee code/ID
+        firstName:
+          type: string
+          description: First name
+        lastName:
+          type: string
+          description: Last name
+        email:
+          type: string
+          format: email
+          description: Email address
+        phone:
+          type: string
+          description: Phone number
+        departmentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Department ID
+        title:
+          type: string
+          nullable: true
+          description: Job title
+        status:
+          type: string
+          enum: [active, inactive, terminated]
+          default: active
+          description: Employee status
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - employeeCode
+        - firstName
+        - lastName
+        - email
+        - status
+        - createdAt
+        - updatedAt
+    
+    # Vendor schemas
+    Vendor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique vendor identifier
+        companyName:
+          type: string
+          minLength: 1
+          description: Company name
+        vendorCode:
+          type: string
+          description: Vendor code/ID
+        contactEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Contact email
+        contactPhone:
+          type: string
+          nullable: true
+          description: Contact phone number
+        billingAddress:
+          $ref: '#/components/schemas/Address'
+          nullable: true
+        paymentTerms:
+          type: string
+          nullable: true
+          description: Payment terms
+        status:
+          type: string
+          enum: [active, inactive, archived]
+          default: active
+          description: Vendor status
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - companyName
+        - status
+        - createdAt
+        - updatedAt
+    
+    # Item schemas
+    Item:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique item identifier
+        itemCode:
+          type: string
+          description: Item code/SKU
+        name:
+          type: string
+          description: Item name
+        description:
+          type: string
+          nullable: true
+          description: Item description
+        itemType:
+          type: string
+          enum: [INVENTORY_ITEM, NON_INVENTORY_ITEM, SERVICE, ASSEMBLY]
+          description: Type of item
+        unitOfMeasureId:
+          type: string
+          format: uuid
+          description: Unit of measure ID
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Category ID
+        isActive:
+          type: boolean
+          default: true
+          description: Whether item is active
+        isPurchasable:
+          type: boolean
+          default: true
+          description: Whether item can be purchased
+        isSaleable:
+          type: boolean
+          default: true
+          description: Whether item can be sold
+        defaultPrice:
+          type: number
+          nullable: true
+          description: Default selling price
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - itemCode
+        - name
+        - itemType
+        - unitOfMeasureId
+        - isActive
+        - isPurchasable
+        - isSaleable
+        - createdAt
+        - updatedAt
+    
+    # Account schemas
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique account identifier
+        accountNumber:
+          type: string
+          description: Account number
+        accountName:
+          type: string
+          description: Account name
+        accountType:
+          type: string
+          enum: [ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE]
+          description: Account type
+        parentAccountId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent account ID for hierarchical chart of accounts
+        isActive:
+          type: boolean
+          default: true
+          description: Whether account is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - accountNumber
+        - accountName
+        - accountType
+        - isActive
+        - createdAt
+        - updatedAt
+    
+    # Dimension schemas
+    Class:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique class identifier
+        classCode:
+          type: string
+          description: Class code
+        className:
+          type: string
+          description: Class name
+        description:
+          type: string
+          nullable: true
+          description: Class description
+        isActive:
+          type: boolean
+          default: true
+          description: Whether class is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - classCode
+        - className
+        - isActive
+        - createdAt
+        - updatedAt
+    
+    Department:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique department identifier
+        departmentCode:
+          type: string
+          description: Department code
+        departmentName:
+          type: string
+          description: Department name
+        description:
+          type: string
+          nullable: true
+          description: Department description
+        isActive:
+          type: boolean
+          default: true
+          description: Whether department is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - departmentCode
+        - departmentName
+        - isActive
+        - createdAt
+        - updatedAt
+    
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique location identifier
+        locationCode:
+          type: string
+          description: Location code
+        locationName:
+          type: string
+          description: Location name
+        address:
+          $ref: '#/components/schemas/Address'
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+          description: Whether location is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - locationCode
+        - locationName
+        - isActive
+        - createdAt
+        - updatedAt
+    
+    Subsidiary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique subsidiary identifier
+        subsidiaryCode:
+          type: string
+          description: Subsidiary code
+        subsidiaryName:
+          type: string
+          description: Subsidiary name
+        taxId:
+          type: string
+          nullable: true
+          description: Tax ID number
+        address:
+          $ref: '#/components/schemas/Address'
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+          description: Whether subsidiary is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - id
+        - subsidiaryCode
+        - subsidiaryName
+        - isActive
+        - createdAt
+        - updatedAt
+    
+    # Error schemas
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+      required:
+        - message
+        - code
+
+paths:
+  # Customer endpoints
+  /customers.list:
+    get:
+      tags:
+        - customers
+      summary: List customers
+      description: Retrieve a paginated list of customers
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search customers by company name
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, archived]
+          description: Filter by customer status
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Customer'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /customers.create:
+    post:
+      tags:
+        - customers
+      summary: Create customer
+      description: Create a new customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCreateRequest'
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - Customer already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /customers.getById:
+    get:
+      tags:
+        - customers
+      summary: Get customer by ID
+      description: Retrieve a specific customer by ID
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Customer ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /customers.update:
+    post:
+      tags:
+        - customers
+      summary: Update customer
+      description: Update an existing customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Customer ID
+                data:
+                  $ref: '#/components/schemas/CustomerUpdateRequest'
+              required:
+                - id
+                - data
+      responses:
+        '200':
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /customers.delete:
+    post:
+      tags:
+        - customers
+      summary: Delete customer
+      description: Delete a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              format: uuid
+              description: Customer ID
+      responses:
+        '200':
+          description: Customer deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /customers.getChildren:
+    get:
+      tags:
+        - customers
+      summary: Get child customers
+      description: Retrieve child customers for a parent customer
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Parent customer ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Customer'
+
+  # Employee endpoints
+  /employees.list:
+    get:
+      tags:
+        - employees
+      summary: List employees
+      description: Retrieve a paginated list of employees
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search employees by name
+        - name: departmentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by department ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, terminated]
+          description: Filter by employee status
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Employee'
+
+  # Vendor endpoints
+  /vendors.list:
+    get:
+      tags:
+        - vendors
+      summary: List vendors
+      description: Retrieve a paginated list of vendors
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search vendors by company name
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, archived]
+          description: Filter by vendor status
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Vendor'
+
+  # Item endpoints
+  /items.list:
+    get:
+      tags:
+        - items
+      summary: List items
+      description: Retrieve a paginated list of items
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search items by name or code
+        - name: itemType
+          in: query
+          schema:
+            type: string
+            enum: [INVENTORY_ITEM, NON_INVENTORY_ITEM, SERVICE, ASSEMBLY]
+          description: Filter by item type
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by category ID
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Item'
+
+  # Account endpoints
+  /accounts.list:
+    get:
+      tags:
+        - accounts
+      summary: List GL accounts
+      description: Retrieve a paginated list of general ledger accounts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search accounts by name or number
+        - name: accountType
+          in: query
+          schema:
+            type: string
+            enum: [ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE]
+          description: Filter by account type
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Account'
+
+tags:
+  - name: customers
+    description: Customer relationship management operations
+  - name: employees
+    description: Employee management operations
+  - name: vendors
+    description: Vendor relationship management operations
+  - name: items
+    description: Item catalog management operations
+  - name: accounts
+    description: General ledger account operations
+  - name: classes
+    description: Class dimension management operations
+  - name: departments
+    description: Department dimension management operations
+  - name: locations
+    description: Location dimension management operations
+  - name: subsidiaries
+    description: Subsidiary dimension management operations
