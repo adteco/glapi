@@ -4,6 +4,18 @@
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./schema": {
+      "import": "./dist/db/schema/index.js",
+      "require": "./dist/db/schema/index.js",
+      "types": "./dist/db/schema/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test:connection": "tsx src/scripts/test-connection.ts",
@@ -14,19 +26,23 @@
     "run:entities-migration": "tsx src/scripts/run-entities-migration.ts"
   },
   "dependencies": {
-    "@glapi/business": "workspace:*",
+    "@paralleldrive/cuid2": "^2.2.2",
     "@types/dotenv": "^8.2.3",
     "@types/pg": "^8.15.1",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.44.2",
     "pg": "^8.15.6",
     "postgres": "^3.4.3",
+    "uuid": "^9.0.1",
     "zod": "^3.25.49"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
+    "@types/uuid": "^9.0.7",
     "drizzle-kit": "^0.31.4",
+    "drizzle-zod": "^0.8.3",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
   }
 }

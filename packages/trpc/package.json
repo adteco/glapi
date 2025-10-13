@@ -8,17 +8,18 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@trpc/server": "^11.0.0",
-    "@trpc/client": "^11.0.0",
-    "zod": "^3.24.1",
-    "@glapi/database": "workspace:*",
     "@glapi/api-service": "workspace:*",
     "@glapi/business": "workspace:*",
-    "superjson": "^2.2.2"
+    "@glapi/database": "workspace:*",
+    "@trpc/client": "^11.0.0",
+    "@trpc/server": "^11.0.0",
+    "drizzle-orm": "^0.44.2",
+    "superjson": "^1.13.3",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.5.4",
-    "typescript": "^5.7.3",
-    "tsconfig-custom": "workspace:*"
+    "tsconfig-custom": "workspace:*",
+    "typescript": "^5.7.3"
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@clerk/nextjs';
-import { useApiClient } from '@/lib/api-client.client';
+import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -297,14 +297,10 @@ const VendorForm: React.FC<VendorFormProps> = ({ formData, setFormData }) => (
 
 export default function VendorsPage() {
   const { orgId } = useAuth();
-  const { apiGet, apiPost, apiPut, apiDelete } = useApiClient();
   const router = useRouter();
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const previousOrgIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     displayName: '',
@@ -333,110 +329,104 @@ export default function VendorsPage() {
     }
   });
 
-  const fetchVendors = useCallback(async () => {
-    if (!orgId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await apiGet<{ data: Vendor[] }>('/api/vendors');
-      console.log('Fetched vendors:', data);
-      setVendors(data.data || []);
-    } catch (error) {
-      console.error('Error fetching vendors:', error);
-      toast.error('Failed to fetch vendors.');
-    } finally {
-      setLoading(false);
-    }
-  }, [orgId, apiGet]);
+  // TRPC queries and mutations
+  const { data: vendorsData, isLoading, refetch } = trpc.vendors.list.useQuery({}, {
+    enabled: !!orgId,
+  });
+  
+  const createVendorMutation = trpc.vendors.create.useMutation({
+    onSuccess: () => {
+      toast.success('Vendor created successfully');
+      setIsCreateOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create vendor');
+    },
+  });
+  
+  const updateVendorMutation = trpc.vendors.update.useMutation({
+    onSuccess: () => {
+      toast.success('Vendor updated successfully');
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update vendor');
+    },
+  });
+  
+  const deleteVendorMutation = trpc.vendors.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Vendor deleted successfully');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete vendor');
+    },
+  });
 
-  // Clear data and refetch when organization changes
-  useEffect(() => {
-    if (orgId && orgId !== previousOrgIdRef.current) {
-      // Clear existing data immediately when org changes
-      setVendors([]);
-      previousOrgIdRef.current = orgId;
-    }
-    fetchVendors();
-  }, [orgId, fetchVendors]);
+  const vendors = (vendorsData?.data || []).map(vendor => ({
+    ...vendor,
+    id: vendor.id || '',
+    createdAt: vendor.createdAt?.toString() || new Date().toISOString(),
+    updatedAt: vendor.updatedAt?.toString() || new Date().toISOString(),
+  }));
 
 
   const handleCreate = async () => {
-    try {
-      if (!formData.name) {
-        toast.error('Vendor name is required');
-        return;
-      }
-
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      const newVendor = await apiPost<Vendor>('/api/vendors', {
-        name: formData.name,
-        displayName: formData.displayName || undefined,
-        code: formData.code || undefined,
-        entityTypes: ['Vendor'],
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        website: formData.website || undefined,
-        taxId: formData.taxId || undefined,
-        description: formData.description || undefined,
-        notes: formData.notes || undefined,
-        status: formData.status,
-        isActive: true,
-        address: formData.address.line1 || formData.address.city ? {
-          line1: formData.address.line1 || undefined,
-          line2: formData.address.line2 || undefined,
-          city: formData.address.city || undefined,
-          stateProvince: formData.address.stateProvince || undefined,
-          postalCode: formData.address.postalCode || undefined,
-          countryCode: formData.address.countryCode || undefined,
-        } : undefined,
-        metadata: {
-          paymentTerms: formData.metadata.paymentTerms || undefined,
-          vendorType: formData.metadata.vendorType || undefined,
-          ein: formData.metadata.ein || undefined,
-          w9OnFile: formData.metadata.w9OnFile,
-          defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
-        },
-      });
-      
-      console.log('Vendor created successfully:', newVendor);
-      toast.success('Vendor created successfully.');
-      
-      await fetchVendors();
-      setIsCreateOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error creating vendor:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create vendor');
+    if (!formData.name) {
+      toast.error('Vendor name is required');
+      return;
     }
+
+    createVendorMutation.mutate({
+      name: formData.name,
+      displayName: formData.displayName || undefined,
+      code: formData.code || undefined,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      website: formData.website || undefined,
+      taxId: formData.taxId || undefined,
+      description: formData.description || undefined,
+      notes: formData.notes || undefined,
+      // status: formData.status as 'active' | 'inactive' | 'archived',
+      isActive: true,
+      address: formData.address.line1 || formData.address.city ? {
+        line1: formData.address.line1 || undefined,
+        line2: formData.address.line2 || undefined,
+        city: formData.address.city || undefined,
+        stateProvince: formData.address.stateProvince || undefined,
+        postalCode: formData.address.postalCode || undefined,
+        countryCode: formData.address.countryCode || undefined,
+      } : undefined,
+      metadata: {
+        terms: formData.metadata.paymentTerms || undefined,
+        vendor_type: formData.metadata.vendorType || undefined,
+        ein: formData.metadata.ein || undefined,
+        creditLimit: undefined,
+      },
+    });
   };
 
   const handleUpdate = async () => {
     if (!selectedVendor) return;
     
-    try {
-      if (!orgId) {
-        toast.error('Organization not selected.');
-        return;
-      }
-
-      await apiPut(`/api/vendors/${selectedVendor.id}`, {
+    updateVendorMutation.mutate({
+      id: selectedVendor.id,
+      data: {
         name: formData.name,
         displayName: formData.displayName || undefined,
         code: formData.code || undefined,
-        entityTypes: ['Vendor'],
         email: formData.email || undefined,
         phone: formData.phone || undefined,
         website: formData.website || undefined,
         taxId: formData.taxId || undefined,
         description: formData.description || undefined,
         notes: formData.notes || undefined,
-        status: formData.status,
+        // status: formData.status as 'active' | 'inactive' | 'archived',
         isActive: true,
         address: formData.address.line1 || formData.address.city ? {
           line1: formData.address.line1 || undefined,
@@ -447,38 +437,22 @@ export default function VendorsPage() {
           countryCode: formData.address.countryCode || undefined,
         } : undefined,
         metadata: {
-          paymentTerms: formData.metadata.paymentTerms || undefined,
-          vendorType: formData.metadata.vendorType || undefined,
+          terms: formData.metadata.paymentTerms || undefined,
+          vendor_type: formData.metadata.vendorType || undefined,
           ein: formData.metadata.ein || undefined,
-          w9OnFile: formData.metadata.w9OnFile,
-          defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
+          creditLimit: undefined,
         },
-      });
-      
-      toast.success('Vendor updated successfully.');
-      await fetchVendors();
-      setIsEditOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error updating vendor:', error);
-      toast.error('Failed to update vendor.');
-    }
+      },
+    });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this vendor?')) return;
     
-    try {
-      await apiDelete(`/api/vendors/${id}`);
-      toast.success('Vendor deleted successfully.');
-      await fetchVendors();
-    } catch (error) {
-      console.error('Error deleting vendor:', error);
-      toast.error('Failed to delete vendor.');
-    }
+    deleteVendorMutation.mutate({ id });
   };
 
-  const openEditDialog = (vendor: Vendor) => {
+  const openEditDialog = (vendor: any) => {
     setSelectedVendor(vendor);
     setFormData({
       name: vendor.name,
@@ -500,11 +474,11 @@ export default function VendorsPage() {
         countryCode: vendor.address?.countryCode || '',
       },
       metadata: {
-        paymentTerms: vendor.metadata?.paymentTerms || '',
-        vendorType: vendor.metadata?.vendorType || '',
+        paymentTerms: vendor.metadata?.terms || '',
+        vendorType: vendor.metadata?.vendor_type || '',
         ein: vendor.metadata?.ein || '',
-        w9OnFile: vendor.metadata?.w9OnFile || false,
-        defaultExpenseAccount: vendor.metadata?.defaultExpenseAccount || '',
+        w9OnFile: false,
+        defaultExpenseAccount: '',
       }
     });
     setIsEditOpen(true);
@@ -547,8 +521,12 @@ export default function VendorsPage() {
 
   // Remove the VendorForm definition from here since it's now outside
 
-  if (loading) {
-    return <div>Loading...</div>;
+  if (isLoading) {
+    return <div className="container mx-auto py-10"><p>Loading vendors...</p></div>;
+  }
+
+  if (!orgId) {
+    return <div className="container mx-auto py-10"><p>Please select an organization to view vendors.</p></div>;
   }
 
   return (
@@ -579,7 +557,9 @@ export default function VendorsPage() {
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreate}>Create</Button>
+                  <Button onClick={handleCreate} disabled={createVendorMutation.isPending}>
+                    {createVendorMutation.isPending ? 'Creating...' : 'Create'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -600,7 +580,7 @@ export default function VendorsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vendors.map((vendor) => (
+              {vendors.map((vendor: any) => (
                 <TableRow key={vendor.id}>
                   <TableCell className="font-medium">
                     {vendor.displayName || vendor.name}
@@ -679,7 +659,9 @@ export default function VendorsPage() {
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdate}>Update</Button>
+            <Button onClick={handleUpdate} disabled={updateVendorMutation.isPending}>
+              {updateVendorMutation.isPending ? 'Updating...' : 'Update'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

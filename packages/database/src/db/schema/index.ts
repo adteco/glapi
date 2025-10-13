@@ -36,8 +36,38 @@ import * as inventoryTracking from './inventory-tracking';
 import * as assembliesKits from './assemblies-kits';
 import * as itemAuditLog from './item-audit-log';
 
+// Order-to-Cash transaction system uses existing business transaction system
+
 // Note: Relations defined within schema files are automatically picked up by Drizzle
 // when they are imported alongside their corresponding tables.
+
+// 606 Ledger schemas
+import * as subscriptions from './subscriptions';
+import * as subscriptionItems from './subscription-items';
+import * as invoices from './invoices';
+import * as payments from './payments';
+import * as revenueEnums from './revenue-enums';
+import * as performanceObligationsNew from './performance-obligations';
+import * as revenueSchedulesNew from './revenue-schedules';
+import * as sspEvidenceNew from './ssp-evidence';
+import * as contractSspAllocationsNew from './contract-ssp-allocations';
+import * as revenueJournalEntriesNew from './revenue-journal-entries';
+import * as kitComponents from './kit-components';
+
+// Contract modification schemas
+import * as contractModifications from './contract-modifications';
+import * as modificationLineItems from './modification-line-items';
+import * as catchUpAdjustments from './catch-up-adjustments';
+import * as glAccountMappings from './gl-account-mappings';
+import * as revenueForecastingSchemas from './revenue-forecasting';
+import * as sspAnalyticsSchemas from './ssp-analytics';
+
+// Additional analytics schemas
+import * as churnPredictions from './churn-predictions';
+import * as cohortAnalysisSchemas from './cohort-analysis';
+import * as scenarioAnalysisSchemas from './scenario-analysis';
+import * as journalEntryBatchSchemas from './journal-entry-batches';
+import * as glJournalEntrySchemas from './gl-journal-entries';
 
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
@@ -74,11 +104,172 @@ export const schema = {
   ...inventoryTracking,
   ...assembliesKits,
   ...itemAuditLog,
+  // Order-to-Cash transaction system uses existing business transaction system
   // GL and transaction schemas
   ...transactionTypes,
   ...glTransactions,
   ...accountingPeriods,
   ...rlsAccessControl,
   ...taxCodes,
-  ...activityCodes
+  ...activityCodes,
+  // 606 Ledger schemas
+  ...subscriptions,
+  ...subscriptionItems,
+  ...invoices,
+  ...payments,
+  ...revenueEnums,
+  ...performanceObligationsNew,
+  ...revenueSchedulesNew,
+  ...sspEvidenceNew,
+  ...contractSspAllocationsNew,
+  ...revenueJournalEntriesNew,
+  ...kitComponents,
+  // Contract modification schemas
+  ...contractModifications,
+  ...modificationLineItems,
+  ...catchUpAdjustments,
+  ...glAccountMappings,
+  ...revenueForecastingSchemas,
+  ...sspAnalyticsSchemas,
+  // Additional analytics schemas
+  ...churnPredictions,
+  ...cohortAnalysisSchemas,
+  ...scenarioAnalysisSchemas,
+  ...journalEntryBatchSchemas,
+  ...glJournalEntrySchemas
 };
+
+// Re-export specific types from new schemas
+export type { Subscription, NewSubscription, UpdateSubscription } from './subscriptions';
+export type { SubscriptionItem, NewSubscriptionItem, UpdateSubscriptionItem } from './subscription-items';
+export type { Invoice, NewInvoice, UpdateInvoice } from './invoices';
+export type { Payment, NewPayment, UpdatePayment } from './payments';
+export type { PerformanceObligation, NewPerformanceObligation } from './performance-obligations';
+export type { RevenueSchedule, NewRevenueSchedule } from './revenue-schedules';
+export type { SspEvidence as SSPEvidence, NewSspEvidence as NewSSPEvidence } from './ssp-evidence';
+export type { ContractSspAllocation as ContractSSPAllocation, NewContractSspAllocation as NewContractSSPAllocation } from './contract-ssp-allocations';
+export type { RevenueJournalEntry, NewRevenueJournalEntry } from './revenue-journal-entries';
+
+// Re-export tables from new schemas with correct names
+export { performanceObligations } from './performance-obligations';
+export { revenueSchedules } from './revenue-schedules';
+export { sspEvidence } from './ssp-evidence';
+export { contractSspAllocations } from './contract-ssp-allocations';
+export { revenueJournalEntries } from './revenue-journal-entries';
+export { items } from './items';
+export { kitComponents } from './kit-components';
+export type { KitComponent } from './kit-components';
+export { subscriptions } from './subscriptions';
+export { subscriptionItems } from './subscription-items';
+export { invoices } from './invoices';
+export { payments } from './payments';
+
+// Re-export contract modification schemas
+export { 
+  contractModifications, 
+  modificationMethodEnum as ModificationMethod,
+  modificationTypeEnum as ModificationType,
+  modificationStatusEnum as ModificationStatus
+} from './contract-modifications';
+export type { 
+  ContractModification,
+  NewContractModification,
+  UpdateContractModification
+} from './contract-modifications';
+export { modificationLineItems } from './modification-line-items';
+export type { 
+  ModificationLineItem,
+  NewModificationLineItem
+} from './modification-line-items';
+export { catchUpAdjustments } from './catch-up-adjustments';
+export type {
+  CatchUpAdjustment,
+  NewCatchUpAdjustment
+} from './catch-up-adjustments';
+
+// Re-export SSP analytics schemas
+export {
+  sspCalculationRuns,
+  vsoeEvidence,
+  sspPricingBands,
+  sspExceptions,
+  CalculationMethods,
+  ExceptionTypes,
+  ExceptionSeverity,
+  RunStatus
+} from './ssp-analytics';
+export type {
+  SSPCalculationRun,
+  NewSSPCalculationRun,
+  VSOEEvidence,
+  NewVSOEEvidence,
+  SSPPricingBand,
+  NewSSPPricingBand,
+  SSPException,
+  NewSSPException
+} from './ssp-analytics';
+
+// Re-export GL account mappings
+export { 
+  glAccountMappings,
+  glPeriodEndBatches,
+  AccountTypes,
+  TransactionTypes,
+  ExternalSystems,
+  GLBatchStatuses
+} from './gl-account-mappings';
+export type {
+  GLAccountMapping,
+  NewGLAccountMapping,
+  GLPeriodEndBatch,
+  NewGLPeriodEndBatch
+} from './gl-account-mappings';
+
+// Re-export journal entry batches
+export { journalEntryBatches, BatchStatuses } from './journal-entry-batches';
+export type { JournalEntryBatch, NewJournalEntryBatch } from './journal-entry-batches';
+
+// Re-export business transactions
+export { businessTransactions, businessTransactionLines, transactionTypes } from './transaction-types';
+
+// Re-export forecasting schemas
+export {
+  revenueForecastRuns,
+  revenueForecastDetails,
+  forecastModelEnum as ForecastModel
+} from './revenue-forecasting';
+export type {
+  RevenueForecastRun,
+  NewRevenueForecastRun,
+  RevenueForecastDetail,
+  NewRevenueForecastDetail
+} from './revenue-forecasting';
+
+// Re-export analytics schemas
+export { churnPredictions } from './churn-predictions';
+export type { ChurnPrediction, NewChurnPrediction } from './churn-predictions';
+
+export { cohortAnalysis, deferredRevenueRollforward } from './cohort-analysis';
+export type { 
+  CohortAnalysis, 
+  NewCohortAnalysis,
+  DeferredRevenueRollforward,
+  NewDeferredRevenueRollforward
+} from './cohort-analysis';
+
+export { scenarioAnalysis } from './scenario-analysis';
+export type { ScenarioAnalysis, NewScenarioAnalysis } from './scenario-analysis';
+
+// Re-export modification approval history
+export { modificationApprovalHistory } from './contract-modifications';
+export type { 
+  ModificationApprovalHistory,
+  NewModificationApprovalHistory
+} from './contract-modifications';
+
+// Re-export GL journal entries
+export { glJournalEntries, GLJournalStatus } from './gl-journal-entries';
+export type { GLJournalEntry, NewGLJournalEntry } from './gl-journal-entries';
+
+// Re-export accounting periods
+export { accountingPeriods } from './accounting-periods';

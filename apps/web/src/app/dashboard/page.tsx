@@ -1,14 +1,350 @@
 'use client';
 
 import React from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { 
+  BarChart3, 
+  TrendingUp, 
+  Activity, 
+  DollarSign, 
+  FileText, 
+  Calendar, 
+  Plus,
+  ArrowRight,
+  Target,
+  Users,
+  Package,
+  ShoppingCart
+} from 'lucide-react';
+import Link from 'next/link';
 
 const DashboardPage = () => {
+  const { orgId } = useAuth();
+
+  if (!orgId) {
+    return (
+      <div className="container mx-auto py-10">
+        <p>Please select an organization to view your dashboard.</p>
+      </div>
+    );
+  }
+
+  // Mock data - replace with real data from TRPC
+  const dashboardStats = {
+    totalRevenue: 125000,
+    totalExpenses: 85000,
+    netIncome: 40000,
+    cashBalance: 48500,
+    openInvoices: 15,
+    pendingOrders: 8,
+    activeCustomers: 142,
+    lowStockItems: 5,
+  };
+
+  const recentTransactions = [
+    { id: '1', type: 'Sales Invoice', number: 'INV-2024-001', amount: 2500, date: '2024-01-15' },
+    { id: '2', type: 'Purchase Order', number: 'PO-2024-008', amount: -1200, date: '2024-01-14' },
+    { id: '3', type: 'Journal Entry', number: 'JE-2024-012', amount: 500, date: '2024-01-13' },
+    { id: '4', type: 'Sales Order', number: 'SO-2024-015', amount: 3200, date: '2024-01-12' },
+  ];
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-      <p>Welcome to your dashboard!</p>
-      <p>The new sidebar should be visible on the left.</p>
-      {/* You can start adding Shadcn components here */}
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-gray-600">Welcome back! Here's what's happening with your business.</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/transactions/sales/invoices">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Invoice
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(dashboardStats.totalRevenue)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              +12.5% from last month
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net Income</CardTitle>
+            <DollarSign className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {formatCurrency(dashboardStats.netIncome)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              +8.2% from last month
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cash Balance</CardTitle>
+            <Activity className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {formatCurrency(dashboardStats.cashBalance)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              +18.3% from last month
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
+            <Users className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {dashboardStats.activeCustomers}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              +5 new this month
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Financial Reports */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Financial Reports
+            </CardTitle>
+            <CardDescription>
+              View key financial statements and analysis
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Link href="/reports/financial/balance-sheet">
+              <Button variant="outline" className="w-full justify-between">
+                Balance Sheet
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/reports/financial/income-statement">
+              <Button variant="outline" className="w-full justify-between">
+                Income Statement
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/reports/financial/cash-flow-statement">
+              <Button variant="outline" className="w-full justify-between">
+                Cash Flow Statement
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/reports">
+              <Button className="w-full mt-2">
+                View All Reports
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* Quick Transactions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription>
+              Create new transactions and entries
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Link href="/transactions/sales/invoices">
+              <Button variant="outline" className="w-full justify-between">
+                New Invoice
+                <Plus className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/transactions/sales/sales-orders">
+              <Button variant="outline" className="w-full justify-between">
+                New Sales Order
+                <Plus className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/transactions/inventory/purchase-orders">
+              <Button variant="outline" className="w-full justify-between">
+                New Purchase Order
+                <Plus className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/transactions/management/journal">
+              <Button variant="outline" className="w-full justify-between">
+                Journal Entry
+                <Plus className="h-4 w-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* Alerts & Notifications */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Alerts & Tasks
+            </CardTitle>
+            <CardDescription>
+              Important items requiring attention
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+              <div>
+                <p className="text-sm font-medium">Open Invoices</p>
+                <p className="text-xs text-gray-600">{dashboardStats.openInvoices} invoices pending</p>
+              </div>
+              <div className="text-lg font-bold text-yellow-600">
+                {dashboardStats.openInvoices}
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div>
+                <p className="text-sm font-medium">Pending Orders</p>
+                <p className="text-xs text-gray-600">{dashboardStats.pendingOrders} orders to fulfill</p>
+              </div>
+              <div className="text-lg font-bold text-blue-600">
+                {dashboardStats.pendingOrders}
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+              <div>
+                <p className="text-sm font-medium">Low Stock Items</p>
+                <p className="text-xs text-gray-600">{dashboardStats.lowStockItems} items need reorder</p>
+              </div>
+              <div className="text-lg font-bold text-red-600">
+                {dashboardStats.lowStockItems}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Transactions */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Recent Transactions</CardTitle>
+              <CardDescription>
+                Latest business transactions and activities
+              </CardDescription>
+            </div>
+            <Link href="/transactions">
+              <Button variant="outline">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentTransactions.map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    {transaction.type.includes('Invoice') && <FileText className="h-4 w-4" />}
+                    {transaction.type.includes('Order') && <ShoppingCart className="h-4 w-4" />}
+                    {transaction.type.includes('Journal') && <Activity className="h-4 w-4" />}
+                  </div>
+                  <div>
+                    <p className="font-medium">{transaction.type}</p>
+                    <p className="text-sm text-gray-600">{transaction.number}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`font-medium ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(Math.abs(transaction.amount))}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {new Date(transaction.date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Budget Overview */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Budget Overview
+              </CardTitle>
+              <CardDescription>
+                Current period budget performance
+              </CardDescription>
+            </div>
+            <Link href="/transactions/management/budgets">
+              <Button variant="outline">
+                Manage Budgets
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm font-medium text-blue-700">Total Budgeted</p>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(500000)}</p>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <p className="text-sm font-medium text-green-700">Actual Spent</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(375000)}</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700">Variance</p>
+              <p className="text-2xl font-bold text-red-600">{formatCurrency(-125000)}</p>
+              <p className="text-sm text-red-600">-25.0%</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
