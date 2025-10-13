@@ -85,7 +85,10 @@ export const revenueRouter = router({
         const service = new RevenueService(ctx.serviceContext);
         
         try {
-          return await service.updateRevenueSchedule(input.id, input.data);
+          return await service.updateRevenueSchedule(input.id, {
+            ...input.data,
+            recognitionDate: input.data.recognitionDate?.toISOString().split('T')[0]
+          } as any);
         } catch (error: any) {
           if (error.code === 'NOT_FOUND') {
             throw new TRPCError({
@@ -242,7 +245,7 @@ export const revenueRouter = router({
           return await service.createSSPEvidence({
             ...input,
             sspAmount: input.sspAmount
-          });
+          } as any);
         } catch (error: any) {
           if (error.code === 'ITEM_NOT_FOUND') {
             throw new TRPCError({

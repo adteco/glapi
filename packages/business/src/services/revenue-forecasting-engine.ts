@@ -1,12 +1,11 @@
-import { Database } from '@glapi/database';
+import { RevenueForecastingRepository } from '@glapi/database';
 import {
-  revenueForecastRuns,
-  revenueForecastDetails,
   ForecastModel,
   RevenueForecastRun,
-  RevenueForecastDetail
+  RevenueForecastDetail,
+  NewRevenueForecastRun,
+  NewRevenueForecastDetail
 } from '@glapi/database/schema';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 
 export interface ForecastRequest {
   forecastPeriods: number;
@@ -69,10 +68,14 @@ export interface PatternAnalysis {
 }
 
 export class RevenueForecastingEngine {
+  private repository: RevenueForecastingRepository;
+  
   constructor(
-    private db: typeof Database,
-    private organizationId: string
-  ) {}
+    private organizationId: string,
+    repository?: RevenueForecastingRepository
+  ) {
+    this.repository = repository || new RevenueForecastingRepository();
+  }
 
   /**
    * Generate revenue forecast
@@ -137,12 +140,10 @@ export class RevenueForecastingEngine {
       return forecast;
     } catch (error) {
       // Update forecast run with error status
-      await this.db.update(revenueForecastRuns)
-        .set({
-          status: 'failed',
-          errorMessage: error instanceof Error ? error.message : 'Unknown error'
-        })
-        .where(eq(revenueForecastRuns.id, forecastRun.id));
+      await this.repository.updateForecastRun(forecastRun.id, {
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      });
       
       throw error;
     }
@@ -812,25 +813,23 @@ export class RevenueForecastingEngine {
       request.periodType
     );
     
-    const [run] = await this.db.insert(revenueForecastRuns)
-      .values({
-        organizationId: this.organizationId,
-        forecastName: request.name || `Forecast ${new Date().toISOString()}`,
-        forecastModel: model as any,
-        forecastStartDate: startDate,
-        forecastEndDate: endDate,
-        historicalStartDate: historicalData[0].date,
-        historicalEndDate: historicalData[historicalData.length - 1].date,
-        dataPointsUsed: historicalData.length,
-        modelParameters: {
-          periodType: request.periodType,
-          includeSeasonality: request.includeSeasonality,
-          includeExternalFactors: request.includeExternalFactors
-        },
-        confidenceLevel: String(request.confidenceLevel || 0.95),
-        status: 'running'
-      })
-      .returning();
+    const run = await this.repository.createForecastRun({
+      organizationId: this.organizationId,
+      forecastName: request.name || `Forecast ${new Date().toISOString()}`,
+      forecastModel: model as any,
+      forecastStartDate: startDate.toISOString().split('T')[0],
+      forecastEndDate: endDate.toISOString().split('T')[0],
+      historicalStartDate: historicalData[0].date.toISOString().split('T')[0],
+      historicalEndDate: historicalData[historicalData.length - 1].date.toISOString().split('T')[0],
+      dataPointsUsed: historicalData.length,
+      modelParameters: {
+        periodType: request.periodType,
+        includeSeasonality: request.includeSeasonality,
+        includeExternalFactors: request.includeExternalFactors
+      },
+      confidenceLevel: String(request.confidenceLevel || 0.95),
+      status: 'running'
+    });
     
     return run;
   }
@@ -842,17 +841,15 @@ export class RevenueForecastingEngine {
     const totalForecast = forecast.periods.reduce((sum, p) => sum + p.forecast, 0);
     const avgMonthlyForecast = totalForecast / forecast.periods.length;
     
-    await this.db.update(revenueForecastRuns)
-      .set({
-        forecastedARR: String(avgMonthlyForecast * 12),
-        forecastedMRR: String(avgMonthlyForecast),
-        mape: String(forecast.accuracy.mape),
-        rmse: String(forecast.accuracy.rmse),
-        r2Score: String(forecast.accuracy.r2Score),
-        status: 'completed',
-        completedAt: new Date()
-      })
-      .where(eq(revenueForecastRuns.id, runId));
+    await this.repository.updateForecastRun(runId, {
+      forecastedARR: String(avgMonthlyForecast * 12),
+      forecastedMRR: String(avgMonthlyForecast),
+      mape: String(forecast.accuracy.mape),
+      rmse: String(forecast.accuracy.rmse),
+      r2Score: String(forecast.accuracy.r2Score),
+      status: 'completed',
+      completedAt: new Date()
+    });
   }
 
   /**
@@ -861,7 +858,7 @@ export class RevenueForecastingEngine {
   private async saveForecastDetails(forecast: ForecastResult): Promise<void> {
     const details = forecast.periods.map(period => ({
       forecastRunId: forecast.forecastId,
-      forecastDate: period.date,
+      forecastDate: period.date.toISOString().split('T')[0],
       periodType: 'month', // Would come from request
       forecastedRevenue: String(period.forecast),
       lowerBound: String(period.lowerBound),
@@ -871,7 +868,7 @@ export class RevenueForecastingEngine {
       seasonalComponent: String(period.components.seasonal || 0)
     }));
     
-    await this.db.insert(revenueForecastDetails).values(details);
+    await this.repository.createForecastDetails(details);
   }
 
   // Helper methods

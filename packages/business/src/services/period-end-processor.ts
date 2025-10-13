@@ -248,9 +248,7 @@ export class PeriodEndProcessor {
         .where(
           and(
             eq(journalEntryBatches.organizationId, this.organizationId),
-            eq(journalEntryBatches.fiscalYear, options.fiscalYear),
-            eq(journalEntryBatches.fiscalPeriod, options.fiscalPeriod),
-            inArray(journalEntryBatches.status, [BatchStatuses.DRAFT, BatchStatuses.PENDING_APPROVAL])
+            inArray(journalEntryBatches.status, [BatchStatuses.DRAFT, BatchStatuses.PENDING])
           )
         );
 
@@ -318,7 +316,7 @@ export class PeriodEndProcessor {
       const entries = await this.db
         .select()
         .from(revenueJournalEntries)
-        .where(inArray(revenueJournalEntries.batchId, batchIds));
+        .where(eq(revenueJournalEntries.organizationId, this.organizationId));
 
       // Send to GL system via adapter
       const postingResult = await this.glAdapter.postJournalEntries(entries, batchIds[0]);
@@ -331,7 +329,7 @@ export class PeriodEndProcessor {
           externalPostDate: postingResult.success ? new Date() : null,
           externalBatchId: postingResult.externalBatchId,
           externalErrorMessage: postingResult.error,
-          status: postingResult.success ? BatchStatuses.POSTED : BatchStatuses.FAILED,
+          status: postingResult.success ? BatchStatuses.COMPLETED : BatchStatuses.FAILED,
           updatedAt: new Date()
         })
         .where(inArray(journalEntryBatches.id, batchIds));
@@ -367,19 +365,18 @@ export class PeriodEndProcessor {
       // Get sub-ledger totals
       const subLedgerTotals = await this.db
         .select({
-          account: revenueJournalEntries.creditAccount,
           total: sql<number>`sum(cast(recognized_revenue_amount as decimal))`
         })
         .from(revenueJournalEntries)
         .where(
           and(
             eq(revenueJournalEntries.organizationId, this.organizationId),
-            gte(revenueJournalEntries.periodStartDate, options.periodStartDate.toISOString().split('T')[0]),
-            lte(revenueJournalEntries.periodEndDate, options.periodEndDate.toISOString().split('T')[0]),
-            eq(revenueJournalEntries.postingStatus, 'posted')
+            gte(revenueJournalEntries.entryDate, options.periodStartDate.toISOString().split('T')[0]),
+            lte(revenueJournalEntries.entryDate, options.periodEndDate.toISOString().split('T')[0]),
+            eq(revenueJournalEntries.status, 'posted')
           )
         )
-        .groupBy(revenueJournalEntries.creditAccount);
+        .groupBy(revenueJournalEntries.id);
 
       // Get GL totals (would come from external system)
       const glTotals = await this.glAdapter.getGLBalances(
@@ -453,20 +450,21 @@ export class PeriodEndProcessor {
    * Check if period is already closed
    */
   private async isPeriodClosed(startDate: Date, endDate: Date): Promise<boolean> {
-    // Check if there are posted batches for this period
-    const postedBatches = await this.db
+    // Check if there are completed batches for this period
+    // Using completedAt to determine if batches were processed in the period range
+    const completedBatches = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(journalEntryBatches)
       .where(
         and(
           eq(journalEntryBatches.organizationId, this.organizationId),
-          eq(journalEntryBatches.periodStartDate, startDate.toISOString().split('T')[0]),
-          eq(journalEntryBatches.periodEndDate, endDate.toISOString().split('T')[0]),
-          eq(journalEntryBatches.status, BatchStatuses.POSTED)
+          gte(journalEntryBatches.completedAt, startDate),
+          lte(journalEntryBatches.completedAt, endDate),
+          eq(journalEntryBatches.status, BatchStatuses.COMPLETED)
         )
       );
 
-    return (postedBatches[0]?.count || 0) > 0;
+    return (completedBatches[0]?.count || 0) > 0;
   }
 
   /**
@@ -483,8 +481,8 @@ export class PeriodEndProcessor {
       .where(
         and(
           eq(journalEntryBatches.organizationId, this.organizationId),
-          lte(journalEntryBatches.periodEndDate, priorPeriodEnd.toISOString().split('T')[0]),
-          inArray(journalEntryBatches.status, [BatchStatuses.DRAFT, BatchStatuses.PENDING_APPROVAL, BatchStatuses.FAILED])
+          lte(journalEntryBatches.createdAt, priorPeriodEnd),
+          inArray(journalEntryBatches.status, [BatchStatuses.DRAFT, BatchStatuses.PENDING, BatchStatuses.FAILED])
         )
       );
 
@@ -535,16 +533,16 @@ export class PeriodEndProcessor {
     // Get period statistics
     const stats = await this.db
       .select({
-        totalRevenue: sql<number>`sum(cast(recognized_revenue_amount as decimal))`,
-        totalDeferred: sql<number>`sum(cast(deferred_revenue_amount as decimal))`,
+        totalRevenue: sql<number>`sum(cast(${revenueJournalEntries.recognizedRevenueAmount} as decimal))`,
+        totalDeferred: sql<number>`sum(cast(${revenueJournalEntries.deferredRevenueAmount} as decimal))`,
         entryCount: sql<number>`count(*)`
       })
       .from(revenueJournalEntries)
       .where(
         and(
           eq(revenueJournalEntries.organizationId, this.organizationId),
-          gte(revenueJournalEntries.periodStartDate, options.periodStartDate.toISOString().split('T')[0]),
-          lte(revenueJournalEntries.periodEndDate, options.periodEndDate.toISOString().split('T')[0])
+          gte(revenueJournalEntries.entryDate, options.periodStartDate.toISOString().split('T')[0]),
+          lte(revenueJournalEntries.entryDate, options.periodEndDate.toISOString().split('T')[0])
         )
       );
 
@@ -559,8 +557,8 @@ export class PeriodEndProcessor {
       .where(
         and(
           eq(journalEntryBatches.organizationId, this.organizationId),
-          eq(journalEntryBatches.fiscalYear, options.fiscalYear),
-          eq(journalEntryBatches.fiscalPeriod, options.fiscalPeriod)
+          gte(journalEntryBatches.createdAt, options.periodStartDate),
+          lte(journalEntryBatches.createdAt, options.periodEndDate)
         )
       );
 

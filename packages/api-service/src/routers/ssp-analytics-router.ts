@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { SSPAnalyticsService } from '../services/ssp-analytics-service';
 import { TRPCError } from '@trpc/server';
-import { CalculationMethods, ExceptionSeverity } from '@glapi/database/schema';
+import { CalculationMethods, ExceptionSeverity, sspCalculationRuns, sspExceptions, vsoeEvidence, sspPricingBands } from '@glapi/database';
+import { SSPExceptionMonitor, SSPMLTrainingService } from '@glapi/business';
+import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 const sspAnalyticsRunConfigSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -30,12 +32,17 @@ export const sspAnalyticsRouter = router({
   startCalculationRun: protectedProcedure
     .input(sspAnalyticsRunConfigSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       try {
         const result = await service.startCalculationRun({
           organizationId: ctx.user.organizationId,
-          ...input
+          startDate: input.startDate,
+          endDate: input.endDate,
+          calculationMethod: input.calculationMethod,
+          minTransactions: input.minTransactions,
+          confidenceThreshold: input.confidenceThreshold,
+          runType: input.runType
         });
 
         return {
@@ -58,7 +65,7 @@ export const sspAnalyticsRouter = router({
       itemId: z.string()
     }))
     .query(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       const analysis = await service.getItemAnalysis(
         ctx.user.organizationId,
@@ -80,7 +87,7 @@ export const sspAnalyticsRouter = router({
    */
   getDashboard: protectedProcedure
     .query(async ({ ctx }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       return await service.getDashboardData(ctx.user.organizationId);
     }),
@@ -93,12 +100,15 @@ export const sspAnalyticsRouter = router({
       runId: z.string()
     }))
     .query(async ({ ctx, input }) => {
-      const run = await ctx.db.query.sspCalculationRuns.findFirst({
-        where: (runs, { and, eq }) => and(
-          eq(runs.id, input.runId),
-          eq(runs.organizationId, ctx.user.organizationId)
-        )
-      });
+      const run = await ctx.db
+        .select()
+        .from(sspCalculationRuns)
+        .where(and(
+          eq(sspCalculationRuns.id, input.runId),
+          eq(sspCalculationRuns.organizationId, ctx.user.organizationId)
+        ))
+        .limit(1)
+        .then(rows => rows[0] || null);
 
       if (!run) {
         throw new TRPCError({
@@ -122,28 +132,27 @@ export const sspAnalyticsRouter = router({
       endDate: z.string().optional()
     }))
     .query(async ({ ctx, input }) => {
-      const runs = await ctx.db.query.sspCalculationRuns.findMany({
-        where: (runs, { and, eq, gte, lte }) => {
-          const conditions = [eq(runs.organizationId, ctx.user.organizationId)];
-          
-          if (input.status) {
-            conditions.push(eq(runs.status, input.status));
-          }
-          
-          if (input.startDate) {
-            conditions.push(gte(runs.runDate, new Date(input.startDate)));
-          }
-          
-          if (input.endDate) {
-            conditions.push(lte(runs.runDate, new Date(input.endDate)));
-          }
-          
-          return and(...conditions);
-        },
-        orderBy: (runs, { desc }) => [desc(runs.runDate)],
-        limit: input.limit,
-        offset: input.offset
-      });
+      const conditions = [eq(sspCalculationRuns.organizationId, ctx.user.organizationId)];
+      
+      if (input.status) {
+        conditions.push(eq(sspCalculationRuns.status, input.status));
+      }
+      
+      if (input.startDate) {
+        conditions.push(gte(sspCalculationRuns.runDate, new Date(input.startDate)));
+      }
+      
+      if (input.endDate) {
+        conditions.push(lte(sspCalculationRuns.runDate, new Date(input.endDate)));
+      }
+
+      const runs = await ctx.db
+        .select()
+        .from(sspCalculationRuns)
+        .where(and(...conditions))
+        .orderBy(desc(sspCalculationRuns.runDate))
+        .limit(input.limit)
+        .offset(input.offset);
 
       return runs;
     }),
@@ -156,7 +165,7 @@ export const sspAnalyticsRouter = router({
       runId: z.string()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       const approvedRun = await service.approveRun(
         input.runId,
@@ -181,28 +190,27 @@ export const sspAnalyticsRouter = router({
       offset: z.number().min(0).default(0)
     }))
     .query(async ({ ctx, input }) => {
-      const exceptions = await ctx.db.query.sspExceptions.findMany({
-        where: (exceptions, { and, eq }) => {
-          const conditions = [eq(exceptions.organizationId, ctx.user.organizationId)];
-          
-          if (input.itemId) {
-            conditions.push(eq(exceptions.itemId, input.itemId));
-          }
-          
-          if (input.severity) {
-            conditions.push(eq(exceptions.severity, input.severity));
-          }
-          
-          if (input.status) {
-            conditions.push(eq(exceptions.status, input.status));
-          }
-          
-          return and(...conditions);
-        },
-        orderBy: (exceptions, { desc }) => [desc(exceptions.createdAt)],
-        limit: input.limit,
-        offset: input.offset
-      });
+      const conditions = [eq(sspExceptions.organizationId, ctx.user.organizationId)];
+      
+      if (input.itemId) {
+        conditions.push(eq(sspExceptions.itemId, input.itemId));
+      }
+      
+      if (input.severity) {
+        conditions.push(eq(sspExceptions.severity, input.severity));
+      }
+      
+      if (input.status) {
+        conditions.push(eq(sspExceptions.status, input.status));
+      }
+
+      const exceptions = await ctx.db
+        .select()
+        .from(sspExceptions)
+        .where(and(...conditions))
+        .orderBy(desc(sspExceptions.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
 
       return exceptions;
     }),
@@ -215,8 +223,8 @@ export const sspAnalyticsRouter = router({
       exceptionId: z.string()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
-      const monitor = new (await import('@glapi/business/services/ssp-exception-monitor')).SSPExceptionMonitor(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
+      const monitor = new SSPExceptionMonitor(ctx.db as any);
       
       const acknowledged = await monitor.acknowledgeException(
         input.exceptionId,
@@ -238,7 +246,7 @@ export const sspAnalyticsRouter = router({
       resolutionNotes: z.string()
     }))
     .mutation(async ({ ctx, input }) => {
-      const monitor = new (await import('@glapi/business/services/ssp-exception-monitor')).SSPExceptionMonitor(ctx.db);
+      const monitor = new SSPExceptionMonitor(ctx.db as any);
       
       const resolved = await monitor.resolveException(
         input.exceptionId,
@@ -257,7 +265,7 @@ export const sspAnalyticsRouter = router({
    */
   getExceptionSummary: protectedProcedure
     .query(async ({ ctx }) => {
-      const monitor = new (await import('@glapi/business/services/ssp-exception-monitor')).SSPExceptionMonitor(ctx.db);
+      const monitor = new SSPExceptionMonitor(ctx.db as any);
       
       return await monitor.getExceptionSummary(ctx.user.organizationId);
     }),
@@ -270,7 +278,7 @@ export const sspAnalyticsRouter = router({
       days: z.number().min(7).max(365).default(30)
     }))
     .query(async ({ ctx, input }) => {
-      const monitor = new (await import('@glapi/business/services/ssp-exception-monitor')).SSPExceptionMonitor(ctx.db);
+      const monitor = new SSPExceptionMonitor(ctx.db as any);
       
       return await monitor.getExceptionTrends(
         ctx.user.organizationId,
@@ -287,7 +295,7 @@ export const sspAnalyticsRouter = router({
       endDate: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       try {
         const result = await service.trainMLModel(
@@ -316,7 +324,7 @@ export const sspAnalyticsRouter = router({
       itemIds: z.array(z.string()).min(1).max(100)
     }))
     .query(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       try {
         return await service.getMLPredictions(
@@ -336,7 +344,7 @@ export const sspAnalyticsRouter = router({
    */
   getModelMetrics: protectedProcedure
     .query(async ({ ctx }) => {
-      const mlService = new (await import('@glapi/business/services/ssp-ml-training-service')).SSPMLTrainingService(ctx.db);
+      const mlService = new SSPMLTrainingService(ctx.db as any);
       
       return await mlService.getModelMetrics(ctx.user.organizationId);
     }),
@@ -349,7 +357,7 @@ export const sspAnalyticsRouter = router({
       schedule: scheduleSchema
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       await service.scheduleAutomatedRun(
         ctx.user.organizationId,
@@ -370,7 +378,7 @@ export const sspAnalyticsRouter = router({
       format: exportFormatSchema
     }))
     .query(async ({ ctx, input }) => {
-      const service = new SSPAnalyticsService(ctx.db);
+      const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
       
       const buffer = await service.exportSSPData(
         ctx.user.organizationId,
@@ -393,13 +401,16 @@ export const sspAnalyticsRouter = router({
       itemId: z.string()
     }))
     .query(async ({ ctx, input }) => {
-      const evidence = await ctx.db.query.vsoeEvidence.findFirst({
-        where: (evidence, { and, eq }) => and(
-          eq(evidence.organizationId, ctx.user.organizationId),
-          eq(evidence.itemId, input.itemId)
-        ),
-        orderBy: (evidence, { desc }) => [desc(evidence.createdAt)]
-      });
+      const evidence = await ctx.db
+        .select()
+        .from(vsoeEvidence)
+        .where(and(
+          eq(vsoeEvidence.organizationId, ctx.user.organizationId),
+          eq(vsoeEvidence.itemId, input.itemId)
+        ))
+        .orderBy(desc(vsoeEvidence.createdAt))
+        .limit(1)
+        .then(rows => rows[0] || null);
 
       if (!evidence) {
         throw new TRPCError({
@@ -419,13 +430,16 @@ export const sspAnalyticsRouter = router({
       itemId: z.string()
     }))
     .query(async ({ ctx, input }) => {
-      const bands = await ctx.db.query.sspPricingBands.findFirst({
-        where: (bands, { and, eq }) => and(
-          eq(bands.organizationId, ctx.user.organizationId),
-          eq(bands.itemId, input.itemId)
-        ),
-        orderBy: (bands, { desc }) => [desc(bands.createdAt)]
-      });
+      const bands = await ctx.db
+        .select()
+        .from(sspPricingBands)
+        .where(and(
+          eq(sspPricingBands.organizationId, ctx.user.organizationId),
+          eq(sspPricingBands.itemId, input.itemId)
+        ))
+        .orderBy(desc(sspPricingBands.createdAt))
+        .limit(1)
+        .then(rows => rows[0] || null);
 
       if (!bands) {
         throw new TRPCError({

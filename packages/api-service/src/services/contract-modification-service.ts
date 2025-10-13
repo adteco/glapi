@@ -1,4 +1,5 @@
-import { Database } from '@glapi/database';
+import { Database, schema } from '@glapi/database';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { 
   contractModifications,
   modificationLineItems,
@@ -9,8 +10,14 @@ import {
   CatchUpAdjustment,
   ModificationStatus
 } from '@glapi/database/schema';
-import { ContractModificationEngine, ModificationRequest, ModificationImpact } from '@glapi/business/services/contract-modification-engine';
-import { ModificationApprovalWorkflow, ApprovalRequest, ApprovalStatus } from '@glapi/business/services/modification-approval-workflow';
+import { 
+  ContractModificationEngine, 
+  ModificationRequest, 
+  ModificationImpact,
+  ModificationApprovalWorkflow,
+  ApprovalRequest,
+  ApprovalStatus
+} from '@glapi/business';
 import { eq, and, desc, gte, lte, inArray, sql } from 'drizzle-orm';
 
 export interface ModificationSummary {
@@ -47,9 +54,9 @@ export class ContractModificationService {
   private modificationEngine: ContractModificationEngine;
   private approvalWorkflow: ModificationApprovalWorkflow;
 
-  constructor(private db: Database) {
-    this.modificationEngine = new ContractModificationEngine(db, null as any); // Revenue engine would be injected
-    this.approvalWorkflow = new ModificationApprovalWorkflow(db);
+  constructor(private db: NodePgDatabase<typeof schema>) {
+    this.modificationEngine = new ContractModificationEngine(db as any, null as any); // Revenue engine would be injected
+    this.approvalWorkflow = new ModificationApprovalWorkflow(db as any);
   }
 
   /**
@@ -108,7 +115,7 @@ export class ContractModificationService {
       .where(eq(modificationLineItems.modificationId, modificationId));
 
     // Get catch-up adjustments
-    const catchUpAdjustments = await this.db.select()
+    const modificationCatchUpAdjustments = await this.db.select()
       .from(catchUpAdjustments)
       .where(eq(catchUpAdjustments.modificationId, modificationId));
 
@@ -119,7 +126,7 @@ export class ContractModificationService {
       .orderBy(desc(modificationApprovalHistory.approvalDate));
 
     // Get approval status
-    const approvalStatus = modification.status === ModificationStatus.PENDING_APPROVAL
+    const approvalStatus = modification.status === 'pending_approval'
       ? await this.approvalWorkflow.getApprovalStatus(modificationId)
       : undefined;
 
@@ -134,7 +141,7 @@ export class ContractModificationService {
       requestDate: modification.requestDate,
       modification,
       lineItems,
-      catchUpAdjustments,
+      catchUpAdjustments: modificationCatchUpAdjustments,
       approvalHistory,
       impact: modification.revenueImpact as ModificationImpact | null,
       approvalStatus
@@ -187,14 +194,14 @@ export class ContractModificationService {
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
     // Get modifications
-    let query = this.db.select()
+    const baseQuery = this.db.select()
       .from(contractModifications)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(contractModifications.requestDate));
 
-    if (pagination) {
-      query = query.limit(pagination.limit).offset(pagination.offset);
-    }
+    const query = pagination 
+      ? baseQuery.limit(pagination.limit).offset(pagination.offset)
+      : baseQuery;
 
     const modifications = await query;
 
@@ -333,7 +340,7 @@ export class ContractModificationService {
     // Get all pending modifications
     const pendingMods = await this.db.select()
       .from(contractModifications)
-      .where(eq(contractModifications.status, ModificationStatus.PENDING_APPROVAL));
+      .where(eq(contractModifications.status, 'pending_approval'));
 
     // Filter to ones this user can approve
     const approvals: ModificationSummary[] = [];
@@ -449,12 +456,12 @@ export class ContractModificationService {
     .from(contractModifications)
     .where(and(
       ...conditions,
-      eq(contractModifications.status, ModificationStatus.APPROVED)
+      eq(contractModifications.status, 'approved')
     ));
 
     // Calculate approval rate
     const totalCount = byStatus.reduce((sum, s) => sum + s.count, 0);
-    const approvedCount = byStatus.find(s => s.status === ModificationStatus.APPROVED)?.count || 0;
+    const approvedCount = byStatus.find(s => s.status === 'approved')?.count || 0;
     const approvalRate = totalCount > 0 ? approvedCount / totalCount : 0;
 
     return {
@@ -491,13 +498,13 @@ export class ContractModificationService {
       throw new Error('Modification not found');
     }
 
-    if (modification.status !== ModificationStatus.DRAFT) {
+    if (modification.status !== 'draft') {
       throw new Error('Only draft modifications can be cancelled');
     }
 
     await this.db.update(contractModifications)
       .set({
-        status: ModificationStatus.CANCELLED,
+        status: 'cancelled',
         notes: reason,
         updatedAt: new Date()
       })

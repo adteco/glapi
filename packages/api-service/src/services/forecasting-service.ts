@@ -1,24 +1,24 @@
-import { Database } from '@glapi/database';
+import { Database, schema } from '@glapi/database';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { 
+  CohortAnalysisRepository, 
+  ChurnPredictionRepository, 
+  ScenarioAnalysisRepository 
+} from '@glapi/database';
 import { 
   RevenueForecastingEngine,
   ForecastRequest,
-  ForecastResult
-} from '@glapi/business/services/revenue-forecasting-engine';
-import {
+  ForecastResult,
   CohortAnalysisService,
   CohortMetrics,
-  DeferredRevenueMovement
-} from '@glapi/business/services/cohort-analysis-service';
-import {
+  DeferredRevenueMovement,
   ChurnPredictionService,
-  CustomerChurnPrediction
-} from '@glapi/business/services/churn-prediction-service';
-import {
+  CustomerChurnPrediction,
   ScenarioAnalysisService,
   ScenarioAssumptions,
   ScenarioResult,
   MonteCarloSimulation
-} from '@glapi/business/services/scenario-analysis-service';
+} from '@glapi/business';
 
 export interface ForecastingSummary {
   currentMetrics: {
@@ -58,13 +58,13 @@ export class ForecastingService {
   private scenarioService: ScenarioAnalysisService;
 
   constructor(
-    private db: Database,
+    private db: NodePgDatabase<typeof schema>,
     private organizationId: string
   ) {
-    this.forecastingEngine = new RevenueForecastingEngine(db, organizationId);
-    this.cohortService = new CohortAnalysisService(db, organizationId);
-    this.churnService = new ChurnPredictionService(db, organizationId);
-    this.scenarioService = new ScenarioAnalysisService(db, organizationId);
+    this.forecastingEngine = new RevenueForecastingEngine(organizationId);
+    this.cohortService = new CohortAnalysisService(new CohortAnalysisRepository(db as any), organizationId);
+    this.churnService = new ChurnPredictionService(new ChurnPredictionRepository(db as any), organizationId);
+    this.scenarioService = new ScenarioAnalysisService(new ScenarioAnalysisRepository(db as any), organizationId);
   }
 
   /**

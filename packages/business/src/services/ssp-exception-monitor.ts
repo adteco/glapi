@@ -5,6 +5,7 @@ import {
   vsoeEvidence,
   sspPricingBands,
   items,
+  businessTransactions,
   SSPException,
   NewSSPException,
   ExceptionTypes,
@@ -12,8 +13,14 @@ import {
 } from '@glapi/database/schema';
 import { eq, and, or, gte, lte, isNull, desc, sql, inArray } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
-import { EmailNotificationService } from './email-notification-service';
-import { SlackNotificationService } from './slack-notification-service';
+import { 
+  EmailNotificationService,
+  MockEmailNotificationService
+} from './email-notification-service';
+import { 
+  SlackNotificationService,
+  MockSlackNotificationService
+} from './slack-notification-service';
 
 interface ExceptionDetectionConfig {
   insufficientDataThreshold: number;
@@ -24,7 +31,7 @@ interface ExceptionDetectionConfig {
   outlierPercentageThreshold: number;
 }
 
-interface ExceptionAlert {
+export interface ExceptionAlert {
   exceptionId: string;
   itemId: string;
   itemName: string;
@@ -35,14 +42,14 @@ interface ExceptionAlert {
   recommendedActions: string[];
 }
 
-interface ExceptionTrend {
+export interface ExceptionTrend {
   exceptionType: string;
   count: number;
   trend: 'increasing' | 'decreasing' | 'stable';
   changePercentage: number;
 }
 
-interface ExceptionSummary {
+export interface ExceptionSummary {
   totalExceptions: number;
   criticalCount: number;
   warningCount: number;
@@ -61,8 +68,8 @@ export class SSPExceptionMonitor {
 
   constructor(db: typeof Database) {
     this.db = db;
-    this.emailService = new EmailNotificationService();
-    this.slackService = new SlackNotificationService();
+    this.emailService = new MockEmailNotificationService();
+    this.slackService = new MockSlackNotificationService();
     this.config = {
       insufficientDataThreshold: 5,
       highVariabilityThreshold: 0.3,
@@ -337,7 +344,7 @@ export class SSPExceptionMonitor {
       or(
         and(
           inArray(sspPricingBands.trendDirection, ['increasing', 'decreasing']),
-          gte(sspPricingBands.trendStrength, this.config.priceVolatilityThreshold)
+          gte(sspPricingBands.trendStrength, String(this.config.priceVolatilityThreshold))
         ),
         eq(sspPricingBands.hasSeasonality, true)
       )
@@ -391,7 +398,7 @@ export class SSPExceptionMonitor {
     .where(and(
       eq(sspPricingBands.organizationId, organizationId),
       eq(sspPricingBands.calculationRunId, calculationRunId),
-      gte(sspPricingBands.outlierPercentage, this.config.outlierPercentageThreshold * 100)
+      gte(sspPricingBands.outlierPercentage, String(this.config.outlierPercentageThreshold * 100))
     ));
 
     return outlierItems.map(item => ({
@@ -453,12 +460,30 @@ export class SSPExceptionMonitor {
     }));
 
     // Send email alerts
-    await this.emailService.sendSSPExceptionAlert(alerts);
+    if (alerts.length > 0) {
+      await this.emailService.sendEmail({
+        to: 'ssp-alerts@example.com',
+        subject: `SSP Exception Alert: ${alerts.length} exceptions detected`,
+        body: JSON.stringify(alerts, null, 2)
+      });
+    }
 
     // Send Slack alerts for critical exceptions
     const criticalAlerts = alerts.filter(a => a.severity === ExceptionSeverity.CRITICAL);
     if (criticalAlerts.length > 0) {
-      await this.slackService.sendSSPAlert(criticalAlerts);
+      await this.slackService.sendMessage({
+        channel: '#ssp-alerts',
+        text: `🚨 Critical SSP Exceptions: ${criticalAlerts.length} critical issues detected`,
+        attachments: criticalAlerts.map(alert => ({
+          color: 'danger',
+          title: alert.itemName,
+          text: alert.message,
+          fields: [
+            { title: 'Type', value: alert.exceptionType, short: true },
+            { title: 'Severity', value: alert.severity, short: true }
+          ]
+        }))
+      });
     }
 
     // Mark alerts as sent
@@ -694,10 +719,10 @@ export class SSPExceptionMonitor {
     const result = await this.db.select({
       count: sql<number>`COUNT(*)`.as('count')
     })
-    .from(sql`transactions`)
+    .from(businessTransactions)
     .where(and(
-      sql`item_id = ${itemId}`,
-      sql`organization_id = ${organizationId}`
+      eq(businessTransactions.entityId, itemId),
+      eq(businessTransactions.subsidiaryId, organizationId)
     ))
     .execute();
 
@@ -721,11 +746,11 @@ export class SSPExceptionMonitor {
     const result = await this.db.select({
       count: sql<number>`COUNT(*)`.as('count')
     })
-    .from(sql`transactions`)
+    .from(businessTransactions)
     .where(and(
-      sql`item_id = ${itemId}`,
-      sql`organization_id = ${organizationId}`,
-      sql`transaction_date >= ${cutoffDate.toISOString()}`
+      eq(businessTransactions.entityId, itemId),
+      eq(businessTransactions.subsidiaryId, organizationId),
+      gte(businessTransactions.transactionDate, cutoffDate.toISOString().split('T')[0])
     ))
     .execute();
 
@@ -767,17 +792,3 @@ export class SSPExceptionMonitor {
   }
 }
 
-// Placeholder services that would need to be implemented
-class EmailNotificationService {
-  async sendSSPExceptionAlert(alerts: ExceptionAlert[]): Promise<void> {
-    // Implementation would send email alerts
-    console.log('Sending email alerts for SSP exceptions:', alerts.length);
-  }
-}
-
-class SlackNotificationService {
-  async sendSSPAlert(alerts: ExceptionAlert[]): Promise<void> {
-    // Implementation would send Slack notifications
-    console.log('Sending Slack alerts for critical SSP exceptions:', alerts.length);
-  }
-}

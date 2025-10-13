@@ -17,7 +17,7 @@ import {
   type NewContractSSPAllocation,
   type Subscription,
   type SubscriptionItem
-} from '@glapi/database/src/db/schema';
+} from '@glapi/database/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { ASC605Comparison } from '../types/revenue-reporting-types';
 

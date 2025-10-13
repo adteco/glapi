@@ -168,11 +168,11 @@ export const businessTransactionsRouter = router({
       }
 
       if (filter?.dateFrom) {
-        whereConditions.push(gte(businessTransactions.transactionDate, filter.dateFrom));
+        whereConditions.push(gte(businessTransactions.transactionDate, filter.dateFrom.toISOString().split('T')[0]));
       }
 
       if (filter?.dateTo) {
-        whereConditions.push(lte(businessTransactions.transactionDate, filter.dateTo));
+        whereConditions.push(lte(businessTransactions.transactionDate, filter.dateTo.toISOString().split('T')[0]));
       }
 
       // Apply search

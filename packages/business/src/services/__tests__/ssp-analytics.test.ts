@@ -69,10 +69,8 @@ describe('SSPAnalyticsEngine', () => {
       });
 
       const result = await engine.calculateSSP({
-        organizationId: 'org1',
-        startDate: '2024-01-01',
-        endDate: '2024-12-31',
-        calculationRunId: 'run1',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
         minTransactions: 2,
         confidenceThreshold: 0.8,
         method: CalculationMethods.HYBRID
@@ -565,10 +563,8 @@ describe('Integration Tests', () => {
 
     // Run calculation
     const result = await engine.calculateSSP({
-      organizationId: 'org1',
-      startDate: '2024-01-01',
-      endDate: '2024-12-31',
-      calculationRunId: 'run1',
+      startDate: new Date('2024-01-01'),
+      endDate: new Date('2024-12-31'),
       minTransactions: 5,
       confidenceThreshold: 0.8,
       method: CalculationMethods.HYBRID

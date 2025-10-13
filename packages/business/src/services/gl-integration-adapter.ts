@@ -4,9 +4,10 @@
  */
 
 import { 
+  glIntegrationRepository,
   journalEntryBatches,
   ExternalSystems,
-  type RevenueJournalEntry
+  type GLJournalEntry
 } from '@glapi/database';
 import { eq } from 'drizzle-orm';
 
@@ -107,7 +108,7 @@ export class GLIntegrationAdapter {
    * Post journal entries to external GL system
    */
   async postJournalEntries(
-    entries: RevenueJournalEntry[],
+    entries: GLJournalEntry[],
     batchId: string
   ): Promise<GLPostingResult> {
     if (!this.adapter) {
@@ -180,7 +181,7 @@ export class GLIntegrationAdapter {
   /**
    * Transform internal journal entries to external format
    */
-  private transformToExternalFormat(entries: RevenueJournalEntry[]): ExternalJournalEntry[] {
+  private transformToExternalFormat(entries: GLJournalEntry[]): ExternalJournalEntry[] {
     const groupedEntries: Map<string, ExternalJournalEntry> = new Map();
 
     for (const entry of entries) {
@@ -229,14 +230,14 @@ export class GLIntegrationAdapter {
   /**
    * Extract dimensions from journal entry
    */
-  private extractDimensions(entry: RevenueJournalEntry): Record<string, string> {
+  private extractDimensions(entry: GLJournalEntry): Record<string, string> {
     const dimensions: Record<string, string> = {};
 
     if (entry.subsidiaryId) dimensions.subsidiary = entry.subsidiaryId;
     if (entry.departmentId) dimensions.department = entry.departmentId;
     if (entry.locationId) dimensions.location = entry.locationId;
     if (entry.classId) dimensions.class = entry.classId;
-    if (entry.customerId) dimensions.customer = entry.customerId;
+    if (entry.entityId) dimensions.entity = entry.entityId;
     if (entry.itemId) dimensions.item = entry.itemId;
 
     return dimensions;
@@ -278,16 +279,14 @@ export class GLIntegrationAdapter {
     batchId: string,
     externalBatchId: string
   ): Promise<void> {
-    await this.db
-      .update(journalEntryBatches)
-      .set({
+    await glIntegrationRepository.updateBatchStatus(
+      batchId,
+      'completed',
+      {
         externalBatchId,
-        externalSystemName: this.config?.systemType,
-        externalPostStatus: 'posted',
-        externalPostDate: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(journalEntryBatches.id, batchId));
+        externalSystemId: this.config?.systemType
+      }
+    );
   }
 
   /**

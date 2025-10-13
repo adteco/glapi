@@ -43,14 +43,17 @@ const modificationRequestSchema = z.object({
   effectiveDate: z.date(),
   changes: modificationChangesSchema,
   reason: z.string().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  requestedBy: z.string().optional() // Will be added from context in the router
 });
 
 const approvalRequestSchema = z.object({
   modificationId: z.string(),
   action: z.enum(['approve', 'reject', 'request_info']),
   comments: z.string().optional(),
-  conditions: z.record(z.any()).optional()
+  conditions: z.record(z.any()).optional(),
+  approverId: z.string().optional(), // Will be added from context in the router
+  approverRole: z.string().optional() // Will be added from context in the router
 });
 
 const modificationFiltersSchema = z.object({
@@ -79,7 +82,12 @@ export const contractModificationsRouter = router({
       try {
         const result = await service.createModification(
           {
-            ...input.request,
+            subscriptionId: input.request.subscriptionId,
+            modificationType: input.request.modificationType,
+            effectiveDate: input.request.effectiveDate,
+            changes: input.request.changes as any,
+            reason: input.request.reason,
+            notes: input.request.notes,
             requestedBy: ctx.user.id
           },
           {
@@ -110,7 +118,12 @@ export const contractModificationsRouter = router({
       
       try {
         const result = await service.previewModification({
-          ...input,
+          subscriptionId: input.subscriptionId,
+          modificationType: input.modificationType,
+          effectiveDate: input.effectiveDate,
+          changes: input.changes as any,
+          reason: input.reason,
+          notes: input.notes,
           requestedBy: ctx.user.id
         });
 
@@ -204,9 +217,12 @@ export const contractModificationsRouter = router({
       
       try {
         const approvalStatus = await service.processApproval({
-          ...input,
+          modificationId: input.modificationId,
+          action: input.action,
+          comments: input.comments,
+          conditions: input.conditions,
           approverId: ctx.user.id,
-          approverRole: ctx.user.role // Assuming role is available in context
+          approverRole: ctx.user.role || 'user' // Assuming role is available in context
         });
 
         return {

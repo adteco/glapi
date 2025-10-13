@@ -4,7 +4,7 @@ import {
   items,
   sspEvidence,
   type KitComponent
-} from '@glapi/database/src/db/schema';
+} from '@glapi/database';
 import { eq, and, sql } from 'drizzle-orm';
 
 export interface KitExplosionResult {

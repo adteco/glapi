@@ -12,6 +12,7 @@ import {
   subscriptions,
   subscriptionItems,
   performanceObligations,
+  items,
   AccountTypes,
   TransactionTypes,
   BatchStatuses,
@@ -164,51 +165,13 @@ export class JournalEntryAutomationService {
 
     // Create journal entry
     const entry: NewRevenueJournalEntry = {
-      id: uuidv4(),
       organizationId: this.organizationId,
-      batchId,
-      entryNumber: await this.generateEntryNumber(),
+      revenueScheduleId: schedule.id,
       entryDate: schedule.periodEndDate,
-      entryType: 'revenue_recognition',
-      
-      // Accounting entries
-      debitAccount: glMapping.debitAccount, // Deferred Revenue
-      creditAccount: glMapping.creditAccount, // Revenue
       deferredRevenueAmount: schedule.scheduledAmount,
       recognizedRevenueAmount: schedule.scheduledAmount,
-      
-      // References
-      revenueScheduleId: schedule.id,
-      performanceObligationId: schedule.performanceObligationId,
-      subscriptionId: poDetails.subscriptionId,
-      
-      // Dimensions
-      subsidiaryId: poDetails.subsidiaryId,
-      departmentId: poDetails.departmentId,
-      locationId: poDetails.locationId,
-      classId: poDetails.classId,
-      customerId: poDetails.customerId,
-      itemId: poDetails.itemId,
-      
-      // Period
-      periodStartDate: schedule.periodStartDate,
-      periodEndDate: schedule.periodEndDate,
-      
-      // Description
-      description: `Revenue recognition for ${poDetails.itemName} - Period ${schedule.periodStartDate} to ${schedule.periodEndDate}`,
-      
-      // Status
-      postingStatus: 'pending',
-      
-      // Metadata
-      metadata: {
-        glMappingUsed: glMapping.mappingRuleUsed,
-        scheduleStatus: schedule.status,
-        recognitionPattern: poDetails.satisfactionMethod
-      },
-      
-      createdAt: new Date(),
-      updatedAt: new Date()
+      journalEntryReference: await this.generateEntryNumber(),
+      status: 'draft'
     };
 
     const [createdEntry] = await this.db
@@ -489,22 +452,10 @@ export class JournalEntryAutomationService {
     batchType: string;
   }): Promise<JournalEntryBatch> {
     const batch: NewJournalEntryBatch = {
-      id: uuidv4(),
       organizationId: this.organizationId,
       batchNumber: await this.generateBatchNumber(),
-      batchName: params.batchName,
-      periodStartDate: params.periodStartDate.toISOString().split('T')[0],
-      periodEndDate: params.periodEndDate.toISOString().split('T')[0],
-      fiscalYear: params.periodStartDate.getFullYear(),
-      fiscalPeriod: params.periodStartDate.getMonth() + 1,
-      batchType: params.batchType,
-      processingType: 'automatic',
-      status: BatchStatuses.DRAFT,
-      totalEntries: 0,
-      totalDebits: '0',
-      totalCredits: '0',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      description: params.batchName,
+      status: BatchStatuses.DRAFT
     };
 
     const [createdBatch] = await this.db
@@ -523,7 +474,7 @@ export class JournalEntryAutomationService {
     await this.db
       .update(journalEntryBatches)
       .set({
-        status: BatchStatuses.POSTED,
+        status: BatchStatuses.COMPLETED,
         actualPostDate: new Date(),
         updatedAt: new Date()
       })
@@ -537,7 +488,7 @@ export class JournalEntryAutomationService {
         postingDate: new Date().toISOString().split('T')[0],
         updatedAt: new Date()
       })
-      .where(eq(revenueJournalEntries.batchId, batchId));
+      .where(eq(revenueJournalEntries.id, batchId));
   }
 
   /**
@@ -567,16 +518,12 @@ export class JournalEntryAutomationService {
         subscriptionId: performanceObligations.subscriptionId,
         itemId: subscriptionItems.itemId,
         satisfactionMethod: performanceObligations.satisfactionMethod,
-        subsidiaryId: subscriptions.subsidiaryId,
-        departmentId: subscriptions.departmentId,
-        locationId: subscriptions.locationId,
-        classId: subscriptions.classId,
         customerId: subscriptions.entityId,
-        itemName: items.displayName,
-        itemCategory: items.category
+        itemName: items.name,
+        itemCategory: items.categoryId
       })
       .from(performanceObligations)
-      .leftJoin(subscriptionItems, eq(performanceObligations.subscriptionItemId, subscriptionItems.id))
+      .leftJoin(subscriptionItems, eq(subscriptionItems.subscriptionId, performanceObligations.subscriptionId))
       .leftJoin(subscriptions, eq(performanceObligations.subscriptionId, subscriptions.id))
       .leftJoin(items, eq(subscriptionItems.itemId, items.id))
       .where(eq(performanceObligations.id, poId))

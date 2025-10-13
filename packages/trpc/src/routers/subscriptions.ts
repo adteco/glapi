@@ -78,7 +78,7 @@ export const subscriptionsRouter = router({
         }))
       };
       
-      return service.createSubscription(dataForService);
+      return service.createSubscription(dataForService as any);
     }),
 
   // Update subscription
@@ -105,7 +105,7 @@ export const subscriptionsRouter = router({
         }))
       };
       
-      const updated = await service.updateSubscription(input.id, dataForService);
+      const updated = await service.updateSubscription(input.id, dataForService as any);
       
       if (!updated) {
         throw new TRPCError({

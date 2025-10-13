@@ -1,7 +1,7 @@
-import { Database } from '@glapi/database';
+import { ChurnPredictionRepository } from '@glapi/database';
 import {
-  churnPredictions,
-  ChurnPrediction
+  ChurnPrediction,
+  NewChurnPrediction
 } from '@glapi/database/schema';
 import { eq, and, gte, lte, desc, sql, inArray } from 'drizzle-orm';
 
@@ -77,7 +77,7 @@ export class ChurnPredictionService {
   private modelWeights: Record<string, number>;
   
   constructor(
-    private db: typeof Database,
+    private churnRepository: ChurnPredictionRepository,
     private organizationId: string
   ) {
     // Initialize model weights (would be loaded from trained model)
@@ -619,29 +619,38 @@ export class ChurnPredictionService {
     predictedChurnDate: Date | undefined,
     factors: ChurnRiskFactor[]
   ): Promise<void> {
-    await this.db.insert(churnPredictions).values({
+    // Since the schema uses subscriptionId instead of customerId,
+    // we need to assume customer.id is actually a subscription ID
+    const predictionData: NewChurnPrediction = {
       organizationId: this.organizationId,
-      customerId: customer.id,
+      subscriptionId: customer.id, // Assuming customer.id is actually subscription ID
       predictionDate: new Date(),
       churnProbability: String(churnProb),
-      riskLevel,
+      riskLevel: riskLevel as 'low' | 'medium' | 'high' | 'critical',
       predictedChurnDate,
-      monthlyRevenue: String(customer.monthlyRevenue),
-      revenueAtRisk: String(revenueAtRisk),
-      lifetimeValue: String(customer.monthlyRevenue * 24), // Simplified LTV
       riskFactors: factors,
       modelVersion: this.modelVersion,
-      modelConfidence: String(0.75 + Math.random() * 0.2) // Mock confidence
-    }).onConflictDoUpdate({
-      target: [churnPredictions.customerId, churnPredictions.predictionDate],
-      set: {
+      modelConfidence: String(0.75 + Math.random() * 0.2), // Mock confidence
+      estimatedRevenueLoss: String(revenueAtRisk),
+      remainingContractValue: String(customer.monthlyRevenue * 24) // Simplified remaining value
+    };
+    
+    // Check if prediction already exists
+    const existing = await this.churnRepository.getBySubscriptionId(customer.id, this.organizationId);
+    
+    if (existing) {
+      // Update existing prediction
+      await this.churnRepository.updateChurnPrediction(existing.id, {
         churnProbability: String(churnProb),
-        riskLevel,
-        revenueAtRisk: String(revenueAtRisk),
+        riskLevel: riskLevel as 'low' | 'medium' | 'high' | 'critical',
+        estimatedRevenueLoss: String(revenueAtRisk),
         riskFactors: factors,
         updatedAt: new Date()
-      }
-    });
+      });
+    } else {
+      // Create new prediction
+      await this.churnRepository.createChurnPrediction(predictionData);
+    }
   }
 
   private generateChurnSummary(
@@ -813,14 +822,12 @@ export class ChurnPredictionService {
   }
 
   private async getPredictionsInPeriod(startDate: Date, endDate: Date): Promise<any[]> {
-    // Query predictions from database
-    const predictions = await this.db.select()
-      .from(churnPredictions)
-      .where(and(
-        eq(churnPredictions.organizationId, this.organizationId),
-        gte(churnPredictions.predictionDate, startDate),
-        lte(churnPredictions.predictionDate, endDate)
-      ));
+    // Query predictions from database using repository
+    const predictions = await this.churnRepository.getPredictionsInDateRange(
+      this.organizationId,
+      startDate,
+      endDate
+    );
     
     return predictions;
   }

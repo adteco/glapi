@@ -6,7 +6,7 @@ import {
   items,
   type SSPEvidence,
   type NewSSPEvidence
-} from '@glapi/database/src/db/schema';
+} from '@glapi/database';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 export interface CreateSSPData {

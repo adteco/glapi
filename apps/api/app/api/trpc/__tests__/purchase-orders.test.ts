@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { TRPCError } from '@trpc/server';
+// import { TRPCError } from '@trpc/server';
 import { createAuthenticatedCaller, createUnauthenticatedCaller, testData } from '../../../../tests/utils/trpc-utils';
 import { TestDbUtils } from '../../../../tests/utils/db-utils';
 
@@ -66,7 +66,7 @@ describe('Purchase Orders tRPC API', () => {
       
       // Create purchase orders with different statuses
       await TestDbUtils.createTestPurchaseOrder(testContext.organization.id, testContext.vendor.id);
-      const approvedPO = await TestDbUtils.createTestPurchaseOrder(testContext.organization.id, testContext.vendor.id);
+      const _approvedPO = await TestDbUtils.createTestPurchaseOrder(testContext.organization.id, testContext.vendor.id);
       // TODO: Update status to APPROVED through API once implemented
       
       const result = await caller.purchaseOrders.list({
