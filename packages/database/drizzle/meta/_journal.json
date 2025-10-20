@@ -43,6 +43,20 @@
       "when": 1750861351854,
       "tag": "0005_lethal_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760918860068,
+      "tag": "0006_units_of_measure_update",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1760918860068,
+      "tag": "0007_construction_projects",
+      "breakpoints": true
     }
   ]
 }

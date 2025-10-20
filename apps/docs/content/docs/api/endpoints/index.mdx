@@ -1,0 +1,150 @@
+---
+title: API Endpoints
+description: Complete reference of all GLAPI endpoints
+---
+
+# API Endpoints
+
+This section provides detailed documentation for all GLAPI endpoints organized by resource type.
+
+## Accounting Dimensions
+
+Core accounting dimension endpoints for managing your chart of accounts structure:
+
+- [Customers](/docs/api/endpoints/customers) - Customer management
+- [Vendors](/docs/api/endpoints/vendors) - Vendor management
+- [Organizations](/docs/api/endpoints/organizations) - Organization management
+- [Subsidiaries](/docs/api/endpoints/subsidiaries) - Subsidiary entities
+- [Departments](/docs/api/endpoints/departments) - Department tracking
+- [Locations](/docs/api/endpoints/locations) - Location management
+- [Classes](/docs/api/endpoints/classes) - Class/cost center tracking
+- [Accounts](/docs/api/endpoints/accounts) - Chart of accounts
+
+## People & Entities
+
+Endpoints for managing people and related entities:
+
+- [Employees](/docs/api/endpoints/employees) - Employee records
+- [Leads](/docs/api/endpoints/leads) - Lead management
+- [Prospects](/docs/api/endpoints/prospects) - Prospect tracking
+- [Contacts](/docs/api/endpoints/contacts) - Contact information
+
+## Inventory & Products
+
+Endpoints for inventory and product management:
+
+- [Items](/docs/api/endpoints/items) - Item and product management
+- [Warehouses](/docs/api/endpoints/warehouses) - Warehouse management
+- [Price Lists](/docs/api/endpoints/price-lists) - Pricing management
+- [Units of Measure](/docs/api/endpoints/units-of-measure) - UOM management
+
+## Financial Operations
+
+Endpoints for financial transactions and operations:
+
+- [Invoices](/docs/api/endpoints/invoices) - Invoice management
+- [Payments](/docs/api/endpoints/payments) - Payment tracking
+- [Business Transactions](/docs/api/endpoints/business-transactions) - Transaction handling
+
+## Revenue Recognition
+
+Advanced revenue recognition endpoints (ASC 606 compliant):
+
+- [Subscriptions](/docs/api/endpoints/subscriptions) - Subscription management
+- [Revenue](/docs/api/endpoints/revenue) - Revenue recognition and schedules
+
+## Common Patterns
+
+All endpoints follow consistent patterns for CRUD operations:
+
+### List Resources
+
+```http
+GET /api/{resource}
+```
+
+Returns a paginated list of resources.
+
+**Query Parameters:**
+- `includeInactive` (optional): Include inactive records
+
+### Get Single Resource
+
+```http
+GET /api/{resource}/{id}
+```
+
+Returns a single resource by ID.
+
+**Path Parameters:**
+- `id` (required): UUID of the resource
+
+### Create Resource
+
+```http
+POST /api/{resource}
+```
+
+Creates a new resource.
+
+**Request Body:** Resource object (see individual endpoint documentation)
+
+### Update Resource
+
+```http
+PUT /api/{resource}/{id}
+```
+
+Updates an existing resource.
+
+**Path Parameters:**
+- `id` (required): UUID of the resource
+
+**Request Body:** Partial resource object with fields to update
+
+### Delete Resource
+
+```http
+DELETE /api/{resource}/{id}
+```
+
+Deletes a resource.
+
+**Path Parameters:**
+- `id` (required): UUID of the resource
+
+## Response Codes
+
+All endpoints use standard HTTP status codes:
+
+- `200 OK` - Request successful
+- `201 Created` - Resource created successfully
+- `400 Bad Request` - Invalid request data
+- `401 Unauthorized` - Authentication required or failed
+- `403 Forbidden` - Insufficient permissions
+- `404 Not Found` - Resource not found
+- `429 Too Many Requests` - Rate limit exceeded
+- `500 Internal Server Error` - Server error
+
+## Error Response Format
+
+Errors are returned in a consistent format:
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error message",
+    "details": {
+      // Additional error context (when applicable)
+    }
+  }
+}
+```
+
+## Next Steps
+
+- Explore individual endpoint documentation in the sidebar
+- Try out endpoints in the [Interactive API Reference](/api-reference)
+- Review [Object Types](/docs/api/objects) for request/response schemas
+- Check out [Code Examples](/docs/api/examples) for common use cases

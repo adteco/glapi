@@ -1,0 +1,209 @@
+---
+title: Object Types
+description: Reference documentation for all GLAPI object types
+---
+
+# Object Types
+
+This section provides detailed documentation for all data objects used in the GLAPI API.
+
+## Accounting Dimensions
+
+Core accounting dimension object types:
+
+- [Customer](/docs/api/objects/customer) - Customer entity
+- [Vendor](/docs/api/objects/vendor) - Vendor entity
+- [Organization](/docs/api/objects/organization) - Organization entity
+- [Subsidiary](/docs/api/objects/subsidiary) - Subsidiary entity
+- [Department](/docs/api/objects/department) - Department entity
+- [Location](/docs/api/objects/location) - Location entity
+- [Class](/docs/api/objects/class) - Class/Cost Center entity
+- [Account](/docs/api/objects/account) - Chart of accounts entry
+
+## People & Entities
+
+- [Employee](/docs/api/objects/employee) - Employee record
+- [Lead](/docs/api/objects/lead) - Lead entity
+- [Prospect](/docs/api/objects/prospect) - Prospect entity
+- [Contact](/docs/api/objects/contact) - Contact entity
+- [Entity](/docs/api/objects/entity) - Base multi-type entity
+
+## Inventory & Products
+
+- [Item](/docs/api/objects/item) - Item/Product entity
+- [Warehouse](/docs/api/objects/warehouse) - Warehouse entity
+- [Price List](/docs/api/objects/price-list) - Price list entity
+- [Unit of Measure](/docs/api/objects/unit-of-measure) - UOM entity
+- [Item Category](/docs/api/objects/item-category) - Item categorization
+- [Kit Component](/docs/api/objects/kit-component) - Assembly/kit component
+
+## Financial Objects
+
+- [Invoice](/docs/api/objects/invoice) - Invoice entity
+- [Invoice Line Item](/docs/api/objects/invoice-line-item) - Invoice line
+- [Payment](/docs/api/objects/payment) - Payment entity
+- [Business Transaction](/docs/api/objects/business-transaction) - Transaction entity
+
+## Revenue Recognition
+
+- [Subscription](/docs/api/objects/subscription) - Subscription entity
+- [Subscription Item](/docs/api/objects/subscription-item) - Subscription line item
+- [Contract](/docs/api/objects/contract) - Contract entity
+- [Contract Line Item](/docs/api/objects/contract-line-item) - Contract line
+- [Performance Obligation](/docs/api/objects/performance-obligation) - Performance obligation
+- [Revenue Schedule](/docs/api/objects/revenue-schedule) - Revenue schedule
+- [Revenue Journal Entry](/docs/api/objects/revenue-journal-entry) - Revenue journal entry
+- [SSP Evidence](/docs/api/objects/ssp-evidence) - Standalone selling price evidence
+- [Contract Modification](/docs/api/objects/contract-modification) - Contract modification
+
+## General Ledger
+
+- [GL Transaction](/docs/api/objects/gl-transaction) - General ledger transaction
+- [GL Journal Entry](/docs/api/objects/gl-journal-entry) - Journal entry
+- [GL Account Balance](/docs/api/objects/gl-account-balance) - Account balance
+- [GL Posting Rule](/docs/api/objects/gl-posting-rule) - Posting rule
+- [Accounting Period](/docs/api/objects/accounting-period) - Accounting period
+
+## Supporting Objects
+
+- [Address](/docs/api/objects/address) - Address object
+- [Currency](/docs/api/objects/currency) - Currency entity
+- [Tax Code](/docs/api/objects/tax-code) - Tax code entity
+- [Activity Code](/docs/api/objects/activity-code) - Activity tracking code
+
+## Common Field Patterns
+
+### Standard Fields
+
+Most entities include these standard fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Unique identifier |
+| `organizationId` | string | Organization identifier (for multi-tenancy) |
+| `createdAt` | datetime | Creation timestamp |
+| `updatedAt` | datetime | Last update timestamp |
+| `status` | enum | Status (`active`, `inactive`, `archived`) |
+
+### Hierarchical Entities
+
+Some entities support hierarchical structures with:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `parentId` | UUID | Parent entity ID (nullable) |
+| `fullName` | string | Full hierarchical name (e.g., "Parent:Child") |
+
+Examples: Customers, Departments, Locations, Classes, Accounts
+
+### Multi-Type Entity
+
+The `Entity` object is a polymorphic type that can represent:
+- Customer
+- Vendor
+- Employee
+- Partner
+- Lead
+- Prospect
+- Contact
+
+It includes a `type` field to distinguish between types.
+
+## Field Types
+
+### UUID
+A universally unique identifier (v4):
+```
+"123e4567-e89b-12d3-a456-426614174000"
+```
+
+### Datetime
+ISO 8601 formatted timestamp with timezone:
+```
+"2025-01-15T10:30:00.000Z"
+```
+
+### Enum
+String value from a predefined set of options:
+```json
+{
+  "status": "active"  // one of: "active", "inactive", "archived"
+}
+```
+
+### Money/Decimal
+Numeric value with precision for financial calculations:
+```json
+{
+  "amount": 1234.56
+}
+```
+
+### Address Object
+Structured address information:
+```json
+{
+  "street": "123 Main St",
+  "city": "San Francisco",
+  "state": "CA",
+  "postalCode": "94105",
+  "country": "USA"
+}
+```
+
+## Validation Rules
+
+### Required Fields
+Fields marked as required must be provided when creating an object.
+
+### Optional Fields
+Optional fields can be omitted or set to `null`.
+
+### Field Constraints
+- **Email**: Must be valid email format
+- **UUID**: Must be valid UUID v4 format
+- **Min Length**: Minimum character length
+- **Max Length**: Maximum character length
+- **Enum**: Must be one of the predefined values
+
+## Relationships
+
+Objects are related through foreign keys (UUID references):
+
+```json
+{
+  "id": "customer-uuid",
+  "parentCustomerId": "parent-customer-uuid",  // References another Customer
+  "organizationId": "org-uuid"                  // References Organization
+}
+```
+
+When fetching related objects, use the appropriate endpoint with the foreign key value.
+
+## Null vs Undefined
+
+- **`null`**: Explicitly set to no value (clears existing value)
+- **`undefined`** or omitted: Field is not being updated
+
+When updating objects:
+```json
+{
+  "email": null           // Clears the email field
+  // phone not included  // Leaves phone unchanged
+}
+```
+
+## SuperJSON Serialization
+
+GLAPI uses SuperJSON for enhanced type support:
+
+- **Dates**: Serialized as ISO strings, automatically parsed to Date objects in TypeScript clients
+- **BigInt**: Supported for large numbers
+- **undefined**: Preserved in responses (not converted to null)
+- **Map/Set**: Supported in TypeScript clients
+
+## Next Steps
+
+- Browse individual object documentation in the sidebar
+- See [API Endpoints](/docs/api/endpoints) for usage examples
+- Try the [Interactive API Reference](/api-reference) to explore objects

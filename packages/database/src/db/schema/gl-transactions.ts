@@ -1,6 +1,7 @@
 import { pgTable, text, boolean, timestamp, uniqueIndex, decimal, date, uuid, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { accountingPeriods } from './accounting-periods';
+import { projects } from './projects';
 
 export const glTransactions = pgTable('gl_transactions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -92,7 +93,7 @@ export const glTransactionLines = pgTable('gl_transaction_lines', {
   description: text('description'),
   reference1: text('reference_1'),
   reference2: text('reference_2'),
-  projectId: uuid('project_id'),
+  projectId: uuid('project_id').references(() => projects.id),
   createdDate: timestamp('created_date', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   transactionLineIdx: uniqueIndex('idx_gl_line_trans').on(table.transactionId, table.lineNumber),
@@ -119,6 +120,10 @@ export const glTransactionLinesRelations = relations(glTransactionLines, ({ one 
   location: one(locations, {
     fields: [glTransactionLines.locationId],
     references: [locations.id],
+  }),
+  project: one(projects, {
+    fields: [glTransactionLines.projectId],
+    references: [projects.id],
   }),
   subsidiary: one(subsidiaries, {
     fields: [glTransactionLines.subsidiaryId],

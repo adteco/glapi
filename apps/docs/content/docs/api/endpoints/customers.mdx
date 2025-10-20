@@ -1,0 +1,547 @@
+---
+title: Customers
+description: Customer management API endpoints
+---
+
+# Customers API
+
+Manage customer records including contact information, addresses, and hierarchical relationships.
+
+## Base Path
+
+```
+/api/customers
+```
+
+## Endpoints
+
+### List Customers
+
+List all customers in your organization.
+
+```http
+GET /api/customers
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `includeInactive` | boolean | No | Include inactive customers in the results |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \\
+  https://api.glapi.io/api/customers?includeInactive=true
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "organizationId": "org_123",
+    "companyName": "Acme Corporation",
+    "customerId": "CUST-001",
+    "contactEmail": "contact@acme.com",
+    "contactPhone": "+1-555-0123",
+    "billingAddress": {
+      "street": "123 Main St",
+      "city": "San Francisco",
+      "state": "CA",
+      "postalCode": "94105",
+      "country": "USA"
+    },
+    "shippingAddress": {
+      "street": "456 Oak Ave",
+      "city": "San Francisco",
+      "state": "CA",
+      "postalCode": "94105",
+      "country": "USA"
+    },
+    "parentCustomerId": null,
+    "taxId": "12-3456789",
+    "paymentTerms": "Net 30",
+    "creditLimit": 50000.00,
+    "status": "active",
+    "createdAt": "2025-01-15T10:30:00Z",
+    "updatedAt": "2025-01-15T10:30:00Z"
+  }
+]
+```
+
+---
+
+### Get Customer
+
+Retrieve a specific customer by ID.
+
+```http
+GET /api/customers/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Customer ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \\
+  https://api.glapi.io/api/customers/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "organizationId": "org_123",
+  "companyName": "Acme Corporation",
+  "customerId": "CUST-001",
+  "contactEmail": "contact@acme.com",
+  "contactPhone": "+1-555-0123",
+  "billingAddress": {
+    "street": "123 Main St",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "shippingAddress": {
+    "street": "456 Oak Ave",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "parentCustomerId": null,
+  "taxId": "12-3456789",
+  "paymentTerms": "Net 30",
+  "creditLimit": 50000.00,
+  "status": "active",
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Customer not found
+
+---
+
+### Create Customer
+
+Create a new customer.
+
+```http
+POST /api/customers
+```
+
+**Request Body:**
+
+```json
+{
+  "companyName": "Acme Corporation",
+  "customerId": "CUST-001",
+  "contactEmail": "contact@acme.com",
+  "contactPhone": "+1-555-0123",
+  "billingAddress": {
+    "street": "123 Main St",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "shippingAddress": {
+    "street": "456 Oak Ave",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "parentCustomerId": null,
+  "taxId": "12-3456789",
+  "paymentTerms": "Net 30",
+  "creditLimit": 50000.00,
+  "status": "active"
+}
+```
+
+**Required Fields:**
+
+- `companyName` (string) - Customer company name
+
+**Optional Fields:**
+
+- `customerId` (string) - Custom customer identifier
+- `contactEmail` (string, email) - Primary contact email
+- `contactPhone` (string) - Primary contact phone
+- `billingAddress` (object) - Billing address
+- `shippingAddress` (object) - Shipping address
+- `parentCustomerId` (UUID) - Parent customer for hierarchical structures
+- `taxId` (string) - Tax identification number
+- `paymentTerms` (string) - Payment terms (e.g., "Net 30")
+- `creditLimit` (number) - Credit limit
+- `status` (enum) - Status: `active`, `inactive`, or `archived` (default: `active`)
+
+**Example Request:**
+
+```bash
+curl -X POST \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "companyName": "Acme Corporation",
+    "contactEmail": "contact@acme.com",
+    "status": "active"
+  }' \\
+  https://api.glapi.io/api/customers
+```
+
+**Example Response:**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "organizationId": "org_123",
+  "companyName": "Acme Corporation",
+  "contactEmail": "contact@acme.com",
+  "status": "active",
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+```
+
+---
+
+### Update Customer
+
+Update an existing customer.
+
+```http
+PUT /api/customers/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Customer ID |
+
+**Request Body:**
+
+Provide only the fields you want to update. All fields are optional.
+
+```json
+{
+  "companyName": "Acme Corporation Inc.",
+  "contactEmail": "newemail@acme.com",
+  "status": "inactive"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X PUT \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "companyName": "Acme Corporation Inc.",
+    "status": "inactive"
+  }' \\
+  https://api.glapi.io/api/customers/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "organizationId": "org_123",
+  "companyName": "Acme Corporation Inc.",
+  "contactEmail": "contact@acme.com",
+  "status": "inactive",
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-16T14:20:00Z"
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Customer not found
+
+---
+
+### Delete Customer
+
+Delete a customer.
+
+```http
+DELETE /api/customers/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Customer ID |
+
+**Example Request:**
+
+```bash
+curl -X DELETE \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  https://api.glapi.io/api/customers/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Customer not found
+
+---
+
+### Get Customer Children
+
+Retrieve child customers for hierarchical customer structures.
+
+```http
+GET /api/customers/{id}/children
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Parent customer ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \\
+  https://api.glapi.io/api/customers/123e4567-e89b-12d3-a456-426614174000/children
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": "234e4567-e89b-12d3-a456-426614174001",
+    "organizationId": "org_123",
+    "companyName": "Acme West",
+    "parentCustomerId": "123e4567-e89b-12d3-a456-426614174000",
+    "status": "active"
+  },
+  {
+    "id": "345e4567-e89b-12d3-a456-426614174002",
+    "organizationId": "org_123",
+    "companyName": "Acme East",
+    "parentCustomerId": "123e4567-e89b-12d3-a456-426614174000",
+    "status": "active"
+  }
+]
+```
+
+---
+
+### Get Warehouse Assignments
+
+Retrieve warehouse assignments for a customer.
+
+```http
+GET /api/customers/{id}/warehouses
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `customerId` | UUID | Yes | Customer ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \\
+  https://api.glapi.io/api/customers/123e4567-e89b-12d3-a456-426614174000/warehouses
+```
+
+---
+
+## Object Type
+
+See the [Customer Object](/docs/api/objects/customer) documentation for detailed field information and validation rules.
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+    }),
+  ],
+});
+
+// List customers
+const customers = await client.customers.list.query();
+
+// Get customer
+const customer = await client.customers.get.query({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+
+// Create customer
+const newCustomer = await client.customers.create.mutate({
+  companyName: 'Acme Corporation',
+  contactEmail: 'contact@acme.com',
+  status: 'active',
+});
+
+// Update customer
+const updated = await client.customers.update.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  data: {
+    status: 'inactive',
+  },
+});
+
+// Delete customer
+await client.customers.delete.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+```
+
+### Python
+
+```python
+import requests
+import os
+
+API_BASE = 'https://api.glapi.io/api'
+TOKEN = os.environ.get('GLAPI_TOKEN')
+HEADERS = {
+    'Authorization': f'Bearer {TOKEN}',
+    'Content-Type': 'application/json',
+}
+
+# List customers
+response = requests.get(f'{API_BASE}/customers', headers=HEADERS)
+customers = response.json()
+
+# Get customer
+response = requests.get(
+    f'{API_BASE}/customers/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+customer = response.json()
+
+# Create customer
+response = requests.post(
+    f'{API_BASE}/customers',
+    headers=HEADERS,
+    json={
+        'companyName': 'Acme Corporation',
+        'contactEmail': 'contact@acme.com',
+        'status': 'active',
+    }
+)
+new_customer = response.json()
+
+# Update customer
+response = requests.put(
+    f'{API_BASE}/customers/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS,
+    json={'status': 'inactive'}
+)
+updated = response.json()
+
+# Delete customer
+response = requests.delete(
+    f'{API_BASE}/customers/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+```
+
+## Common Use Cases
+
+### Creating a Customer with Full Details
+
+```bash
+curl -X POST \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "companyName": "Acme Corporation",
+    "customerId": "CUST-001",
+    "contactEmail": "billing@acme.com",
+    "contactPhone": "+1-555-0123",
+    "billingAddress": {
+      "street": "123 Main St, Suite 100",
+      "city": "San Francisco",
+      "state": "CA",
+      "postalCode": "94105",
+      "country": "USA"
+    },
+    "taxId": "12-3456789",
+    "paymentTerms": "Net 30",
+    "creditLimit": 50000.00,
+    "status": "active"
+  }' \\
+  https://api.glapi.io/api/customers
+```
+
+### Updating Customer Status
+
+```bash
+curl -X PUT \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"status": "inactive"}' \\
+  https://api.glapi.io/api/customers/123e4567-e89b-12d3-a456-426614174000
+```
+
+### Creating a Sub-Customer
+
+```bash
+curl -X POST \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "companyName": "Acme West Division",
+    "customerId": "CUST-001-WEST",
+    "parentCustomerId": "123e4567-e89b-12d3-a456-426614174000",
+    "contactEmail": "west@acme.com",
+    "status": "active"
+  }' \\
+  https://api.glapi.io/api/customers
+```
+
+## Related Resources
+
+- [Customer Object Type](/docs/api/objects/customer)
+- [Invoices API](/docs/api/endpoints/invoices)
+- [Payments API](/docs/api/endpoints/payments)
+- [Subscriptions API](/docs/api/endpoints/subscriptions)

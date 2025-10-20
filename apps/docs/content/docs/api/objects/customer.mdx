@@ -1,0 +1,404 @@
+---
+title: Customer Object
+description: Customer entity schema and field reference
+---
+
+# Customer Object
+
+Represents a customer entity in GLAPI with contact information, addresses, and hierarchical relationships.
+
+## Object Schema
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "organizationId": "org_123abc",
+  "companyName": "Acme Corporation",
+  "customerId": "CUST-001",
+  "contactEmail": "contact@acme.com",
+  "contactPhone": "+1-555-0123",
+  "billingAddress": {
+    "street": "123 Main St",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "shippingAddress": {
+    "street": "456 Oak Ave",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "parentCustomerId": null,
+  "taxId": "12-3456789",
+  "paymentTerms": "Net 30",
+  "creditLimit": 50000.00,
+  "status": "active",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "updatedAt": "2025-01-15T10:30:00.000Z"
+}
+```
+
+## Field Reference
+
+### Core Fields
+
+#### `id`
+- **Type**: UUID (string)
+- **Required**: Auto-generated
+- **Description**: Unique identifier for the customer
+- **Example**: `"123e4567-e89b-12d3-a456-426614174000"`
+
+#### `organizationId`
+- **Type**: string
+- **Required**: Auto-assigned
+- **Description**: Organization identifier for multi-tenant isolation. Automatically set based on authentication context.
+- **Example**: `"org_123abc"`
+
+#### `companyName`
+- **Type**: string
+- **Required**: Yes
+- **Validation**: Minimum 1 character
+- **Description**: Customer's company or business name
+- **Example**: `"Acme Corporation"`
+
+#### `customerId`
+- **Type**: string
+- **Required**: No
+- **Description**: Custom identifier for the customer (e.g., legacy system ID)
+- **Example**: `"CUST-001"`, `"A-1234"`
+
+### Contact Information
+
+#### `contactEmail`
+- **Type**: string (email)
+- **Required**: No
+- **Validation**: Must be valid email format
+- **Description**: Primary contact email address
+- **Example**: `"contact@acme.com"`
+
+#### `contactPhone`
+- **Type**: string
+- **Required**: No
+- **Description**: Primary contact phone number
+- **Example**: `"+1-555-0123"`, `"(555) 123-4567"`
+
+### Addresses
+
+#### `billingAddress`
+- **Type**: Address object (nullable)
+- **Required**: No
+- **Description**: Billing address for invoices and payments
+- **Fields**:
+  - `street` (string, optional): Street address
+  - `city` (string, optional): City
+  - `state` (string, optional): State/Province
+  - `postalCode` (string, optional): Postal/ZIP code
+  - `country` (string, optional): Country
+- **Example**:
+  ```json
+  {
+    "street": "123 Main St, Suite 100",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  }
+  ```
+
+#### `shippingAddress`
+- **Type**: Address object (nullable)
+- **Required**: No
+- **Description**: Shipping address for deliveries
+- **Fields**: Same as `billingAddress`
+- **Example**: Same structure as `billingAddress`
+
+### Hierarchical Relationships
+
+#### `parentCustomerId`
+- **Type**: UUID (string, nullable)
+- **Required**: No
+- **Description**: Reference to parent customer for hierarchical structures (e.g., divisions, branches)
+- **Example**: `"parent-customer-uuid"`
+- **Validation**: Must be a valid UUID of an existing customer
+
+### Financial Information
+
+#### `taxId`
+- **Type**: string (nullable)
+- **Required**: No
+- **Description**: Tax identification number (EIN, VAT number, etc.)
+- **Example**: `"12-3456789"`, `"GB123456789"`
+
+#### `paymentTerms`
+- **Type**: string (nullable)
+- **Required**: No
+- **Description**: Default payment terms for invoices
+- **Example**: `"Net 30"`, `"Due on Receipt"`, `"Net 60"`
+
+#### `creditLimit`
+- **Type**: number (nullable)
+- **Required**: No
+- **Description**: Maximum credit limit for the customer
+- **Example**: `50000.00`
+- **Format**: Decimal with 2 decimal places
+
+### Status Management
+
+#### `status`
+- **Type**: enum (string)
+- **Required**: Yes (defaults to `"active"`)
+- **Values**:
+  - `active` - Customer is active and can be used in transactions
+  - `inactive` - Customer is inactive but can be reactivated
+  - `archived` - Customer is archived (historical record only)
+- **Default**: `"active"`
+- **Example**: `"active"`
+
+### Timestamps
+
+#### `createdAt`
+- **Type**: datetime (ISO 8601 string)
+- **Required**: Auto-generated
+- **Description**: Timestamp when the customer was created
+- **Example**: `"2025-01-15T10:30:00.000Z"`
+
+#### `updatedAt`
+- **Type**: datetime (ISO 8601 string)
+- **Required**: Auto-generated
+- **Description**: Timestamp when the customer was last updated
+- **Example**: `"2025-01-15T14:20:00.000Z"`
+
+## Validation Rules
+
+### Creating a Customer
+
+**Minimum Required Fields:**
+```json
+{
+  "companyName": "Acme Corporation"
+}
+```
+
+**Full Example:**
+```json
+{
+  "companyName": "Acme Corporation",
+  "customerId": "CUST-001",
+  "contactEmail": "billing@acme.com",
+  "contactPhone": "+1-555-0123",
+  "billingAddress": {
+    "street": "123 Main St",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "status": "active"
+}
+```
+
+### Updating a Customer
+
+All fields are optional when updating. Only provide fields you want to change:
+
+```json
+{
+  "contactEmail": "newemail@acme.com",
+  "status": "inactive"
+}
+```
+
+**To clear a nullable field**, set it to `null`:
+```json
+{
+  "taxId": null  // Clears the tax ID
+}
+```
+
+## Relationships
+
+### Parent-Child Hierarchy
+
+Customers can have parent-child relationships:
+
+```
+Parent Customer (Acme Corporation)
+├── Child Customer (Acme West)
+├── Child Customer (Acme East)
+└── Child Customer (Acme South)
+```
+
+**Create a child customer:**
+```json
+{
+  "companyName": "Acme West Division",
+  "parentCustomerId": "parent-customer-uuid",
+  "contactEmail": "west@acme.com"
+}
+```
+
+### Related Entities
+
+Customers are referenced by:
+- **Invoices**: `customerId` field
+- **Payments**: `customerId` field
+- **Subscriptions**: `customerId` field
+- **Contracts**: `customerId` field
+- **Warehouse Assignments**: Many-to-many relationship
+
+## Business Logic
+
+### Status Transitions
+
+Valid status transitions:
+- `active` → `inactive`: Temporarily disable a customer
+- `active` → `archived`: Permanently archive a customer
+- `inactive` → `active`: Reactivate a customer
+- `inactive` → `archived`: Archive an inactive customer
+
+**Note**: Once archived, customers typically should not be reactivated.
+
+### Auto-Assignment
+
+The following fields are automatically assigned:
+- `id`: Generated as UUID v4
+- `organizationId`: Set from authentication context
+- `createdAt`: Set to current timestamp
+- `updatedAt`: Updated on every modification
+
+## Common Patterns
+
+### Basic Customer
+
+Minimal customer with just required fields:
+```json
+{
+  "companyName": "Acme Corporation"
+}
+```
+
+### Full Customer with Billing
+
+Customer with complete billing information:
+```json
+{
+  "companyName": "Acme Corporation",
+  "customerId": "CUST-001",
+  "contactEmail": "billing@acme.com",
+  "contactPhone": "+1-555-0123",
+  "billingAddress": {
+    "street": "123 Main St, Suite 100",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "taxId": "12-3456789",
+  "paymentTerms": "Net 30",
+  "creditLimit": 50000.00,
+  "status": "active"
+}
+```
+
+### Customer with Separate Shipping
+
+Customer with different billing and shipping addresses:
+```json
+{
+  "companyName": "Acme Corporation",
+  "contactEmail": "contact@acme.com",
+  "billingAddress": {
+    "street": "PO Box 123",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94105",
+    "country": "USA"
+  },
+  "shippingAddress": {
+    "street": "456 Warehouse Rd",
+    "city": "Oakland",
+    "state": "CA",
+    "postalCode": "94601",
+    "country": "USA"
+  }
+}
+```
+
+### Subsidiary Customer
+
+Customer as a division of a parent company:
+```json
+{
+  "companyName": "Acme West Division",
+  "parentCustomerId": "parent-customer-uuid",
+  "contactEmail": "west@acme.com"
+}
+```
+
+## API Operations
+
+See the [Customers API](/docs/api/endpoints/customers) documentation for:
+- Listing customers
+- Getting a specific customer
+- Creating customers
+- Updating customers
+- Deleting customers
+- Managing hierarchies
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  // ... configuration
+});
+
+// Create a customer
+const customer = await client.customers.create.mutate({
+  companyName: 'Acme Corporation',
+  contactEmail: 'contact@acme.com',
+  billingAddress: {
+    street: '123 Main St',
+    city: 'San Francisco',
+    state: 'CA',
+    postalCode: '94105',
+    country: 'USA',
+  },
+  status: 'active',
+});
+
+console.log(customer.id); // UUID of created customer
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.post(
+    'https://api.glapi.io/api/customers',
+    headers={'Authorization': 'Bearer TOKEN'},
+    json={
+        'companyName': 'Acme Corporation',
+        'contactEmail': 'contact@acme.com',
+        'status': 'active',
+    }
+)
+
+customer = response.json()
+print(customer['id'])  # UUID of created customer
+```
+
+## Related Documentation
+
+- [Customers API Endpoints](/docs/api/endpoints/customers)
+- [Invoices Object](/docs/api/objects/invoice)
+- [Subscriptions Object](/docs/api/objects/subscription)
+- [Entity Object](/docs/api/objects/entity) (multi-type entity including customers)
