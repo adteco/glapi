@@ -10,10 +10,25 @@ export interface ModelMetrics {
   accuracy: number;
 }
 
+interface FeatureImportance {
+  feature: string;
+  importance: number;
+}
+
+interface PredictionResult {
+  itemId: string;
+  predictedSSP: number;
+  confidence: number;
+  predictionInterval: {
+    lower: number;
+    upper: number;
+  };
+}
+
 export class SSPMLTrainingService {
   private actualService: any = null;
 
-  constructor(private db: any, private organizationId: string) {}
+  constructor(private db: any) {}
 
   private async getService() {
     if (!this.actualService) {
@@ -22,7 +37,7 @@ export class SSPMLTrainingService {
         // Browser environment - throw error
         throw new Error('ML Training is not available in browser environment. Use server-side API endpoints.');
       }
-      
+
       try {
         // Dynamically import the real service only in Node.js environment
         const { SSPMLTrainingService: ActualService } = await import('./ssp-ml-training-service.js');
@@ -36,9 +51,13 @@ export class SSPMLTrainingService {
 
   async trainModel(
     organizationId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<string> {
+    startDate: string,
+    endDate: string
+  ): Promise<{
+    modelId: string;
+    metrics: ModelMetrics;
+    featureImportance: FeatureImportance[];
+  }> {
     const service = await this.getService();
     return service.trainModel(organizationId, startDate, endDate);
   }
@@ -49,6 +68,14 @@ export class SSPMLTrainingService {
   ): Promise<any[]> {
     const service = await this.getService();
     return service.predict(itemIds, modelId);
+  }
+
+  async predictSSP(
+    organizationId: string,
+    itemIds: string[]
+  ): Promise<PredictionResult[]> {
+    const service = await this.getService();
+    return service.predictSSP(organizationId, itemIds);
   }
 
   async evaluateModel(modelId: string): Promise<ModelMetrics> {
@@ -64,5 +91,29 @@ export class SSPMLTrainingService {
   async deleteModel(modelId: string): Promise<void> {
     const service = await this.getService();
     return service.deleteModel(modelId);
+  }
+
+  async getModelMetrics(organizationId: string): Promise<{
+    currentMetrics: ModelMetrics | null;
+    historicalMetrics: Array<{
+      date: Date;
+      metrics: ModelMetrics;
+    }>;
+  }> {
+    const service = await this.getService();
+    return service.getModelMetrics(organizationId);
+  }
+
+  async loadModel(modelId: string, organizationId: string): Promise<void> {
+    const service = await this.getService();
+    return service.loadModel(modelId, organizationId);
+  }
+
+  async retrainModel(
+    organizationId: string,
+    includeRecentData: boolean = true
+  ): Promise<void> {
+    const service = await this.getService();
+    return service.retrainModel(organizationId, includeRecentData);
   }
 }
