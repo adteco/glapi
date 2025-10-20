@@ -61,12 +61,12 @@ export const paymentsRouter = router({
           ...input,
           organizationId: ctx.organizationId
         } as unknown as CreatePaymentData);
-        
+
         // Trigger revenue recognition if payment completes invoice
-        if (payment.status === 'completed') {
+        if (payment.status === 'completed' && payment.invoiceId) {
           await service.triggerRevenueRecognition(payment.invoiceId);
         }
-        
+
         return payment;
       } catch (error: any) {
         if (error.code === 'INVOICE_NOT_FOUND' || error.code === 'NOT_FOUND') {
@@ -173,12 +173,12 @@ export const paymentsRouter = router({
             ...paymentData,
             organizationId: ctx.organizationId
           } as unknown as CreatePaymentData);
-          
+
           // Trigger revenue recognition if payment completes invoice
-          if (payment.status === 'completed') {
+          if (payment.status === 'completed' && payment.invoiceId) {
             await service.triggerRevenueRecognition(payment.invoiceId);
           }
-          
+
           results.successful.push(payment);
         } catch (error: any) {
           results.failed.push({
@@ -221,24 +221,25 @@ export const paymentsRouter = router({
           pending: 0,
           completed: 0,
           failed: 0,
-          refunded: 0
+          refunded: 0,
+          partial_refund: 0,
         },
         byMethod: {} as Record<string, number>
       };
-      
+
       payments.data.forEach(payment => {
         const amount = parseFloat(payment.amount || '0');
-        
+
         if (payment.status === 'completed' && amount > 0) {
           stats.totalAmount += amount;
         } else if (payment.status === 'refunded' || amount < 0) {
           stats.totalRefunded += Math.abs(amount);
         }
-        
-        if (payment.status) {
-          stats.byStatus[payment.status]++;
+
+        if (payment.status && payment.status in stats.byStatus) {
+          stats.byStatus[payment.status as keyof typeof stats.byStatus]++;
         }
-        
+
         if (payment.paymentMethod) {
           stats.byMethod[payment.paymentMethod] = (stats.byMethod[payment.paymentMethod] || 0) + 1;
         }

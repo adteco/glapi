@@ -35,11 +35,13 @@ export const leadsRouter = router({
     .input(leadQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new LeadService();
-      const { page, limit, search, isActive } = input;
-      
+      const { page = 1, limit = 10, search, isActive } = input;
+
       return await service.listLeads(ctx.user.organizationId, {
         page,
         limit,
+        orderBy: 'name' as const,
+        orderDirection: 'asc' as const,
         search,
         isActive,
       });
@@ -56,7 +58,11 @@ export const leadsRouter = router({
     .input(leadSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new LeadService();
-      return await service.createLead(ctx.user.organizationId, input);
+      return await service.createLead(ctx.user.organizationId, {
+        ...input,
+        status: 'active' as const,
+        entityTypes: ['Lead'] as const,
+      });
     }),
 
   update: authenticatedProcedure

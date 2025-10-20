@@ -37,10 +37,12 @@ export const contactsRouter = router({
     .query(async ({ ctx, input = {} }) => {
       const service = new ContactService();
       const { page = 1, limit = 10, search, isActive } = input;
-      
+
       return await service.listContacts(ctx.user.organizationId, {
         page,
         limit,
+        orderBy: 'name' as const,
+        orderDirection: 'asc' as const,
         search,
         isActive,
       });
@@ -57,7 +59,11 @@ export const contactsRouter = router({
     .input(contactSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ContactService();
-      return await service.createContact(ctx.user.organizationId, input);
+      return await service.createContact(ctx.user.organizationId, {
+        ...input,
+        status: 'active' as const,
+        entityTypes: ['Contact'] as const,
+      });
     }),
 
   update: authenticatedProcedure

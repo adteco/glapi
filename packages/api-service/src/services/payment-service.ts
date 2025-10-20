@@ -61,7 +61,11 @@ export class PaymentService extends BaseService {
 
   async createPayment(data: CreatePaymentData): Promise<Payment> {
     const organizationId = this.requireOrganizationContext();
-    
+
+    if (!data.invoiceId) {
+      throw new ServiceError('Invoice ID is required', 'INVOICE_ID_REQUIRED', 400);
+    }
+
     // Validate invoice exists
     const invoice = await this.invoiceRepository.findByIdWithDetails(data.invoiceId);
     if (!invoice || invoice.organizationId !== organizationId) {
@@ -75,8 +79,8 @@ export class PaymentService extends BaseService {
 
     // Validate payment amount
     const paymentAmount = parseFloat(String(data.amount));
-    const balanceDue = parseFloat(invoice.balanceDue);
-    
+    const balanceDue = parseFloat(invoice.balanceDue ?? '0');
+
     if (paymentAmount > balanceDue) {
       throw new ServiceError(
         `Payment amount exceeds balance due. Balance: ${balanceDue}, Payment: ${paymentAmount}`,
@@ -164,11 +168,15 @@ export class PaymentService extends BaseService {
     }
 
     // Update invoice status
+    if (!originalPayment.invoiceId) {
+      return refundPayment;
+    }
+
     const invoice = await this.invoiceRepository.findByIdWithDetails(originalPayment.invoiceId);
     if (invoice) {
       const currentPaidAmount = parseFloat(invoice.paidAmount || '0');
       const newPaidAmount = currentPaidAmount - amount;
-      const newBalanceDue = parseFloat(invoice.totalAmount) - newPaidAmount;
+      const newBalanceDue = parseFloat(invoice.totalAmount ?? '0') - newPaidAmount;
       
       await this.invoiceRepository.update(invoice.id, {
         status: newBalanceDue > 0.01 ? 'sent' : 'paid',
@@ -185,7 +193,7 @@ export class PaymentService extends BaseService {
 
   async triggerRevenueRecognition(invoiceId: string): Promise<void> {
     const organizationId = this.requireOrganizationContext();
-    
+
     // Get invoice with line items
     const invoice = await this.invoiceRepository.findByIdWithDetails(invoiceId);
     if (!invoice || invoice.organizationId !== organizationId) {
@@ -193,7 +201,7 @@ export class PaymentService extends BaseService {
     }
 
     // Check if invoice is fully paid
-    const balanceDue = parseFloat(invoice.balanceDue);
+    const balanceDue = parseFloat(invoice.balanceDue ?? '0');
     if (balanceDue > 0.01) {
       return; // Not fully paid, don't trigger revenue recognition
     }

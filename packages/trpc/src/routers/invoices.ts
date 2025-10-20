@@ -238,22 +238,24 @@ export const invoicesRouter = router({
           sent: 0,
           paid: 0,
           overdue: 0,
-          void: 0
+          void: 0,
+          cancelled: 0,
+          partial: 0,
         }
       };
-      
+
       invoices.data.forEach(invoice => {
         const total = parseFloat(invoice.totalAmount || '0');
         // TODO: Calculate paid amount from payments table
         const paid = invoice.status === 'paid' ? total : 0;
         const balance = invoice.status === 'paid' ? 0 : total;
-        
+
         summary.totalAmount += total;
         summary.totalPaid += paid;
         summary.totalOutstanding += balance;
-        
-        if (invoice.status) {
-          summary.byStatus[invoice.status]++;
+
+        if (invoice.status && invoice.status in summary.byStatus) {
+          summary.byStatus[invoice.status as keyof typeof summary.byStatus]++;
         }
       });
       

@@ -34,11 +34,13 @@ export const vendorsRouter = router({
     .input(vendorQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new VendorService();
-      const { page, limit, search, isActive } = input;
-      
+      const { page = 1, limit = 10, search, isActive } = input;
+
       return await service.listVendors(ctx.user.organizationId, {
         page,
         limit,
+        orderBy: 'name' as const,
+        orderDirection: 'asc' as const,
         search,
         isActive,
       });
@@ -55,7 +57,11 @@ export const vendorsRouter = router({
     .input(vendorSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new VendorService();
-      return await service.createVendor(ctx.user.organizationId, input);
+      return await service.createVendor(ctx.user.organizationId, {
+        ...input,
+        status: 'active' as const,
+        entityTypes: ['Vendor'] as const,
+      });
     }),
 
   update: authenticatedProcedure

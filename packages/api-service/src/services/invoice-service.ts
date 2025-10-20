@@ -107,15 +107,34 @@ export class InvoiceService extends BaseService {
     return this.createPaginatedResult(result.data, result.total, page, limit);
   }
 
+  /**
+   * Transform repository invoice to service format (null -> undefined)
+   */
+  private transformInvoice(invoice: any): InvoiceWithLineItems {
+    return {
+      ...invoice,
+      lineItems: invoice.lineItems?.map((item: any) => ({
+        id: item.id,
+        invoiceId: item.invoiceId,
+        subscriptionItemId: item.subscriptionItemId ?? undefined,
+        itemId: item.itemId ?? undefined,
+        description: item.description ?? '',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        amount: item.amount,
+      })),
+    };
+  }
+
   async getInvoiceById(id: string): Promise<InvoiceWithLineItems | null> {
     const organizationId = this.requireOrganizationContext();
-    
+
     const invoice = await this.invoiceRepository.findByIdWithDetails(id);
     if (!invoice || invoice.organizationId !== organizationId) {
       return null;
     }
-    
-    return invoice;
+
+    return this.transformInvoice(invoice);
   }
 
   async createInvoice(data: CreateInvoiceData): Promise<InvoiceWithLineItems> {
@@ -153,7 +172,8 @@ export class InvoiceService extends BaseService {
       amount: String(item.amount)
     })) || [];
 
-    return await this.invoiceRepository.createWithLineItems(invoiceToCreate, itemsToCreate);
+    const created = await this.invoiceRepository.createWithLineItems(invoiceToCreate, itemsToCreate);
+    return this.transformInvoice(created);
   }
 
   async generateFromSubscription(params: GenerateInvoiceParams): Promise<InvoiceWithLineItems> {

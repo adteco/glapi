@@ -35,11 +35,13 @@ export const prospectsRouter = router({
     .input(prospectQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new ProspectService();
-      const { page, limit, search, isActive } = input;
-      
+      const { page = 1, limit = 10, search, isActive } = input;
+
       return await service.listProspects(ctx.user.organizationId, {
         page,
         limit,
+        orderBy: 'name' as const,
+        orderDirection: 'asc' as const,
         search,
         isActive,
       });
@@ -56,7 +58,11 @@ export const prospectsRouter = router({
     .input(prospectSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProspectService();
-      return await service.createProspect(ctx.user.organizationId, input);
+      return await service.createProspect(ctx.user.organizationId, {
+        ...input,
+        status: 'active' as const,
+        entityTypes: ['Prospect'] as const,
+      });
     }),
 
   update: authenticatedProcedure
