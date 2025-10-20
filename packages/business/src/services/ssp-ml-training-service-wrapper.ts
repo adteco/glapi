@@ -26,7 +26,7 @@ export class SSPMLTrainingService {
       try {
         // Dynamically import the real service only in Node.js environment
         const { SSPMLTrainingService: ActualService } = await import('./ssp-ml-training-service.js');
-        this.actualService = new ActualService(this.db, this.organizationId);
+        this.actualService = new ActualService(this.db);
       } catch (error) {
         throw new Error('TensorFlow.js is not available in this environment');
       }
