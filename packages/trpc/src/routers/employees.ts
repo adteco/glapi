@@ -36,11 +36,13 @@ export const employeesRouter = router({
     .input(employeeQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new EmployeeService();
-      const { page, limit, search, isActive } = input;
-      
+      const { page = 1, limit = 10, search, isActive } = input;
+
       return await service.listEmployees(ctx.user.organizationId, {
         page,
         limit,
+        orderBy: 'name' as const,
+        orderDirection: 'asc' as const,
         search,
         isActive,
       });
@@ -57,7 +59,11 @@ export const employeesRouter = router({
     .input(employeeSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new EmployeeService();
-      return await service.createEmployee(ctx.user.organizationId, input);
+      return await service.createEmployee(ctx.user.organizationId, {
+        ...input,
+        status: 'active' as const,
+        entityTypes: ['Employee'] as const,
+      });
     }),
 
   update: authenticatedProcedure

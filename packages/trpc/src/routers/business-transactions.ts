@@ -177,13 +177,14 @@ export const businessTransactionsRouter = router({
 
       // Apply search
       if (search) {
-        whereConditions.push(
-          or(
-            ilike(businessTransactions.transactionNumber, `%${search}%`),
-            ilike(businessTransactions.memo, `%${search}%`),
-            ilike(businessTransactions.externalReference, `%${search}%`)
-          )
+        const searchCondition = or(
+          ilike(businessTransactions.transactionNumber, `%${search}%`),
+          ilike(businessTransactions.memo, `%${search}%`),
+          ilike(businessTransactions.externalReference, `%${search}%`)
         );
+        if (searchCondition) {
+          whereConditions.push(searchCondition);
+        }
       }
 
       // Build order by

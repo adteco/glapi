@@ -94,6 +94,17 @@ export class EntityService {
   }
   
   /**
+   * Transform null values to undefined for repository compatibility
+   */
+  private cleanData<T extends Record<string, any>>(data: T): any {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      cleaned[key] = value === null ? undefined : value;
+    }
+    return cleaned;
+  }
+
+  /**
    * Create a new entity
    */
   async create(
@@ -102,14 +113,14 @@ export class EntityService {
     data: CreateEntityInput
   ): Promise<BaseEntity> {
     const entity = await this.repository.create({
-      ...data,
+      ...this.cleanData(data),
       organizationId,
       entityTypes,
-    });
-    
+    } as any);
+
     return this.transformEntity(entity);
   }
-  
+
   /**
    * Update an entity
    */
@@ -118,12 +129,12 @@ export class EntityService {
     organizationId: string,
     data: UpdateEntityInput
   ): Promise<BaseEntity> {
-    const entity = await this.repository.update(id, organizationId, data);
-    
+    const entity = await this.repository.update(id, organizationId, this.cleanData(data) as any);
+
     if (!entity) {
       throw new Error('Entity not found');
     }
-    
+
     return this.transformEntity(entity);
   }
   
