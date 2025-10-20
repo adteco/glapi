@@ -18,6 +18,7 @@ import * as transactionLines from './transactionLines';
 import * as accounts from './accounts';
 import * as entities from './entities';
 import * as addresses from './addresses';
+import * as projects from './projects';
 import * as transactionTypes from './transaction-types';
 import * as glTransactions from './gl-transactions';
 import * as accountingPeriods from './accounting-periods';
@@ -93,6 +94,7 @@ export const schema = {
   ...accounts,
   ...entities,
   ...addresses,
+  ...projects,
   ...testGl,
   // Items system schemas
   ...unitsOfMeasure,

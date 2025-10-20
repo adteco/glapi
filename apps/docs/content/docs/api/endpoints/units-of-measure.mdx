@@ -1,0 +1,282 @@
+---
+title: Units of Measure
+description: Unit of measure management API endpoints
+---
+
+# Units of Measure API
+
+Manage units-of-measure in your organization.
+
+## Base Path
+
+```
+/api/units-of-measure
+```
+
+## Endpoints
+
+### List Units of Measure
+
+List all units-of-measure in your organization.
+
+```http
+GET /api/units-of-measure
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `includeInactive` | boolean | No | Include inactive records in the results |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/units-of-measure
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "organizationId": "org_123",
+    "status": "active",
+    "createdAt": "2025-01-15T10:30:00Z",
+    "updatedAt": "2025-01-15T10:30:00Z"
+  }
+]
+```
+
+---
+
+### Get Units of measure
+
+Retrieve a specific units of measure by ID.
+
+```http
+GET /api/units-of-measure/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Units of measure ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/units-of-measure/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Units of measure not found
+
+---
+
+### Create Units of measure
+
+Create a new units of measure.
+
+```http
+POST /api/units-of-measure
+```
+
+**Request Body:**
+
+```json
+{
+  "status": "active"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "active"}' \
+  https://api.glapi.io/api/units-of-measure
+```
+
+---
+
+### Update Units of measure
+
+Update an existing units of measure.
+
+```http
+PUT /api/units-of-measure/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Units of measure ID |
+
+**Request Body:**
+
+Provide only the fields you want to update. All fields are optional.
+
+```json
+{
+  "status": "inactive"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X PUT \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}' \
+  https://api.glapi.io/api/units-of-measure/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Units of measure not found
+
+---
+
+### Delete Units of measure
+
+Delete a units of measure.
+
+```http
+DELETE /api/units-of-measure/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Units of measure ID |
+
+**Example Request:**
+
+```bash
+curl -X DELETE \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/units-of-measure/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Units of measure not found
+
+---
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+    }),
+  ],
+});
+
+// List units-of-measure
+const items = await client.unitsofmeasure.list.query();
+
+// Get units of measure
+const item = await client.unitsofmeasure.get.query({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+
+// Create units of measure
+const newItem = await client.unitsofmeasure.create.mutate({
+  status: 'active',
+});
+
+// Update units of measure
+const updated = await client.unitsofmeasure.update.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  data: {
+    status: 'inactive',
+  },
+});
+
+// Delete units of measure
+await client.unitsofmeasure.delete.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+```
+
+### Python
+
+```python
+import requests
+import os
+
+API_BASE = 'https://api.glapi.io/api'
+TOKEN = os.environ.get('GLAPI_TOKEN')
+HEADERS = {
+    'Authorization': f'Bearer {TOKEN}',
+    'Content-Type': 'application/json',
+}
+
+# List units-of-measure
+response = requests.get(f'{API_BASE}/units-of-measure', headers=HEADERS)
+items = response.json()
+
+# Get units of measure
+response = requests.get(
+    f'{API_BASE}/units-of-measure/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+item = response.json()
+
+# Create units of measure
+response = requests.post(
+    f'{API_BASE}/units-of-measure',
+    headers=HEADERS,
+    json={'status': 'active'}
+)
+new_item = response.json()
+
+# Update units of measure
+response = requests.put(
+    f'{API_BASE}/units-of-measure/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS,
+    json={'status': 'inactive'}
+)
+updated = response.json()
+
+# Delete units of measure
+response = requests.delete(
+    f'{API_BASE}/units-of-measure/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+```
+
+## Related Resources
+
+- [Interactive API Reference](/api-reference)
+- [Authentication](/docs/api/authentication)

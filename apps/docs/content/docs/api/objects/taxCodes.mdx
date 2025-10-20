@@ -1,0 +1,122 @@
+---
+title: TaxCodes Object
+description: taxCodes entity schema and field reference
+---
+
+# TaxCodes Object
+
+Represents a taxcodes entity in GLAPI.
+
+## Object Schema
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "organizationId": "org_123abc",
+  "status": "active",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "updatedAt": "2025-01-15T10:30:00.000Z"
+}
+```
+
+## Field Reference
+
+### Core Fields
+
+#### `id`
+- **Type**: UUID (string)
+- **Required**: Auto-generated
+- **Description**: Unique identifier for the taxcodes
+- **Example**: `"123e4567-e89b-12d3-a456-426614174000"`
+
+#### `organizationId`
+- **Type**: string
+- **Required**: Auto-assigned
+- **Description**: Organization identifier for multi-tenant isolation
+- **Example**: `"org_123abc"`
+
+### Status Management
+
+#### `status`
+- **Type**: enum (string)
+- **Required**: Yes (defaults to `"active"`)
+- **Values**:
+  - `active` - Record is active
+  - `inactive` - Record is inactive but can be reactivated
+  - `archived` - Record is archived (historical only)
+- **Default**: `"active"`
+- **Example**: `"active"`
+
+### Timestamps
+
+#### `createdAt`
+- **Type**: datetime (ISO 8601 string)
+- **Required**: Auto-generated
+- **Description**: Timestamp when the record was created
+- **Example**: `"2025-01-15T10:30:00.000Z"`
+
+#### `updatedAt`
+- **Type**: datetime (ISO 8601 string)
+- **Required**: Auto-generated
+- **Description**: Timestamp when the record was last updated
+- **Example**: `"2025-01-15T14:20:00.000Z"`
+
+## Validation Rules
+
+### Creating a Record
+
+**Minimum Required Fields:**
+```json
+{
+  "status": "active"
+}
+```
+
+### Updating a Record
+
+All fields are optional when updating. Only provide fields you want to change:
+
+```json
+{
+  "status": "inactive"
+}
+```
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  // ... configuration
+});
+
+// Example usage
+const record = await client.taxCodess.get.query({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+
+console.log(record.id);
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get(
+    'https://api.glapi.io/api/taxCodess/123e4567-e89b-12d3-a456-426614174000',
+    headers={'Authorization': 'Bearer TOKEN'}
+)
+
+record = response.json()
+print(record['id'])
+```
+
+## Related Documentation
+
+- [API Endpoints](/docs/api/endpoints)
+- [Interactive API Reference](/api-reference)

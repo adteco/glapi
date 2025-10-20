@@ -309,6 +309,11 @@ export const businessTransactionLines = pgTable("business_transaction_lines", {
 	taxCodeId: uuid("tax_code_id"),
 	taxAmount: numeric("tax_amount", { precision: 18, scale:  4 }).default('0').notNull(),
 	totalLineAmount: numeric("total_line_amount", { precision: 18, scale:  4 }).notNull(),
+	scheduleValue: numeric("schedule_value", { precision: 18, scale:  4 }).default('0').notNull(),
+	workCompletedToDate: numeric("work_completed_to_date", { precision: 18, scale:  4 }).default('0').notNull(),
+	retainagePercent: numeric("retainage_percent", { precision: 5, scale:  2 }),
+	retainageAmount: numeric("retainage_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	storedMaterialAmount: numeric("stored_material_amount", { precision: 18, scale:  4 }).default('0').notNull(),
 	accountId: uuid("account_id"),
 	classId: uuid("class_id"),
 	departmentId: uuid("department_id"),
@@ -381,6 +386,11 @@ export const businessTransactionLines = pgTable("business_transaction_lines", {
 			name: "business_transaction_lines_location_id_locations_id_fk"
 		}),
 	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "business_transaction_lines_project_id_projects_id_fk"
+		}),
+	foreignKey({
 			columns: [table.parentLineId],
 			foreignColumns: [table.id],
 			name: "business_transaction_lines_parent_line_id_business_transaction_"
@@ -437,8 +447,10 @@ export const businessTransactions = pgTable("business_transactions", {
 	baseTotalAmount: numeric("base_total_amount", { precision: 18, scale:  4 }).notNull(),
 	memo: text(),
 	externalReference: text("external_reference"),
+	externalSource: text("external_source"),
 	status: text().notNull(),
 	workflowStatus: text("workflow_status"),
+	workflowPayload: jsonb("workflow_payload"),
 	shipDate: date("ship_date"),
 	shippedVia: text("shipped_via"),
 	trackingNumber: text("tracking_number"),
@@ -449,6 +461,10 @@ export const businessTransactions = pgTable("business_transactions", {
 	classId: uuid("class_id"),
 	locationId: uuid("location_id"),
 	projectId: uuid("project_id"),
+	retainagePercent: numeric("retainage_percent", { precision: 5, scale:  2 }),
+	retainageReleasedPercent: numeric("retainage_released_percent", { precision: 5, scale:  2 }),
+	periodStartDate: date("period_start_date"),
+	periodEndDate: date("period_end_date"),
 	salesStage: text("sales_stage"),
 	probability: numeric({ precision: 5, scale:  2 }),
 	expectedCloseDate: date("expected_close_date"),
@@ -508,6 +524,11 @@ export const businessTransactions = pgTable("business_transactions", {
 			columns: [table.transactionTypeId],
 			foreignColumns: [transactionTypes.id],
 			name: "business_transactions_transaction_type_id_transaction_types_id_"
+		}),
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "business_transactions_project_id_projects_id_fk"
 		}),
 	unique("business_transactions_transaction_number_unique").on(table.transactionNumber),
 ]);
@@ -764,6 +785,166 @@ export const entities = pgTable("entities", {
 		}),
 	unique("entities_org_code_unique").on(table.organizationId, table.code),
 ]);
+export const projects = pgTable("projects", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	organizationId: uuid("organization_id").notNull(),
+	subsidiaryId: uuid("subsidiary_id"),
+	projectCode: text("project_code").notNull(),
+	name: text().notNull(),
+	status: text().default('planning').notNull(),
+	startDate: date("start_date"),
+	endDate: date("end_date"),
+	externalSource: text("external_source"),
+	jobNumber: text("job_number"),
+	projectType: text("project_type"),
+	retainagePercent: numeric("retainage_percent", { precision: 5, scale:  2 }).default('0').notNull(),
+	currencyCode: text("currency_code"),
+	description: text(),
+	metadata: jsonb("metadata"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.organizationId],
+			foreignColumns: [organizations.id],
+			name: "projects_organization_id_organizations_id_fk"
+		}),
+	foreignKey({
+			columns: [table.subsidiaryId],
+			foreignColumns: [subsidiaries.id],
+			name: "projects_subsidiary_id_subsidiaries_id_fk"
+		}),
+	uniqueIndex("idx_projects_org_code").using("btree", table.organizationId.asc().nullsLast().op("uuid_ops"), table.projectCode.asc().nullsLast().op("text_ops")),
+]);
+
+export const projectParticipants = pgTable("project_participants", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	projectId: uuid("project_id").notNull(),
+	entityId: uuid("entity_id"),
+	participantRole: text("participant_role").notNull(),
+	isPrimary: boolean("is_primary").default(false).notNull(),
+	metadata: jsonb("metadata"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "project_participants_project_id_projects_id_fk"
+		}),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [entities.id],
+			name: "project_participants_entity_id_entities_id_fk"
+		}),
+	uniqueIndex("idx_project_participants_role").using("btree", table.projectId.asc().nullsLast().op("uuid_ops"), table.participantRole.asc().nullsLast().op("text_ops"), table.entityId.asc().nullsLast().op("uuid_ops")),
+]);
+
+export const projectCostCodes = pgTable("project_cost_codes", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	projectId: uuid("project_id").notNull(),
+	activityCodeId: uuid("activity_code_id"),
+	costCode: text("cost_code"),
+	costType: text("cost_type"),
+	description: text(),
+	isActive: boolean("is_active").default(true).notNull(),
+	budgetAmount: numeric("budget_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	committedAmount: numeric("committed_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	metadata: jsonb("metadata"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "project_cost_codes_project_id_projects_id_fk"
+		}),
+	foreignKey({
+			columns: [table.activityCodeId],
+			foreignColumns: [activityCodes.id],
+			name: "project_cost_codes_activity_code_id_activity_codes_id_fk"
+		}),
+	uniqueIndex("idx_project_cost_codes_project_code").using("btree", table.projectId.asc().nullsLast().op("uuid_ops"), table.costCode.asc().nullsLast().op("text_ops")),
+]);
+
+export const projectBudgetVersions = pgTable("project_budget_versions", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	projectId: uuid("project_id").notNull(),
+	versionName: text("version_name").notNull(),
+	status: text("status").default('draft').notNull(),
+	isLocked: boolean("is_locked").default(false).notNull(),
+	effectiveDate: date("effective_date"),
+	notes: text(),
+	createdBy: uuid("created_by"),
+	approvedBy: uuid("approved_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "project_budget_versions_project_id_projects_id_fk"
+		}),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [users.id],
+			name: "project_budget_versions_created_by_users_id_fk"
+		}),
+	foreignKey({
+			columns: [table.approvedBy],
+			foreignColumns: [users.id],
+			name: "project_budget_versions_approved_by_users_id_fk"
+		}),
+	uniqueIndex("idx_project_budget_versions_name").using("btree", table.projectId.asc().nullsLast().op("uuid_ops"), table.versionName.asc().nullsLast().op("text_ops")),
+]);
+
+export const projectBudgetLines = pgTable("project_budget_lines", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	budgetVersionId: uuid("budget_version_id").notNull(),
+	projectCostCodeId: uuid("project_cost_code_id").notNull(),
+	costType: text("cost_type"),
+	originalBudgetAmount: numeric("original_budget_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	revisedBudgetAmount: numeric("revised_budget_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	forecastAmount: numeric("forecast_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	committedAmount: numeric("committed_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	actualAmount: numeric("actual_amount", { precision: 18, scale:  4 }).default('0').notNull(),
+	metadata: jsonb("metadata"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.budgetVersionId],
+			foreignColumns: [projectBudgetVersions.id],
+			name: "project_budget_lines_budget_version_id_project_budget_versions_id_fk"
+		}),
+	foreignKey({
+			columns: [table.projectCostCodeId],
+			foreignColumns: [projectCostCodes.id],
+			name: "project_budget_lines_project_cost_code_id_project_cost_codes_id_fk"
+		}),
+	uniqueIndex("idx_project_budget_lines_unique").using("btree", table.budgetVersionId.asc().nullsLast().op("uuid_ops"), table.projectCostCodeId.asc().nullsLast().op("uuid_ops")),
+]);
+
+export const externalReferences = pgTable("external_references", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	organizationId: uuid("organization_id"),
+	objectType: text("object_type").notNull(),
+	objectId: uuid("object_id").notNull(),
+	provider: text("provider").notNull(),
+	externalId: text("external_id").notNull(),
+	metadata: jsonb("metadata"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.organizationId],
+			foreignColumns: [organizations.id],
+			name: "external_references_organization_id_organizations_id_fk"
+		}),
+	uniqueIndex("idx_external_refs_provider_external").using("btree", table.provider.asc().nullsLast().op("text_ops"), table.externalId.asc().nullsLast().op("text_ops")),
+	index("idx_external_refs_object").using("btree", table.objectType.asc().nullsLast().op("text_ops"), table.objectId.asc().nullsLast().op("uuid_ops")),
+]);
+
 
 export const products = pgTable("products", {
 	id: uuid().defaultRandom().primaryKey().notNull(),

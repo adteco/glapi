@@ -44,8 +44,10 @@ export const businessTransactions = pgTable('business_transactions', {
   baseTotalAmount: decimal('base_total_amount', { precision: 18, scale: 4 }).notNull(),
   memo: text('memo'),
   externalReference: text('external_reference'), // PO number, invoice number, etc.
+  externalSource: text('external_source'),
   status: text('status').notNull(), // 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'POSTED', 'PAID', 'CLOSED', 'CANCELLED'
   workflowStatus: text('workflow_status'), // Current approval status
+  workflowPayload: jsonb('workflow_payload'),
   shipDate: date('ship_date'),
   shippedVia: text('shipped_via'),
   trackingNumber: text('tracking_number'),
@@ -55,7 +57,11 @@ export const businessTransactions = pgTable('business_transactions', {
   departmentId: uuid('department_id'),
   classId: uuid('class_id'),
   locationId: uuid('location_id'),
-  projectId: uuid('project_id'), // Future: references projects table
+  projectId: uuid('project_id').references(() => projects.id),
+  retainagePercent: decimal('retainage_percent', { precision: 5, scale: 2 }),
+  retainageReleasedPercent: decimal('retainage_released_percent', { precision: 5, scale: 2 }),
+  periodStartDate: date('period_start_date'),
+  periodEndDate: date('period_end_date'),
   
   // Opportunity/Estimate specific fields
   salesStage: text('sales_stage'), // 'LEAD', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'
@@ -120,6 +126,10 @@ export const businessTransactionsRelations = relations(businessTransactions, ({ 
     fields: [businessTransactions.locationId],
     references: [locations.id],
   }),
+  project: one(projects, {
+    fields: [businessTransactions.projectId],
+    references: [projects.id],
+  }),
   billingAddress: one(addresses, {
     fields: [businessTransactions.billingAddressId],
     references: [addresses.id],
@@ -155,11 +165,16 @@ export const businessTransactionLines = pgTable('business_transaction_lines', {
   taxCodeId: uuid('tax_code_id').references(() => taxCodes.id),
   taxAmount: decimal('tax_amount', { precision: 18, scale: 4 }).default('0').notNull(),
   totalLineAmount: decimal('total_line_amount', { precision: 18, scale: 4 }).notNull(),
+  scheduleValue: decimal('schedule_value', { precision: 18, scale: 4 }).default('0').notNull(),
+  workCompletedToDate: decimal('work_completed_to_date', { precision: 18, scale: 4 }).default('0').notNull(),
+  retainagePercent: decimal('retainage_percent', { precision: 5, scale: 2 }),
+  retainageAmount: decimal('retainage_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  storedMaterialAmount: decimal('stored_material_amount', { precision: 18, scale: 4 }).default('0').notNull(),
   accountId: uuid('account_id').references(() => accounts.id),
   classId: uuid('class_id').references(() => classes.id),
   departmentId: uuid('department_id').references(() => departments.id),
   locationId: uuid('location_id').references(() => locations.id),
-  projectId: uuid('project_id'),
+  projectId: uuid('project_id').references(() => projects.id),
   jobId: uuid('job_id'),
   activityCodeId: uuid('activity_code_id').references(() => activityCodes.id),
   
@@ -227,6 +242,10 @@ export const businessTransactionLinesRelations = relations(businessTransactionLi
   location: one(locations, {
     fields: [businessTransactionLines.locationId],
     references: [locations.id],
+  }),
+  project: one(projects, {
+    fields: [businessTransactionLines.projectId],
+    references: [projects.id],
   }),
   activityCode: one(activityCodes, {
     fields: [businessTransactionLines.activityCodeId],
@@ -313,4 +332,5 @@ import { products } from './products';
 import { accounts } from './accounts';
 import { taxCodes } from './tax-codes';
 import { activityCodes } from './activity-codes';
+import { projects } from './projects';
 // glTransactions and glPostingRules imported in gl-transactions.ts to avoid circular dependency

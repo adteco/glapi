@@ -1,0 +1,282 @@
+---
+title: Business Transactions
+description: Business transaction API endpoints
+---
+
+# Business Transactions API
+
+Manage business-transactions in your organization.
+
+## Base Path
+
+```
+/api/business-transactions
+```
+
+## Endpoints
+
+### List Business Transactions
+
+List all business-transactions in your organization.
+
+```http
+GET /api/business-transactions
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `includeInactive` | boolean | No | Include inactive records in the results |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/business-transactions
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "organizationId": "org_123",
+    "status": "active",
+    "createdAt": "2025-01-15T10:30:00Z",
+    "updatedAt": "2025-01-15T10:30:00Z"
+  }
+]
+```
+
+---
+
+### Get Business transaction
+
+Retrieve a specific business transaction by ID.
+
+```http
+GET /api/business-transactions/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Business transaction ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/business-transactions/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Business transaction not found
+
+---
+
+### Create Business transaction
+
+Create a new business transaction.
+
+```http
+POST /api/business-transactions
+```
+
+**Request Body:**
+
+```json
+{
+  "status": "active"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "active"}' \
+  https://api.glapi.io/api/business-transactions
+```
+
+---
+
+### Update Business transaction
+
+Update an existing business transaction.
+
+```http
+PUT /api/business-transactions/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Business transaction ID |
+
+**Request Body:**
+
+Provide only the fields you want to update. All fields are optional.
+
+```json
+{
+  "status": "inactive"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X PUT \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}' \
+  https://api.glapi.io/api/business-transactions/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Business transaction not found
+
+---
+
+### Delete Business transaction
+
+Delete a business transaction.
+
+```http
+DELETE /api/business-transactions/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Business transaction ID |
+
+**Example Request:**
+
+```bash
+curl -X DELETE \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/business-transactions/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Business transaction not found
+
+---
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+    }),
+  ],
+});
+
+// List business-transactions
+const items = await client.businesstransactions.list.query();
+
+// Get business transaction
+const item = await client.businesstransactions.get.query({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+
+// Create business transaction
+const newItem = await client.businesstransactions.create.mutate({
+  status: 'active',
+});
+
+// Update business transaction
+const updated = await client.businesstransactions.update.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  data: {
+    status: 'inactive',
+  },
+});
+
+// Delete business transaction
+await client.businesstransactions.delete.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+```
+
+### Python
+
+```python
+import requests
+import os
+
+API_BASE = 'https://api.glapi.io/api'
+TOKEN = os.environ.get('GLAPI_TOKEN')
+HEADERS = {
+    'Authorization': f'Bearer {TOKEN}',
+    'Content-Type': 'application/json',
+}
+
+# List business-transactions
+response = requests.get(f'{API_BASE}/business-transactions', headers=HEADERS)
+items = response.json()
+
+# Get business transaction
+response = requests.get(
+    f'{API_BASE}/business-transactions/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+item = response.json()
+
+# Create business transaction
+response = requests.post(
+    f'{API_BASE}/business-transactions',
+    headers=HEADERS,
+    json={'status': 'active'}
+)
+new_item = response.json()
+
+# Update business transaction
+response = requests.put(
+    f'{API_BASE}/business-transactions/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS,
+    json={'status': 'inactive'}
+)
+updated = response.json()
+
+# Delete business transaction
+response = requests.delete(
+    f'{API_BASE}/business-transactions/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+```
+
+## Related Resources
+
+- [Interactive API Reference](/api-reference)
+- [Authentication](/docs/api/authentication)

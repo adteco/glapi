@@ -1,0 +1,282 @@
+---
+title: Items
+description: Item/Product management API endpoints
+---
+
+# Items API
+
+Manage items in your organization.
+
+## Base Path
+
+```
+/api/items
+```
+
+## Endpoints
+
+### List Items
+
+List all items in your organization.
+
+```http
+GET /api/items
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `includeInactive` | boolean | No | Include inactive records in the results |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/items
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "organizationId": "org_123",
+    "status": "active",
+    "createdAt": "2025-01-15T10:30:00Z",
+    "updatedAt": "2025-01-15T10:30:00Z"
+  }
+]
+```
+
+---
+
+### Get Item
+
+Retrieve a specific item by ID.
+
+```http
+GET /api/items/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Item ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/items/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Item not found
+
+---
+
+### Create Item
+
+Create a new item.
+
+```http
+POST /api/items
+```
+
+**Request Body:**
+
+```json
+{
+  "status": "active"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "active"}' \
+  https://api.glapi.io/api/items
+```
+
+---
+
+### Update Item
+
+Update an existing item.
+
+```http
+PUT /api/items/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Item ID |
+
+**Request Body:**
+
+Provide only the fields you want to update. All fields are optional.
+
+```json
+{
+  "status": "inactive"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X PUT \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}' \
+  https://api.glapi.io/api/items/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Item not found
+
+---
+
+### Delete Item
+
+Delete a item.
+
+```http
+DELETE /api/items/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Item ID |
+
+**Example Request:**
+
+```bash
+curl -X DELETE \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/items/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Item not found
+
+---
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+    }),
+  ],
+});
+
+// List items
+const items = await client.items.list.query();
+
+// Get item
+const item = await client.items.get.query({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+
+// Create item
+const newItem = await client.items.create.mutate({
+  status: 'active',
+});
+
+// Update item
+const updated = await client.items.update.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  data: {
+    status: 'inactive',
+  },
+});
+
+// Delete item
+await client.items.delete.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+```
+
+### Python
+
+```python
+import requests
+import os
+
+API_BASE = 'https://api.glapi.io/api'
+TOKEN = os.environ.get('GLAPI_TOKEN')
+HEADERS = {
+    'Authorization': f'Bearer {TOKEN}',
+    'Content-Type': 'application/json',
+}
+
+# List items
+response = requests.get(f'{API_BASE}/items', headers=HEADERS)
+items = response.json()
+
+# Get item
+response = requests.get(
+    f'{API_BASE}/items/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+item = response.json()
+
+# Create item
+response = requests.post(
+    f'{API_BASE}/items',
+    headers=HEADERS,
+    json={'status': 'active'}
+)
+new_item = response.json()
+
+# Update item
+response = requests.put(
+    f'{API_BASE}/items/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS,
+    json={'status': 'inactive'}
+)
+updated = response.json()
+
+# Delete item
+response = requests.delete(
+    f'{API_BASE}/items/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+```
+
+## Related Resources
+
+- [Interactive API Reference](/api-reference)
+- [Authentication](/docs/api/authentication)

@@ -1,0 +1,282 @@
+---
+title: Revenue
+description: Revenue recognition API endpoints
+---
+
+# Revenue API
+
+Manage revenue in your organization.
+
+## Base Path
+
+```
+/api/revenue
+```
+
+## Endpoints
+
+### List Revenue
+
+List all revenue in your organization.
+
+```http
+GET /api/revenue
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `includeInactive` | boolean | No | Include inactive records in the results |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/revenue
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "organizationId": "org_123",
+    "status": "active",
+    "createdAt": "2025-01-15T10:30:00Z",
+    "updatedAt": "2025-01-15T10:30:00Z"
+  }
+]
+```
+
+---
+
+### Get Revenue
+
+Retrieve a specific revenue by ID.
+
+```http
+GET /api/revenue/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Revenue ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/revenue/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Revenue not found
+
+---
+
+### Create Revenue
+
+Create a new revenue.
+
+```http
+POST /api/revenue
+```
+
+**Request Body:**
+
+```json
+{
+  "status": "active"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "active"}' \
+  https://api.glapi.io/api/revenue
+```
+
+---
+
+### Update Revenue
+
+Update an existing revenue.
+
+```http
+PUT /api/revenue/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Revenue ID |
+
+**Request Body:**
+
+Provide only the fields you want to update. All fields are optional.
+
+```json
+{
+  "status": "inactive"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X PUT \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}' \
+  https://api.glapi.io/api/revenue/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Revenue not found
+
+---
+
+### Delete Revenue
+
+Delete a revenue.
+
+```http
+DELETE /api/revenue/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Revenue ID |
+
+**Example Request:**
+
+```bash
+curl -X DELETE \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/revenue/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Revenue not found
+
+---
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+    }),
+  ],
+});
+
+// List revenue
+const items = await client.revenue.list.query();
+
+// Get revenue
+const item = await client.revenue.get.query({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+
+// Create revenue
+const newItem = await client.revenue.create.mutate({
+  status: 'active',
+});
+
+// Update revenue
+const updated = await client.revenue.update.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  data: {
+    status: 'inactive',
+  },
+});
+
+// Delete revenue
+await client.revenue.delete.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+```
+
+### Python
+
+```python
+import requests
+import os
+
+API_BASE = 'https://api.glapi.io/api'
+TOKEN = os.environ.get('GLAPI_TOKEN')
+HEADERS = {
+    'Authorization': f'Bearer {TOKEN}',
+    'Content-Type': 'application/json',
+}
+
+# List revenue
+response = requests.get(f'{API_BASE}/revenue', headers=HEADERS)
+items = response.json()
+
+# Get revenue
+response = requests.get(
+    f'{API_BASE}/revenue/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+item = response.json()
+
+# Create revenue
+response = requests.post(
+    f'{API_BASE}/revenue',
+    headers=HEADERS,
+    json={'status': 'active'}
+)
+new_item = response.json()
+
+# Update revenue
+response = requests.put(
+    f'{API_BASE}/revenue/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS,
+    json={'status': 'inactive'}
+)
+updated = response.json()
+
+# Delete revenue
+response = requests.delete(
+    f'{API_BASE}/revenue/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+```
+
+## Related Resources
+
+- [Interactive API Reference](/api-reference)
+- [Authentication](/docs/api/authentication)

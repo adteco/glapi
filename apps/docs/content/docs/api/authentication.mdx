@@ -1,0 +1,228 @@
+---
+title: Authentication
+description: How to authenticate with the GLAPI API
+---
+
+# Authentication
+
+GLAPI uses [Clerk](https://clerk.com) for authentication. All API requests must include a valid authentication token.
+
+## Getting Your API Token
+
+### From the Web Application
+
+1. Log into the GLAPI web application
+2. Navigate to your profile settings
+3. Copy your API token from the "API Access" section
+
+### From Clerk Dashboard
+
+If you're integrating GLAPI into your own application:
+
+1. Go to your Clerk dashboard
+2. Navigate to your application
+3. Generate a new JWT token for your user
+
+## Making Authenticated Requests
+
+Include your token in the `Authorization` header using the `Bearer` scheme:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
+  https://api.glapi.io/api/customers
+```
+
+## Authentication with Different Languages
+
+### TypeScript/JavaScript
+
+```typescript
+const API_TOKEN = process.env.GLAPI_TOKEN;
+
+const response = await fetch('https://api.glapi.io/api/customers', {
+  headers: {
+    'Authorization': `Bearer ${API_TOKEN}`,
+    'Content-Type': 'application/json',
+  },
+});
+
+const customers = await response.json();
+```
+
+### Python
+
+```python
+import os
+import requests
+
+API_TOKEN = os.environ.get('GLAPI_TOKEN')
+
+response = requests.get(
+    'https://api.glapi.io/api/customers',
+    headers={
+        'Authorization': f'Bearer {API_TOKEN}',
+        'Content-Type': 'application/json',
+    }
+)
+
+customers = response.json()
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "fmt"
+    "io"
+    "net/http"
+    "os"
+)
+
+func main() {
+    apiToken := os.Getenv("GLAPI_TOKEN")
+
+    req, _ := http.NewRequest("GET", "https://api.glapi.io/api/customers", nil)
+    req.Header.Add("Authorization", "Bearer "+apiToken)
+    req.Header.Add("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+    defer resp.Body.Close()
+
+    body, _ := io.ReadAll(resp.Body)
+    fmt.Println(string(body))
+}
+```
+
+### cURL
+
+```bash
+#!/bin/bash
+
+GLAPI_TOKEN="your_token_here"
+
+curl -H "Authorization: Bearer $GLAPI_TOKEN" \\
+     -H "Content-Type: application/json" \\
+     https://api.glapi.io/api/customers
+```
+
+## Organization Context
+
+When you authenticate, your token includes your organization ID. All API requests are automatically scoped to your organization's data.
+
+This means:
+- You can only access data belonging to your organization
+- All created resources are automatically associated with your organization
+- Multi-tenant data isolation is enforced at the API level
+
+## Token Security Best Practices
+
+1. **Never commit tokens to version control**
+   - Use environment variables
+   - Add `.env` files to `.gitignore`
+
+2. **Rotate tokens regularly**
+   - Generate new tokens periodically
+   - Revoke old tokens
+
+3. **Use different tokens for different environments**
+   - Development tokens for local development
+   - Production tokens for production systems
+
+4. **Store tokens securely**
+   - Use secrets management systems (AWS Secrets Manager, HashiCorp Vault, etc.)
+   - Never log tokens
+   - Don't expose tokens in error messages
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when no token is provided or the token is invalid:
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "You must be logged in to access this resource"
+  }
+}
+```
+
+**Common causes:**
+- Missing `Authorization` header
+- Invalid token
+- Expired token
+- Malformed token
+
+**Solution:** Verify your token is correct and properly formatted.
+
+### 403 Forbidden
+
+Returned when the token is valid but you don't have permission to access the resource:
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You don't have permission to access this resource"
+  }
+}
+```
+
+**Common causes:**
+- Attempting to access another organization's data
+- Insufficient permissions for the requested operation
+
+**Solution:** Verify you're accessing resources in your organization and have the necessary permissions.
+
+## TypeScript tRPC Client
+
+For TypeScript applications, we recommend using the native tRPC client for type-safe API calls:
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+import superjson from 'superjson';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+      transformer: superjson,
+    }),
+  ],
+});
+
+// Type-safe API calls
+const customers = await client.customers.list.query();
+const customer = await client.customers.get.query({ id: 'customer-id' });
+```
+
+## Rate Limiting
+
+API requests are rate-limited to ensure fair usage:
+
+- **Rate Limit**: 1000 requests per hour per organization
+- **Headers**: Rate limit information is included in response headers:
+  - `X-RateLimit-Limit`: Maximum requests per hour
+  - `X-RateLimit-Remaining`: Remaining requests
+  - `X-RateLimit-Reset`: Timestamp when the limit resets
+
+When rate limit is exceeded, you'll receive a `429 Too Many Requests` response.
+
+## Next Steps
+
+- [API Endpoints](/docs/api/endpoints)
+- [Object Types](/docs/api/objects)
+- [Code Examples](/docs/api/examples)
+- [Interactive API Reference](/api-reference)

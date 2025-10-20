@@ -1,46 +1,137 @@
-# Protocol
+# GLAPI Documentation
 
-Protocol is a [Tailwind UI](https://tailwindui.com) site template built using [Tailwind CSS](https://tailwindcss.com) and [Next.js](https://nextjs.org).
+Comprehensive API documentation for GLAPI built with Fumadocs and Scalar API Reference.
 
-## Getting started
+## 🚀 Quick Start
 
-To get started with this template, first install the npm dependencies:
-
-```bash
-npm install
-```
-
-Next, run the development server:
+### Development
 
 ```bash
-npm run dev
+# Start the documentation dev server
+pnpm dev
+
+# Or from root
+pnpm --filter docs dev
 ```
 
-Finally, open [http://localhost:3000](http://localhost:3000) in your browser to view the website.
+The documentation will be available at: **http://localhost:3032**
 
-## Customizing
+### Generate OpenAPI Specification
 
-You can start editing this template by modifying the files in the `/src` folder. The site will auto-update as you edit these files.
+```bash
+# From root directory
+pnpm --filter @glapi/trpc generate-openapi
+```
 
-## Global search
+## 📁 Project Structure
 
-This template includes a global search that's powered by the [FlexSearch](https://github.com/nextapps-de/flexsearch) library. It's available by clicking the search input or by using the `⌘K` shortcut.
+```
+apps/docs/
+├── app/
+│   ├── api-reference/      # Scalar API playground
+│   ├── docs/               # Documentation pages
+│   └── (home)/            # Homepage
+├── content/docs/
+│   ├── getting-started.mdx
+│   ├── api/
+│   │   ├── index.mdx
+│   │   ├── authentication.mdx
+│   │   ├── endpoints/      # API endpoint docs
+│   │   └── objects/        # Object type docs
+├── public/api/
+│   └── openapi.json       # Auto-generated (106KB)
+└── source.config.ts
+```
 
-This feature requires no configuration, and works out of the box by automatically scanning your documentation pages to build its index. You can adjust the search parameters by editing the `/src/mdx/search.mjs` file.
+## ✅ What's Been Created
 
-## License
+### Core Documentation
+- ✅ **Getting Started** - Quick start guide with TypeScript, Python, cURL examples
+- ✅ **API Overview** - Introduction and architecture
+- ✅ **Authentication** - Clerk auth guide with multi-language examples
+- ✅ **Endpoints Overview** - Complete endpoint reference structure
+- ✅ **Objects Overview** - Data type documentation structure
+- ✅ **Customer Endpoint** - Full CRUD example (template for others)
+- ✅ **Customer Object** - Complete field reference (template for others)
 
-This site template is a commercial product and is licensed under the [Tailwind UI license](https://tailwindui.com/license).
+### Interactive Features
+- ✅ **Scalar API Playground** at `/api-reference`
+- ✅ **OpenAPI Spec** - Auto-generated from tRPC (105 operations, 42 paths)
 
-## Learn more
+## 🚧 Next Steps
 
-To learn more about the technologies used in this site template, see the following resources:
+### 1. Complete Endpoint Documentation (20 remaining)
 
-- [Tailwind CSS](https://tailwindcss.com/docs) - the official Tailwind CSS documentation
-- [Next.js](https://nextjs.org/docs) - the official Next.js documentation
-- [Headless UI](https://headlessui.dev) - the official Headless UI documentation
-- [Framer Motion](https://www.framer.com/docs/) - the official Framer Motion documentation
-- [MDX](https://mdxjs.com/) - the official MDX documentation
-- [Algolia Autocomplete](https://www.algolia.com/doc/ui-libraries/autocomplete/introduction/what-is-autocomplete/) - the official Algolia Autocomplete documentation
-- [FlexSearch](https://github.com/nextapps-de/flexsearch) - the official FlexSearch documentation
-- [Zustand](https://docs.pmnd.rs/zustand/getting-started/introduction) - the official Zustand documentation
+Use `content/docs/api/endpoints/customers.mdx` as template:
+
+- [ ] vendors.mdx
+- [ ] organizations.mdx
+- [ ] subsidiaries.mdx
+- [ ] departments.mdx
+- [ ] locations.mdx
+- [ ] classes.mdx
+- [ ] accounts.mdx
+- [ ] employees.mdx
+- [ ] leads.mdx
+- [ ] prospects.mdx
+- [ ] contacts.mdx
+- [ ] items.mdx
+- [ ] warehouses.mdx
+- [ ] price-lists.mdx
+- [ ] units-of-measure.mdx
+- [ ] invoices.mdx
+- [ ] payments.mdx
+- [ ] business-transactions.mdx
+- [ ] subscriptions.mdx
+- [ ] revenue.mdx
+
+### 2. Complete Object Documentation (117+ remaining)
+
+Use `content/docs/api/objects/customer.mdx` as template. See `packages/database/src/db/schema/` for all 118 schemas.
+
+### 3. Create Documentation Generators
+
+```bash
+# Auto-generate endpoint docs from tRPC routers
+scripts/generate-endpoint-docs.ts
+
+# Auto-generate object docs from Drizzle schemas
+scripts/generate-object-docs.ts
+```
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 15.5.4 with App Router
+- **Documentation**: Fumadocs 15.8.5
+- **API Reference**: Scalar API Reference
+- **Styling**: Tailwind CSS 4.1.14
+- **Content**: MDX with Fumadocs MDX
+
+## 📖 Writing Documentation
+
+### Add a New Endpoint
+
+1. Create: `content/docs/api/endpoints/{name}.mdx`
+2. Use `customers.mdx` as template
+3. Include: list, get, create, update, delete operations
+4. Add code examples in TypeScript, Python, cURL
+5. Document parameters and schemas
+
+### Add a New Object
+
+1. Create: `content/docs/api/objects/{name}.mdx`
+2. Use `customer.mdx` as template
+3. Document all fields with types, validations, examples
+4. Include relationships and code snippets
+
+## 🔗 Key URLs
+
+- **Docs**: http://localhost:3032
+- **API Playground**: http://localhost:3032/api-reference
+- **OpenAPI Spec**: http://localhost:3032/api/openapi.json
+
+## 📚 Resources
+
+- [Fumadocs Documentation](https://fumadocs.dev)
+- [Scalar API Reference](https://github.com/scalar/scalar)
+- [Next.js Documentation](https://nextjs.org/docs)

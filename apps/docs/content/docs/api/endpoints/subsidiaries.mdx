@@ -1,0 +1,282 @@
+---
+title: Subsidiaries
+description: Subsidiary management API endpoints
+---
+
+# Subsidiaries API
+
+Manage subsidiaries in your organization.
+
+## Base Path
+
+```
+/api/subsidiaries
+```
+
+## Endpoints
+
+### List Subsidiaries
+
+List all subsidiaries in your organization.
+
+```http
+GET /api/subsidiaries
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `includeInactive` | boolean | No | Include inactive records in the results |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/subsidiaries
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "organizationId": "org_123",
+    "status": "active",
+    "createdAt": "2025-01-15T10:30:00Z",
+    "updatedAt": "2025-01-15T10:30:00Z"
+  }
+]
+```
+
+---
+
+### Get Subsidiarie
+
+Retrieve a specific subsidiarie by ID.
+
+```http
+GET /api/subsidiaries/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Subsidiarie ID |
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/subsidiaries/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Subsidiarie not found
+
+---
+
+### Create Subsidiarie
+
+Create a new subsidiarie.
+
+```http
+POST /api/subsidiaries
+```
+
+**Request Body:**
+
+```json
+{
+  "status": "active"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "active"}' \
+  https://api.glapi.io/api/subsidiaries
+```
+
+---
+
+### Update Subsidiarie
+
+Update an existing subsidiarie.
+
+```http
+PUT /api/subsidiaries/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Subsidiarie ID |
+
+**Request Body:**
+
+Provide only the fields you want to update. All fields are optional.
+
+```json
+{
+  "status": "inactive"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X PUT \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}' \
+  https://api.glapi.io/api/subsidiaries/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Subsidiarie not found
+
+---
+
+### Delete Subsidiarie
+
+Delete a subsidiarie.
+
+```http
+DELETE /api/subsidiaries/{id}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Subsidiarie ID |
+
+**Example Request:**
+
+```bash
+curl -X DELETE \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.glapi.io/api/subsidiaries/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Subsidiarie not found
+
+---
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+    }),
+  ],
+});
+
+// List subsidiaries
+const items = await client.subsidiaries.list.query();
+
+// Get subsidiarie
+const item = await client.subsidiaries.get.query({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+
+// Create subsidiarie
+const newItem = await client.subsidiaries.create.mutate({
+  status: 'active',
+});
+
+// Update subsidiarie
+const updated = await client.subsidiaries.update.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  data: {
+    status: 'inactive',
+  },
+});
+
+// Delete subsidiarie
+await client.subsidiaries.delete.mutate({
+  id: '123e4567-e89b-12d3-a456-426614174000'
+});
+```
+
+### Python
+
+```python
+import requests
+import os
+
+API_BASE = 'https://api.glapi.io/api'
+TOKEN = os.environ.get('GLAPI_TOKEN')
+HEADERS = {
+    'Authorization': f'Bearer {TOKEN}',
+    'Content-Type': 'application/json',
+}
+
+# List subsidiaries
+response = requests.get(f'{API_BASE}/subsidiaries', headers=HEADERS)
+items = response.json()
+
+# Get subsidiarie
+response = requests.get(
+    f'{API_BASE}/subsidiaries/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+item = response.json()
+
+# Create subsidiarie
+response = requests.post(
+    f'{API_BASE}/subsidiaries',
+    headers=HEADERS,
+    json={'status': 'active'}
+)
+new_item = response.json()
+
+# Update subsidiarie
+response = requests.put(
+    f'{API_BASE}/subsidiaries/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS,
+    json={'status': 'inactive'}
+)
+updated = response.json()
+
+# Delete subsidiarie
+response = requests.delete(
+    f'{API_BASE}/subsidiaries/123e4567-e89b-12d3-a456-426614174000',
+    headers=HEADERS
+)
+```
+
+## Related Resources
+
+- [Interactive API Reference](/api-reference)
+- [Authentication](/docs/api/authentication)

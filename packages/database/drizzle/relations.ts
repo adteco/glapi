@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { users, accountingPeriods, glPostingRules, transactionTypes, glAccountBalances, glAuditTrail, glTransactions, businessTransactions, organizations, accounts, businessTransactionLines, activityCodes, classes, departments, entities, products, locations, taxCodes, paymentTerms, subsidiaries, glTransactionLines, transactionRelationships, addresses, revenueRecognitionPatterns, contracts, contractSspAllocations, contractLineItems, revenueJournalEntries, performanceObligations, revenueSchedules, transactionLines, unitsOfMeasure, sspEvidence, priceLists, items, itemPricing, customerPriceLists, vendorItems, lotNumbers, serialNumbers, itemCategories, assemblyComponents, kitComponents, itemAuditLog, permissions, rolePermissions, roles, userSubsidiaryAccess, userRoles } from "./schema";
+import { users, accountingPeriods, glPostingRules, transactionTypes, glAccountBalances, glAuditTrail, glTransactions, businessTransactions, organizations, projects, projectParticipants, projectCostCodes, projectBudgetVersions, projectBudgetLines, externalReferences, accounts, businessTransactionLines, activityCodes, classes, departments, entities, products, locations, taxCodes, paymentTerms, subsidiaries, glTransactionLines, transactionRelationships, addresses, revenueRecognitionPatterns, contracts, contractSspAllocations, contractLineItems, revenueJournalEntries, performanceObligations, revenueSchedules, transactionLines, unitsOfMeasure, sspEvidence, priceLists, items, itemPricing, customerPriceLists, vendorItems, lotNumbers, serialNumbers, itemCategories, assemblyComponents, kitComponents, itemAuditLog, permissions, rolePermissions, roles, userSubsidiaryAccess, userRoles } from "./schema";
 
 export const accountingPeriodsRelations = relations(accountingPeriods, ({one, many}) => ({
 	user: one(users, {
@@ -157,6 +157,10 @@ export const businessTransactionsRelations = relations(businessTransactions, ({o
 		fields: [businessTransactions.transactionTypeId],
 		references: [transactionTypes.id]
 	}),
+	project: one(projects, {
+		fields: [businessTransactions.projectId],
+		references: [projects.id]
+	}),
 	transactionRelationships_childTransactionId: many(transactionRelationships, {
 		relationName: "transactionRelationships_childTransactionId_businessTransactions_id"
 	}),
@@ -172,6 +176,75 @@ export const organizationsRelations = relations(organizations, ({many}) => ({
 	lotNumbers: many(lotNumbers),
 	serialNumbers: many(serialNumbers),
 	itemAuditLogs: many(itemAuditLog),
+	projects: many(projects),
+	externalReferences: many(externalReferences),
+}));
+
+export const projectsRelations = relations(projects, ({one, many}) => ({
+	organization: one(organizations, {
+		fields: [projects.organizationId],
+		references: [organizations.id]
+	}),
+	subsidiary: one(subsidiaries, {
+		fields: [projects.subsidiaryId],
+		references: [subsidiaries.id]
+	}),
+	businessTransactions: many(businessTransactions),
+	businessTransactionLines: many(businessTransactionLines),
+	projectParticipants: many(projectParticipants),
+	projectCostCodes: many(projectCostCodes),
+	projectBudgetVersions: many(projectBudgetVersions),
+	externalReferences: many(externalReferences),
+}));
+
+export const projectParticipantsRelations = relations(projectParticipants, ({one}) => ({
+	project: one(projects, {
+		fields: [projectParticipants.projectId],
+		references: [projects.id]
+	}),
+	entity: one(entities, {
+		fields: [projectParticipants.entityId],
+		references: [entities.id]
+	}),
+}));
+
+export const projectCostCodesRelations = relations(projectCostCodes, ({one, many}) => ({
+	project: one(projects, {
+		fields: [projectCostCodes.projectId],
+		references: [projects.id]
+	}),
+	activityCode: one(activityCodes, {
+		fields: [projectCostCodes.activityCodeId],
+		references: [activityCodes.id]
+	}),
+	projectBudgetLines: many(projectBudgetLines),
+}));
+
+export const projectBudgetVersionsRelations = relations(projectBudgetVersions, ({one, many}) => ({
+	project: one(projects, {
+		fields: [projectBudgetVersions.projectId],
+		references: [projects.id]
+	}),
+	createdByUser: one(users, {
+		fields: [projectBudgetVersions.createdBy],
+		references: [users.id]
+	}),
+	approvedByUser: one(users, {
+		fields: [projectBudgetVersions.approvedBy],
+		references: [users.id]
+	}),
+	projectBudgetLines: many(projectBudgetLines),
+}));
+
+export const projectBudgetLinesRelations = relations(projectBudgetLines, ({one}) => ({
+	projectBudgetVersion: one(projectBudgetVersions, {
+		fields: [projectBudgetLines.budgetVersionId],
+		references: [projectBudgetVersions.id]
+	}),
+	projectCostCode: one(projectCostCodes, {
+		fields: [projectBudgetLines.projectCostCodeId],
+		references: [projectCostCodes.id]
+	}),
 }));
 
 export const businessTransactionLinesRelations = relations(businessTransactionLines, ({one, many}) => ({
@@ -206,6 +279,10 @@ export const businessTransactionLinesRelations = relations(businessTransactionLi
 	location: one(locations, {
 		fields: [businessTransactionLines.locationId],
 		references: [locations.id]
+	}),
+	project: one(projects, {
+		fields: [businessTransactionLines.projectId],
+		references: [projects.id]
 	}),
 	businessTransactionLine: one(businessTransactionLines, {
 		fields: [businessTransactionLines.parentLineId],
@@ -254,6 +331,7 @@ export const accountsRelations = relations(accounts, ({one, many}) => ({
 export const activityCodesRelations = relations(activityCodes, ({many}) => ({
 	businessTransactionLines: many(businessTransactionLines),
 	transactionLines: many(transactionLines),
+	projectCostCodes: many(projectCostCodes),
 }));
 
 export const classesRelations = relations(classes, ({many}) => ({
@@ -289,6 +367,7 @@ export const entitiesRelations = relations(entities, ({one, many}) => ({
 		relationName: "entities_primaryContactId_entities_id"
 	}),
 	contracts: many(contracts),
+	projectParticipants: many(projectParticipants),
 }));
 
 export const productsRelations = relations(products, ({one, many}) => ({
@@ -326,6 +405,7 @@ export const subsidiariesRelations = relations(subsidiaries, ({one, many}) => ({
 		relationName: "subsidiaries_parentId_subsidiaries_id"
 	}),
 	userSubsidiaryAccesses: many(userSubsidiaryAccess),
+	projects: many(projects),
 }));
 
 export const glTransactionLinesRelations = relations(glTransactionLines, ({one}) => ({
@@ -728,5 +808,11 @@ export const userRolesRelations = relations(userRoles, ({one}) => ({
 		fields: [userRoles.userId],
 		references: [users.id],
 		relationName: "userRoles_userId_users_id"
+	}),
+}));
+export const externalReferencesRelations = relations(externalReferences, ({one}) => ({
+	organization: one(organizations, {
+		fields: [externalReferences.organizationId],
+		references: [organizations.id]
 	}),
 }));

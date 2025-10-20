@@ -1,0 +1,99 @@
+---
+title: API Overview
+description: Introduction to the GLAPI REST API
+---
+
+# API Overview
+
+Welcome to the GLAPI REST API documentation. GLAPI provides a comprehensive accounting dimensions API with advanced revenue recognition capabilities.
+
+## Base URL
+
+The API is accessible at the following base URLs:
+
+- **Development**: `http://localhost:3031/api`
+- **Production**: `https://api.glapi.io/api`
+
+## Key Features
+
+### Multi-Tenant Architecture
+All data is isolated by organization. When you authenticate, your API requests automatically scope to your organization's data.
+
+### Accounting Dimensions
+Manage core accounting dimensions including:
+- Customers
+- Vendors
+- Subsidiaries
+- Departments
+- Locations
+- Classes (Cost Centers)
+- Chart of Accounts
+
+### Revenue Recognition
+ASC 606 compliant revenue recognition with support for:
+- Subscriptions
+- Performance obligations
+- Revenue schedules
+- Contract modifications
+- SSP (Standalone Selling Price) analytics
+
+### Inventory & Operations
+- Items and products
+- Warehouses
+- Price lists
+- Units of measure
+- Inventory tracking
+
+### Financial Operations
+- Invoices
+- Payments
+- Business transactions
+- GL transactions
+
+## API Architecture
+
+### tRPC with REST Layer
+GLAPI is built on tRPC (TypeScript Remote Procedure Call) with a REST API layer for broader compatibility.
+
+- **TypeScript Clients**: Use the native tRPC client for type-safe API calls
+- **REST Clients**: Use traditional HTTP methods with any language
+
+### Authentication
+All endpoints require authentication using Clerk. See [Authentication](/docs/api/authentication) for details.
+
+### Response Format
+All responses are in JSON format with SuperJSON serialization for rich data types (dates, BigInts, etc.).
+
+## Quick Start
+
+```bash
+# List all customers
+curl -H "Authorization: Bearer YOUR_TOKEN" \\
+  https://api.glapi.io/api/customers
+
+# Get a specific customer
+curl -H "Authorization: Bearer YOUR_TOKEN" \\
+  https://api.glapi.io/api/customers/CUSTOMER_ID
+
+# Create a new customer
+curl -X POST \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "companyName": "Acme Corp",
+    "contactEmail": "contact@acme.com",
+    "status": "active"
+  }' \\
+  https://api.glapi.io/api/customers
+```
+
+## Interactive API Reference
+
+Explore and test all endpoints in our [Interactive API Reference](/api-reference).
+
+## Need Help?
+
+- [Authentication Guide](/docs/api/authentication)
+- [API Endpoints](/docs/api/endpoints)
+- [Object Types](/docs/api/objects)
+- [Code Examples](/docs/api/examples)
