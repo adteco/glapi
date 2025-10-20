@@ -58,11 +58,11 @@ function parseIntent(message: string): ParsedIntent {
   
   // Extract customer name
   const customerMatch = message.match(/for\s+([A-Za-z\s]+?)(?:\s+for|\s+worth|\s+at|\s*$)/i);
-  const customer = customerMatch ? customerMatch[1].trim() : null;
+  const customer = customerMatch ? customerMatch[1].trim() : undefined;
   
   // Extract amounts
   const amountMatch = message.match(/\$?([\d,]+(?:\.\d{2})?)/);
-  const totalAmount = amountMatch ? parseFloat(amountMatch[1].replace(',', '')) : null;
+  const totalAmount = amountMatch ? parseFloat(amountMatch[1].replace(',', '')) : undefined;
   
   // Extract items with quantities and prices
   const itemMatches = message.match(/(\d+)\s+([a-zA-Z\s]+?)(?:\s+at\s+\$?([\d,]+(?:\.\d{2})?))?/g);
@@ -74,12 +74,12 @@ function parseIntent(message: string): ParsedIntent {
       if (parts) {
         const quantity = parseInt(parts[1]);
         const name = parts[2].trim();
-        const unitPrice = parts[3] ? parseFloat(parts[3].replace(',', '')) : null;
+        const unitPrice = parts[3] ? parseFloat(parts[3].replace(',', '')) : undefined;
         items.push({
           name,
           quantity,
           unitPrice,
-          total: unitPrice ? quantity * unitPrice : null,
+          total: unitPrice ? quantity * unitPrice : undefined,
         });
       }
     });

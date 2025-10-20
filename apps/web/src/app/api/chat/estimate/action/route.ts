@@ -178,9 +178,9 @@ The estimate has been saved with:
 
 You can now send this estimate to your customer or make additional changes.`;
           success = true;
-          
+
           // Clear the estimate data after successful creation
-          estimateData = null;
+          estimateData = undefined;
         } catch (error) {
           response = `❌ Failed to create estimate. Please try again.`;
         }

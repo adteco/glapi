@@ -1,7 +1,6 @@
 'use client';
 
-import { ApiReferenceReact } from '@scalar/api-reference-react';
-import '@scalar/api-reference-react/style.css';
+import { useEffect, useRef } from 'react';
 
 /**
  * Interactive API Reference using Scalar
@@ -10,42 +9,34 @@ import '@scalar/api-reference-react/style.css';
  * The OpenAPI specification is automatically generated from the tRPC routers.
  */
 export default function ApiReferencePage() {
-  return (
-    <div className="w-full h-screen">
-      <ApiReferenceReact
-        configuration={{
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !containerRef.current) return;
+
+    // Dynamically import Scalar
+    import('@scalar/api-reference').then(({ ApiReference }) => {
+      if (containerRef.current && !containerRef.current.hasChildNodes()) {
+        const el = document.createElement('div');
+        el.id = 'api-reference';
+        containerRef.current.appendChild(el);
+
+        // @ts-ignore
+        ApiReference(el, {
           spec: {
             url: '/api/openapi.json',
           },
-          theme: 'default',
-          layout: 'modern',
-          hideModels: false,
-          hideDownloadButton: false,
-          darkMode: true,
-          searchHotKey: 'k',
-          servers: [
-            {
-              url: 'http://localhost:3031',
-              description: 'Development Server',
-            },
-            {
-              url: 'https://api.glapi.io',
-              description: 'Production Server',
-            },
-          ],
-          authentication: {
-            preferredSecurityScheme: 'ClerkAuth',
-            apiKey: {
-              token: '',
-            },
+          configuration: {
+            theme: 'default',
+            layout: 'modern',
+            hideModels: false,
+            hideDownloadButton: false,
+            darkMode: true,
           },
-          customCss: `
-            .scalar-api-reference {
-              --scalar-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            }
-          `,
-        }}
-      />
-    </div>
-  );
+        });
+      }
+    });
+  }, []);
+
+  return <div ref={containerRef} className="w-full h-screen" />;
 }

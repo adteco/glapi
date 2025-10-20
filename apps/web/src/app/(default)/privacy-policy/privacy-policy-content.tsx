@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function PrivacyPolicyContent(): JSX.Element {
+export default function PrivacyPolicyContent() {
   return (
     <section className="relative">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">

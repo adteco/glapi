@@ -40,7 +40,7 @@ function zodToOpenAPI(schema: z.ZodType<any> | undefined, name: string = ''): an
     return { type: 'object' };
   }
 
-  const zodType = schema._def.typeName;
+  const zodType = (schema._def as any).typeName;
 
   switch (zodType) {
     case 'ZodString':
