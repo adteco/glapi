@@ -13,7 +13,7 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname();
   
   // Define public routes that should not show the sidebar
-  const publicRoutes = ['/', '/product', '/pricing', '/contact', '/terms', '/privacy', '/privacy-policy', '/terms-of-service', '/security'];
+  const publicRoutes = ['/', '/product', '/pricing', '/contact', '/terms', '/privacy', '/privacy-policy', '/terms-of-service', '/security', '/changelog'];
   const isPublicRoute = publicRoutes.includes(pathname);
   
   // Show sidebar only if user is signed in AND not on a public route

@@ -1,0 +1,1 @@
+packages/email:tsc:cd /Users/fredpope/Development/sureshake/packages/email && npx tsc --noEmit
