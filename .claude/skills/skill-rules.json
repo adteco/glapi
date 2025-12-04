@@ -1,0 +1,242 @@
+{
+    "version": "1.0",
+    "description": "Skill activation triggers for Claude Code. Controls when skills automatically suggest or block actions.",
+    "skills": {
+        "skill-developer": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Meta-skill for creating and managing Claude Code skills",
+            "promptTriggers": {
+                "keywords": [
+                    "skill system",
+                    "create skill",
+                    "add skill",
+                    "skill triggers",
+                    "skill rules",
+                    "hook system",
+                    "skill development",
+                    "skill-rules.json"
+                ],
+                "intentPatterns": [
+                    "(how do|how does|explain).*?skill",
+                    "(create|add|modify|build).*?skill",
+                    "skill.*?(work|trigger|activate|system)"
+                ]
+            }
+            
+        },
+        "glapi-backend-guidelines": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "GLAPI backend development with Next.js/TRPC/Drizzle/PostgreSQL - TRPC for type-safe APIs, OpenAPI for REST exposure",
+            "promptTriggers": {
+                "keywords": [
+                    "backend",
+                    "backend development",
+                    "TRPC",
+                    "trpc",
+                    "procedure",
+                    "router",
+                    "API route",
+                    "api route",
+                    "route handler",
+                    "REST API",
+                    "service",
+                    "API",
+                    "endpoint",
+                    "Drizzle",
+                    "drizzle",
+                    "database",
+                    "query",
+                    "PostgreSQL",
+                    "postgres",
+                    "Clerk",
+                    "clerk",
+                    "authentication",
+                    "auth",
+                    "validation",
+                    "Zod",
+                    "server action",
+                    "OpenAPI"
+                ],
+                "intentPatterns": [
+                    "(create|add|implement|build).*?(TRPC|trpc|procedure|router|API route|route handler|endpoint|API|service|REST)",
+                    "(fix|handle|debug).*?(error|exception|backend)",
+                    "(add|implement).*?(validation|auth.*?authentication)",
+                    "(organize|structure|refactor).*?(backend|service|API)",
+                    "(how to|best practice).*?(backend|TRPC|API route|service|drizzle|clerk|REST)",
+                    "query.*?(drizzle|database|postgres)",
+                    "server action",
+                    "(convert|expose|transform).*?(TRPC.*REST|REST.*TRPC)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "apps/api/src/**/*.ts",
+                    "apps/api/src/**/*.tsx",
+                    "apps/web/src/app/api/**/*.ts",
+                    "apps/web/src/app/api/**/*.tsx",
+                    "packages/api-service/**/*.ts",
+                    "packages/business/**/*.ts",
+                    "packages/database/**/*.ts",
+                    "packages/trpc/**/*.ts"
+                ],
+                "pathExclusions": [
+                    "**/*.test.ts",
+                    "**/*.spec.ts"
+                ],
+                "contentPatterns": [
+                    "from '@glapi/database'",
+                    "from \"@glapi/database\"",
+                    "from '@glapi/api-service'",
+                    "from \"@glapi/api-service\"",
+                    "from '@glapi/business'",
+                    "from \"@glapi/business\"",
+                    "createTRPCRouter",
+                    "publicProcedure",
+                    "protectedProcedure",
+                    "\\.query\\(",
+                    "\\.mutation\\(",
+                    "drizzle(",
+                    "db.select",
+                    "db.insert",
+                    "db.update",
+                    "db.delete",
+                    "auth\\(\\)",
+                    "currentUser",
+                    "@clerk/nextjs",
+                    "NextRequest",
+                    "NextResponse"
+                ]
+            }
+        },
+        "glapi-frontend-guidelines": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "GLAPI frontend development with Next.js App Router/shadcn-ui/Radix UI/Tailwind/Clerk auth patterns",
+            "promptTriggers": {
+                "keywords": [
+                    "frontend",
+                    "component",
+                    "react component",
+                    "UI",
+                    "interface",
+                    "page",
+                    "modal",
+                    "dialog",
+                    "form",
+                    "ShadCN",
+                    "shadcn",
+                    "Radix UI",
+                    "Radix",
+                    "Tailwind",
+                    "tailwind",
+                    "styling",
+                    "React",
+                    "cn utility",
+                    "cva",
+                    "dark mode",
+                    "next-themes",
+                    "TanStack Query",
+                    "useQuery",
+                    "useMutation"
+                ],
+                "intentPatterns": [
+                    "(create|add|make|build|update|modify|edit).*?(component|UI|page|modal|dialog|form)",
+                    "(how to|best practice).*?(component|react|ShadCN|Radix|Tailwind|styling)",
+                    "(style|design|layout).*?(component|UI)",
+                    "(use|integrate).*?(ShadCN|Radix|Tailwind|dark mode|TanStack Query)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "apps/web/src/**/*.tsx",
+                    "apps/web/src/**/*.ts",
+                    "apps/api/src/**/*.tsx",
+                    "apps/api/src/**/*.ts"
+                ],
+                "pathExclusions": [
+                    "**/*.test.tsx",
+                    "**/*.test.ts",
+                    "**/*.spec.tsx",
+                    "**/*.spec.ts",
+                    "**/next.config.js",
+                    "**/next.config.mjs",
+                    "**/tailwind.config.js",
+                    "**/tailwind.config.ts",
+                    "**/tsconfig.json"
+                ],
+                "contentPatterns": [
+                    "from '@/components/ui",
+                    "from \"@/components/ui",
+                    "import.*{.*cn.*}.*from",
+                    "@radix-ui/react",
+                    "className=",
+                    "cva\\(",
+                    "buttonVariants",
+                    "useTheme.*from.*next-themes",
+                    "useQuery.*from.*@tanstack",
+                    "useMutation.*from.*@tanstack"
+                ]
+            }
+        },
+        "error-tracking": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Sentry error tracking and performance monitoring patterns",
+            "promptTriggers": {
+                "keywords": [
+                    "error handling",
+                    "exception",
+                    "sentry",
+                    "error tracking",
+                    "captureException",
+                    "monitoring",
+                    "performance tracking"
+                ],
+                "intentPatterns": [
+                    "(add|create|implement|setup).*?(error handling|sentry|error tracking)",
+                    "(fix|handle|catch).*?(error|exception)",
+                    "(how to|best practice).*?(error|sentry|monitoring)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "apps/*/instrumentation.ts",
+                    "apps/*/sentry*.ts",
+                    "apps/api/src/services/**/*.ts",
+                    "apps/api/src/server/routers/**/*.ts",
+                    "packages/*/src/services/**/*.ts"
+                ],
+                "contentPatterns": [
+                    "@sentry",
+                    "Sentry\\.",
+                    "captureException",
+                    "captureMessage"
+                ]
+            }
+        }
+    },
+    "notes": {
+        "enforcement_types": {
+            "suggest": "Skill suggestion appears but doesn't block execution",
+            "block": "Requires skill to be used before proceeding (guardrail)",
+            "warn": "Shows warning but allows proceeding"
+        },
+        "priority_levels": {
+            "critical": "Highest - Always trigger when matched",
+            "high": "Important - Trigger for most matches",
+            "medium": "Moderate - Trigger for clear matches",
+            "low": "Optional - Trigger only for explicit matches"
+        },
+        "customization": {
+            "pathPatterns": "Adjust to match your project structure (blog-api, auth-service, etc.)",
+            "keywords": "Add domain-specific terms relevant to your project",
+            "intentPatterns": "Use regex for flexible user intent matching"
+        }
+    }
+}
