@@ -24,7 +24,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "dotenv": "^16.4.5",
     "jsonwebtoken": "^9.0.2",
-    "next": "15.5.4",
+    "next": "15.5.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^3.25.51"
