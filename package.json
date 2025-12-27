@@ -35,9 +35,9 @@
     "@playwright/test": "^1.40.0",
     "@stoplight/prism-cli": "^5.14.2",
     "@types/node": "^20.11.0",
-    "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0",
-    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
+    "eslint": "^9.39.2",
     "eslint-config-prettier": "^9.1.0",
     "js-yaml": "^4.1.0",
     "openapi-typescript-codegen": "^0.29.0",
@@ -45,5 +45,9 @@
     "turbo": "^1.13.3",
     "typescript": "^5.3.3"
   },
-  "packageManager": "pnpm@10.6.4"
+  "packageManager": "pnpm@10.6.4",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  }
 }
