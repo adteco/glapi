@@ -6,6 +6,9 @@ node_modules/
 # Testing
 coverage/
 .nyc_output/
+playwright/.auth/
+playwright-report/
+test-results/
 
 # Build outputs
 dist/
