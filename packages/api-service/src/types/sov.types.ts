@@ -321,3 +321,28 @@ export interface SovExportOptions {
   includeChangeOrders?: boolean;
   includeProgress?: boolean;
 }
+
+/**
+ * Change order summary
+ */
+export interface ChangeOrderSummary {
+  id: string;
+  changeOrderNumber: string;
+  description: string;
+  amount: number;
+  status: string;
+  effectiveDate?: string;
+  approvedDate?: string;
+  lineCount: number;
+}
+
+/**
+ * Valid SOV status transitions
+ */
+export const VALID_SOV_STATUS_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ['ACTIVE', 'VOIDED'],
+  ACTIVE: ['REVISED', 'CLOSED'],
+  REVISED: ['ACTIVE', 'CLOSED'],
+  CLOSED: ['ACTIVE'],
+  VOIDED: [],
+};

@@ -1,0 +1,30 @@
+{
+  "name": "@glapi/projection-workers",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "glapi-projection-workers": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/cli.ts",
+    "start": "node dist/cli.js",
+    "start:balance-projection": "node dist/cli.js balance-projection",
+    "start:outbox-processor": "node dist/cli.js outbox-processor",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint . --ext .ts"
+  },
+  "dependencies": {
+    "@glapi/business": "workspace:*",
+    "@glapi/database": "workspace:*",
+    "commander": "^12.0.0",
+    "drizzle-orm": "^0.44.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

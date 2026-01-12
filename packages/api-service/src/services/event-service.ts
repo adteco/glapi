@@ -5,13 +5,11 @@ import {
   EventStoreRepository,
   EventQueryOptions,
   AppendEventResult,
-} from '@glapi/database';
-import {
   EventStoreRecord,
   BaseEvent,
   EventCategoryType,
   EventCategory,
-} from '@glapi/database/schema';
+} from '@glapi/database';
 import { v4 as uuidv4 } from 'uuid';
 
 // ============================================================================
@@ -510,5 +508,5 @@ export const PaymentEvents = {
   REFUNDED: 'PaymentRefunded',
 } as const;
 
-// Re-export useful types from schema
-export { EventCategory, EventCategoryType } from '@glapi/database/schema';
+// Re-export useful types from database
+export { EventCategory, EventCategoryType } from '@glapi/database';
