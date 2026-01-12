@@ -774,4 +774,104 @@ export class TimeEntryRepository extends BaseRepository {
         return timeEntries.entryDate;
     }
   }
+
+  // --------------------------------------------------------------------------
+  // Posting Batches
+  // --------------------------------------------------------------------------
+
+  /**
+   * Create a posting batch for time entries
+   */
+  async createPostingBatch(data: NewTimeEntryBatch): Promise<TimeEntryBatch> {
+    const [result] = await this.db.insert(timeEntryBatches).values(data).returning();
+    return result;
+  }
+
+  /**
+   * Update a posting batch
+   */
+  async updatePostingBatch(
+    id: string,
+    organizationId: string,
+    data: Partial<TimeEntryBatch>
+  ): Promise<TimeEntryBatch | null> {
+    const [result] = await this.db
+      .update(timeEntryBatches)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(timeEntryBatches.id, id), eq(timeEntryBatches.organizationId, organizationId)))
+      .returning();
+    return result || null;
+  }
+
+  /**
+   * Generate a unique batch number
+   */
+  async generateBatchNumber(organizationId: string): Promise<string> {
+    const now = new Date();
+    const datePrefix = `LBR-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Get the count of batches this month
+    const [countResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(timeEntryBatches)
+      .where(
+        and(
+          eq(timeEntryBatches.organizationId, organizationId),
+          sql`${timeEntryBatches.batchNumber} LIKE ${datePrefix + '%'}`
+        )
+      );
+
+    const nextNumber = (Number(countResult?.count || 0) + 1).toString().padStart(4, '0');
+    return `${datePrefix}-${nextNumber}`;
+  }
+
+  /**
+   * Get posting batch by ID
+   */
+  async getPostingBatch(id: string, organizationId: string): Promise<TimeEntryBatch | null> {
+    const [result] = await this.db
+      .select()
+      .from(timeEntryBatches)
+      .where(and(eq(timeEntryBatches.id, id), eq(timeEntryBatches.organizationId, organizationId)))
+      .limit(1);
+    return result || null;
+  }
+
+  /**
+   * List posting batches
+   */
+  async listPostingBatches(
+    organizationId: string,
+    filters: { status?: TimeEntryStatus } = {},
+    page = 1,
+    limit = 20
+  ): Promise<{ batches: TimeEntryBatch[]; totalCount: number }> {
+    const offset = (page - 1) * limit;
+    const conditions = [eq(timeEntryBatches.organizationId, organizationId)];
+
+    if (filters.status) {
+      conditions.push(eq(timeEntryBatches.status, filters.status));
+    }
+
+    const [countResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(timeEntryBatches)
+      .where(and(...conditions));
+
+    const batches = await this.db
+      .select()
+      .from(timeEntryBatches)
+      .where(and(...conditions))
+      .orderBy(desc(timeEntryBatches.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      batches,
+      totalCount: Number(countResult?.count || 0),
+    };
+  }
 }

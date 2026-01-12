@@ -392,4 +392,44 @@ export const timeEntriesRouter = router({
       const service = new TimeEntryService(ctx.serviceContext);
       return service.getProjectTotalCost(input.projectId, input.status);
     }),
+
+  // ========== Posting Batch Routes ==========
+
+  /**
+   * List posting batches
+   */
+  listPostingBatches: authenticatedProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().positive().optional(),
+          limit: z.number().int().positive().max(100).optional(),
+          status: TimeEntryStatusEnum.optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const service = new TimeEntryService(ctx.serviceContext);
+      return service.listPostingBatches(
+        { page: input?.page, limit: input?.limit },
+        { status: input?.status }
+      );
+    }),
+
+  /**
+   * Get posting batch by ID
+   */
+  getPostingBatch: authenticatedProcedure
+    .input(z.object({ batchId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const service = new TimeEntryService(ctx.serviceContext);
+      const batch = await service.getPostingBatch(input.batchId);
+      if (!batch) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Posting batch not found',
+        });
+      }
+      return batch;
+    }),
 });
