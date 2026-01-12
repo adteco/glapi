@@ -24,3 +24,7 @@ export * from './invoice-service';
 export * from './payment-service';
 export * from './revenue-service';
 export * from './ssp-service';
+export * from './accounting-period-service';
+
+// Event sourcing
+export * from './event-service';

@@ -70,6 +70,9 @@ import * as scenarioAnalysisSchemas from './scenario-analysis';
 import * as journalEntryBatchSchemas from './journal-entry-batches';
 import * as glJournalEntrySchemas from './gl-journal-entries';
 
+// Event sourcing schemas
+import * as eventStoreSchemas from './event-store';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -138,7 +141,9 @@ export const schema = {
   ...cohortAnalysisSchemas,
   ...scenarioAnalysisSchemas,
   ...journalEntryBatchSchemas,
-  ...glJournalEntrySchemas
+  ...glJournalEntrySchemas,
+  // Event sourcing schemas
+  ...eventStoreSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -275,3 +280,25 @@ export type { GLJournalEntry, NewGLJournalEntry } from './gl-journal-entries';
 
 // Re-export accounting periods
 export { accountingPeriods } from './accounting-periods';
+
+// Re-export event store schemas
+export {
+  eventStore,
+  eventOutbox,
+  eventProjections,
+  eventCategoryEnum,
+  outboxStatusEnum,
+  EventCategory,
+  OutboxStatus,
+} from './event-store';
+export type {
+  EventStoreRecord,
+  NewEventStoreRecord,
+  EventOutboxRecord,
+  NewEventOutboxRecord,
+  EventProjectionRecord,
+  NewEventProjectionRecord,
+  BaseEvent,
+  EventCategoryType,
+  OutboxStatusType,
+} from './event-store';

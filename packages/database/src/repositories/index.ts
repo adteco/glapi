@@ -14,6 +14,7 @@ export * from './entity-repository';
 // Export GL repositories
 export * from './gl-transaction-repository';
 export * from './gl-reporting-repository';
+export * from './accounting-period-repository';
 
 // Export items repositories
 export * from './units-of-measure-repository';
@@ -46,6 +47,9 @@ export * from './cohort-analysis-repository';
 export * from './contract-modification-repository';
 export * from './scenario-analysis-repository';
 
+// Export event store repository
+export * from './event-store-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -73,6 +77,7 @@ import { ChurnPredictionRepository } from './churn-prediction-repository';
 import { CohortAnalysisRepository } from './cohort-analysis-repository';
 import { ContractModificationRepository } from './contract-modification-repository';
 import { ScenarioAnalysisRepository } from './scenario-analysis-repository';
+import { AccountingPeriodRepository } from './accounting-period-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -101,3 +106,4 @@ export const churnPredictionRepository = new ChurnPredictionRepository();
 export const cohortAnalysisRepository = new CohortAnalysisRepository();
 export const contractModificationRepository = new ContractModificationRepository();
 export const scenarioAnalysisRepository = new ScenarioAnalysisRepository();
+export const accountingPeriodRepository = new AccountingPeriodRepository();
