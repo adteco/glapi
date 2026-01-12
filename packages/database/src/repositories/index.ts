@@ -47,8 +47,13 @@ export * from './cohort-analysis-repository';
 export * from './contract-modification-repository';
 export * from './scenario-analysis-repository';
 
-// Export event store repository
+// Export event store repositories
 export * from './event-store-repository';
+export * from './event-projection-repository';
+
+// Export RBAC repositories
+export * from './permission-repository';
+export * from './audit-log-repository';
 
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
@@ -78,6 +83,9 @@ import { CohortAnalysisRepository } from './cohort-analysis-repository';
 import { ContractModificationRepository } from './contract-modification-repository';
 import { ScenarioAnalysisRepository } from './scenario-analysis-repository';
 import { AccountingPeriodRepository } from './accounting-period-repository';
+import { PermissionRepository } from './permission-repository';
+import { AuditLogRepository } from './audit-log-repository';
+import { EventProjectionRepository } from './event-projection-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -107,3 +115,6 @@ export const cohortAnalysisRepository = new CohortAnalysisRepository();
 export const contractModificationRepository = new ContractModificationRepository();
 export const scenarioAnalysisRepository = new ScenarioAnalysisRepository();
 export const accountingPeriodRepository = new AccountingPeriodRepository();
+export const permissionRepository = new PermissionRepository();
+export const auditLogRepository = new AuditLogRepository();
+export const eventProjectionRepository = new EventProjectionRepository();

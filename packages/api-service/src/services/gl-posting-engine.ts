@@ -1,5 +1,5 @@
 import { BaseService } from './base-service';
-import { 
+import {
   BusinessTransaction,
   BusinessTransactionLine,
   GlTransaction,
@@ -7,26 +7,22 @@ import {
   GlPostingRule,
   CreateGlTransactionInput,
   CreateGlTransactionLineInput,
-  ServiceError
+  ServiceError,
+  // Double-entry and FX types
+  DoubleEntryValidationResult,
+  DoubleEntryValidationOptions,
+  DoubleEntryError,
+  DoubleEntryErrorCode,
+  FxRateMetadata,
+  FxRateSource,
+  PostingAuditEntry,
+  GlPostingResult,
+  AccountBalanceUpdate,
 } from '../types';
+import { AccountingPeriodService } from './accounting-period-service';
 
-export interface PostingResult {
-  glTransaction: GlTransaction;
-  glLines: GlTransactionLine[];
-  balanceUpdates: AccountBalanceUpdate[];
-}
-
-export interface AccountBalanceUpdate {
-  accountId: string;
-  subsidiaryId: string;
-  periodId: string;
-  classId?: string;
-  departmentId?: string;
-  locationId?: string;
-  currencyCode: string;
-  debitAmount: number;
-  creditAmount: number;
-}
+// Re-export for backwards compatibility
+export { AccountBalanceUpdate, GlPostingResult as PostingResult };
 
 export interface PostingContext {
   businessTransaction: BusinessTransaction;
@@ -34,41 +30,404 @@ export interface PostingContext {
   postingRules: GlPostingRule[];
   baseCurrencyCode: string;
   periodId: string;
+  /** FX metadata for multi-currency transactions */
+  fxMetadata?: FxRateMetadata;
+  /** Options for double-entry validation */
+  validationOptions?: DoubleEntryValidationOptions;
 }
 
 export class GlPostingEngine extends BaseService {
-  
+  private periodService: AccountingPeriodService;
+
+  /** Default validation options */
+  private static readonly DEFAULT_VALIDATION_OPTIONS: DoubleEntryValidationOptions = {
+    tolerance: 0.01,
+    validateBaseAmounts: true,
+    requireBothSides: true,
+    allowZeroAmountLines: false,
+    validateFxRates: true,
+    checkPeriodStatus: true,
+  };
+
   constructor(context = {}) {
     super(context);
+    this.periodService = new AccountingPeriodService(context);
   }
 
   /**
-   * Generate GL entries for a business transaction
+   * Generate GL entries for a business transaction with enhanced validation
    */
-  async generateGlEntries(context: PostingContext): Promise<PostingResult> {
+  async generateGlEntries(context: PostingContext): Promise<GlPostingResult> {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
-    
-    // Validate posting context
-    this.validatePostingContext(context);
-    
-    // Generate GL transaction header
-    const glTransaction = await this.createGlTransactionHeader(context);
-    
-    // Generate GL lines based on posting rules
-    const glLines = await this.generateGlLines(context, glTransaction.id!);
-    
-    // Validate GL transaction is balanced
-    this.validateGlBalance(glLines);
-    
-    // Calculate balance updates
-    const balanceUpdates = this.calculateBalanceUpdates(glLines, context);
-    
-    return {
-      glTransaction,
-      glLines,
-      balanceUpdates
+
+    // Merge validation options with defaults
+    const validationOptions = {
+      ...GlPostingEngine.DEFAULT_VALIDATION_OPTIONS,
+      ...context.validationOptions,
     };
+
+    // Start audit entry
+    const auditEntry = this.createAuditEntry(context, userId, organizationId, 'POST');
+
+    try {
+      // Validate posting context
+      this.validatePostingContext(context);
+
+      // Validate accounting period allows posting
+      if (validationOptions.checkPeriodStatus) {
+        await this.validatePeriodForPosting(context);
+      }
+
+      // Generate GL transaction header
+      const glTransaction = await this.createGlTransactionHeader(context);
+
+      // Generate GL lines based on posting rules
+      const glLines = await this.generateGlLines(context, glTransaction.id!);
+
+      // Perform strict double-entry validation
+      const validationResult = this.validateDoubleEntry(glLines, validationOptions);
+
+      // If validation failed, throw with audit
+      if (!validationResult.isBalanced || validationResult.errors.length > 0) {
+        auditEntry.success = false;
+        auditEntry.validationResult = validationResult;
+        await this.logPostingAudit(auditEntry);
+
+        const errorMessages = validationResult.errors.map((e) => e.message).join('; ');
+        throw new ServiceError(
+          `Double-entry validation failed: ${errorMessages}`,
+          'GL_TRANSACTION_NOT_BALANCED',
+          400
+        );
+      }
+
+      // Calculate balance updates
+      const balanceUpdates = this.calculateBalanceUpdates(glLines, context);
+
+      // Update totals on GL transaction
+      glTransaction.totalDebitAmount = validationResult.totalDebits.toString();
+      glTransaction.totalCreditAmount = validationResult.totalCredits.toString();
+
+      // Prepare FX metadata
+      const fxMetadata = this.buildFxMetadata(context);
+
+      // Log successful audit
+      auditEntry.success = true;
+      auditEntry.validationResult = validationResult;
+      auditEntry.fxMetadata = fxMetadata;
+      auditEntry.glTransactionId = glTransaction.id;
+      await this.logPostingAudit(auditEntry);
+
+      return {
+        glTransaction,
+        glLines,
+        balanceUpdates,
+        validationResult,
+        fxMetadata,
+        auditEntryId: auditEntry.id,
+      };
+    } catch (error) {
+      // Log failed audit if not already logged
+      if (!auditEntry.success && !auditEntry.validationResult) {
+        auditEntry.success = false;
+        auditEntry.errorDetails = {
+          code: error instanceof ServiceError ? error.code : 'UNKNOWN_ERROR',
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        };
+        await this.logPostingAudit(auditEntry);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Validate GL transaction lines for strict double-entry compliance
+   */
+  validateDoubleEntry(
+    glLines: GlTransactionLine[],
+    options: DoubleEntryValidationOptions = {}
+  ): DoubleEntryValidationResult {
+    const opts = { ...GlPostingEngine.DEFAULT_VALIDATION_OPTIONS, ...options };
+    const errors: DoubleEntryError[] = [];
+    const warnings: string[] = [];
+
+    let totalDebits = 0;
+    let totalCredits = 0;
+    let baseTotalDebits = 0;
+    let baseTotalCredits = 0;
+    let hasDebitLine = false;
+    let hasCreditLine = false;
+
+    // Validate minimum lines
+    if (glLines.length < 2) {
+      errors.push({
+        code: 'INSUFFICIENT_LINES',
+        message: 'GL transaction must have at least 2 lines for double-entry',
+        context: { lineCount: glLines.length },
+      });
+    }
+
+    // Process each line
+    for (const line of glLines) {
+      const debitAmount = Number(line.debitAmount || 0);
+      const creditAmount = Number(line.creditAmount || 0);
+      const baseDebitAmount = Number(line.baseDebitAmount || 0);
+      const baseCreditAmount = Number(line.baseCreditAmount || 0);
+      const exchangeRate = Number(line.exchangeRate || 1);
+
+      // Validate amounts are non-negative
+      if (debitAmount < 0) {
+        errors.push({
+          code: 'NEGATIVE_AMOUNT',
+          message: `Line ${line.lineNumber}: Debit amount cannot be negative`,
+          affectedLines: [line.lineNumber],
+          context: { debitAmount },
+        });
+      }
+
+      if (creditAmount < 0) {
+        errors.push({
+          code: 'NEGATIVE_AMOUNT',
+          message: `Line ${line.lineNumber}: Credit amount cannot be negative`,
+          affectedLines: [line.lineNumber],
+          context: { creditAmount },
+        });
+      }
+
+      // Check for zero-amount lines
+      if (!opts.allowZeroAmountLines && debitAmount === 0 && creditAmount === 0) {
+        warnings.push(`Line ${line.lineNumber}: Both debit and credit amounts are zero`);
+      }
+
+      // Check that line has either debit or credit (not both)
+      if (debitAmount > 0 && creditAmount > 0) {
+        errors.push({
+          code: 'LINE_NOT_BALANCED',
+          message: `Line ${line.lineNumber}: Line cannot have both debit and credit amounts`,
+          affectedLines: [line.lineNumber],
+          context: { debitAmount, creditAmount },
+        });
+      }
+
+      // Validate exchange rate
+      if (opts.validateFxRates && exchangeRate <= 0) {
+        errors.push({
+          code: 'INVALID_EXCHANGE_RATE',
+          message: `Line ${line.lineNumber}: Exchange rate must be positive`,
+          affectedLines: [line.lineNumber],
+          context: { exchangeRate },
+        });
+      }
+
+      // Validate base amounts match converted amounts (within tolerance)
+      if (opts.validateFxRates && opts.validateBaseAmounts) {
+        const expectedBaseDebit = debitAmount * exchangeRate;
+        const expectedBaseCredit = creditAmount * exchangeRate;
+
+        if (Math.abs(baseDebitAmount - expectedBaseDebit) > (opts.tolerance || 0.01)) {
+          errors.push({
+            code: 'FX_RATE_MISMATCH',
+            message: `Line ${line.lineNumber}: Base debit amount doesn't match converted amount`,
+            affectedLines: [line.lineNumber],
+            context: { baseDebitAmount, expectedBaseDebit, exchangeRate },
+          });
+        }
+
+        if (Math.abs(baseCreditAmount - expectedBaseCredit) > (opts.tolerance || 0.01)) {
+          errors.push({
+            code: 'FX_RATE_MISMATCH',
+            message: `Line ${line.lineNumber}: Base credit amount doesn't match converted amount`,
+            affectedLines: [line.lineNumber],
+            context: { baseCreditAmount, expectedBaseCredit, exchangeRate },
+          });
+        }
+      }
+
+      // Accumulate totals
+      totalDebits += debitAmount;
+      totalCredits += creditAmount;
+      baseTotalDebits += baseDebitAmount;
+      baseTotalCredits += baseCreditAmount;
+
+      if (debitAmount > 0) hasDebitLine = true;
+      if (creditAmount > 0) hasCreditLine = true;
+    }
+
+    // Validate both sides present
+    if (opts.requireBothSides) {
+      if (!hasDebitLine) {
+        errors.push({
+          code: 'MISSING_DEBIT_LINE',
+          message: 'GL transaction must have at least one debit line',
+        });
+      }
+      if (!hasCreditLine) {
+        errors.push({
+          code: 'MISSING_CREDIT_LINE',
+          message: 'GL transaction must have at least one credit line',
+        });
+      }
+    }
+
+    // Calculate differences
+    const difference = Math.abs(totalDebits - totalCredits);
+    const baseDifference = Math.abs(baseTotalDebits - baseTotalCredits);
+    const tolerance = opts.tolerance || 0.01;
+
+    // Validate transaction currency balance
+    if (difference > tolerance) {
+      errors.push({
+        code: 'UNBALANCED_TRANSACTION',
+        message: `Transaction is not balanced. Debits: ${totalDebits.toFixed(4)}, Credits: ${totalCredits.toFixed(4)}, Difference: ${difference.toFixed(4)}`,
+        context: { totalDebits, totalCredits, difference, tolerance },
+      });
+    }
+
+    // Validate base currency balance
+    if (opts.validateBaseAmounts && baseDifference > tolerance) {
+      errors.push({
+        code: 'UNBALANCED_BASE_AMOUNTS',
+        message: `Base currency amounts are not balanced. Debits: ${baseTotalDebits.toFixed(4)}, Credits: ${baseTotalCredits.toFixed(4)}, Difference: ${baseDifference.toFixed(4)}`,
+        context: { baseTotalDebits, baseTotalCredits, baseDifference, tolerance },
+      });
+    }
+
+    const isBalanced = errors.length === 0;
+
+    return {
+      isBalanced,
+      totalDebits,
+      totalCredits,
+      difference,
+      baseTotalDebits,
+      baseTotalCredits,
+      baseDifference,
+      errors,
+      warnings,
+    };
+  }
+
+  /**
+   * Validate that the accounting period allows posting
+   */
+  private async validatePeriodForPosting(context: PostingContext): Promise<void> {
+    const postingDate =
+      typeof context.businessTransaction.transactionDate === 'string'
+        ? context.businessTransaction.transactionDate
+        : context.businessTransaction.transactionDate.toISOString().split('T')[0];
+
+    const result = await this.periodService.checkPostingAllowed({
+      subsidiaryId: context.businessTransaction.subsidiaryId,
+      postingDate,
+      isAdjustment: false,
+    });
+
+    if (!result.canPost) {
+      const errorCode: DoubleEntryErrorCode =
+        result.period?.status === 'LOCKED' ? 'PERIOD_LOCKED' : 'PERIOD_CLOSED';
+
+      throw new ServiceError(
+        result.reason || 'Posting not allowed for this date',
+        errorCode,
+        400
+      );
+    }
+  }
+
+  /**
+   * Build FX metadata from posting context
+   */
+  private buildFxMetadata(context: PostingContext): FxRateMetadata | undefined {
+    // If FX metadata already provided, use it
+    if (context.fxMetadata) {
+      return context.fxMetadata;
+    }
+
+    // Build from business transaction if multi-currency
+    const txCurrency = context.businessTransaction.currencyCode;
+    const baseCurrency = context.baseCurrencyCode;
+
+    if (txCurrency === baseCurrency) {
+      return undefined; // Not a multi-currency transaction
+    }
+
+    const exchangeRate = Number(context.businessTransaction.exchangeRate || 1);
+
+    return {
+      sourceCurrency: txCurrency,
+      targetCurrency: baseCurrency,
+      exchangeRate: exchangeRate.toString(),
+      inverseRate: (1 / exchangeRate).toString(),
+      rateSource: 'SYSTEM_DEFAULT' as FxRateSource,
+      rateDate: new Date().toISOString().split('T')[0],
+      isLockedRate: false,
+    };
+  }
+
+  /**
+   * Create initial audit entry for tracking
+   */
+  private createAuditEntry(
+    context: PostingContext,
+    userId: string,
+    organizationId: string,
+    action: PostingAuditEntry['action']
+  ): PostingAuditEntry {
+    return {
+      id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date(),
+      userId,
+      organizationId,
+      subsidiaryId: context.businessTransaction.subsidiaryId,
+      sourceTransactionId: context.businessTransaction.id,
+      success: false,
+      action,
+      validationResult: {
+        isBalanced: false,
+        totalDebits: 0,
+        totalCredits: 0,
+        difference: 0,
+        baseTotalDebits: 0,
+        baseTotalCredits: 0,
+        baseDifference: 0,
+        errors: [],
+        warnings: [],
+      },
+    };
+  }
+
+  /**
+   * Log posting audit entry
+   * TODO: Implement actual audit persistence to gl_audit_trail table
+   */
+  private async logPostingAudit(entry: PostingAuditEntry): Promise<void> {
+    // For now, log to console. In production, this would write to gl_audit_trail
+    const logLevel = entry.success ? 'info' : 'warn';
+    const logData = {
+      auditId: entry.id,
+      action: entry.action,
+      success: entry.success,
+      userId: entry.userId,
+      organizationId: entry.organizationId,
+      subsidiaryId: entry.subsidiaryId,
+      glTransactionId: entry.glTransactionId,
+      sourceTransactionId: entry.sourceTransactionId,
+      isBalanced: entry.validationResult.isBalanced,
+      totalDebits: entry.validationResult.totalDebits,
+      totalCredits: entry.validationResult.totalCredits,
+      errorCount: entry.validationResult.errors.length,
+      warningCount: entry.validationResult.warnings.length,
+      hasFxMetadata: !!entry.fxMetadata,
+      timestamp: entry.timestamp.toISOString(),
+    };
+
+    // eslint-disable-next-line no-console
+    console[logLevel]('[GL_POSTING_AUDIT]', JSON.stringify(logData));
+
+    // TODO: Persist to database
+    // await this.auditRepository.create(entry);
   }
 
   /**
@@ -324,29 +683,8 @@ export class GlPostingEngine extends BaseService {
   }
 
   /**
-   * Validate that GL transaction is balanced
-   */
-  private validateGlBalance(glLines: GlTransactionLine[]): void {
-    let totalDebits = 0;
-    let totalCredits = 0;
-
-    for (const line of glLines) {
-      totalDebits += Number(line.debitAmount || 0);
-      totalCredits += Number(line.creditAmount || 0);
-    }
-
-    const difference = Math.abs(totalDebits - totalCredits);
-    if (difference > 0.01) { // Allow for minor rounding differences
-      throw new ServiceError(
-        `GL transaction is not balanced. Debits: ${totalDebits}, Credits: ${totalCredits}`,
-        'GL_TRANSACTION_NOT_BALANCED',
-        400
-      );
-    }
-  }
-
-  /**
    * Calculate account balance updates from GL lines
+   * Includes both transaction currency and base currency amounts
    */
   private calculateBalanceUpdates(
     glLines: GlTransactionLine[],
@@ -363,7 +701,7 @@ export class GlPostingEngine extends BaseService {
         line.classId || '',
         line.departmentId || '',
         line.locationId || '',
-        line.currencyCode
+        line.currencyCode,
       ].join('|');
 
       let balance = balanceMap.get(key);
@@ -378,12 +716,18 @@ export class GlPostingEngine extends BaseService {
           currencyCode: line.currencyCode,
           debitAmount: 0,
           creditAmount: 0,
+          baseDebitAmount: 0,
+          baseCreditAmount: 0,
         };
         balanceMap.set(key, balance);
       }
 
-      balance.debitAmount += Number(line.baseDebitAmount || 0);
-      balance.creditAmount += Number(line.baseCreditAmount || 0);
+      // Transaction currency amounts
+      balance.debitAmount += Number(line.debitAmount || 0);
+      balance.creditAmount += Number(line.creditAmount || 0);
+      // Base currency amounts
+      balance.baseDebitAmount += Number(line.baseDebitAmount || 0);
+      balance.baseCreditAmount += Number(line.baseCreditAmount || 0);
     }
 
     return Array.from(balanceMap.values());
@@ -392,20 +736,16 @@ export class GlPostingEngine extends BaseService {
   /**
    * Post GL entries and update balances
    */
-  async postGlEntries(postingResult: PostingResult): Promise<void> {
-    const organizationId = this.requireOrganizationContext();
-    
+  async postGlEntries(postingResult: GlPostingResult): Promise<void> {
+    this.requireOrganizationContext();
+
     // TODO: Implement database operations in transaction
     // 1. Create GL transaction
     // 2. Create GL lines
     // 3. Update account balances
     // 4. Update business transaction status
-    
-    throw new ServiceError(
-      'GL posting not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+
+    throw new ServiceError('GL posting not yet implemented', 'NOT_IMPLEMENTED', 501);
   }
 
   /**
@@ -415,21 +755,17 @@ export class GlPostingEngine extends BaseService {
     originalGlTransactionId: string,
     reversalReason: string,
     reversalDate: Date = new Date()
-  ): Promise<PostingResult> {
-    const organizationId = this.requireOrganizationContext();
-    const userId = this.requireUserContext();
-    
+  ): Promise<GlPostingResult> {
+    this.requireOrganizationContext();
+    this.requireUserContext();
+
     // TODO: Implement GL reversal logic
     // 1. Get original GL transaction and lines
     // 2. Create reversing GL transaction
     // 3. Create reversing GL lines (swap debit/credit)
     // 4. Update account balances
     // 5. Mark original transaction as reversed
-    
-    throw new ServiceError(
-      'GL reversal not yet implemented',
-      'NOT_IMPLEMENTED',
-      501
-    );
+
+    throw new ServiceError('GL reversal not yet implemented', 'NOT_IMPLEMENTED', 501);
   }
 }

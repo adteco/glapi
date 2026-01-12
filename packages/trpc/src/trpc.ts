@@ -33,5 +33,20 @@ export const authenticatedProcedure = t.procedure.use(async ({ ctx, next }) => {
 // Alias for backwards compatibility
 export const protectedProcedure = authenticatedProcedure;
 
+/**
+ * Admin-only procedure - requires user to have 'admin' role
+ * Use for sensitive operations like period close/lock, user management, etc.
+ */
+export const adminProcedure = authenticatedProcedure.use(async ({ ctx, next }) => {
+  if (ctx.user?.role !== 'admin') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'This operation requires administrator privileges',
+    });
+  }
+
+  return next({ ctx });
+});
+
 export const middleware = t.middleware;
 export const createCallerFactory = t.createCallerFactory;
