@@ -55,6 +55,13 @@ export * from './event-projection-repository';
 export * from './permission-repository';
 export * from './audit-log-repository';
 
+// Export project cost code and budget repositories
+export * from './project-cost-code-repository';
+export * from './project-budget-repository';
+
+// Export time tracking repository
+export * from './time-entry-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -86,6 +93,9 @@ import { AccountingPeriodRepository } from './accounting-period-repository';
 import { PermissionRepository } from './permission-repository';
 import { AuditLogRepository } from './audit-log-repository';
 import { EventProjectionRepository } from './event-projection-repository';
+import { ProjectCostCodeRepository } from './project-cost-code-repository';
+import { ProjectBudgetRepository } from './project-budget-repository';
+import { TimeEntryRepository } from './time-entry-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -118,3 +128,6 @@ export const accountingPeriodRepository = new AccountingPeriodRepository();
 export const permissionRepository = new PermissionRepository();
 export const auditLogRepository = new AuditLogRepository();
 export const eventProjectionRepository = new EventProjectionRepository();
+export const projectCostCodeRepository = new ProjectCostCodeRepository();
+export const projectBudgetRepository = new ProjectBudgetRepository();
+export const timeEntryRepository = new TimeEntryRepository();

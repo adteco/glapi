@@ -31,6 +31,9 @@ export * from './accounting-period-service';
 export * from './project-cost-code-service';
 export * from './project-budget-service';
 
+// Time tracking
+export * from './time-entry-service';
+
 // Event sourcing
 export * from './event-service';
 
