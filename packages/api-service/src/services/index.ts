@@ -50,3 +50,6 @@ export * from './audit-service';
 
 // Order-to-Cash
 export * from './sales-order-service';
+
+// Close Management
+export * from './close-management-service';
