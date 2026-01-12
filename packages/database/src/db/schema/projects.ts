@@ -1,10 +1,41 @@
-import { pgTable, uuid, text, date, numeric, jsonb, timestamp, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, date, numeric, jsonb, timestamp, boolean, uniqueIndex, index, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { activityCodes } from './activity-codes';
 import { users } from './users';
 import { entities } from './entities';
+
+/**
+ * Cost code types for categorization
+ */
+export const COST_CODE_TYPE = {
+  LABOR: 'LABOR',
+  MATERIAL: 'MATERIAL',
+  EQUIPMENT: 'EQUIPMENT',
+  SUBCONTRACT: 'SUBCONTRACT',
+  OTHER: 'OTHER',
+} as const;
+
+export type CostCodeType = typeof COST_CODE_TYPE[keyof typeof COST_CODE_TYPE];
+
+/**
+ * Budget version status lifecycle:
+ * - DRAFT: Budget is being created/edited
+ * - SUBMITTED: Budget submitted for approval
+ * - APPROVED: Budget approved for use
+ * - LOCKED: Budget is locked, no changes allowed
+ * - SUPERSEDED: Budget replaced by a newer version
+ */
+export const BUDGET_VERSION_STATUS = {
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED',
+  LOCKED: 'LOCKED',
+  SUPERSEDED: 'SUPERSEDED',
+} as const;
+
+export type BudgetVersionStatus = typeof BUDGET_VERSION_STATUS[keyof typeof BUDGET_VERSION_STATUS];
 
 export const projects = pgTable('projects', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -44,51 +75,108 @@ export const projectParticipants = pgTable('project_participants', {
 export const projectCostCodes = pgTable('project_cost_codes', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id),
+  parentCostCodeId: uuid('parent_cost_code_id'), // Self-referential for hierarchy (added later via migration)
   activityCodeId: uuid('activity_code_id').references(() => activityCodes.id),
-  costCode: text('cost_code'),
-  costType: text('cost_type'),
+  costCode: text('cost_code').notNull(),
+  costType: text('cost_type').notNull().default('OTHER'), // LABOR, MATERIAL, EQUIPMENT, SUBCONTRACT, OTHER
+  name: text('name').notNull(),
   description: text('description'),
+  sortOrder: integer('sort_order').default(0).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
+  isBillable: boolean('is_billable').default(true).notNull(),
+  // Denormalized amounts for quick access (updated by triggers/service)
   budgetAmount: numeric('budget_amount', { precision: 18, scale: 4 }).default('0').notNull(),
   committedAmount: numeric('committed_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  actualAmount: numeric('actual_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  // GL Account references
+  revenueAccountId: uuid('revenue_account_id'),
+  costAccountId: uuid('cost_account_id'),
+  wipAccountId: uuid('wip_account_id'),
   metadata: jsonb('metadata'),
+  createdBy: uuid('created_by').references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   costCodeIdx: uniqueIndex('idx_project_cost_codes_project_code').on(table.projectId, table.costCode),
+  parentIdx: index('idx_project_cost_codes_parent').on(table.parentCostCodeId),
+  projectActiveIdx: index('idx_project_cost_codes_project_active').on(table.projectId, table.isActive),
 }));
 
 export const projectBudgetVersions = pgTable('project_budget_versions', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id),
+  versionNumber: integer('version_number').notNull(),
   versionName: text('version_name').notNull(),
-  status: text('status').default('draft').notNull(),
-  isLocked: boolean('is_locked').default(false).notNull(),
+  status: text('status').default('DRAFT').notNull(), // DRAFT, SUBMITTED, APPROVED, LOCKED, SUPERSEDED
+  isCurrent: boolean('is_current').default(false).notNull(), // True for the active budget version
   effectiveDate: date('effective_date'),
+  expirationDate: date('expiration_date'),
+  description: text('description'),
   notes: text('notes'),
+  // Totals (denormalized for quick access)
+  totalBudgetAmount: numeric('total_budget_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  totalLaborAmount: numeric('total_labor_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  totalMaterialAmount: numeric('total_material_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  totalEquipmentAmount: numeric('total_equipment_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  totalSubcontractAmount: numeric('total_subcontract_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  totalOtherAmount: numeric('total_other_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  // Workflow tracking
   createdBy: uuid('created_by').references(() => users.id),
+  submittedBy: uuid('submitted_by').references(() => users.id),
+  submittedDate: timestamp('submitted_date', { withTimezone: true }),
   approvedBy: uuid('approved_by').references(() => users.id),
+  approvedDate: timestamp('approved_date', { withTimezone: true }),
+  lockedBy: uuid('locked_by').references(() => users.id),
+  lockedDate: timestamp('locked_date', { withTimezone: true }),
+  // Import tracking
+  importSource: text('import_source'), // 'CSV', 'API', 'MANUAL'
+  importFileName: text('import_file_name'),
+  importDate: timestamp('import_date', { withTimezone: true }),
+  metadata: jsonb('metadata'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   versionIdx: uniqueIndex('idx_project_budget_versions_name').on(table.projectId, table.versionName),
+  versionNumIdx: uniqueIndex('idx_project_budget_versions_num').on(table.projectId, table.versionNumber),
+  currentIdx: index('idx_project_budget_versions_current').on(table.projectId, table.isCurrent),
+  statusIdx: index('idx_project_budget_versions_status').on(table.status),
 }));
 
 export const projectBudgetLines = pgTable('project_budget_lines', {
   id: uuid('id').defaultRandom().primaryKey(),
   budgetVersionId: uuid('budget_version_id').notNull().references(() => projectBudgetVersions.id),
   projectCostCodeId: uuid('project_cost_code_id').notNull().references(() => projectCostCodes.id),
-  costType: text('cost_type'),
+  lineNumber: integer('line_number').notNull(),
+  description: text('description'),
+  // Budget amounts
   originalBudgetAmount: numeric('original_budget_amount', { precision: 18, scale: 4 }).default('0').notNull(),
   revisedBudgetAmount: numeric('revised_budget_amount', { precision: 18, scale: 4 }).default('0').notNull(),
-  forecastAmount: numeric('forecast_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  approvedChanges: numeric('approved_changes', { precision: 18, scale: 4 }).default('0').notNull(),
+  pendingChanges: numeric('pending_changes', { precision: 18, scale: 4 }).default('0').notNull(),
+  // Tracking amounts (updated by transaction posting)
   committedAmount: numeric('committed_amount', { precision: 18, scale: 4 }).default('0').notNull(),
   actualAmount: numeric('actual_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  encumberedAmount: numeric('encumbered_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  // Forecasting
+  forecastAmount: numeric('forecast_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  estimateToComplete: numeric('estimate_to_complete', { precision: 18, scale: 4 }).default('0').notNull(),
+  estimateAtCompletion: numeric('estimate_at_completion', { precision: 18, scale: 4 }).default('0').notNull(),
+  // Variance calculations (can be computed but stored for performance)
+  varianceAmount: numeric('variance_amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  variancePercent: numeric('variance_percent', { precision: 8, scale: 4 }),
+  // Units (for unit-based budgets like labor hours)
+  budgetUnits: numeric('budget_units', { precision: 18, scale: 4 }),
+  actualUnits: numeric('actual_units', { precision: 18, scale: 4 }),
+  unitOfMeasure: text('unit_of_measure'),
+  unitRate: numeric('unit_rate', { precision: 18, scale: 6 }),
+  // Notes and metadata
+  notes: text('notes'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   budgetLineIdx: uniqueIndex('idx_project_budget_lines_unique').on(table.budgetVersionId, table.projectCostCodeId),
+  lineNumberIdx: index('idx_project_budget_lines_line_number').on(table.budgetVersionId, table.lineNumber),
 }));
 
 export const externalReferences = pgTable('external_references', {
@@ -136,9 +224,21 @@ export const projectCostCodesRelations = relations(projectCostCodes, ({ one, man
     fields: [projectCostCodes.projectId],
     references: [projects.id],
   }),
+  parentCostCode: one(projectCostCodes, {
+    fields: [projectCostCodes.parentCostCodeId],
+    references: [projectCostCodes.id],
+    relationName: 'parentChild',
+  }),
+  childCostCodes: many(projectCostCodes, {
+    relationName: 'parentChild',
+  }),
   activityCode: one(activityCodes, {
     fields: [projectCostCodes.activityCodeId],
     references: [activityCodes.id],
+  }),
+  createdByUser: one(users, {
+    fields: [projectCostCodes.createdBy],
+    references: [users.id],
   }),
   projectBudgetLines: many(projectBudgetLines),
 }));
@@ -151,10 +251,22 @@ export const projectBudgetVersionsRelations = relations(projectBudgetVersions, (
   createdByUser: one(users, {
     fields: [projectBudgetVersions.createdBy],
     references: [users.id],
+    relationName: 'budgetVersionCreatedBy',
+  }),
+  submittedByUser: one(users, {
+    fields: [projectBudgetVersions.submittedBy],
+    references: [users.id],
+    relationName: 'budgetVersionSubmittedBy',
   }),
   approvedByUser: one(users, {
     fields: [projectBudgetVersions.approvedBy],
     references: [users.id],
+    relationName: 'budgetVersionApprovedBy',
+  }),
+  lockedByUser: one(users, {
+    fields: [projectBudgetVersions.lockedBy],
+    references: [users.id],
+    relationName: 'budgetVersionLockedBy',
   }),
   projectBudgetLines: many(projectBudgetLines),
 }));
