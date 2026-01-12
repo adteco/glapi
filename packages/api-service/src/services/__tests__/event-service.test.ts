@@ -1,16 +1,31 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { EventService, EmitEventInput } from '../event-service';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServiceContext, ServiceError } from '../../types';
-import { EventCategory } from '@glapi/database/schema';
 
-// Mock the database module
-const mockAppendEvent = jest.fn();
-const mockAppendEvents = jest.fn();
-const mockGetLatestVersion = jest.fn();
-const mockQueryEvents = jest.fn();
-const mockGetEventById = jest.fn();
+// Define EventCategory enum to match the database schema
+const EventCategory = {
+  ACCOUNTING: 'ACCOUNTING',
+  TRANSACTION: 'TRANSACTION',
+  CONTRACT: 'CONTRACT',
+  REVENUE: 'REVENUE',
+} as const;
 
-jest.mock('@glapi/database', () => ({
+// Use vi.hoisted() to properly hoist mock functions for use in vi.mock factory
+const {
+  mockAppendEvent,
+  mockAppendEvents,
+  mockGetLatestVersion,
+  mockQueryEvents,
+  mockGetEventById,
+} = vi.hoisted(() => ({
+  mockAppendEvent: vi.fn(),
+  mockAppendEvents: vi.fn(),
+  mockGetLatestVersion: vi.fn(),
+  mockQueryEvents: vi.fn(),
+  mockGetEventById: vi.fn(),
+}));
+
+// Mock the database modules
+vi.mock('@glapi/database', () => ({
   eventStoreRepository: {
     appendEvent: mockAppendEvent,
     appendEvents: mockAppendEvents,
@@ -18,8 +33,20 @@ jest.mock('@glapi/database', () => ({
     queryEvents: mockQueryEvents,
     getEventById: mockGetEventById,
   },
-  EventStoreRepository: jest.fn(),
+  EventStoreRepository: vi.fn(),
 }));
+
+vi.mock('@glapi/database/schema', () => ({
+  EventCategory: {
+    ACCOUNTING: 'ACCOUNTING',
+    TRANSACTION: 'TRANSACTION',
+    CONTRACT: 'CONTRACT',
+    REVENUE: 'REVENUE',
+  },
+}));
+
+// Import after mocking
+import { EventService, EmitEventInput } from '../event-service';
 
 describe('EventService', () => {
   let service: EventService;
@@ -27,14 +54,14 @@ describe('EventService', () => {
 
   // Mock logger
   const mockLogger = {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     context = {
       organizationId: 'test-org-123',

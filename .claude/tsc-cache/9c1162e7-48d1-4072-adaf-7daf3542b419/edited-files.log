@@ -71,3 +71,6 @@
 1768187939:/Users/fredpope/Development/glapi/packages/trpc/src/router.ts:packages/trpc
 1768188054:/Users/fredpope/Development/glapi/packages/api-service/src/services/close-management-service.ts:packages/api-service
 1768188128:/Users/fredpope/Development/glapi/packages/trpc/src/routers/close-management.ts:packages/trpc
+1768232615:/Users/fredpope/Development/glapi/packages/database/src/repositories/time-entry-repository.ts:packages/database
+1768232644:/Users/fredpope/Development/glapi/packages/api-service/src/services/time-entry-service.ts:packages/api-service
+1768232659:/Users/fredpope/Development/glapi/packages/trpc/src/routers/time-entries.ts:packages/trpc

@@ -62,3 +62,11 @@
 1768187553:/Users/fredpope/Development/glapi/packages/api-service/src/services/pay-application-service.ts:packages/api-service
 1768187553:/Users/fredpope/Development/glapi/packages/api-service/src/services/pay-application-service.ts:packages/api-service
 1768187580:/Users/fredpope/Development/glapi/packages/api-service/src/types/sov.types.ts:packages/api-service
+1768227115:/Users/fredpope/Development/glapi/packages/api-service/src/types/financial-statements.types.ts:packages/api-service
+1768227124:/Users/fredpope/Development/glapi/packages/database/src/repositories/gl-reporting-repository.ts:packages/database
+1768227131:/Users/fredpope/Development/glapi/packages/database/src/repositories/gl-reporting-repository.ts:packages/database
+1768227188:/Users/fredpope/Development/glapi/packages/database/src/repositories/gl-reporting-repository.ts:packages/database
+1768227283:/Users/fredpope/Development/glapi/packages/api-service/src/services/financial-statements-service.ts:packages/api-service
+1768227299:/Users/fredpope/Development/glapi/packages/api-service/src/services/index.ts:packages/api-service
+1768227307:/Users/fredpope/Development/glapi/packages/api-service/src/types/index.ts:packages/api-service
+1768227328:/Users/fredpope/Development/glapi/packages/api-service/src/types/financial-statements.types.ts:packages/api-service

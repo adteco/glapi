@@ -1,3 +1,4 @@
 packages/database
 packages/api-service
 packages/business
+packages/trpc

@@ -58,3 +58,8 @@ export * from './close-management-service';
 // Customer Payments (Cash Application)
 export * from './customer-payment-service';
 export * from './bank-deposit-service';
+
+// Procure-to-Pay
+export * from './purchase-order-service';
+export * from './vendor-bill-service';
+export * from './bill-payment-service';

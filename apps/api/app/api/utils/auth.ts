@@ -16,16 +16,16 @@ export class AuthenticationError extends Error {
   }
 }
 
-export function getServiceContext(): OrganizationContext {
-  const headersList = headers();
-  
+export async function getServiceContext(): Promise<OrganizationContext> {
+  const headersList = await headers();
+
   const organizationId = headersList.get('x-organization-id');
   const userId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
-  
+
   // TEMPORARY: For testing, use provided headers or fall back to development
   console.log('Auth context - orgId:', organizationId, 'userId:', userId);
-  
+
   if (organizationId && userId) {
     return {
       organizationId,
@@ -34,7 +34,7 @@ export function getServiceContext(): OrganizationContext {
       apiKeyName: apiKeyName || undefined
     };
   }
-  
+
   // Fallback for development
   console.log('No org/user in headers - using development context');
   return {
@@ -76,17 +76,17 @@ export function getServiceContext(): OrganizationContext {
 }
 
 // For routes that might be partially public (like health checks)
-export function getOptionalServiceContext(): OrganizationContext | null {
-  const headersList = headers();
-  
+export async function getOptionalServiceContext(): Promise<OrganizationContext | null> {
+  const headersList = await headers();
+
   const organizationId = headersList.get('x-organization-id');
   const userId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
-  
+
   if (!organizationId || !userId) {
     return null;
   }
-  
+
   return {
     organizationId,
     userId,

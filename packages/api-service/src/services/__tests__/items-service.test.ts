@@ -1,50 +1,81 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { ItemsService } from '../items-service';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServiceContext, ServiceError } from '../../types';
-import * as database from '@glapi/database';
 
-// Mock the database module
-jest.mock('@glapi/database', () => ({
-  itemsRepository: {
-    create: jest.fn(),
-    findById: jest.fn(),
-    findByCode: jest.fn(),
-    findByOrganization: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    findVariants: jest.fn(),
-    generateVariants: jest.fn(),
-    getCountByCategory: jest.fn(),
-  },
-  unitsOfMeasureRepository: {
-    findById: jest.fn(),
-  },
-  itemCategoriesRepository: {
-    findById: jest.fn(),
-  },
-  accountRepository: {
-    findById: jest.fn(),
-  },
-  assembliesKitsRepository: {
-    isItemUsedInBOM: jest.fn(),
-  },
+// Use vi.hoisted() to properly hoist mock functions for use in vi.mock factory
+const {
+  mockItemsCreate,
+  mockItemsFindById,
+  mockItemsFindByCode,
+  mockItemsFindByOrganization,
+  mockItemsUpdate,
+  mockItemsDelete,
+  mockItemsFindVariants,
+  mockItemsGenerateVariants,
+  mockItemsGetCountByCategory,
+  mockUomFindById,
+  mockCategoriesFindById,
+  mockAccountFindById,
+  mockAssembliesIsItemUsedInBOM,
+} = vi.hoisted(() => ({
+  mockItemsCreate: vi.fn(),
+  mockItemsFindById: vi.fn(),
+  mockItemsFindByCode: vi.fn(),
+  mockItemsFindByOrganization: vi.fn(),
+  mockItemsUpdate: vi.fn(),
+  mockItemsDelete: vi.fn(),
+  mockItemsFindVariants: vi.fn(),
+  mockItemsGenerateVariants: vi.fn(),
+  mockItemsGetCountByCategory: vi.fn(),
+  mockUomFindById: vi.fn(),
+  mockCategoriesFindById: vi.fn(),
+  mockAccountFindById: vi.fn(),
+  mockAssembliesIsItemUsedInBOM: vi.fn(),
 }));
+
+// Mock the database module with class constructors
+vi.mock('@glapi/database', () => ({
+  ItemsRepository: vi.fn().mockImplementation(() => ({
+    create: mockItemsCreate,
+    findById: mockItemsFindById,
+    findByCode: mockItemsFindByCode,
+    findByOrganization: mockItemsFindByOrganization,
+    update: mockItemsUpdate,
+    delete: mockItemsDelete,
+    findVariants: mockItemsFindVariants,
+    generateVariants: mockItemsGenerateVariants,
+    getCountByCategory: mockItemsGetCountByCategory,
+  })),
+  UnitsOfMeasureRepository: vi.fn().mockImplementation(() => ({
+    findById: mockUomFindById,
+  })),
+  ItemCategoriesRepository: vi.fn().mockImplementation(() => ({
+    findById: mockCategoriesFindById,
+  })),
+  AccountRepository: vi.fn().mockImplementation(() => ({
+    findById: mockAccountFindById,
+  })),
+  AssembliesKitsRepository: vi.fn().mockImplementation(() => ({
+    isItemUsedInBOM: mockAssembliesIsItemUsedInBOM,
+  })),
+}));
+
+// Import after mocking
+import { ItemsService } from '../items-service';
 
 describe('ItemsService', () => {
   let service: ItemsService;
   let context: ServiceContext;
-  const mockRepos = database as jest.Mocked<typeof database>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    
+    vi.clearAllMocks();
+
     context = {
       organizationId: 'test-org-123',
       stytchOrganizationId: 'stytch-org-123',
       userId: 'test-user-123',
       stytchUserId: 'stytch-user-123',
     };
-    
+
     service = new ItemsService(context);
   });
 
@@ -66,15 +97,15 @@ describe('ItemsService', () => {
 
     beforeEach(() => {
       // Setup default mocks for a successful create
-      mockRepos.itemsRepository.findByCode.mockResolvedValue(null);
-      mockRepos.unitsOfMeasureRepository.findById.mockResolvedValue({
+      mockItemsFindByCode.mockResolvedValue(null);
+      mockUomFindById.mockResolvedValue({
         id: 'uom-123',
         code: 'EA',
         name: 'Each',
       });
-      mockRepos.itemCategoriesRepository.findById.mockResolvedValue(null);
-      mockRepos.accountRepository.findById.mockResolvedValue({ id: 'account-123' });
-      mockRepos.itemsRepository.create.mockResolvedValue({
+      mockCategoriesFindById.mockResolvedValue(null);
+      mockAccountFindById.mockResolvedValue({ id: 'account-123' });
+      mockItemsCreate.mockResolvedValue({
         id: 'item-123',
         ...validItemInput,
         organizationId: context.organizationId,
@@ -93,7 +124,7 @@ describe('ItemsService', () => {
         itemType: validItemInput.itemType,
       });
 
-      expect(mockRepos.itemsRepository.create).toHaveBeenCalledWith(
+      expect(mockItemsCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           organizationId: context.organizationId,
           itemCode: validItemInput.itemCode,
@@ -103,7 +134,7 @@ describe('ItemsService', () => {
     });
 
     it('should throw error if item code already exists', async () => {
-      mockRepos.itemsRepository.findByCode.mockResolvedValue({
+      mockItemsFindByCode.mockResolvedValue({
         id: 'existing-item',
         itemCode: validItemInput.itemCode,
       });
@@ -114,7 +145,7 @@ describe('ItemsService', () => {
     });
 
     it('should throw error if unit of measure not found', async () => {
-      mockRepos.unitsOfMeasureRepository.findById.mockResolvedValue(null);
+      mockUomFindById.mockResolvedValue(null);
 
       await expect(service.createItem(validItemInput)).rejects.toThrow(
         new ServiceError('Unit of measure not found', 'INVALID_UOM', 400)
@@ -141,7 +172,7 @@ describe('ItemsService', () => {
         parentItemId: 'parent-123',
       };
 
-      mockRepos.itemsRepository.findById.mockResolvedValue(null);
+      mockItemsFindById.mockResolvedValue(null);
 
       await expect(service.createItem(variantInput)).rejects.toThrow(
         new ServiceError('Parent item not found', 'INVALID_PARENT', 400)
@@ -155,7 +186,7 @@ describe('ItemsService', () => {
         variantAttributes: { size: 'M', color: 'Blue' },
       };
 
-      mockRepos.itemsRepository.findById.mockResolvedValue({
+      mockItemsFindById.mockResolvedValue({
         id: 'parent-123',
         isParent: true,
         organizationId: context.organizationId,
@@ -164,7 +195,7 @@ describe('ItemsService', () => {
       const result = await service.createItem(variantInput);
 
       expect(result.parentItemId).toBe('parent-123');
-      expect(mockRepos.itemsRepository.create).toHaveBeenCalledWith(
+      expect(mockItemsCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           parentItemId: 'parent-123',
           variantAttributes: { size: 'M', color: 'Blue' },
@@ -188,12 +219,12 @@ describe('ItemsService', () => {
     };
 
     beforeEach(() => {
-      mockRepos.itemsRepository.findById.mockResolvedValue(existingItem);
-      mockRepos.itemsRepository.findByCode.mockResolvedValue(null);
-      mockRepos.unitsOfMeasureRepository.findById.mockResolvedValue({ id: 'uom-123' });
-      mockRepos.accountRepository.findById.mockResolvedValue({ id: 'account-123' });
-      mockRepos.assembliesKitsRepository.isItemUsedInBOM.mockResolvedValue(false);
-      mockRepos.itemsRepository.update.mockResolvedValue({
+      mockItemsFindById.mockResolvedValue(existingItem);
+      mockItemsFindByCode.mockResolvedValue(null);
+      mockUomFindById.mockResolvedValue({ id: 'uom-123' });
+      mockAccountFindById.mockResolvedValue({ id: 'account-123' });
+      mockAssembliesIsItemUsedInBOM.mockResolvedValue(false);
+      mockItemsUpdate.mockResolvedValue({
         ...existingItem,
         name: 'Updated Item',
         updatedAt: new Date(),
@@ -209,7 +240,7 @@ describe('ItemsService', () => {
       const result = await service.updateItem('item-123', updateData);
 
       expect(result.name).toBe('Updated Item');
-      expect(mockRepos.itemsRepository.update).toHaveBeenCalledWith(
+      expect(mockItemsUpdate).toHaveBeenCalledWith(
         'item-123',
         context.organizationId,
         expect.objectContaining({
@@ -221,7 +252,7 @@ describe('ItemsService', () => {
     });
 
     it('should throw error if item not found', async () => {
-      mockRepos.itemsRepository.findById.mockResolvedValue(null);
+      mockItemsFindById.mockResolvedValue(null);
 
       await expect(service.updateItem('item-123', { name: 'Updated' })).rejects.toThrow(
         new ServiceError('Item not found', 'ITEM_NOT_FOUND', 404)
@@ -229,7 +260,7 @@ describe('ItemsService', () => {
     });
 
     it('should prevent duplicate item codes', async () => {
-      mockRepos.itemsRepository.findByCode.mockResolvedValue({
+      mockItemsFindByCode.mockResolvedValue({
         id: 'other-item',
         itemCode: 'NEW-CODE',
       });
@@ -242,7 +273,7 @@ describe('ItemsService', () => {
     });
 
     it('should prevent changing item type when used in BOM', async () => {
-      mockRepos.assembliesKitsRepository.isItemUsedInBOM.mockResolvedValue(true);
+      mockAssembliesIsItemUsedInBOM.mockResolvedValue(true);
 
       await expect(
         service.updateItem('item-123', { itemType: 'SERVICE' })
@@ -258,18 +289,18 @@ describe('ItemsService', () => {
 
   describe('deleteItem', () => {
     it('should delete an item successfully', async () => {
-      mockRepos.itemsRepository.delete.mockResolvedValue(undefined);
+      mockItemsDelete.mockResolvedValue(undefined);
 
       await service.deleteItem('item-123');
 
-      expect(mockRepos.itemsRepository.delete).toHaveBeenCalledWith(
+      expect(mockItemsDelete).toHaveBeenCalledWith(
         'item-123',
         context.organizationId
       );
     });
 
     it('should throw error when deleting item with variants', async () => {
-      mockRepos.itemsRepository.delete.mockRejectedValue(
+      mockItemsDelete.mockRejectedValue(
         new Error('Cannot delete item with variants')
       );
 
@@ -286,7 +317,7 @@ describe('ItemsService', () => {
         { id: 'item-2', name: 'Item 2' },
       ];
 
-      mockRepos.itemsRepository.findByOrganization
+      mockItemsFindByOrganization
         .mockResolvedValueOnce(mockItems)
         .mockResolvedValueOnce([...mockItems, { id: 'item-3', name: 'Item 3' }]);
 
@@ -308,7 +339,7 @@ describe('ItemsService', () => {
         pages: 2,
       });
 
-      expect(mockRepos.itemsRepository.findByOrganization).toHaveBeenCalledWith(
+      expect(mockItemsFindByOrganization).toHaveBeenCalledWith(
         context.organizationId,
         expect.objectContaining({
           itemType: 'INVENTORY_ITEM',
@@ -329,7 +360,7 @@ describe('ItemsService', () => {
         { id: 'variant-4', itemCode: 'ITEM-M-Blue' },
       ];
 
-      mockRepos.itemsRepository.generateVariants.mockResolvedValue(mockVariants);
+      mockItemsGenerateVariants.mockResolvedValue(mockVariants);
 
       const result = await service.generateVariants({
         parentItemId: 'parent-123',
@@ -340,7 +371,7 @@ describe('ItemsService', () => {
       });
 
       expect(result).toHaveLength(4);
-      expect(mockRepos.itemsRepository.generateVariants).toHaveBeenCalledWith(
+      expect(mockItemsGenerateVariants).toHaveBeenCalledWith(
         'parent-123',
         context.organizationId,
         {
@@ -351,7 +382,7 @@ describe('ItemsService', () => {
     });
 
     it('should handle parent not found error', async () => {
-      mockRepos.itemsRepository.generateVariants.mockRejectedValue(
+      mockItemsGenerateVariants.mockRejectedValue(
         new Error('Parent item not found')
       );
 
@@ -373,12 +404,12 @@ describe('ItemsService', () => {
         { id: 'item-2', name: 'Desktop Computer' },
       ];
 
-      mockRepos.itemsRepository.findByOrganization.mockResolvedValue(mockResults);
+      mockItemsFindByOrganization.mockResolvedValue(mockResults);
 
       const result = await service.searchItems('computer');
 
       expect(result).toHaveLength(2);
-      expect(mockRepos.itemsRepository.findByOrganization).toHaveBeenCalledWith(
+      expect(mockItemsFindByOrganization).toHaveBeenCalledWith(
         context.organizationId,
         {
           query: 'computer',
@@ -395,12 +426,12 @@ describe('ItemsService', () => {
         { id: 'item-2', categoryId: 'cat-123' },
       ];
 
-      mockRepos.itemsRepository.findByOrganization.mockResolvedValue(mockItems);
+      mockItemsFindByOrganization.mockResolvedValue(mockItems);
 
       const result = await service.getItemsByCategory('cat-123');
 
       expect(result).toHaveLength(2);
-      expect(mockRepos.itemsRepository.findByOrganization).toHaveBeenCalledWith(
+      expect(mockItemsFindByOrganization).toHaveBeenCalledWith(
         context.organizationId,
         {
           categoryId: 'cat-123',

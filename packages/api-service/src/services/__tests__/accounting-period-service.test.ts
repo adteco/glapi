@@ -1,30 +1,59 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { AccountingPeriodService } from '../accounting-period-service';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServiceContext, ServiceError } from '../../types';
-import * as database from '@glapi/database';
+
+// Use vi.hoisted() to properly hoist mock functions for use in vi.mock factory
+const {
+  mockGetAccessibleSubsidiaryIds,
+  mockFindById,
+  mockFindAll,
+  mockFindByDate,
+  mockFindOpenPeriodForDate,
+  mockCanPostToDate,
+  mockCreate,
+  mockUpdateStatus,
+  mockDelete,
+  mockGetFiscalYears,
+  mockGetCurrentOpenPeriod,
+  mockCreateFiscalYearPeriods,
+} = vi.hoisted(() => ({
+  mockGetAccessibleSubsidiaryIds: vi.fn(),
+  mockFindById: vi.fn(),
+  mockFindAll: vi.fn(),
+  mockFindByDate: vi.fn(),
+  mockFindOpenPeriodForDate: vi.fn(),
+  mockCanPostToDate: vi.fn(),
+  mockCreate: vi.fn(),
+  mockUpdateStatus: vi.fn(),
+  mockDelete: vi.fn(),
+  mockGetFiscalYears: vi.fn(),
+  mockGetCurrentOpenPeriod: vi.fn(),
+  mockCreateFiscalYearPeriods: vi.fn(),
+}));
 
 // Mock the database module
-jest.mock('@glapi/database', () => ({
-  AccountingPeriodRepository: jest.fn().mockImplementation(() => ({
-    getAccessibleSubsidiaryIds: jest.fn(),
-    findById: jest.fn(),
-    findAll: jest.fn(),
-    findByDate: jest.fn(),
-    findOpenPeriodForDate: jest.fn(),
-    canPostToDate: jest.fn(),
-    create: jest.fn(),
-    updateStatus: jest.fn(),
-    delete: jest.fn(),
-    getFiscalYears: jest.fn(),
-    getCurrentOpenPeriod: jest.fn(),
-    createFiscalYearPeriods: jest.fn(),
+vi.mock('@glapi/database', () => ({
+  AccountingPeriodRepository: vi.fn().mockImplementation(() => ({
+    getAccessibleSubsidiaryIds: mockGetAccessibleSubsidiaryIds,
+    findById: mockFindById,
+    findAll: mockFindAll,
+    findByDate: mockFindByDate,
+    findOpenPeriodForDate: mockFindOpenPeriodForDate,
+    canPostToDate: mockCanPostToDate,
+    create: mockCreate,
+    updateStatus: mockUpdateStatus,
+    delete: mockDelete,
+    getFiscalYears: mockGetFiscalYears,
+    getCurrentOpenPeriod: mockGetCurrentOpenPeriod,
+    createFiscalYearPeriods: mockCreateFiscalYearPeriods,
   })),
 }));
+
+// Import after mocking
+import { AccountingPeriodService } from '../accounting-period-service';
 
 describe('AccountingPeriodService', () => {
   let service: AccountingPeriodService;
   let context: ServiceContext;
-  let mockRepository: any;
 
   const testSubsidiaryId = 'sub-123';
   const testUserId = 'user-123';
@@ -54,7 +83,7 @@ describe('AccountingPeriodService', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     context = {
       organizationId: testOrgId,
@@ -63,16 +92,13 @@ describe('AccountingPeriodService', () => {
 
     service = new AccountingPeriodService(context);
 
-    // Get the mocked repository instance
-    mockRepository = (database.AccountingPeriodRepository as jest.Mock).mock.results[0]?.value;
-
     // Default mock implementations
-    mockRepository.getAccessibleSubsidiaryIds.mockResolvedValue([testSubsidiaryId]);
+    mockGetAccessibleSubsidiaryIds.mockResolvedValue([testSubsidiaryId]);
   });
 
   describe('checkPostingAllowed', () => {
     it('should allow posting to an OPEN period', async () => {
-      mockRepository.canPostToDate.mockResolvedValue({
+      mockCanPostToDate.mockResolvedValue({
         canPost: true,
         period: mockPeriod,
       });
@@ -90,7 +116,7 @@ describe('AccountingPeriodService', () => {
 
     it('should deny posting to a CLOSED period for non-adjustments', async () => {
       const closedPeriod = { ...mockPeriod, status: 'CLOSED' };
-      mockRepository.canPostToDate.mockResolvedValue({
+      mockCanPostToDate.mockResolvedValue({
         canPost: false,
         period: closedPeriod,
         reason: 'Period is closed - only adjustment entries allowed',
@@ -108,7 +134,7 @@ describe('AccountingPeriodService', () => {
 
     it('should allow adjustment posting to a CLOSED period', async () => {
       const closedPeriod = { ...mockPeriod, status: 'CLOSED' };
-      mockRepository.canPostToDate.mockResolvedValue({
+      mockCanPostToDate.mockResolvedValue({
         canPost: true,
         period: closedPeriod,
         reason: 'Adjustment entry allowed in closed period',
@@ -125,7 +151,7 @@ describe('AccountingPeriodService', () => {
 
     it('should deny all posting to a LOCKED period', async () => {
       const lockedPeriod = { ...mockPeriod, status: 'LOCKED' };
-      mockRepository.canPostToDate.mockResolvedValue({
+      mockCanPostToDate.mockResolvedValue({
         canPost: false,
         period: lockedPeriod,
         reason: 'Period is locked - no transactions allowed',
@@ -142,7 +168,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should deny posting when no period exists for date', async () => {
-      mockRepository.canPostToDate.mockResolvedValue({
+      mockCanPostToDate.mockResolvedValue({
         canPost: false,
         period: null,
         reason: 'No accounting period found for this date',
@@ -159,7 +185,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should deny access to unauthorized subsidiary', async () => {
-      mockRepository.getAccessibleSubsidiaryIds.mockResolvedValue(['other-sub']);
+      mockGetAccessibleSubsidiaryIds.mockResolvedValue(['other-sub']);
 
       const result = await service.checkPostingAllowed({
         subsidiaryId: testSubsidiaryId,
@@ -174,8 +200,8 @@ describe('AccountingPeriodService', () => {
 
   describe('updatePeriodStatus', () => {
     it('should allow OPEN to SOFT_CLOSED transition', async () => {
-      mockRepository.findById.mockResolvedValue(mockPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(mockPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...mockPeriod,
         status: 'SOFT_CLOSED',
         softClosedBy: testUserId,
@@ -185,7 +211,7 @@ describe('AccountingPeriodService', () => {
       const result = await service.updatePeriodStatus('period-123', { status: 'SOFT_CLOSED' });
 
       expect(result.status).toBe('SOFT_CLOSED');
-      expect(mockRepository.updateStatus).toHaveBeenCalledWith(
+      expect(mockUpdateStatus).toHaveBeenCalledWith(
         'period-123',
         [testSubsidiaryId],
         expect.objectContaining({ status: 'SOFT_CLOSED', userId: testUserId })
@@ -193,7 +219,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should deny invalid status transition OPEN to LOCKED', async () => {
-      mockRepository.findById.mockResolvedValue(mockPeriod);
+      mockFindById.mockResolvedValue(mockPeriod);
 
       await expect(
         service.updatePeriodStatus('period-123', { status: 'LOCKED' })
@@ -201,7 +227,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should deny invalid status transition OPEN to CLOSED', async () => {
-      mockRepository.findById.mockResolvedValue(mockPeriod);
+      mockFindById.mockResolvedValue(mockPeriod);
 
       await expect(
         service.updatePeriodStatus('period-123', { status: 'CLOSED' })
@@ -210,8 +236,8 @@ describe('AccountingPeriodService', () => {
 
     it('should allow SOFT_CLOSED to CLOSED transition', async () => {
       const softClosedPeriod = { ...mockPeriod, status: 'SOFT_CLOSED' };
-      mockRepository.findById.mockResolvedValue(softClosedPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(softClosedPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...softClosedPeriod,
         status: 'CLOSED',
         closedBy: testUserId,
@@ -225,8 +251,8 @@ describe('AccountingPeriodService', () => {
 
     it('should allow SOFT_CLOSED to OPEN transition (reopen)', async () => {
       const softClosedPeriod = { ...mockPeriod, status: 'SOFT_CLOSED' };
-      mockRepository.findById.mockResolvedValue(softClosedPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(softClosedPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...mockPeriod,
         status: 'OPEN',
       });
@@ -238,8 +264,8 @@ describe('AccountingPeriodService', () => {
 
     it('should allow CLOSED to LOCKED transition', async () => {
       const closedPeriod = { ...mockPeriod, status: 'CLOSED' };
-      mockRepository.findById.mockResolvedValue(closedPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(closedPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...closedPeriod,
         status: 'LOCKED',
         lockedBy: testUserId,
@@ -253,7 +279,7 @@ describe('AccountingPeriodService', () => {
 
     it('should deny any transition from LOCKED status', async () => {
       const lockedPeriod = { ...mockPeriod, status: 'LOCKED' };
-      mockRepository.findById.mockResolvedValue(lockedPeriod);
+      mockFindById.mockResolvedValue(lockedPeriod);
 
       await expect(
         service.updatePeriodStatus('period-123', { status: 'OPEN' })
@@ -265,7 +291,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should throw error if period not found', async () => {
-      mockRepository.findById.mockResolvedValue(null);
+      mockFindById.mockResolvedValue(null);
 
       await expect(
         service.updatePeriodStatus('invalid-id', { status: 'SOFT_CLOSED' })
@@ -294,13 +320,13 @@ describe('AccountingPeriodService', () => {
         id: 'new-period-123',
         status: 'OPEN',
       };
-      mockRepository.create.mockResolvedValue(createdPeriod);
+      mockCreate.mockResolvedValue(createdPeriod);
 
       const result = await service.createPeriod(validInput);
 
       expect(result.status).toBe('OPEN');
       expect(result.periodName).toBe('February 2024');
-      expect(mockRepository.create).toHaveBeenCalledWith(
+      expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           subsidiaryId: testSubsidiaryId,
           createdBy: testUserId,
@@ -321,7 +347,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should reject if subsidiary access denied', async () => {
-      mockRepository.getAccessibleSubsidiaryIds.mockResolvedValue(['other-sub']);
+      mockGetAccessibleSubsidiaryIds.mockResolvedValue(['other-sub']);
 
       await expect(service.createPeriod(validInput)).rejects.toThrow(
         new ServiceError('Access denied to this subsidiary', 'SUBSIDIARY_ACCESS_DENIED', 403)
@@ -331,17 +357,17 @@ describe('AccountingPeriodService', () => {
 
   describe('deletePeriod', () => {
     it('should delete an OPEN period', async () => {
-      mockRepository.findById.mockResolvedValue(mockPeriod);
-      mockRepository.delete.mockResolvedValue(undefined);
+      mockFindById.mockResolvedValue(mockPeriod);
+      mockDelete.mockResolvedValue(undefined);
 
       await service.deletePeriod('period-123');
 
-      expect(mockRepository.delete).toHaveBeenCalledWith('period-123', [testSubsidiaryId]);
+      expect(mockDelete).toHaveBeenCalledWith('period-123', [testSubsidiaryId]);
     });
 
     it('should reject deleting a non-OPEN period', async () => {
       const closedPeriod = { ...mockPeriod, status: 'CLOSED' };
-      mockRepository.findById.mockResolvedValue(closedPeriod);
+      mockFindById.mockResolvedValue(closedPeriod);
 
       await expect(service.deletePeriod('period-123')).rejects.toThrow(
         new ServiceError('Only OPEN periods can be deleted', 'PERIOD_NOT_OPEN', 400)
@@ -349,7 +375,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should reject deleting non-existent period', async () => {
-      mockRepository.findById.mockResolvedValue(null);
+      mockFindById.mockResolvedValue(null);
 
       await expect(service.deletePeriod('invalid-id')).rejects.toThrow(
         new ServiceError('Accounting period with ID "invalid-id" not found', 'PERIOD_NOT_FOUND', 404)
@@ -359,8 +385,8 @@ describe('AccountingPeriodService', () => {
 
   describe('convenience methods', () => {
     it('softClosePeriod should call updatePeriodStatus with SOFT_CLOSED', async () => {
-      mockRepository.findById.mockResolvedValue(mockPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(mockPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...mockPeriod,
         status: 'SOFT_CLOSED',
       });
@@ -372,8 +398,8 @@ describe('AccountingPeriodService', () => {
 
     it('closePeriod should work from SOFT_CLOSED status', async () => {
       const softClosedPeriod = { ...mockPeriod, status: 'SOFT_CLOSED' };
-      mockRepository.findById.mockResolvedValue(softClosedPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(softClosedPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...softClosedPeriod,
         status: 'CLOSED',
       });
@@ -385,8 +411,8 @@ describe('AccountingPeriodService', () => {
 
     it('lockPeriod should work from CLOSED status', async () => {
       const closedPeriod = { ...mockPeriod, status: 'CLOSED' };
-      mockRepository.findById.mockResolvedValue(closedPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(closedPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...closedPeriod,
         status: 'LOCKED',
       });
@@ -398,8 +424,8 @@ describe('AccountingPeriodService', () => {
 
     it('reopenPeriod should work from SOFT_CLOSED status', async () => {
       const softClosedPeriod = { ...mockPeriod, status: 'SOFT_CLOSED' };
-      mockRepository.findById.mockResolvedValue(softClosedPeriod);
-      mockRepository.updateStatus.mockResolvedValue({
+      mockFindById.mockResolvedValue(softClosedPeriod);
+      mockUpdateStatus.mockResolvedValue({
         ...mockPeriod,
         status: 'OPEN',
       });
@@ -413,7 +439,7 @@ describe('AccountingPeriodService', () => {
   describe('listPeriods', () => {
     it('should list periods with filters', async () => {
       const mockPeriods = [mockPeriod];
-      mockRepository.findAll.mockResolvedValue({
+      mockFindAll.mockResolvedValue({
         data: mockPeriods,
         total: 1,
         page: 1,
@@ -431,7 +457,7 @@ describe('AccountingPeriodService', () => {
     });
 
     it('should return empty when no subsidiaries accessible', async () => {
-      mockRepository.getAccessibleSubsidiaryIds.mockResolvedValue([]);
+      mockGetAccessibleSubsidiaryIds.mockResolvedValue([]);
 
       const result = await service.listPeriods();
 
@@ -442,7 +468,7 @@ describe('AccountingPeriodService', () => {
 
   describe('getFiscalYears', () => {
     it('should return available fiscal years', async () => {
-      mockRepository.getFiscalYears.mockResolvedValue(['2024', '2023', '2022']);
+      mockGetFiscalYears.mockResolvedValue(['2024', '2023', '2022']);
 
       const result = await service.getFiscalYears();
 
