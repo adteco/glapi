@@ -25,6 +25,8 @@ import { projectCostCodesRouter } from './routers/project-cost-codes';
 import { projectBudgetsRouter } from './routers/project-budgets';
 import { timeEntriesRouter } from './routers/time-entries';
 import { closeManagementRouter } from './routers/close-management';
+import { scheduleOfValuesRouter } from './routers/schedule-of-values';
+import { payApplicationsRouter } from './routers/pay-applications';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -53,6 +55,8 @@ export const appRouter = router({
   projectBudgets: projectBudgetsRouter,
   timeEntries: timeEntriesRouter,
   closeManagement: closeManagementRouter,
+  scheduleOfValues: scheduleOfValuesRouter,
+  payApplications: payApplicationsRouter,
 });
 
 export type AppRouter = typeof appRouter;
