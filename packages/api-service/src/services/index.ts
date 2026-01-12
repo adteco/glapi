@@ -9,6 +9,7 @@ export * from './account-service';
 export * from './gl-transaction-service';
 export * from './gl-posting-engine';
 export * from './gl-reporting-service';
+export * from './gl-balance-service';
 
 // Export new items-related services
 export * from './units-of-measure-service';
@@ -26,9 +27,16 @@ export * from './revenue-service';
 export * from './ssp-service';
 export * from './accounting-period-service';
 
+// Project cost codes and budgets
+export * from './project-cost-code-service';
+export * from './project-budget-service';
+
 // Event sourcing
 export * from './event-service';
 
 // RBAC services
 export * from './permission-service';
 export * from './role-management-service';
+
+// Audit logging
+export * from './audit-service';
