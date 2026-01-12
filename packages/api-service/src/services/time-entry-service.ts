@@ -945,9 +945,21 @@ export class TimeEntryService extends BaseService {
 
   /**
    * Post approved time entries to GL
+   *
+   * This method:
+   * 1. Creates a posting batch to group entries
+   * 2. Validates all entries are APPROVED
+   * 3. Calculates totals for the batch
+   * 4. Updates actual hours on project assignments
+   * 5. Marks entries as posted with batch reference
+   *
+   * Note: Full GL transaction creation requires integration with GlPostingEngine
+   * and proper account mapping configuration. Currently creates a batch record
+   * with entry totals that can be used for manual or future automated posting.
    */
   async postToGL(timeEntryIds: string[]): Promise<TimeEntryPostingResult> {
     const organizationId = this.requireOrganizationContext();
+    const userId = this.requireUserContext();
 
     const result: TimeEntryPostingResult = {
       success: true,
@@ -955,6 +967,22 @@ export class TimeEntryService extends BaseService {
       failedCount: 0,
       errors: [],
     };
+
+    if (timeEntryIds.length === 0) {
+      result.errors.push({ timeEntryId: '', error: 'No time entries provided' });
+      result.success = false;
+      return result;
+    }
+
+    // Validate all entries first
+    const entriesToPost: Array<{
+      id: string;
+      hours: number;
+      totalCost: number;
+      projectId: string | null;
+      employeeId: string;
+      entryDate: string;
+    }> = [];
 
     for (const entryId of timeEntryIds) {
       const entry = await this.repository.findById(entryId, organizationId);
@@ -973,26 +1001,137 @@ export class TimeEntryService extends BaseService {
         continue;
       }
 
-      // TODO: Integration with posting engine to create GL transaction
-      // For now, just mark as posted
-      try {
-        await this.repository.markAsPosted(
-          entryId,
-          organizationId,
-          'pending-gl-integration', // glTransactionId - would come from posting engine
-          undefined // glPostingBatchId - would come from posting engine
-        );
-        result.postedCount++;
-      } catch (error: any) {
-        result.errors.push({
-          timeEntryId: entryId,
-          error: error.message || 'Failed to post time entry',
-        });
-        result.failedCount++;
+      entriesToPost.push({
+        id: entry.id,
+        hours: parseFloat(entry.hours || '0'),
+        totalCost: parseFloat(entry.totalCost || '0'),
+        projectId: entry.projectId,
+        employeeId: entry.employeeId,
+        entryDate: entry.entryDate,
+      });
+    }
+
+    // If all entries failed validation, return early
+    if (entriesToPost.length === 0) {
+      result.success = false;
+      return result;
+    }
+
+    // Calculate batch totals and date range
+    const totalHours = entriesToPost.reduce((sum, e) => sum + e.hours, 0);
+    const totalCost = entriesToPost.reduce((sum, e) => sum + e.totalCost, 0);
+    const entryDates = entriesToPost.map((e) => e.entryDate).sort();
+    const periodStart = entryDates[0];
+    const periodEnd = entryDates[entryDates.length - 1];
+
+    try {
+      // Create a posting batch
+      const batchNumber = await this.repository.generateBatchNumber(organizationId);
+      const batch = await this.repository.createPostingBatch({
+        organizationId,
+        batchNumber,
+        description: `Labor cost posting for ${entriesToPost.length} time entries`,
+        periodStart,
+        periodEnd,
+        totalEntries: entriesToPost.length,
+        totalHours: totalHours.toFixed(2),
+        totalCost: totalCost.toFixed(4),
+        status: 'POSTED',
+        submittedBy: userId,
+        submittedAt: new Date(),
+        approvedBy: userId,
+        approvedAt: new Date(),
+        postedAt: new Date(),
+        createdBy: userId,
+      });
+
+      // Group entries by project for assignment updates
+      const entriesByProject = new Map<string, { employeeId: string; hours: number }[]>();
+      for (const entry of entriesToPost) {
+        if (entry.projectId) {
+          const projectEntries = entriesByProject.get(entry.projectId) || [];
+          projectEntries.push({ employeeId: entry.employeeId, hours: entry.hours });
+          entriesByProject.set(entry.projectId, projectEntries);
+        }
       }
+
+      // Post each entry and update project assignment hours
+      for (const entry of entriesToPost) {
+        try {
+          // Mark as posted with batch reference
+          await this.repository.markAsPosted(entry.id, organizationId, batch.id, batch.id);
+
+          // Update actual hours on project assignment if applicable
+          if (entry.projectId) {
+            await this.repository.updateAssignmentHours(
+              entry.employeeId,
+              entry.projectId,
+              organizationId,
+              entry.hours
+            );
+          }
+
+          result.postedCount++;
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to post time entry';
+          result.errors.push({
+            timeEntryId: entry.id,
+            error: errorMessage,
+          });
+          result.failedCount++;
+        }
+      }
+
+      // Add batch info to result
+      (result as TimeEntryPostingResult & { batchId?: string; batchNumber?: string }).batchId =
+        batch.id;
+      (result as TimeEntryPostingResult & { batchId?: string; batchNumber?: string }).batchNumber =
+        batch.batchNumber;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create posting batch';
+      result.errors.push({
+        timeEntryId: '',
+        error: errorMessage,
+      });
+      result.success = false;
+      return result;
     }
 
     result.success = result.failedCount === 0;
     return result;
+  }
+
+  // ============================================================================
+  // Posting Batches
+  // ============================================================================
+
+  /**
+   * List posting batches
+   */
+  async listPostingBatches(
+    params: PaginationParams = {},
+    filters: { status?: TimeEntryStatus } = {}
+  ): Promise<PaginatedResult<any>> {
+    const organizationId = this.requireOrganizationContext();
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+
+    const result = await this.repository.listPostingBatches(organizationId, filters, page, limit);
+
+    return {
+      data: result.batches,
+      total: result.totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(result.totalCount / limit),
+    };
+  }
+
+  /**
+   * Get posting batch by ID
+   */
+  async getPostingBatch(batchId: string): Promise<any | null> {
+    const organizationId = this.requireOrganizationContext();
+    return this.repository.getPostingBatch(batchId, organizationId);
   }
 }
