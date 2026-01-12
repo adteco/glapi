@@ -34,6 +34,10 @@ export * from './project-budget-service';
 // Time tracking
 export * from './time-entry-service';
 
+// Schedule of Values and Pay Applications
+export * from './sov-service';
+export * from './pay-application-service';
+
 // Event sourcing
 export * from './event-service';
 
@@ -43,3 +47,6 @@ export * from './role-management-service';
 
 // Audit logging
 export * from './audit-service';
+
+// Order-to-Cash
+export * from './sales-order-service';
