@@ -62,6 +62,10 @@ export * from './project-budget-repository';
 // Export time tracking repository
 export * from './time-entry-repository';
 
+// Export SOV and Pay Application repositories
+export * from './sov-repository';
+export * from './pay-application-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -96,6 +100,8 @@ import { EventProjectionRepository } from './event-projection-repository';
 import { ProjectCostCodeRepository } from './project-cost-code-repository';
 import { ProjectBudgetRepository } from './project-budget-repository';
 import { TimeEntryRepository } from './time-entry-repository';
+import { SovRepository } from './sov-repository';
+import { PayApplicationRepository } from './pay-application-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -131,3 +137,5 @@ export const eventProjectionRepository = new EventProjectionRepository();
 export const projectCostCodeRepository = new ProjectCostCodeRepository();
 export const projectBudgetRepository = new ProjectBudgetRepository();
 export const timeEntryRepository = new TimeEntryRepository();
+export const sovRepository = new SovRepository();
+export const payApplicationRepository = new PayApplicationRepository();
