@@ -79,6 +79,10 @@ import * as auditLogSchemas from './audit-logs';
 // Time tracking schemas
 import * as timeEntriesSchemas from './time-entries';
 
+// Schedule of Values and Pay Applications schemas
+import * as scheduleOfValuesSchemas from './schedule-of-values';
+import * as payApplicationsSchemas from './pay-applications';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -154,6 +158,9 @@ export const schema = {
   ...auditLogSchemas,
   // Time tracking schemas
   ...timeEntriesSchemas,
+  // Schedule of Values and Pay Applications schemas
+  ...scheduleOfValuesSchemas,
+  ...payApplicationsSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -370,3 +377,50 @@ export type {
   TimeEntryType,
   ApprovalAction,
 } from './time-entries';
+
+// Re-export Schedule of Values schemas
+export {
+  projectScheduleOfValues,
+  scheduleOfValueLines,
+  sovChangeOrders,
+  sovChangeOrderLines,
+  SOV_STATUS,
+  SOV_LINE_TYPE,
+} from './schedule-of-values';
+export type {
+  ProjectScheduleOfValues,
+  NewProjectScheduleOfValues,
+  ScheduleOfValueLine,
+  NewScheduleOfValueLine,
+  SovChangeOrder,
+  NewSovChangeOrder,
+  SovChangeOrderLine,
+  NewSovChangeOrderLine,
+  SovStatus,
+  SovLineType,
+} from './schedule-of-values';
+
+// Re-export Pay Applications schemas
+export {
+  payApplications,
+  payApplicationLines,
+  retainageReleases,
+  retainageReleaseLines,
+  payAppApprovalHistory,
+  PAY_APP_STATUS,
+  PAY_APP_TYPE,
+} from './pay-applications';
+export type {
+  PayApplication,
+  NewPayApplication,
+  PayApplicationLine,
+  NewPayApplicationLine,
+  RetainageRelease,
+  NewRetainageRelease,
+  RetainageReleaseLine,
+  NewRetainageReleaseLine,
+  PayAppApprovalHistory,
+  NewPayAppApprovalHistory,
+  PayAppStatus,
+  PayAppType,
+} from './pay-applications';
