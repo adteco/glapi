@@ -17,3 +17,4 @@ export * from './units-of-measure';
 export * from './subscriptions';
 export * from './invoices';
 export * from './payments';
+export * from './time-entries';

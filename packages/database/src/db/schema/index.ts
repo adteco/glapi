@@ -86,6 +86,9 @@ import * as payApplicationsSchemas from './pay-applications';
 // Sales Orders (Order-to-Cash)
 import * as salesOrdersSchemas from './sales-orders';
 
+// Close Management schemas
+import * as closeManagementSchemas from './close-management';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -166,6 +169,8 @@ export const schema = {
   ...payApplicationsSchemas,
   // Sales Orders (Order-to-Cash)
   ...salesOrdersSchemas,
+  // Close Management schemas
+  ...closeManagementSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -456,3 +461,25 @@ export type {
   SalesOrderStatusValue,
   ApprovalActionTypeValue,
 } from './sales-orders';
+
+// Re-export Close Management schemas
+export {
+  closeTaskTemplates,
+  closeChecklists,
+  closeTasks,
+  varianceThresholds,
+  varianceAlerts,
+  tieoutTemplates,
+  tieoutInstances,
+  closeNotifications,
+  CLOSE_TASK_STATUS,
+  CLOSE_TASK_PRIORITY,
+  VARIANCE_ALERT_SEVERITY,
+  TIEOUT_STATUS,
+} from './close-management';
+export type {
+  CloseTaskStatus,
+  CloseTaskPriority,
+  VarianceAlertSeverity,
+  TieoutStatus,
+} from './close-management';
