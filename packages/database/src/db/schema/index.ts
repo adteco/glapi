@@ -73,6 +73,12 @@ import * as glJournalEntrySchemas from './gl-journal-entries';
 // Event sourcing schemas
 import * as eventStoreSchemas from './event-store';
 
+// Audit logging schemas
+import * as auditLogSchemas from './audit-logs';
+
+// Time tracking schemas
+import * as timeEntriesSchemas from './time-entries';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -144,6 +150,10 @@ export const schema = {
   ...glJournalEntrySchemas,
   // Event sourcing schemas
   ...eventStoreSchemas,
+  // Audit logging schemas
+  ...auditLogSchemas,
+  // Time tracking schemas
+  ...timeEntriesSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -281,6 +291,15 @@ export type { GLJournalEntry, NewGLJournalEntry } from './gl-journal-entries';
 // Re-export accounting periods
 export { accountingPeriods } from './accounting-periods';
 
+// Re-export GL transaction tables
+export {
+  glTransactions,
+  glTransactionLines,
+  glPostingRules,
+  glAccountBalances,
+  glAuditTrail,
+} from './gl-transactions';
+
 // Re-export event store schemas
 export {
   eventStore,
@@ -302,3 +321,52 @@ export type {
   EventCategoryType,
   OutboxStatusType,
 } from './event-store';
+
+// Re-export unified audit log schemas
+export {
+  unifiedAuditLog,
+  auditEvidencePackages,
+  auditActionTypeEnum,
+  auditSeverityEnum,
+  AuditActionType,
+  AuditSeverity,
+} from './audit-logs';
+export type {
+  UnifiedAuditLogRecord,
+  NewUnifiedAuditLogRecord,
+  AuditEvidencePackageRecord,
+  NewAuditEvidencePackageRecord,
+  AuditActionTypeValue,
+  AuditSeverityValue,
+} from './audit-logs';
+
+// Re-export time tracking schemas
+export {
+  timeEntries,
+  laborCostRates,
+  employeeProjectAssignments,
+  timeEntryApprovals,
+  timeEntryBatches,
+  timeEntryStatusEnum,
+  timeEntryTypeEnum,
+  approvalActionEnum,
+} from './time-entries';
+export type {
+  TimeEntry,
+  NewTimeEntry,
+  UpdateTimeEntry,
+  LaborCostRate,
+  NewLaborCostRate,
+  UpdateLaborCostRate,
+  EmployeeProjectAssignment,
+  NewEmployeeProjectAssignment,
+  UpdateEmployeeProjectAssignment,
+  TimeEntryApproval,
+  NewTimeEntryApproval,
+  TimeEntryBatch,
+  NewTimeEntryBatch,
+  UpdateTimeEntryBatch,
+  TimeEntryStatus,
+  TimeEntryType,
+  ApprovalAction,
+} from './time-entries';

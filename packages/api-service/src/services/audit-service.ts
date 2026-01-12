@@ -1,0 +1,935 @@
+import { createHash } from 'crypto';
+import { BaseService } from './base-service';
+import { ServiceContext, ServiceError, PaginationParams, PaginatedResult } from '../types';
+import { db } from '@glapi/database';
+import {
+  unifiedAuditLog,
+  auditEvidencePackages,
+  AuditActionType,
+  AuditSeverity,
+  type UnifiedAuditLogRecord,
+  type NewUnifiedAuditLogRecord,
+  type AuditEvidencePackageRecord,
+  type NewAuditEvidencePackageRecord,
+  type AuditActionTypeValue,
+  type AuditSeverityValue,
+  type EventStoreRecord,
+} from '@glapi/database/schema';
+import { eq, and, gte, lte, desc, sql, inArray, or, like } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Input for creating an audit log entry
+ */
+export interface CreateAuditLogInput {
+  // Event correlation
+  eventId?: string;
+  correlationId?: string;
+  causationId?: string;
+
+  // Actor
+  actorId: string;
+  actorType?: 'USER' | 'SYSTEM' | 'API_KEY' | 'SERVICE';
+  actorEmail?: string;
+  actorName?: string;
+
+  // Session
+  sessionId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+
+  // Action
+  actionType: AuditActionTypeValue;
+  actionDescription?: string;
+  severity?: AuditSeverityValue;
+
+  // Resource
+  resourceType: string;
+  resourceId: string;
+  resourceName?: string;
+
+  // Payload
+  previousState?: Record<string, unknown>;
+  newState?: Record<string, unknown>;
+  changedFields?: string[];
+  metadata?: Record<string, unknown>;
+
+  // Timing
+  occurredAt?: Date;
+}
+
+/**
+ * Filters for querying audit logs
+ */
+export interface AuditLogFilters {
+  actorId?: string;
+  actorType?: string;
+  actionType?: AuditActionTypeValue | AuditActionTypeValue[];
+  severity?: AuditSeverityValue | AuditSeverityValue[];
+  resourceType?: string;
+  resourceId?: string;
+  correlationId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  searchTerm?: string;
+}
+
+/**
+ * Input for creating an evidence package
+ */
+export interface CreateEvidencePackageInput {
+  packageName: string;
+  description?: string;
+  startDate: Date;
+  endDate: Date;
+  filters?: {
+    resourceTypes?: string[];
+    actionTypes?: AuditActionTypeValue[];
+    actorIds?: string[];
+    severity?: AuditSeverityValue[];
+  };
+  expiresInDays?: number;
+}
+
+/**
+ * Audit log statistics
+ */
+export interface AuditLogStats {
+  totalLogs: number;
+  byActionType: Record<string, number>;
+  bySeverity: Record<string, number>;
+  byResourceType: Record<string, number>;
+  recentActivity: {
+    last24Hours: number;
+    last7Days: number;
+    last30Days: number;
+  };
+}
+
+// ============================================================================
+// Logger Interface
+// ============================================================================
+
+export interface AuditServiceLogger {
+  debug(message: string, context?: Record<string, unknown>): void;
+  info(message: string, context?: Record<string, unknown>): void;
+  warn(message: string, context?: Record<string, unknown>): void;
+  error(message: string, context?: Record<string, unknown>): void;
+}
+
+const defaultLogger: AuditServiceLogger = {
+  debug: (msg, ctx) => console.debug(`[AuditService] ${msg}`, ctx || ''),
+  info: (msg, ctx) => console.info(`[AuditService] ${msg}`, ctx || ''),
+  warn: (msg, ctx) => console.warn(`[AuditService] ${msg}`, ctx || ''),
+  error: (msg, ctx) => console.error(`[AuditService] ${msg}`, ctx || ''),
+};
+
+// ============================================================================
+// Unified Audit Service
+// ============================================================================
+
+/**
+ * Unified Audit Service
+ *
+ * Provides centralized audit logging for all mutating actions:
+ * - Event-driven log ingestion from the event store
+ * - Payload hashing for integrity verification
+ * - RBAC-enforced query and export APIs
+ * - Evidence package generation for compliance
+ */
+export class AuditService extends BaseService {
+  private logger: AuditServiceLogger;
+
+  constructor(
+    context: ServiceContext = {},
+    options?: { logger?: AuditServiceLogger }
+  ) {
+    super(context);
+    this.logger = options?.logger || defaultLogger;
+  }
+
+  // --------------------------------------------------------------------------
+  // Audit Log Creation
+  // --------------------------------------------------------------------------
+
+  /**
+   * Create a single audit log entry
+   */
+  async createAuditLog(input: CreateAuditLogInput): Promise<UnifiedAuditLogRecord> {
+    const organizationId = this.requireOrganizationContext();
+
+    // Calculate payload hash for integrity
+    const payloadHash = this.calculatePayloadHash({
+      previousState: input.previousState,
+      newState: input.newState,
+      changedFields: input.changedFields,
+    });
+
+    const entry: NewUnifiedAuditLogRecord = {
+      organizationId,
+      eventId: input.eventId,
+      correlationId: input.correlationId,
+      causationId: input.causationId,
+      actorId: input.actorId,
+      actorType: input.actorType || 'USER',
+      actorEmail: input.actorEmail,
+      actorName: input.actorName,
+      sessionId: input.sessionId,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      actionType: input.actionType,
+      actionDescription: input.actionDescription,
+      severity: input.severity || AuditSeverity.INFO,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      resourceName: input.resourceName,
+      previousState: input.previousState,
+      newState: input.newState,
+      changedFields: input.changedFields,
+      payloadHash,
+      metadata: input.metadata,
+      occurredAt: input.occurredAt || new Date(),
+    };
+
+    const [result] = await db
+      .insert(unifiedAuditLog)
+      .values(entry)
+      .returning();
+
+    this.logger.debug('Created audit log entry', {
+      id: result.id,
+      actionType: result.actionType,
+      resourceType: result.resourceType,
+      resourceId: result.resourceId,
+    });
+
+    return result;
+  }
+
+  /**
+   * Create multiple audit log entries (batch operation)
+   */
+  async createAuditLogBatch(
+    inputs: CreateAuditLogInput[]
+  ): Promise<UnifiedAuditLogRecord[]> {
+    if (inputs.length === 0) return [];
+
+    const organizationId = this.requireOrganizationContext();
+
+    const entries: NewUnifiedAuditLogRecord[] = inputs.map((input) => ({
+      organizationId,
+      eventId: input.eventId,
+      correlationId: input.correlationId,
+      causationId: input.causationId,
+      actorId: input.actorId,
+      actorType: input.actorType || 'USER',
+      actorEmail: input.actorEmail,
+      actorName: input.actorName,
+      sessionId: input.sessionId,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      actionType: input.actionType,
+      actionDescription: input.actionDescription,
+      severity: input.severity || AuditSeverity.INFO,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      resourceName: input.resourceName,
+      previousState: input.previousState,
+      newState: input.newState,
+      changedFields: input.changedFields,
+      payloadHash: this.calculatePayloadHash({
+        previousState: input.previousState,
+        newState: input.newState,
+        changedFields: input.changedFields,
+      }),
+      metadata: input.metadata,
+      occurredAt: input.occurredAt || new Date(),
+    }));
+
+    const results = await db
+      .insert(unifiedAuditLog)
+      .values(entries)
+      .returning();
+
+    this.logger.info('Created batch of audit log entries', {
+      count: results.length,
+    });
+
+    return results;
+  }
+
+  /**
+   * Create audit log entry from an event store record
+   */
+  async createFromEvent(
+    event: EventStoreRecord,
+    options?: {
+      actorEmail?: string;
+      actorName?: string;
+      ipAddress?: string;
+      userAgent?: string;
+      sessionId?: string;
+    }
+  ): Promise<UnifiedAuditLogRecord> {
+    const actionType = this.mapEventTypeToActionType(event.eventType);
+    const severity = this.determineSeverity(actionType, event.eventType);
+
+    // Extract previous and new state from event data if available
+    const eventData = event.eventData as Record<string, unknown>;
+    const previousState = eventData.previousState as Record<string, unknown> | undefined;
+    const newState = eventData.newState as Record<string, unknown> | undefined;
+    const changedFields = eventData.changedFields as string[] | undefined;
+
+    return this.createAuditLog({
+      eventId: event.id,
+      correlationId: event.correlationId,
+      causationId: event.causationId || undefined,
+      actorId: event.userId || 'SYSTEM',
+      actorType: event.userId ? 'USER' : 'SYSTEM',
+      actorEmail: options?.actorEmail,
+      actorName: options?.actorName,
+      sessionId: options?.sessionId || event.sessionId || undefined,
+      ipAddress: options?.ipAddress,
+      userAgent: options?.userAgent,
+      actionType,
+      actionDescription: `${event.eventType} on ${event.aggregateType}`,
+      severity,
+      resourceType: event.aggregateType,
+      resourceId: event.aggregateId,
+      previousState,
+      newState: newState || eventData,
+      changedFields,
+      metadata: event.metadata as Record<string, unknown> | undefined,
+      occurredAt: event.eventTimestamp,
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Audit Log Queries
+  // --------------------------------------------------------------------------
+
+  /**
+   * Query audit logs with filtering and pagination
+   */
+  async queryAuditLogs(
+    filters: AuditLogFilters = {},
+    pagination: PaginationParams = {}
+  ): Promise<PaginatedResult<UnifiedAuditLogRecord>> {
+    const organizationId = this.requireOrganizationContext();
+    const { skip, take, page, limit } = this.getPaginationParams(pagination);
+
+    // Build conditions
+    const conditions = [eq(unifiedAuditLog.organizationId, organizationId)];
+
+    if (filters.actorId) {
+      conditions.push(eq(unifiedAuditLog.actorId, filters.actorId));
+    }
+
+    if (filters.actorType) {
+      conditions.push(eq(unifiedAuditLog.actorType, filters.actorType));
+    }
+
+    if (filters.actionType) {
+      if (Array.isArray(filters.actionType)) {
+        conditions.push(inArray(unifiedAuditLog.actionType, filters.actionType));
+      } else {
+        conditions.push(eq(unifiedAuditLog.actionType, filters.actionType));
+      }
+    }
+
+    if (filters.severity) {
+      if (Array.isArray(filters.severity)) {
+        conditions.push(inArray(unifiedAuditLog.severity, filters.severity));
+      } else {
+        conditions.push(eq(unifiedAuditLog.severity, filters.severity));
+      }
+    }
+
+    if (filters.resourceType) {
+      conditions.push(eq(unifiedAuditLog.resourceType, filters.resourceType));
+    }
+
+    if (filters.resourceId) {
+      conditions.push(eq(unifiedAuditLog.resourceId, filters.resourceId));
+    }
+
+    if (filters.correlationId) {
+      conditions.push(eq(unifiedAuditLog.correlationId, filters.correlationId));
+    }
+
+    if (filters.startDate) {
+      conditions.push(gte(unifiedAuditLog.occurredAt, filters.startDate));
+    }
+
+    if (filters.endDate) {
+      conditions.push(lte(unifiedAuditLog.occurredAt, filters.endDate));
+    }
+
+    if (filters.searchTerm) {
+      conditions.push(
+        or(
+          like(unifiedAuditLog.actionDescription, `%${filters.searchTerm}%`),
+          like(unifiedAuditLog.resourceName, `%${filters.searchTerm}%`),
+          like(unifiedAuditLog.actorEmail, `%${filters.searchTerm}%`)
+        )!
+      );
+    }
+
+    const whereClause = and(...conditions);
+
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(unifiedAuditLog)
+      .where(whereClause);
+
+    const total = Number(countResult[0]?.count || 0);
+
+    // Get paginated results
+    const results = await db
+      .select()
+      .from(unifiedAuditLog)
+      .where(whereClause)
+      .orderBy(desc(unifiedAuditLog.occurredAt))
+      .limit(take)
+      .offset(skip);
+
+    return this.createPaginatedResult(results, total, page, limit);
+  }
+
+  /**
+   * Get audit log by ID
+   */
+  async getAuditLogById(id: string): Promise<UnifiedAuditLogRecord | null> {
+    const organizationId = this.requireOrganizationContext();
+
+    const [result] = await db
+      .select()
+      .from(unifiedAuditLog)
+      .where(
+        and(
+          eq(unifiedAuditLog.id, id),
+          eq(unifiedAuditLog.organizationId, organizationId)
+        )
+      );
+
+    return result || null;
+  }
+
+  /**
+   * Get audit logs for a specific resource
+   */
+  async getResourceHistory(
+    resourceType: string,
+    resourceId: string,
+    pagination: PaginationParams = {}
+  ): Promise<PaginatedResult<UnifiedAuditLogRecord>> {
+    return this.queryAuditLogs({ resourceType, resourceId }, pagination);
+  }
+
+  /**
+   * Get audit logs for a specific actor
+   */
+  async getActorHistory(
+    actorId: string,
+    pagination: PaginationParams = {}
+  ): Promise<PaginatedResult<UnifiedAuditLogRecord>> {
+    return this.queryAuditLogs({ actorId }, pagination);
+  }
+
+  /**
+   * Get correlated audit logs (same correlation ID)
+   */
+  async getCorrelatedLogs(
+    correlationId: string,
+    pagination: PaginationParams = {}
+  ): Promise<PaginatedResult<UnifiedAuditLogRecord>> {
+    return this.queryAuditLogs({ correlationId }, pagination);
+  }
+
+  // --------------------------------------------------------------------------
+  // Statistics
+  // --------------------------------------------------------------------------
+
+  /**
+   * Get audit log statistics
+   */
+  async getStatistics(
+    filters: { startDate?: Date; endDate?: Date } = {}
+  ): Promise<AuditLogStats> {
+    const organizationId = this.requireOrganizationContext();
+
+    const conditions = [eq(unifiedAuditLog.organizationId, organizationId)];
+
+    if (filters.startDate) {
+      conditions.push(gte(unifiedAuditLog.occurredAt, filters.startDate));
+    }
+
+    if (filters.endDate) {
+      conditions.push(lte(unifiedAuditLog.occurredAt, filters.endDate));
+    }
+
+    const whereClause = and(...conditions);
+
+    // Total count
+    const totalResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(unifiedAuditLog)
+      .where(whereClause);
+
+    const totalLogs = Number(totalResult[0]?.count || 0);
+
+    // By action type
+    const actionTypeResult = await db
+      .select({
+        actionType: unifiedAuditLog.actionType,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(unifiedAuditLog)
+      .where(whereClause)
+      .groupBy(unifiedAuditLog.actionType);
+
+    const byActionType: Record<string, number> = {};
+    for (const row of actionTypeResult) {
+      byActionType[row.actionType] = Number(row.count);
+    }
+
+    // By severity
+    const severityResult = await db
+      .select({
+        severity: unifiedAuditLog.severity,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(unifiedAuditLog)
+      .where(whereClause)
+      .groupBy(unifiedAuditLog.severity);
+
+    const bySeverity: Record<string, number> = {};
+    for (const row of severityResult) {
+      bySeverity[row.severity] = Number(row.count);
+    }
+
+    // By resource type
+    const resourceTypeResult = await db
+      .select({
+        resourceType: unifiedAuditLog.resourceType,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(unifiedAuditLog)
+      .where(whereClause)
+      .groupBy(unifiedAuditLog.resourceType);
+
+    const byResourceType: Record<string, number> = {};
+    for (const row of resourceTypeResult) {
+      byResourceType[row.resourceType] = Number(row.count);
+    }
+
+    // Recent activity
+    const now = new Date();
+    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const recentActivity = {
+      last24Hours: 0,
+      last7Days: 0,
+      last30Days: 0,
+    };
+
+    const recent24 = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(unifiedAuditLog)
+      .where(
+        and(
+          eq(unifiedAuditLog.organizationId, organizationId),
+          gte(unifiedAuditLog.occurredAt, last24Hours)
+        )
+      );
+    recentActivity.last24Hours = Number(recent24[0]?.count || 0);
+
+    const recent7 = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(unifiedAuditLog)
+      .where(
+        and(
+          eq(unifiedAuditLog.organizationId, organizationId),
+          gte(unifiedAuditLog.occurredAt, last7Days)
+        )
+      );
+    recentActivity.last7Days = Number(recent7[0]?.count || 0);
+
+    const recent30 = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(unifiedAuditLog)
+      .where(
+        and(
+          eq(unifiedAuditLog.organizationId, organizationId),
+          gte(unifiedAuditLog.occurredAt, last30Days)
+        )
+      );
+    recentActivity.last30Days = Number(recent30[0]?.count || 0);
+
+    return {
+      totalLogs,
+      byActionType,
+      bySeverity,
+      byResourceType,
+      recentActivity,
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Evidence Packages
+  // --------------------------------------------------------------------------
+
+  /**
+   * Create an evidence package for audit export
+   */
+  async createEvidencePackage(
+    input: CreateEvidencePackageInput
+  ): Promise<AuditEvidencePackageRecord> {
+    const organizationId = this.requireOrganizationContext();
+    const userId = this.requireUserContext();
+
+    // Count matching logs
+    const conditions = [
+      eq(unifiedAuditLog.organizationId, organizationId),
+      gte(unifiedAuditLog.occurredAt, input.startDate),
+      lte(unifiedAuditLog.occurredAt, input.endDate),
+    ];
+
+    if (input.filters?.resourceTypes?.length) {
+      conditions.push(inArray(unifiedAuditLog.resourceType, input.filters.resourceTypes));
+    }
+
+    if (input.filters?.actionTypes?.length) {
+      conditions.push(inArray(unifiedAuditLog.actionType, input.filters.actionTypes));
+    }
+
+    if (input.filters?.actorIds?.length) {
+      conditions.push(inArray(unifiedAuditLog.actorId, input.filters.actorIds));
+    }
+
+    if (input.filters?.severity?.length) {
+      conditions.push(inArray(unifiedAuditLog.severity, input.filters.severity));
+    }
+
+    const countResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(unifiedAuditLog)
+      .where(and(...conditions));
+
+    const logCount = String(countResult[0]?.count || 0);
+
+    // Calculate content hash placeholder (will be updated when package is generated)
+    const contentHash = this.calculatePayloadHash({
+      packageName: input.packageName,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      filters: input.filters,
+      logCount,
+    });
+
+    const expiresAt = input.expiresInDays
+      ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30 days
+
+    const [result] = await db
+      .insert(auditEvidencePackages)
+      .values({
+        organizationId,
+        packageName: input.packageName,
+        description: input.description,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        filters: input.filters,
+        logCount,
+        contentHash,
+        status: 'PENDING',
+        createdBy: userId,
+        accessibleBy: [userId],
+        expiresAt,
+      })
+      .returning();
+
+    this.logger.info('Created evidence package', {
+      id: result.id,
+      packageName: result.packageName,
+      logCount,
+    });
+
+    return result;
+  }
+
+  /**
+   * Get evidence package by ID
+   */
+  async getEvidencePackage(id: string): Promise<AuditEvidencePackageRecord | null> {
+    const organizationId = this.requireOrganizationContext();
+    const userId = this.requireUserContext();
+
+    const [result] = await db
+      .select()
+      .from(auditEvidencePackages)
+      .where(
+        and(
+          eq(auditEvidencePackages.id, id),
+          eq(auditEvidencePackages.organizationId, organizationId)
+        )
+      );
+
+    if (!result) return null;
+
+    // Check access
+    const accessibleBy = result.accessibleBy as string[] | null;
+    if (accessibleBy && !accessibleBy.includes(userId)) {
+      throw new ServiceError(
+        'You do not have access to this evidence package',
+        'ACCESS_DENIED',
+        403
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * List evidence packages
+   */
+  async listEvidencePackages(
+    pagination: PaginationParams = {}
+  ): Promise<PaginatedResult<AuditEvidencePackageRecord>> {
+    const organizationId = this.requireOrganizationContext();
+    const { skip, take, page, limit } = this.getPaginationParams(pagination);
+
+    const countResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(auditEvidencePackages)
+      .where(eq(auditEvidencePackages.organizationId, organizationId));
+
+    const total = Number(countResult[0]?.count || 0);
+
+    const results = await db
+      .select()
+      .from(auditEvidencePackages)
+      .where(eq(auditEvidencePackages.organizationId, organizationId))
+      .orderBy(desc(auditEvidencePackages.createdAt))
+      .limit(take)
+      .offset(skip);
+
+    return this.createPaginatedResult(results, total, page, limit);
+  }
+
+  /**
+   * Get logs for an evidence package (for export)
+   */
+  async getEvidencePackageLogs(
+    packageId: string
+  ): Promise<UnifiedAuditLogRecord[]> {
+    const pkg = await this.getEvidencePackage(packageId);
+    if (!pkg) {
+      throw new ServiceError('Evidence package not found', 'NOT_FOUND', 404);
+    }
+
+    const organizationId = this.requireOrganizationContext();
+
+    const conditions = [
+      eq(unifiedAuditLog.organizationId, organizationId),
+      gte(unifiedAuditLog.occurredAt, pkg.startDate),
+      lte(unifiedAuditLog.occurredAt, pkg.endDate),
+    ];
+
+    const filters = pkg.filters as {
+      resourceTypes?: string[];
+      actionTypes?: AuditActionTypeValue[];
+      actorIds?: string[];
+      severity?: AuditSeverityValue[];
+    } | null;
+
+    if (filters?.resourceTypes?.length) {
+      conditions.push(inArray(unifiedAuditLog.resourceType, filters.resourceTypes));
+    }
+
+    if (filters?.actionTypes?.length) {
+      conditions.push(inArray(unifiedAuditLog.actionType, filters.actionTypes));
+    }
+
+    if (filters?.actorIds?.length) {
+      conditions.push(inArray(unifiedAuditLog.actorId, filters.actorIds));
+    }
+
+    if (filters?.severity?.length) {
+      conditions.push(inArray(unifiedAuditLog.severity, filters.severity));
+    }
+
+    const results = await db
+      .select()
+      .from(unifiedAuditLog)
+      .where(and(...conditions))
+      .orderBy(desc(unifiedAuditLog.occurredAt));
+
+    // Mark package as downloaded
+    await db
+      .update(auditEvidencePackages)
+      .set({ downloadedAt: new Date() })
+      .where(eq(auditEvidencePackages.id, packageId));
+
+    return results;
+  }
+
+  // --------------------------------------------------------------------------
+  // Helpers
+  // --------------------------------------------------------------------------
+
+  /**
+   * Calculate SHA-256 hash of payload for integrity
+   */
+  private calculatePayloadHash(payload: Record<string, unknown>): string {
+    const json = JSON.stringify(payload, Object.keys(payload).sort());
+    return createHash('sha256').update(json).digest('hex');
+  }
+
+  /**
+   * Map event type to audit action type
+   */
+  private mapEventTypeToActionType(eventType: string): AuditActionTypeValue {
+    const typeMap: Record<string, AuditActionTypeValue> = {
+      // Create events
+      Created: AuditActionType.CREATE,
+      Registered: AuditActionType.CREATE,
+      Added: AuditActionType.CREATE,
+
+      // Update events
+      Updated: AuditActionType.UPDATE,
+      Modified: AuditActionType.UPDATE,
+      Changed: AuditActionType.UPDATE,
+
+      // Delete events
+      Deleted: AuditActionType.DELETE,
+      Removed: AuditActionType.DELETE,
+
+      // Approval events
+      Approved: AuditActionType.APPROVE,
+      Rejected: AuditActionType.REJECT,
+      Submitted: AuditActionType.SUBMIT,
+
+      // Posting events
+      Posted: AuditActionType.POST,
+      Reversed: AuditActionType.REVERSE,
+
+      // Lifecycle events
+      Closed: AuditActionType.CLOSE,
+      Reopened: AuditActionType.REOPEN,
+      Archived: AuditActionType.ARCHIVE,
+      Restored: AuditActionType.RESTORE,
+
+      // Auth events
+      LoggedIn: AuditActionType.LOGIN,
+      LoggedOut: AuditActionType.LOGOUT,
+
+      // Permission events
+      PermissionGranted: AuditActionType.PERMISSION_CHANGE,
+      PermissionRevoked: AuditActionType.PERMISSION_CHANGE,
+      RoleAssigned: AuditActionType.ROLE_CHANGE,
+      RoleRevoked: AuditActionType.ROLE_CHANGE,
+
+      // Data transfer events
+      Exported: AuditActionType.EXPORT,
+      Imported: AuditActionType.IMPORT,
+    };
+
+    // Find matching action type
+    for (const [suffix, actionType] of Object.entries(typeMap)) {
+      if (eventType.endsWith(suffix)) {
+        return actionType;
+      }
+    }
+
+    // Default based on common patterns
+    if (eventType.includes('Create') || eventType.includes('New')) {
+      return AuditActionType.CREATE;
+    }
+    if (eventType.includes('Update') || eventType.includes('Edit')) {
+      return AuditActionType.UPDATE;
+    }
+    if (eventType.includes('Delete') || eventType.includes('Remove')) {
+      return AuditActionType.DELETE;
+    }
+
+    return AuditActionType.UPDATE; // Default
+  }
+
+  /**
+   * Determine severity based on action type and event
+   */
+  private determineSeverity(
+    actionType: AuditActionTypeValue,
+    eventType: string
+  ): AuditSeverityValue {
+    // Critical actions
+    const criticalActions: AuditActionTypeValue[] = [
+      AuditActionType.DELETE,
+      AuditActionType.PERMISSION_CHANGE,
+      AuditActionType.ROLE_CHANGE,
+    ];
+
+    if (criticalActions.includes(actionType)) {
+      return AuditSeverity.CRITICAL;
+    }
+
+    // Warning actions
+    const warningActions: AuditActionTypeValue[] = [
+      AuditActionType.REVERSE,
+      AuditActionType.REJECT,
+      AuditActionType.ARCHIVE,
+    ];
+
+    if (warningActions.includes(actionType)) {
+      return AuditSeverity.WARNING;
+    }
+
+    // Check event type for additional indicators
+    if (eventType.includes('Failed') || eventType.includes('Error')) {
+      return AuditSeverity.WARNING;
+    }
+
+    return AuditSeverity.INFO;
+  }
+
+  /**
+   * Verify payload integrity
+   */
+  async verifyIntegrity(auditLogId: string): Promise<boolean> {
+    const log = await this.getAuditLogById(auditLogId);
+    if (!log) return false;
+
+    const recalculatedHash = this.calculatePayloadHash({
+      previousState: log.previousState as Record<string, unknown>,
+      newState: log.newState as Record<string, unknown>,
+      changedFields: log.changedFields as string[],
+    });
+
+    return recalculatedHash === log.payloadHash;
+  }
+}
+
+// ============================================================================
+// Factory Functions
+// ============================================================================
+
+/**
+ * Create a new AuditService instance
+ */
+export function createAuditService(
+  context: ServiceContext,
+  options?: { logger?: AuditServiceLogger }
+): AuditService {
+  return new AuditService(context, options);
+}
+
+// Export types and constants
+export { AuditActionType, AuditSeverity };
