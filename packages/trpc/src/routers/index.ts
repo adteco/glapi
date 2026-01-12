@@ -18,3 +18,5 @@ export * from './subscriptions';
 export * from './invoices';
 export * from './payments';
 export * from './time-entries';
+export * from './schedule-of-values';
+export * from './pay-applications';
