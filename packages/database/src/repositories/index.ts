@@ -66,6 +66,9 @@ export * from './time-entry-repository';
 export * from './sov-repository';
 export * from './pay-application-repository';
 
+// Export Close Management repository
+export * from './close-management-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -102,6 +105,7 @@ import { ProjectBudgetRepository } from './project-budget-repository';
 import { TimeEntryRepository } from './time-entry-repository';
 import { SovRepository } from './sov-repository';
 import { PayApplicationRepository } from './pay-application-repository';
+import { CloseManagementRepository } from './close-management-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -139,3 +143,4 @@ export const projectBudgetRepository = new ProjectBudgetRepository();
 export const timeEntryRepository = new TimeEntryRepository();
 export const sovRepository = new SovRepository();
 export const payApplicationRepository = new PayApplicationRepository();
+export const closeManagementRepository = new CloseManagementRepository();

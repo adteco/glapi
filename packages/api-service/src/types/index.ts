@@ -16,3 +16,4 @@ export * from './time-entries.types';
 export * from './sov.types';
 export * from './pay-applications.types';
 export * from './sales-orders.types';
+export * from './close-management.types';
