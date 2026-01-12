@@ -17,3 +17,5 @@ export * from './sov.types';
 export * from './pay-applications.types';
 export * from './sales-orders.types';
 export * from './close-management.types';
+export * from './financial-statements.types';
+export * from './customer-payments.types';

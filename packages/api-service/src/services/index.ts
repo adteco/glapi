@@ -10,6 +10,7 @@ export * from './gl-transaction-service';
 export * from './gl-posting-engine';
 export * from './gl-reporting-service';
 export * from './gl-balance-service';
+export * from './financial-statements-service';
 
 // Export new items-related services
 export * from './units-of-measure-service';
@@ -53,3 +54,7 @@ export * from './sales-order-service';
 
 // Close Management
 export * from './close-management-service';
+
+// Customer Payments (Cash Application)
+export * from './customer-payment-service';
+export * from './bank-deposit-service';

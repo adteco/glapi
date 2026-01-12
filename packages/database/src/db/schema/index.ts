@@ -86,6 +86,9 @@ import * as payApplicationsSchemas from './pay-applications';
 // Sales Orders (Order-to-Cash)
 import * as salesOrdersSchemas from './sales-orders';
 
+// Customer Payments (Cash Application)
+import * as customerPaymentsSchemas from './customer-payments';
+
 // Close Management schemas
 import * as closeManagementSchemas from './close-management';
 
@@ -169,6 +172,8 @@ export const schema = {
   ...payApplicationsSchemas,
   // Sales Orders (Order-to-Cash)
   ...salesOrdersSchemas,
+  // Customer Payments (Cash Application)
+  ...customerPaymentsSchemas,
   // Close Management schemas
   ...closeManagementSchemas,
 };
@@ -462,6 +467,42 @@ export type {
   ApprovalActionTypeValue,
 } from './sales-orders';
 
+// Re-export Customer Payments schemas (Cash Application)
+export {
+  customerPayments,
+  customerPaymentApplications,
+  bankDeposits,
+  bankReconciliationExceptions,
+  customerCreditMemos,
+  customerPaymentStatusEnum,
+  paymentMethodTypeEnum,
+  bankDepositStatusEnum,
+  reconciliationStatusEnum,
+  applicationMethodEnum,
+  CustomerPaymentStatus,
+  BankDepositStatus,
+  ReconciliationStatus,
+  ApplicationMethod,
+} from './customer-payments';
+export type {
+  CustomerPayment,
+  NewCustomerPayment,
+  UpdateCustomerPayment,
+  CustomerPaymentApplication,
+  NewCustomerPaymentApplication,
+  BankDeposit,
+  NewBankDeposit,
+  UpdateBankDeposit,
+  BankReconciliationException,
+  NewBankReconciliationException,
+  CustomerCreditMemo,
+  NewCustomerCreditMemo,
+  CustomerPaymentStatusValue,
+  BankDepositStatusValue,
+  ReconciliationStatusValue,
+  ApplicationMethodValue,
+} from './customer-payments';
+
 // Re-export Close Management schemas
 export {
   closeTaskTemplates,
@@ -483,3 +524,7 @@ export type {
   VarianceAlertSeverity,
   TieoutStatus,
 } from './close-management';
+
+// Re-export entities and accounts tables for direct access
+export { entities } from './entities';
+export { accounts } from './accounts';
