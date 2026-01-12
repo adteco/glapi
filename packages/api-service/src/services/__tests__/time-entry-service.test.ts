@@ -23,6 +23,9 @@ const {
   mockMarkAsPosted,
   mockGetTotalHours,
   mockGetProjectTotalCost,
+  mockGenerateBatchNumber,
+  mockCreatePostingBatch,
+  mockUpdateAssignmentHours,
 } = vi.hoisted(() => ({
   mockFindAll: vi.fn(),
   mockFindById: vi.fn(),
@@ -44,6 +47,9 @@ const {
   mockMarkAsPosted: vi.fn(),
   mockGetTotalHours: vi.fn(),
   mockGetProjectTotalCost: vi.fn(),
+  mockGenerateBatchNumber: vi.fn(),
+  mockCreatePostingBatch: vi.fn(),
+  mockUpdateAssignmentHours: vi.fn(),
 }));
 
 // Mock the database module
@@ -69,6 +75,9 @@ vi.mock('@glapi/database', () => ({
     markAsPosted: mockMarkAsPosted,
     getTotalHours: mockGetTotalHours,
     getProjectTotalCost: mockGetProjectTotalCost,
+    generateBatchNumber: mockGenerateBatchNumber,
+    createPostingBatch: mockCreatePostingBatch,
+    updateAssignmentHours: mockUpdateAssignmentHours,
   })),
 }));
 
@@ -418,7 +427,10 @@ describe('TimeEntryService', () => {
     it('should post approved entries to GL', async () => {
       const approvedEntry = { ...mockTimeEntry, status: 'APPROVED' };
       mockFindById.mockResolvedValue(approvedEntry);
+      mockGenerateBatchNumber.mockResolvedValue('BATCH-001');
+      mockCreatePostingBatch.mockResolvedValue({ id: 'batch-123', batchNumber: 'BATCH-001' });
       mockMarkAsPosted.mockResolvedValue({ ...approvedEntry, status: 'POSTED' });
+      mockUpdateAssignmentHours.mockResolvedValue(undefined);
 
       const result = await service.postToGL(['entry-123']);
 
