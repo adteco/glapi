@@ -83,6 +83,9 @@ import * as timeEntriesSchemas from './time-entries';
 import * as scheduleOfValuesSchemas from './schedule-of-values';
 import * as payApplicationsSchemas from './pay-applications';
 
+// Sales Orders (Order-to-Cash)
+import * as salesOrdersSchemas from './sales-orders';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -161,6 +164,8 @@ export const schema = {
   // Schedule of Values and Pay Applications schemas
   ...scheduleOfValuesSchemas,
   ...payApplicationsSchemas,
+  // Sales Orders (Order-to-Cash)
+  ...salesOrdersSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -424,3 +429,30 @@ export type {
   PayAppStatus,
   PayAppType,
 } from './pay-applications';
+
+// Re-export Sales Order schemas (Order-to-Cash)
+export {
+  salesOrders,
+  salesOrderLines,
+  salesOrderApprovalHistory,
+  salesOrderInvoices,
+  salesOrderStatusEnum,
+  approvalActionTypeEnum,
+  SalesOrderStatus,
+  ApprovalActionType,
+  VALID_SALES_ORDER_TRANSITIONS,
+} from './sales-orders';
+export type {
+  SalesOrder,
+  NewSalesOrder,
+  UpdateSalesOrder,
+  SalesOrderLine,
+  NewSalesOrderLine,
+  UpdateSalesOrderLine,
+  SalesOrderApprovalHistoryRecord,
+  NewSalesOrderApprovalHistoryRecord,
+  SalesOrderInvoiceLink,
+  NewSalesOrderInvoiceLink,
+  SalesOrderStatusValue,
+  ApprovalActionTypeValue,
+} from './sales-orders';
