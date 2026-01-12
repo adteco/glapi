@@ -8,3 +8,5 @@ export * from './accounting-dimensions';
 export * from './gl-transactions.types';
 export * from './account.types';
 export * from './items.types';
+export * from './accounting-periods.types';
+export * from './rbac.types';

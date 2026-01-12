@@ -28,3 +28,7 @@ export * from './accounting-period-service';
 
 // Event sourcing
 export * from './event-service';
+
+// RBAC services
+export * from './permission-service';
+export * from './role-management-service';

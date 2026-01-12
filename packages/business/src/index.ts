@@ -38,6 +38,15 @@ export { SSPMLTrainingService, ModelMetrics } from './services/ssp-ml-training-s
 export * from './types/revenue-calculation-types';
 export * from './types/revenue-reporting-types';
 
+// Export event definitions
+export * from './events';
+
+// Export chart of accounts configuration and metadata
+export * from './chart-of-accounts';
+
+// Export posting rules DSL and engine
+export * from './posting';
+
 export const placeholderBusinessLogic = () => {
   console.log('Business logic package placeholder');
 }; 
