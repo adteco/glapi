@@ -38,7 +38,10 @@ import {
   Warehouse as WarehouseIcon,
   Calendar as CalendarIcon,
   DollarSign as DollarSignIcon,
-  MessageCircle as MessageCircleIcon
+  MessageCircle as MessageCircleIcon,
+  HardHat as HardHatIcon,
+  ClipboardList as ClipboardListIcon,
+  Receipt as ReceiptIcon
 } from 'lucide-react';
 
 const NewPageSidebar = () => {
@@ -49,6 +52,7 @@ const NewPageSidebar = () => {
   const [isAccountingOpen, setIsAccountingOpen] = useState(false);
   const [isRelationshipsOpen, setIsRelationshipsOpen] = useState(false);
   const [isItemsOpen, setIsItemsOpen] = useState(false);
+  const [isConstructionOpen, setIsConstructionOpen] = useState(false);
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
   const [isTransactionManagementOpen, setIsTransactionManagementOpen] = useState(false);
   const [isTransactionSalesOpen, setIsTransactionSalesOpen] = useState(false);
@@ -358,9 +362,45 @@ const NewPageSidebar = () => {
           )}
         </div>
         
+        {/* Construction Section (Expandable) */}
+        <div>
+          <button
+            onClick={() => setIsConstructionOpen(!isConstructionOpen)}
+            className={`${baseLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
+          >
+            <div className="flex items-center space-x-3">
+              {/* @ts-ignore */}
+              <HardHatIcon className="h-5 w-5" />
+              <span>Construction</span>
+            </div>
+            {/* @ts-ignore */}
+            {isConstructionOpen ? <ChevronDownIcon className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
+          </button>
+          {isConstructionOpen && (
+            <ul className="mt-1 space-y-1">
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/construction/sov" className={`${baseSubLinkClass} ${isActive('/construction/sov') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <ClipboardListIcon className="h-4 w-4" />
+                  <span>Schedule of Values</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/construction/pay-applications" className={`${baseSubLinkClass} ${isActive('/construction/pay-applications') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <ReceiptIcon className="h-4 w-4" />
+                  <span>Pay Applications</span>
+                </Link>
+              </li>
+            </ul>
+          )}
+        </div>
+
         {/* Settings Section (Expandable) - NEW TOP LEVEL */}
         <div>
-          <button 
+          <button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
             className={`${baseLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
           >

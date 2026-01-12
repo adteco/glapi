@@ -1,5 +1,4 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { GlPostingEngine, PostingContext } from '../gl-posting-engine';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServiceError } from '../../types';
 import type {
   BusinessTransaction,
@@ -13,21 +12,28 @@ import type {
  * Tests order-to-cash and procure-to-pay scenarios
  */
 
+// Use vi.hoisted() to properly hoist mock functions for use in vi.mock factory
+const { mockCheckPostingAllowed } = vi.hoisted(() => ({
+  mockCheckPostingAllowed: vi.fn(),
+}));
+
 // Mock AccountingPeriodService
-const mockCheckPostingAllowed = jest.fn();
-jest.mock('../accounting-period-service', () => ({
-  AccountingPeriodService: jest.fn().mockImplementation(() => ({
+vi.mock('../accounting-period-service', () => ({
+  AccountingPeriodService: vi.fn().mockImplementation(() => ({
     checkPostingAllowed: mockCheckPostingAllowed,
   })),
 }));
 
 // Mock database repositories
-jest.mock('@glapi/database', () => ({
-  AccountingPeriodRepository: jest.fn().mockImplementation(() => ({
-    getAccessibleSubsidiaryIds: jest.fn().mockResolvedValue(['sub-123']),
-    canPostToDate: jest.fn().mockResolvedValue({ canPost: true, period: { status: 'OPEN' } }),
+vi.mock('@glapi/database', () => ({
+  AccountingPeriodRepository: vi.fn().mockImplementation(() => ({
+    getAccessibleSubsidiaryIds: vi.fn().mockResolvedValue(['sub-123']),
+    canPostToDate: vi.fn().mockResolvedValue({ canPost: true, period: { status: 'OPEN' } }),
   })),
 }));
+
+// Import after mocking
+import { GlPostingEngine, PostingContext } from '../gl-posting-engine';
 
 describe('GL Posting Integration Tests', () => {
   let engine: GlPostingEngine;
@@ -50,7 +56,7 @@ describe('GL Posting Integration Tests', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockCheckPostingAllowed.mockResolvedValue({
       canPost: true,
       period: { id: testPeriodId, status: 'OPEN' },
@@ -648,7 +654,7 @@ describe('GL Posting Integration Tests', () => {
     });
 
     it('should log audit entry for failed postings', async () => {
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const transaction: BusinessTransaction = {
         id: 'audit-test',

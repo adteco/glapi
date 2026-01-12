@@ -29,6 +29,7 @@ export const eventCategoryEnum = pgEnum('event_category_enum', [
   'PROJECT',
   'CONTRACT',
   'INVENTORY',
+  'PROCUREMENT',
   'SYSTEM',
 ]);
 
@@ -306,6 +307,7 @@ export const EventCategory = {
   PROJECT: 'PROJECT',
   CONTRACT: 'CONTRACT',
   INVENTORY: 'INVENTORY',
+  PROCUREMENT: 'PROCUREMENT',
   SYSTEM: 'SYSTEM',
 } as const;
 

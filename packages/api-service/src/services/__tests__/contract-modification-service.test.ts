@@ -1,8 +1,56 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ContractModificationService } from '../contract-modification-service';
-import { Database } from '@glapi/database';
-import { ModificationStatus, ModificationType } from '@glapi/database/schema';
 import type { ModificationRequest } from '@glapi/business/services/contract-modification-engine';
+
+// Mock @glapi/database BEFORE any imports that use it
+vi.mock('@glapi/database', () => ({
+  Database: vi.fn(),
+  schema: {
+    contractModifications: {},
+    modificationLineItems: {},
+    catchUpAdjustments: {},
+    modificationApprovalHistory: {},
+  },
+}));
+
+// Mock @glapi/database/schema
+vi.mock('@glapi/database/schema', () => ({
+  contractModifications: {},
+  modificationLineItems: {},
+  catchUpAdjustments: {},
+  modificationApprovalHistory: {},
+  ContractModification: {},
+  ModificationLineItem: {},
+  CatchUpAdjustment: {},
+  ModificationStatus: {
+    DRAFT: 'draft',
+    PENDING_APPROVAL: 'pending_approval',
+    APPROVED: 'approved',
+    REJECTED: 'rejected',
+    APPLIED: 'applied',
+    CANCELLED: 'cancelled',
+  },
+  ModificationType: {
+    ADD_ITEMS: 'add_items',
+    REMOVE_ITEMS: 'remove_items',
+    PRICE_CHANGE: 'price_change',
+    QUANTITY_CHANGE: 'quantity_change',
+    EARLY_TERMINATION: 'early_termination',
+    EXTENSION: 'extension',
+    UPGRADE: 'upgrade',
+    DOWNGRADE: 'downgrade',
+  },
+}));
+
+// Mock drizzle-orm
+vi.mock('drizzle-orm', () => ({
+  eq: vi.fn(),
+  and: vi.fn(),
+  desc: vi.fn(),
+  gte: vi.fn(),
+  lte: vi.fn(),
+  inArray: vi.fn(),
+  sql: vi.fn(),
+}));
 
 // Mock the business layer services
 vi.mock('@glapi/business/services/contract-modification-engine', () => ({
@@ -26,11 +74,17 @@ vi.mock('@glapi/business/services/modification-approval-workflow', () => ({
   }))
 }));
 
+// Import after mocking
+import { ContractModificationService } from '../contract-modification-service';
+import { Database } from '@glapi/database';
+
 describe('ContractModificationService', () => {
   let service: ContractModificationService;
   let mockDb: any;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+
     // Setup mock database
     mockDb = {
       select: vi.fn().mockReturnThis(),

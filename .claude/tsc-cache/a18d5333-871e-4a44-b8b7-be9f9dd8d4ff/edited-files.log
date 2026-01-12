@@ -58,3 +58,8 @@
 1768187592:/Users/fredpope/Development/glapi/packages/api-service/src/services/sov-service.ts:packages/api-service
 1768187616:/Users/fredpope/Development/glapi/packages/api-service/src/services/pay-application-service.ts:packages/api-service
 1768187634:/Users/fredpope/Development/glapi/packages/api-service/src/services/sov-service.ts:packages/api-service
+1768227571:/Users/fredpope/Development/glapi/packages/trpc/src/routers/schedule-of-values.ts:packages/trpc
+1768227618:/Users/fredpope/Development/glapi/packages/trpc/src/routers/schedule-of-values.ts:packages/trpc
+1768227656:/Users/fredpope/Development/glapi/packages/trpc/src/routers/schedule-of-values.ts:packages/trpc
+1768227719:/Users/fredpope/Development/glapi/packages/trpc/src/routers/pay-applications.ts:packages/trpc
+1768233830:/Users/fredpope/Development/glapi/packages/trpc/package.json:packages/trpc

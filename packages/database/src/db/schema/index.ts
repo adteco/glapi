@@ -92,6 +92,10 @@ import * as customerPaymentsSchemas from './customer-payments';
 // Close Management schemas
 import * as closeManagementSchemas from './close-management';
 
+// Procure-to-Pay schemas
+import * as purchaseOrdersSchemas from './purchase-orders';
+import * as vendorBillsSchemas from './vendor-bills';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -176,6 +180,9 @@ export const schema = {
   ...customerPaymentsSchemas,
   // Close Management schemas
   ...closeManagementSchemas,
+  // Procure-to-Pay schemas
+  ...purchaseOrdersSchemas,
+  ...vendorBillsSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -528,3 +535,84 @@ export type {
 // Re-export entities and accounts tables for direct access
 export { entities } from './entities';
 export { accounts } from './accounts';
+export { locations } from './locations';
+export { departments } from './departments';
+export { classes } from './classes';
+export { subsidiaries } from './subsidiaries';
+
+// Re-export Purchase Order schemas (Procure-to-Pay)
+export {
+  purchaseOrders,
+  purchaseOrderLines,
+  purchaseOrderReceipts,
+  purchaseOrderReceiptLines,
+  purchaseOrderApprovalHistory,
+  purchaseOrderStatusEnum,
+  receiptStatusEnum,
+  poApprovalActionTypeEnum,
+  PurchaseOrderStatus,
+  ReceiptStatus,
+  POApprovalActionType,
+  VALID_PURCHASE_ORDER_TRANSITIONS,
+} from './purchase-orders';
+export type {
+  PurchaseOrder,
+  NewPurchaseOrder,
+  UpdatePurchaseOrder,
+  PurchaseOrderLine,
+  NewPurchaseOrderLine,
+  UpdatePurchaseOrderLine,
+  PurchaseOrderReceipt,
+  NewPurchaseOrderReceipt,
+  UpdatePurchaseOrderReceipt,
+  PurchaseOrderReceiptLine,
+  NewPurchaseOrderReceiptLine,
+  PurchaseOrderApprovalHistoryRecord,
+  NewPurchaseOrderApprovalHistoryRecord,
+  PurchaseOrderStatusValue,
+  ReceiptStatusValue,
+  POApprovalActionTypeValue,
+} from './purchase-orders';
+
+// Re-export Vendor Bill schemas (Procure-to-Pay)
+export {
+  vendorBills,
+  vendorBillLines,
+  billPayments,
+  billPaymentApplications,
+  vendorCreditMemos,
+  vendorBillApprovalHistory,
+  vendorBillStatusEnum,
+  billPaymentStatusEnum,
+  vendorPaymentMethodEnum,
+  threeWayMatchStatusEnum,
+  billApprovalActionTypeEnum,
+  VendorBillStatus,
+  BillPaymentStatus,
+  VendorPaymentMethod,
+  ThreeWayMatchStatus,
+  BillApprovalActionType,
+  VALID_VENDOR_BILL_TRANSITIONS,
+} from './vendor-bills';
+export type {
+  VendorBill,
+  NewVendorBill,
+  UpdateVendorBill,
+  VendorBillLine,
+  NewVendorBillLine,
+  UpdateVendorBillLine,
+  BillPayment,
+  NewBillPayment,
+  UpdateBillPayment,
+  BillPaymentApplication,
+  NewBillPaymentApplication,
+  VendorCreditMemo,
+  NewVendorCreditMemo,
+  VendorBillApprovalHistoryRecord,
+  NewVendorBillApprovalHistoryRecord,
+  VendorBillStatusValue,
+  BillPaymentStatusValue,
+  VendorPaymentMethodValue,
+  ThreeWayMatchStatusValue,
+  BillApprovalActionTypeValue,
+} from './vendor-bills';

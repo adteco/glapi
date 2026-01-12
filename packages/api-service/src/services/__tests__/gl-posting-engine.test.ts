@@ -1,17 +1,42 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { GlPostingEngine } from '../gl-posting-engine';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServiceError } from '../../types';
 import type { GlTransactionLine, DoubleEntryValidationOptions } from '../../types';
 
-// Mock the AccountingPeriodService
-jest.mock('../accounting-period-service', () => ({
-  AccountingPeriodService: jest.fn().mockImplementation(() => ({
-    checkPostingAllowed: jest.fn().mockResolvedValue({
-      canPost: true,
-      period: { id: 'period-123', status: 'OPEN' },
-    }),
+// Use vi.hoisted() to properly hoist mock functions for use in vi.mock factory
+const { mockCheckPostingAllowed } = vi.hoisted(() => ({
+  mockCheckPostingAllowed: vi.fn().mockResolvedValue({
+    canPost: true,
+    period: { id: 'period-123', status: 'OPEN' },
+  }),
+}));
+
+// Mock @glapi/database BEFORE AccountingPeriodService is imported
+vi.mock('@glapi/database', () => ({
+  AccountingPeriodRepository: vi.fn().mockImplementation(() => ({
+    getAccessibleSubsidiaryIds: vi.fn().mockResolvedValue(['sub-123']),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    findByDate: vi.fn(),
+    findOpenPeriodForDate: vi.fn(),
+    canPostToDate: vi.fn(),
+    create: vi.fn(),
+    updateStatus: vi.fn(),
+    delete: vi.fn(),
+    getFiscalYears: vi.fn(),
+    getCurrentOpenPeriod: vi.fn(),
+    createFiscalYearPeriods: vi.fn(),
   })),
 }));
+
+// Mock the AccountingPeriodService
+vi.mock('../accounting-period-service', () => ({
+  AccountingPeriodService: vi.fn().mockImplementation(() => ({
+    checkPostingAllowed: mockCheckPostingAllowed,
+  })),
+}));
+
+// Import after mocking
+import { GlPostingEngine } from '../gl-posting-engine';
 
 describe('GlPostingEngine', () => {
   let engine: GlPostingEngine;
@@ -35,7 +60,7 @@ describe('GlPostingEngine', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Create engine without context (for unit testing validateDoubleEntry)
     engine = new GlPostingEngine();
   });
@@ -389,8 +414,8 @@ describe('GlPostingEngine - Period Validation Integration', () => {
   it('should integrate with AccountingPeriodService for period checks', async () => {
     // This is a placeholder for integration tests
     // Full integration tests would require mocking the database
-    const { AccountingPeriodService } = jest.requireMock('../accounting-period-service');
+    const { AccountingPeriodService } = await vi.importMock('../accounting-period-service');
 
-    expect(AccountingPeriodService).toHaveBeenCalled;
+    expect(AccountingPeriodService).toBeDefined();
   });
 });

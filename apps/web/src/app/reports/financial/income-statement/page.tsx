@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useQuery } from '@tanstack/react-query';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Download, Printer, RefreshCw, Settings, TrendingUp, TrendingDown } from 'lucide-react';
+import { CalendarDays, Download, Printer, RefreshCw, Settings, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import {
@@ -37,161 +38,165 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// Define interfaces for Income Statement data
-interface IncomeStatementAccount {
-  id: string;
+// API response interfaces (matching backend types)
+interface FinancialStatementLineItem {
+  accountId: string;
   accountNumber: string;
   accountName: string;
-  balance: number;
-  parentAccountId?: string;
-  accountCategory: 'Revenue' | 'Expense' | 'COGS';
-  accountSubcategory?: string;
-  isDetailAccount: boolean;
+  accountCategory: string;
+  accountSubcategory: string | null;
+  currentPeriodAmount: number;
+  ytdAmount: number;
+  priorPeriodAmount?: number;
 }
 
-interface IncomeStatementSection {
-  title: string;
-  accounts: IncomeStatementAccount[];
-  total: number;
-  subsections?: IncomeStatementSubsection[];
+interface FinancialStatementSection {
+  name: string;
+  category: string;
+  subcategory?: string;
+  lineItems: FinancialStatementLineItem[];
+  sectionTotal: number;
+  priorPeriodTotal?: number;
 }
 
-interface IncomeStatementSubsection {
-  title: string;
-  accounts: IncomeStatementAccount[];
-  total: number;
+interface IncomeStatementResponse {
+  reportName: string;
+  periodName: string;
+  subsidiaryName: string;
+  asOfDate: string;
+  revenueSection: FinancialStatementSection;
+  totalRevenue: number;
+  cogsSection: FinancialStatementSection;
+  totalCogs: number;
+  grossProfit: number;
+  grossProfitMargin: number;
+  operatingExpensesSection: FinancialStatementSection;
+  totalOperatingExpenses: number;
+  operatingIncome: number;
+  operatingMargin: number;
+  netIncome: number;
+  netProfitMargin: number;
 }
 
-interface IncomeStatementData {
-  reportPeriod: string;
+interface AccountingPeriod {
+  id: string;
+  periodName: string;
   startDate: string;
   endDate: string;
-  revenue: IncomeStatementSection;
-  costOfGoodsSold: IncomeStatementSection;
-  expenses: IncomeStatementSection;
-  grossProfit: number;
-  operatingIncome: number;
-  netIncome: number;
-  grossProfitMargin: number;
-  operatingMargin: number;
-  netMargin: number;
+  status: string;
+}
+
+interface Subsidiary {
+  id: string;
+  name: string;
 }
 
 // Form schema for report parameters
 const incomeStatementFormSchema = z.object({
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
+  periodId: z.string().min(1, "Period is required"),
   subsidiaryId: z.string().optional(),
-  includeZeroBalances: z.boolean().optional(),
-  reportBasis: z.enum(['ACCRUAL', 'CASH']).optional(),
-  reportPeriod: z.enum(['MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']).optional(),
+  includeInactive: z.boolean().optional(),
+  classId: z.string().optional(),
+  departmentId: z.string().optional(),
+  locationId: z.string().optional(),
 });
 
 type IncomeStatementFormValues = z.infer<typeof incomeStatementFormSchema>;
 
+// API fetch functions
+async function fetchIncomeStatement(params: {
+  periodId: string;
+  subsidiaryId?: string;
+  includeInactive?: boolean;
+  classId?: string;
+  departmentId?: string;
+  locationId?: string;
+}): Promise<IncomeStatementResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('periodId', params.periodId);
+  if (params.subsidiaryId) searchParams.set('subsidiaryId', params.subsidiaryId);
+  if (params.includeInactive) searchParams.set('includeInactive', 'true');
+  if (params.classId) searchParams.set('classId', params.classId);
+  if (params.departmentId) searchParams.set('departmentId', params.departmentId);
+  if (params.locationId) searchParams.set('locationId', params.locationId);
+
+  const response = await fetch(`/api/gl/reports/income-statement?${searchParams.toString()}`);
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to fetch income statement');
+  }
+  return response.json();
+}
+
+async function fetchAccountingPeriods(): Promise<AccountingPeriod[]> {
+  const response = await fetch('/api/accounting-periods?status=OPEN,CLOSED');
+  if (!response.ok) {
+    throw new Error('Failed to fetch accounting periods');
+  }
+  const data = await response.json();
+  return data.data || [];
+}
+
+async function fetchSubsidiaries(): Promise<Subsidiary[]> {
+  const response = await fetch('/api/subsidiaries');
+  if (!response.ok) {
+    throw new Error('Failed to fetch subsidiaries');
+  }
+  const data = await response.json();
+  return data.data || [];
+}
+
 export default function IncomeStatementPage() {
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [incomeStatementData, setIncomeStatementData] = useState<IncomeStatementData | null>(null);
+  const [reportParams, setReportParams] = useState<IncomeStatementFormValues | null>(null);
   const { orgId } = useAuth();
-  
-  // Mock data for now - replace with TRPC when available
-  const subsidiaries = [
-    { id: '1', name: 'Main Company' },
-    { id: '2', name: 'Subsidiary A' },
-    { id: '3', name: 'Subsidiary B' },
-  ];
+
+  // Fetch available accounting periods
+  const { data: accountingPeriods = [], isLoading: periodsLoading } = useQuery({
+    queryKey: ['accounting-periods'],
+    queryFn: fetchAccountingPeriods,
+    enabled: !!orgId,
+  });
+
+  // Fetch available subsidiaries
+  const { data: subsidiaries = [], isLoading: subsidiariesLoading } = useQuery({
+    queryKey: ['subsidiaries'],
+    queryFn: fetchSubsidiaries,
+    enabled: !!orgId,
+  });
+
+  // Fetch income statement when params are set
+  const {
+    data: incomeStatementData,
+    isLoading: reportLoading,
+    error: reportError,
+    refetch: refetchReport,
+  } = useQuery({
+    queryKey: ['income-statement', reportParams],
+    queryFn: () => fetchIncomeStatement(reportParams!),
+    enabled: !!reportParams && !!reportParams.periodId,
+  });
 
   const form = useForm<IncomeStatementFormValues>({
     resolver: zodResolver(incomeStatementFormSchema),
     defaultValues: {
-      startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0], // Jan 1st of current year
-      endDate: new Date().toISOString().split('T')[0],
+      periodId: "",
       subsidiaryId: "",
-      includeZeroBalances: false,
-      reportBasis: "ACCRUAL",
-      reportPeriod: "YEARLY",
+      includeInactive: false,
     },
   });
 
-  // Mock income statement data
-  const mockIncomeStatementData: IncomeStatementData = {
-    reportPeriod: `${form.watch("startDate")} to ${form.watch("endDate")}`,
-    startDate: form.watch("startDate"),
-    endDate: form.watch("endDate"),
-    revenue: {
-      title: "REVENUE",
-      accounts: [],
-      total: 150000,
-      subsections: [
-        {
-          title: "Sales Revenue",
-          accounts: [
-            { id: '1', accountNumber: '4000', accountName: 'Product Sales', balance: 120000, accountCategory: 'Revenue', isDetailAccount: true },
-            { id: '2', accountNumber: '4010', accountName: 'Service Revenue', balance: 30000, accountCategory: 'Revenue', isDetailAccount: true },
-          ],
-          total: 150000,
-        },
-      ],
-    },
-    costOfGoodsSold: {
-      title: "COST OF GOODS SOLD",
-      accounts: [],
-      total: 60000,
-      subsections: [
-        {
-          title: "Direct Costs",
-          accounts: [
-            { id: '3', accountNumber: '5000', accountName: 'Cost of Materials', balance: 40000, accountCategory: 'COGS', isDetailAccount: true },
-            { id: '4', accountNumber: '5010', accountName: 'Direct Labor', balance: 15000, accountCategory: 'COGS', isDetailAccount: true },
-            { id: '5', accountNumber: '5020', accountName: 'Manufacturing Overhead', balance: 5000, accountCategory: 'COGS', isDetailAccount: true },
-          ],
-          total: 60000,
-        },
-      ],
-    },
-    expenses: {
-      title: "EXPENSES",
-      accounts: [],
-      total: 45000,
-      subsections: [
-        {
-          title: "Operating Expenses",
-          accounts: [
-            { id: '6', accountNumber: '6000', accountName: 'Salaries & Wages', balance: 25000, accountCategory: 'Expense', isDetailAccount: true },
-            { id: '7', accountNumber: '6010', accountName: 'Rent Expense', balance: 8000, accountCategory: 'Expense', isDetailAccount: true },
-            { id: '8', accountNumber: '6020', accountName: 'Utilities', balance: 3000, accountCategory: 'Expense', isDetailAccount: true },
-            { id: '9', accountNumber: '6030', accountName: 'Marketing & Advertising', balance: 5000, accountCategory: 'Expense', isDetailAccount: true },
-            { id: '10', accountNumber: '6040', accountName: 'Office Supplies', balance: 2000, accountCategory: 'Expense', isDetailAccount: true },
-            { id: '11', accountNumber: '6050', accountName: 'Professional Services', balance: 2000, accountCategory: 'Expense', isDetailAccount: true },
-          ],
-          total: 45000,
-        },
-      ],
-    },
-    grossProfit: 90000, // Revenue - COGS
-    operatingIncome: 45000, // Gross Profit - Operating Expenses
-    netIncome: 45000, // Operating Income (simplified, no other income/expenses)
-    grossProfitMargin: 60.0, // (Gross Profit / Revenue) * 100
-    operatingMargin: 30.0, // (Operating Income / Revenue) * 100
-    netMargin: 30.0, // (Net Income / Revenue) * 100
-  };
-
   // Handle generate report
   const handleGenerateReport = async (values: IncomeStatementFormValues) => {
-    setIsLoading(true);
-    try {
-      // TODO: Implement TRPC query
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Mock delay
-      setIncomeStatementData(mockIncomeStatementData);
-      setIsOptionsDialogOpen(false);
-      toast.success('Income statement generated successfully');
-    } catch (error) {
-      toast.error('Failed to generate income statement');
-    } finally {
-      setIsLoading(false);
-    }
+    setReportParams(values);
+    setIsOptionsDialogOpen(false);
+    toast.success('Generating income statement...');
   };
+
+  // Show error toast when report fetch fails
+  if (reportError) {
+    toast.error(`Failed to generate income statement: ${reportError.message}`);
+  }
 
   // Handle export
   const handleExport = (format: 'PDF' | 'EXCEL' | 'CSV') => {
@@ -253,94 +258,87 @@ export default function IncomeStatementPage() {
         </div>
       </div>
 
-      {incomeStatementData ? (
+      {reportLoading && (
+        <Card>
+          <CardContent className="py-16">
+            <div className="flex flex-col items-center justify-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-muted-foreground">Generating income statement...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {incomeStatementData && !reportLoading ? (
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Income Statement</CardTitle>
+            <CardTitle className="text-2xl">{incomeStatementData.reportName}</CardTitle>
             <CardDescription>
-              For the period {new Date(incomeStatementData.startDate).toLocaleDateString()} to {new Date(incomeStatementData.endDate).toLocaleDateString()}
+              {incomeStatementData.periodName} | {incomeStatementData.subsidiaryName}
+              <br />
+              As of {incomeStatementData.asOfDate}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
               {/* Revenue Section */}
               <div>
-                <h2 className="text-xl font-bold mb-4">{incomeStatementData.revenue.title}</h2>
-                {incomeStatementData.revenue.subsections?.map((subsection, index) => (
-                  <div key={index} className="mb-6">
-                    <h3 className="text-lg font-semibold mb-2">{subsection.title}</h3>
-                    <Table>
-                      <TableBody>
-                        {subsection.accounts.map((account) => (
-                          <TableRow key={account.id}>
-                            <TableCell className="font-medium pl-8">
-                              {account.accountNumber} - {account.accountName}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(account.balance)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="border-t-2">
-                          <TableCell className="font-bold">
-                            Total {subsection.title}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatCurrency(subsection.total)}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                ))}
-                <div className="border-t-2 pt-2">
+                <h2 className="text-xl font-bold mb-4">{incomeStatementData.revenueSection.name}</h2>
+                <Table>
+                  <TableBody>
+                    {incomeStatementData.revenueSection.lineItems.map((item) => (
+                      <TableRow key={item.accountId}>
+                        <TableCell className="font-medium pl-8">
+                          {item.accountNumber} - {item.accountName}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.currentPeriodAmount)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {formatCurrency(item.ytdAmount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="border-t-2 pt-2 mt-2">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold">TOTAL REVENUE</span>
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.revenue.total)}</span>
+                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.totalRevenue)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Cost of Goods Sold Section */}
               <div>
-                <h2 className="text-xl font-bold mb-4">{incomeStatementData.costOfGoodsSold.title}</h2>
-                {incomeStatementData.costOfGoodsSold.subsections?.map((subsection, index) => (
-                  <div key={index} className="mb-6">
-                    <h3 className="text-lg font-semibold mb-2">{subsection.title}</h3>
-                    <Table>
-                      <TableBody>
-                        {subsection.accounts.map((account) => (
-                          <TableRow key={account.id}>
-                            <TableCell className="font-medium pl-8">
-                              {account.accountNumber} - {account.accountName}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(account.balance)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="border-t-2">
-                          <TableCell className="font-bold">
-                            Total {subsection.title}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatCurrency(subsection.total)}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                ))}
-                <div className="border-t-2 pt-2">
+                <h2 className="text-xl font-bold mb-4">{incomeStatementData.cogsSection.name}</h2>
+                <Table>
+                  <TableBody>
+                    {incomeStatementData.cogsSection.lineItems.map((item) => (
+                      <TableRow key={item.accountId}>
+                        <TableCell className="font-medium pl-8">
+                          {item.accountNumber} - {item.accountName}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.currentPeriodAmount)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {formatCurrency(item.ytdAmount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="border-t-2 pt-2 mt-2">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold">TOTAL COST OF GOODS SOLD</span>
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.costOfGoodsSold.total)}</span>
+                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.totalCogs)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Gross Profit */}
-              <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
+              <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg border-2 border-green-200 dark:border-green-800">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-green-600" />
@@ -355,46 +353,36 @@ export default function IncomeStatementPage() {
                 </div>
               </div>
 
-              {/* Expenses Section */}
+              {/* Operating Expenses Section */}
               <div>
-                <h2 className="text-xl font-bold mb-4">{incomeStatementData.expenses.title}</h2>
-                {incomeStatementData.expenses.subsections?.map((subsection, index) => (
-                  <div key={index} className="mb-6">
-                    <h3 className="text-lg font-semibold mb-2">{subsection.title}</h3>
-                    <Table>
-                      <TableBody>
-                        {subsection.accounts.map((account) => (
-                          <TableRow key={account.id}>
-                            <TableCell className="font-medium pl-8">
-                              {account.accountNumber} - {account.accountName}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(account.balance)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="border-t-2">
-                          <TableCell className="font-bold">
-                            Total {subsection.title}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatCurrency(subsection.total)}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                ))}
-                <div className="border-t-2 pt-2">
+                <h2 className="text-xl font-bold mb-4">{incomeStatementData.operatingExpensesSection.name}</h2>
+                <Table>
+                  <TableBody>
+                    {incomeStatementData.operatingExpensesSection.lineItems.map((item) => (
+                      <TableRow key={item.accountId}>
+                        <TableCell className="font-medium pl-8">
+                          {item.accountNumber} - {item.accountName}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.currentPeriodAmount)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {formatCurrency(item.ytdAmount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="border-t-2 pt-2 mt-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold">TOTAL EXPENSES</span>
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.expenses.total)}</span>
+                    <span className="text-lg font-bold">TOTAL OPERATING EXPENSES</span>
+                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.totalOperatingExpenses)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Operating Income */}
-              <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-800">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-blue-600" />
@@ -410,7 +398,7 @@ export default function IncomeStatementPage() {
               </div>
 
               {/* Net Income */}
-              <div className="bg-gray-100 p-6 rounded-lg border-4 border-double border-gray-400">
+              <div className="bg-muted p-6 rounded-lg border-4 border-double border-muted-foreground/30">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     {incomeStatementData.netIncome >= 0 ? (
@@ -425,7 +413,7 @@ export default function IncomeStatementPage() {
                       {formatCurrency(incomeStatementData.netIncome)}
                     </span>
                     <p className={`text-sm ${incomeStatementData.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      Margin: {formatPercentage(incomeStatementData.netMargin)}
+                      Margin: {formatPercentage(incomeStatementData.netProfitMargin)}
                     </p>
                   </div>
                 </div>
@@ -433,22 +421,22 @@ export default function IncomeStatementPage() {
 
               {/* Performance Metrics */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <h4 className="font-semibold text-green-700">Gross Profit Margin</h4>
+                <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
+                  <h4 className="font-semibold text-green-700 dark:text-green-300">Gross Profit Margin</h4>
                   <p className="text-2xl font-bold text-green-600">
                     {formatPercentage(incomeStatementData.grossProfitMargin)}
                   </p>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <h4 className="font-semibold text-blue-700">Operating Margin</h4>
+                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-center">
+                  <h4 className="font-semibold text-blue-700 dark:text-blue-300">Operating Margin</h4>
                   <p className="text-2xl font-bold text-blue-600">
                     {formatPercentage(incomeStatementData.operatingMargin)}
                   </p>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg text-center">
-                  <h4 className="font-semibold text-gray-700">Net Margin</h4>
-                  <p className={`text-2xl font-bold ${incomeStatementData.netMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatPercentage(incomeStatementData.netMargin)}
+                <div className="bg-muted p-4 rounded-lg text-center">
+                  <h4 className="font-semibold text-muted-foreground">Net Margin</h4>
+                  <p className={`text-2xl font-bold ${incomeStatementData.netProfitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatPercentage(incomeStatementData.netProfitMargin)}
                   </p>
                 </div>
               </div>
@@ -486,52 +474,30 @@ export default function IncomeStatementPage() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleGenerateReport)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="startDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="endDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
               <FormField
                 control={form.control}
-                name="reportPeriod"
+                name="periodId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Report Period</FormLabel>
+                    <FormLabel>Accounting Period</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="Select period" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="MONTHLY">Monthly</SelectItem>
-                        <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                        <SelectItem value="YEARLY">Yearly</SelectItem>
-                        <SelectItem value="CUSTOM">Custom Period</SelectItem>
+                        {periodsLoading ? (
+                          <SelectItem value="" disabled>Loading periods...</SelectItem>
+                        ) : accountingPeriods.length === 0 ? (
+                          <SelectItem value="" disabled>No periods available</SelectItem>
+                        ) : (
+                          accountingPeriods.map((period) => (
+                            <SelectItem key={period.id} value={period.id}>
+                              {period.periodName} ({period.status})
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -545,19 +511,23 @@ export default function IncomeStatementPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Subsidiary</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select subsidiary (optional)" />
+                          <SelectValue placeholder="All Subsidiaries" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="">All Subsidiaries</SelectItem>
-                        {subsidiaries.map((subsidiary) => (
-                          <SelectItem key={subsidiary.id} value={subsidiary.id}>
-                            {subsidiary.name}
-                          </SelectItem>
-                        ))}
+                        {subsidiariesLoading ? (
+                          <SelectItem value="" disabled>Loading...</SelectItem>
+                        ) : (
+                          subsidiaries.map((subsidiary) => (
+                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
+                              {subsidiary.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -567,43 +537,21 @@ export default function IncomeStatementPage() {
 
               <FormField
                 control={form.control}
-                name="reportBasis"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Report Basis</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="ACCRUAL">Accrual</SelectItem>
-                        <SelectItem value="CASH">Cash</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="includeZeroBalances"
+                name="includeInactive"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
                     <FormControl>
                       <input
                         type="checkbox"
-                        checked={field.value}
+                        checked={field.value || false}
                         onChange={field.onChange}
-                        className="h-4 w-4 rounded border-gray-300"
+                        className="h-4 w-4 rounded border-input"
                       />
                     </FormControl>
                     <div className="space-y-1 leading-none">
-                      <FormLabel>Include Zero Balances</FormLabel>
+                      <FormLabel>Include Inactive Accounts</FormLabel>
                       <p className="text-sm text-muted-foreground">
-                        Show accounts with zero balances in the report
+                        Show accounts that are currently inactive
                       </p>
                     </div>
                   </FormItem>
@@ -614,8 +562,8 @@ export default function IncomeStatementPage() {
                 <Button type="button" variant="outline" onClick={() => setIsOptionsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? "Generating..." : "Generate Report"}
+                <Button type="submit" disabled={reportLoading || periodsLoading}>
+                  {reportLoading ? "Generating..." : "Generate Report"}
                 </Button>
               </DialogFooter>
             </form>
