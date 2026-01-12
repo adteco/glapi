@@ -1,5 +1,5 @@
 import { BaseService } from './base-service';
-import { 
+import {
   BusinessTransaction,
   BusinessTransactionLine,
   BusinessTransactionWithLines,
@@ -11,15 +11,16 @@ import {
   PostTransactionRequest,
   ReverseTransactionRequest,
   ApproveTransactionRequest,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResult,
   ServiceError
 } from '../types';
 import { SubsidiaryService } from './subsidiary-service';
+import { EventService, TransactionEvents, EventCategory } from './event-service';
 import { glTransactionRepository } from '@glapi/database';
-import type { 
-  BusinessTransactionPaginationParams, 
-  BusinessTransactionFilters 
+import type {
+  BusinessTransactionPaginationParams,
+  BusinessTransactionFilters
 } from '@glapi/database';
 
 // Define types for lines that are prepared but not yet finalized with transaction/line numbers
@@ -29,10 +30,48 @@ type PreparedGlLine = Omit<CreateGlTransactionLineInput, 'transactionId' | 'line
 
 export class GlTransactionService extends BaseService {
   private subsidiaryService: SubsidiaryService;
-  
+  private eventService: EventService;
+
   constructor(context = {}) {
     super(context);
     this.subsidiaryService = new SubsidiaryService(context);
+    this.eventService = new EventService(context);
+  }
+
+  /**
+   * Emit a transaction event to the event store
+   */
+  private async emitTransactionEvent(
+    eventType: string,
+    transaction: BusinessTransaction,
+    additionalData?: Record<string, unknown>
+  ): Promise<void> {
+    try {
+      await this.eventService.emit({
+        eventType,
+        eventCategory: EventCategory.TRANSACTION,
+        aggregateId: transaction.id,
+        aggregateType: 'BusinessTransaction',
+        data: {
+          transactionId: transaction.id,
+          transactionNumber: transaction.transactionNumber,
+          transactionTypeId: transaction.transactionTypeId,
+          subsidiaryId: transaction.subsidiaryId,
+          status: transaction.status,
+          totalAmount: transaction.totalAmount,
+          currencyCode: transaction.currencyCode,
+          transactionDate: transaction.transactionDate,
+          ...additionalData,
+        },
+        publishConfig: {
+          topic: 'gl-transactions',
+          partitionKey: transaction.subsidiaryId,
+        },
+      });
+    } catch (error) {
+      // Log but don't fail the transaction if event emission fails
+      console.error('Failed to emit transaction event:', error);
+    }
   }
 
   /**
@@ -233,7 +272,7 @@ export class GlTransactionService extends BaseService {
     try {
       // Create the business transaction
       const result = await glTransactionRepository.create(transactionData, organizationId);
-      
+
       // Create transaction lines if provided
       if (preparedLines && preparedLines.length > 0) {
         const linesWithTransactionId = preparedLines.map((line, index) => ({
@@ -241,12 +280,19 @@ export class GlTransactionService extends BaseService {
           businessTransactionId: result.id,
           lineNumber: index + 1,
         }));
-        
+
         await glTransactionRepository.createTransactionLines(linesWithTransactionId, organizationId);
       }
-      
-      // Return the created transaction
-      return this.transformBusinessTransaction(result);
+
+      // Transform and emit event
+      const createdTransaction = this.transformBusinessTransaction(result);
+
+      // Emit TransactionCreated event for projections
+      await this.emitTransactionEvent(TransactionEvents.CREATED, createdTransaction, {
+        lineCount: preparedLines.length,
+      });
+
+      return createdTransaction;
     } catch (error) {
       throw new ServiceError(
         `Failed to create business transaction: ${error instanceof Error ? error.message : String(error)}`,
@@ -363,15 +409,24 @@ export class GlTransactionService extends BaseService {
   async postTransaction(request: PostTransactionRequest): Promise<BusinessTransaction> {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
-    
+
     // TODO: Implement posting logic
     // 1. Validate transaction is in APPROVED status
     // 2. Get posting rules for transaction type
     // 3. Generate GL entries based on rules
     // 4. Create GL transaction and lines
     // 5. Update business transaction status to POSTED
-    // 6. Update account balances
-    
+    // 6. Emit TransactionPosted event (triggers balance projection worker)
+    //    await this.emitTransactionEvent(TransactionEvents.POSTED, postedTransaction, {
+    //      glTransactionId: glTransaction.id,
+    //      periodId: periodId,
+    //      glLines: glLines.map(line => ({
+    //        accountId: line.accountId,
+    //        debitAmount: line.debitAmount,
+    //        creditAmount: line.creditAmount,
+    //      })),
+    //    });
+
     throw new ServiceError(
       'Transaction posting not yet implemented',
       'NOT_IMPLEMENTED',
@@ -385,13 +440,24 @@ export class GlTransactionService extends BaseService {
   async reverseTransaction(request: ReverseTransactionRequest): Promise<BusinessTransaction> {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
-    
+
     // TODO: Implement reversal logic
     // 1. Validate transaction is POSTED and can be reversed
     // 2. Create reversing GL entries
     // 3. Update original transaction status
-    // 4. Update account balances
-    
+    // 4. Emit TransactionReversed event (triggers balance projection worker)
+    //    await this.emitTransactionEvent(TransactionEvents.REVERSED, reversedTransaction, {
+    //      originalGlTransactionId: originalGlTransaction.id,
+    //      reversalGlTransactionId: reversalGlTransaction.id,
+    //      reversalDate: request.reversalDate,
+    //      reason: request.reason,
+    //      glLines: reversalLines.map(line => ({
+    //        accountId: line.accountId,
+    //        debitAmount: line.debitAmount,
+    //        creditAmount: line.creditAmount,
+    //      })),
+    //    });
+
     throw new ServiceError(
       'Transaction reversal not yet implemented',
       'NOT_IMPLEMENTED',
@@ -433,7 +499,7 @@ export class GlTransactionService extends BaseService {
         userId,
         organizationId
       );
-      
+
       if (!result) {
         throw new ServiceError(
           'Failed to approve transaction',
@@ -441,8 +507,8 @@ export class GlTransactionService extends BaseService {
           500
         );
       }
-      
-      return {
+
+      const approvedTransaction: BusinessTransaction = {
         ...transaction,
         status: result.status as 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'POSTED' | 'PAID' | 'CLOSED' | 'CANCELLED',
         approvedBy: result.approvedBy || undefined,
@@ -450,6 +516,14 @@ export class GlTransactionService extends BaseService {
         modifiedBy: result.modifiedBy || undefined,
         modifiedDate: result.modifiedDate || undefined,
       };
+
+      // Emit TransactionApproved event for projections
+      await this.emitTransactionEvent(TransactionEvents.APPROVED, approvedTransaction, {
+        approvedBy: userId,
+        approvedDate: result.approvedDate,
+      });
+
+      return approvedTransaction;
     } catch (error) {
       if (error instanceof ServiceError) {
         throw error;
