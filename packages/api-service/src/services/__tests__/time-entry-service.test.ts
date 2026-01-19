@@ -26,11 +26,6 @@ const {
   mockGenerateBatchNumber,
   mockCreatePostingBatch,
   mockUpdateAssignmentHours,
-  mockListAttachments,
-  mockAddAttachment,
-  mockDeleteAttachment,
-  mockTaskGetAccessibleIds,
-  mockTaskFindById,
 } = vi.hoisted(() => ({
   mockFindAll: vi.fn(),
   mockFindById: vi.fn(),
@@ -55,11 +50,6 @@ const {
   mockGenerateBatchNumber: vi.fn(),
   mockCreatePostingBatch: vi.fn(),
   mockUpdateAssignmentHours: vi.fn(),
-  mockListAttachments: vi.fn(),
-  mockAddAttachment: vi.fn(),
-  mockDeleteAttachment: vi.fn(),
-  mockTaskGetAccessibleIds: vi.fn(),
-  mockTaskFindById: vi.fn(),
 }));
 
 // Mock the database module
@@ -88,13 +78,6 @@ vi.mock('@glapi/database', () => ({
     generateBatchNumber: mockGenerateBatchNumber,
     createPostingBatch: mockCreatePostingBatch,
     updateAssignmentHours: mockUpdateAssignmentHours,
-    listAttachments: mockListAttachments,
-    addAttachment: mockAddAttachment,
-    deleteAttachment: mockDeleteAttachment,
-  })),
-  ProjectTaskRepository: vi.fn().mockImplementation(() => ({
-    getAccessibleProjectIds: mockTaskGetAccessibleIds,
-    findById: mockTaskFindById,
   })),
 }));
 
@@ -182,15 +165,6 @@ describe('TimeEntryService', () => {
     };
 
     service = new TimeEntryService(context);
-
-    mockTaskGetAccessibleIds.mockResolvedValue([testProjectId]);
-    mockTaskFindById.mockResolvedValue({
-      id: 'task-1',
-      projectId: testProjectId,
-      taskCode: 'TASK-001',
-      name: 'Task',
-      status: 'IN_PROGRESS',
-    });
   });
 
   describe('list', () => {

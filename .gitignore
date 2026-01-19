@@ -15,7 +15,6 @@ dist/
 .next/
 out/
 build/
-evidence-bundles/
 
 # TypeScript declaration files (we use .ts directly in monorepo)
 *.d.ts

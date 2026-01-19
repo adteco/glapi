@@ -22,13 +22,12 @@ import {
   uniqueIndex,
   index,
   integer,
-  bigint,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { users } from './users';
-import { projects, projectCostCodes, projectTasks } from './projects';
+import { projects, projectCostCodes } from './projects';
 
 // ============================================================================
 // Enums
@@ -95,7 +94,6 @@ export const timeEntries = pgTable('time_entries', {
   // Project/Cost code allocation
   projectId: uuid('project_id').references(() => projects.id),
   costCodeId: uuid('cost_code_id').references(() => projectCostCodes.id),
-  projectTaskId: uuid('project_task_id').references(() => projectTasks.id),
 
   // Time entry details
   entryDate: date('entry_date').notNull(),
@@ -152,7 +150,6 @@ export const timeEntries = pgTable('time_entries', {
   projectIdx: index('idx_time_entries_project').on(table.projectId),
   statusIdx: index('idx_time_entries_status').on(table.organizationId, table.status),
   approvalIdx: index('idx_time_entries_pending_approval').on(table.organizationId, table.status, table.submittedAt),
-  taskIdx: index('idx_time_entries_project_task').on(table.projectTaskId),
   // Unique constraint for external ID per organization
   externalIdIdx: uniqueIndex('idx_time_entries_external').on(table.organizationId, table.externalSource, table.externalId),
 }));
@@ -338,26 +335,6 @@ export const timeEntryBatches = pgTable('time_entry_batches', {
 }));
 
 // ============================================================================
-// Time Entry Attachments
-// ============================================================================
-
-export const timeEntryAttachments = pgTable('time_entry_attachments', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
-  timeEntryId: uuid('time_entry_id').notNull().references(() => timeEntries.id, { onDelete: 'cascade' }),
-  fileName: text('file_name').notNull(),
-  fileUrl: text('file_url').notNull(),
-  contentType: text('content_type'),
-  fileSize: bigint('file_size', { mode: 'number' }),
-  uploadedBy: uuid('uploaded_by').references(() => users.id),
-  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).defaultNow().notNull(),
-  metadata: jsonb('metadata'),
-}, (table) => ({
-  orgEntryIdx: index('idx_time_entry_attachments_org_entry').on(table.organizationId, table.timeEntryId),
-  uploadedIdx: index('idx_time_entry_attachments_uploaded').on(table.uploadedAt),
-}));
-
-// ============================================================================
 // Relations
 // ============================================================================
 
@@ -383,17 +360,12 @@ export const timeEntriesRelations = relations(timeEntries, ({ one, many }) => ({
     fields: [timeEntries.costCodeId],
     references: [projectCostCodes.id],
   }),
-  projectTask: one(projectTasks, {
-    fields: [timeEntries.projectTaskId],
-    references: [projectTasks.id],
-  }),
   approver: one(users, {
     fields: [timeEntries.approvedBy],
     references: [users.id],
     relationName: 'timeEntryApprover',
   }),
   approvalHistory: many(timeEntryApprovals),
-  attachments: many(timeEntryAttachments),
 }));
 
 export const laborCostRatesRelations = relations(laborCostRates, ({ one }) => ({
@@ -462,21 +434,6 @@ export const timeEntryBatchesRelations = relations(timeEntryBatches, ({ one }) =
   }),
 }));
 
-export const timeEntryAttachmentsRelations = relations(timeEntryAttachments, ({ one }) => ({
-  organization: one(organizations, {
-    fields: [timeEntryAttachments.organizationId],
-    references: [organizations.id],
-  }),
-  timeEntry: one(timeEntries, {
-    fields: [timeEntryAttachments.timeEntryId],
-    references: [timeEntries.id],
-  }),
-  uploadedByUser: one(users, {
-    fields: [timeEntryAttachments.uploadedBy],
-    references: [users.id],
-  }),
-}));
-
 // ============================================================================
 // Type Exports
 // ============================================================================
@@ -499,9 +456,6 @@ export type NewTimeEntryApproval = typeof timeEntryApprovals.$inferInsert;
 export type TimeEntryBatch = typeof timeEntryBatches.$inferSelect;
 export type NewTimeEntryBatch = typeof timeEntryBatches.$inferInsert;
 export type UpdateTimeEntryBatch = Partial<Omit<NewTimeEntryBatch, 'id' | 'organizationId' | 'createdAt'>>;
-
-export type TimeEntryAttachment = typeof timeEntryAttachments.$inferSelect;
-export type NewTimeEntryAttachment = typeof timeEntryAttachments.$inferInsert;
 
 // Status type exports
 export type TimeEntryStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'CANCELLED';
