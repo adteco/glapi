@@ -29,8 +29,11 @@ export * from './warehouse-repository';
 // Export subscription repositories
 export * from './subscription-repository';
 export * from './subscription-item-repository';
+export * from './subscription-version-repository';
+export * from './billing-schedule-repository';
 export * from './invoice-repository';
 export * from './payment-repository';
+export * from './change-request-repository';
 
 // Export SSP analytics repository
 export * from './ssp-analytics-repository';
@@ -58,6 +61,10 @@ export * from './audit-log-repository';
 // Export project cost code and budget repositories
 export * from './project-cost-code-repository';
 export * from './project-budget-repository';
+// TODO: Create project-expense-repository
+// export * from './project-expense-repository';
+export * from './project-reporting-repository';
+export * from './project-progress-snapshot-repository';
 
 // Export time tracking repository
 export * from './time-entry-repository';
@@ -87,8 +94,11 @@ import { AssembliesKitsRepository } from './assemblies-kits-repository';
 import { WarehouseRepository } from './warehouse-repository';
 import { SubscriptionRepository } from './subscription-repository';
 import { SubscriptionItemRepository } from './subscription-item-repository';
+import { SubscriptionVersionRepository } from './subscription-version-repository';
+import { BillingScheduleRepository } from './billing-schedule-repository';
 import { InvoiceRepository } from './invoice-repository';
 import { PaymentRepository } from './payment-repository';
+import { ChangeRequestRepository } from './change-request-repository';
 import { SSPAnalyticsRepository } from './ssp-analytics-repository';
 import { GLIntegrationRepository } from './gl-integration-repository';
 import { RevenueForecastingRepository } from './revenue-forecasting-repository';
@@ -125,8 +135,11 @@ export const assembliesKitsRepository = new AssembliesKitsRepository();
 export const warehouseRepository = new WarehouseRepository();
 export const subscriptionRepository = new SubscriptionRepository();
 export const subscriptionItemRepository = new SubscriptionItemRepository();
+export const subscriptionVersionRepository = new SubscriptionVersionRepository();
+export const billingScheduleRepository = new BillingScheduleRepository();
 export const invoiceRepository = new InvoiceRepository();
 export const paymentRepository = new PaymentRepository();
+export const changeRequestRepository = new ChangeRequestRepository();
 export const sspAnalyticsRepository = new SSPAnalyticsRepository();
 export const glIntegrationRepository = new GLIntegrationRepository();
 export const revenueForecastingRepository = new RevenueForecastingRepository();

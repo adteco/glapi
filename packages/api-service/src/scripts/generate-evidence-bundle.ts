@@ -12,6 +12,7 @@ interface CliArgs {
   includeApprovals?: boolean;
   includeCodeReferences?: boolean;
   fileName?: string;
+  changeRequestId?: string;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -44,6 +45,10 @@ function parseArgs(argv: string[]): CliArgs {
       case '--file':
       case '-f':
         args.fileName = argv[++i];
+        break;
+      case '--change-request':
+      case '-c':
+        args.changeRequestId = argv[++i];
         break;
       case '--inline':
         args.persistToDisk = false;
@@ -96,6 +101,7 @@ async function main() {
     includeApprovals: args.includeApprovals,
     includeCodeReferences: args.includeCodeReferences,
     fileName: args.fileName,
+    changeRequestId: args.changeRequestId,
   });
 
   console.log(`Evidence bundle ready: package=${args.packageId}`);

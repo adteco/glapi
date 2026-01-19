@@ -19,6 +19,7 @@ import * as accounts from './accounts';
 import * as entities from './entities';
 import * as addresses from './addresses';
 import * as projects from './projects';
+import * as projectProgress from './project-progress';
 import * as transactionTypes from './transaction-types';
 import * as glTransactions from './gl-transactions';
 import * as accountingPeriods from './accounting-periods';
@@ -45,6 +46,8 @@ import * as itemAuditLog from './item-audit-log';
 // 606 Ledger schemas
 import * as subscriptions from './subscriptions';
 import * as subscriptionItems from './subscription-items';
+import * as subscriptionVersions from './subscription-versions';
+import * as billingSchedulesSchemas from './billing-schedules';
 import * as invoices from './invoices';
 import * as payments from './payments';
 import * as revenueEnums from './revenue-enums';
@@ -121,6 +124,7 @@ export const schema = {
   ...entities,
   ...addresses,
   ...projects,
+  ...projectProgress,
   ...testGl,
   // Items system schemas
   ...unitsOfMeasure,
@@ -143,6 +147,8 @@ export const schema = {
   // 606 Ledger schemas
   ...subscriptions,
   ...subscriptionItems,
+  ...subscriptionVersions,
+  ...billingSchedulesSchemas,
   ...invoices,
   ...payments,
   ...revenueEnums,
@@ -188,6 +194,8 @@ export const schema = {
 // Re-export specific types from new schemas
 export type { Subscription, NewSubscription, UpdateSubscription } from './subscriptions';
 export type { SubscriptionItem, NewSubscriptionItem, UpdateSubscriptionItem } from './subscription-items';
+export type { SubscriptionVersion, NewSubscriptionVersion, UpdateSubscriptionVersion, SubscriptionSnapshot, SubscriptionItemSnapshot, SubscriptionChangedField } from './subscription-versions';
+export { subscriptionVersions, subscriptionVersionTypeEnum, subscriptionVersionSourceEnum } from './subscription-versions';
 export type { Invoice, NewInvoice, UpdateInvoice } from './invoices';
 export type { Payment, NewPayment, UpdatePayment } from './payments';
 export type { PerformanceObligation, NewPerformanceObligation } from './performance-obligations';
@@ -355,8 +363,10 @@ export type {
 export {
   unifiedAuditLog,
   auditEvidencePackages,
+  changeRequests,
   auditActionTypeEnum,
   auditSeverityEnum,
+  changeRequestStatusEnum,
   AuditActionType,
   AuditSeverity,
 } from './audit-logs';
@@ -365,6 +375,8 @@ export type {
   NewUnifiedAuditLogRecord,
   AuditEvidencePackageRecord,
   NewAuditEvidencePackageRecord,
+  ChangeRequestRecord,
+  NewChangeRequestRecord,
   AuditActionTypeValue,
   AuditSeverityValue,
 } from './audit-logs';
@@ -616,3 +628,22 @@ export type {
   ThreeWayMatchStatusValue,
   BillApprovalActionTypeValue,
 } from './vendor-bills';
+
+// Re-export Billing Schedule schemas
+export {
+  billingSchedules,
+  billingScheduleLines,
+  billingScheduleStatusEnum,
+  billingScheduleLineStatusEnum,
+} from './billing-schedules';
+export type {
+  BillingSchedule,
+  NewBillingSchedule,
+  UpdateBillingSchedule,
+  BillingScheduleLine,
+  NewBillingScheduleLine,
+  UpdateBillingScheduleLine,
+  BillingScheduleWithLines,
+  BillingScheduleStatus,
+  BillingScheduleLineStatus,
+} from './billing-schedules';
