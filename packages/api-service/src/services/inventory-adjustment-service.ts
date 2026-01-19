@@ -26,6 +26,7 @@ import {
 import { getDb } from '@glapi/database';
 import { DatabaseType } from '@glapi/database';
 import { ItemCostingConfigService } from './item-costing-config-service';
+import { InventoryGlPostingService, InventoryAccountConfig } from './inventory-gl-posting-service';
 
 // Service context
 export interface AdjustmentServiceContext {
@@ -79,11 +80,16 @@ export class InventoryAdjustmentService {
   private db: DatabaseType;
   private context: AdjustmentServiceContext;
   private costingService: ItemCostingConfigService;
+  private glPostingService: InventoryGlPostingService;
 
   constructor(context: AdjustmentServiceContext) {
     this.db = getDb();
     this.context = context;
     this.costingService = new ItemCostingConfigService({
+      organizationId: context.organizationId,
+      userId: context.userId,
+    });
+    this.glPostingService = new InventoryGlPostingService({
       organizationId: context.organizationId,
       userId: context.userId,
     });
@@ -383,7 +389,7 @@ export class InventoryAdjustmentService {
   /**
    * Post adjustment to GL and update inventory
    */
-  async post(id: string): Promise<AdjustmentWithLines> {
+  async post(id: string, accountConfig?: InventoryAccountConfig): Promise<AdjustmentWithLines> {
     const adjustment = await this.getAdjustment(id);
     if (!adjustment) {
       throw new Error('Adjustment not found');
@@ -398,15 +404,19 @@ export class InventoryAdjustmentService {
       await this.updateCostLayers(adjustment, line);
     }
 
-    // TODO: Create GL transaction via GL posting engine
-    // const glTransaction = await this.glPostingEngine.postAdjustment(adjustment);
+    // Create GL transaction via GL posting service
+    let glTransactionId: string | undefined;
+    if (accountConfig) {
+      const glResult = await this.glPostingService.postAdjustment(id, accountConfig);
+      glTransactionId = glResult.glTransactionId;
+    }
 
     const [updated] = await this.db
       .update(inventoryAdjustments)
       .set({
         status: 'POSTED',
         postedAt: new Date(),
-        // glTransactionId: glTransaction.id,
+        glTransactionId,
         updatedAt: new Date(),
         updatedBy: this.context.userId,
       })

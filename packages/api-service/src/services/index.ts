@@ -82,3 +82,4 @@ export * from './item-costing-config-service';
 // Inventory Adjustments and Transfers
 export * from './inventory-adjustment-service';
 export * from './inventory-transfer-service';
+export * from './inventory-gl-posting-service';
