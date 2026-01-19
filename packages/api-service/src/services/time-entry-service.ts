@@ -25,15 +25,18 @@ import {
   TimeEntryWithRelations as RepoTimeEntryWithRelations,
   ProjectTaskRepository,
 } from '@glapi/database';
+import { JobCostPostingService } from './job-cost-posting-service';
 
 export class TimeEntryService extends BaseService {
   private repository: TimeEntryRepository;
   private projectTaskRepository: ProjectTaskRepository;
+  private jobCostPostingService: JobCostPostingService;
 
   constructor(context = {}) {
     super(context);
     this.repository = new TimeEntryRepository();
     this.projectTaskRepository = new ProjectTaskRepository();
+    this.jobCostPostingService = new JobCostPostingService(context);
   }
 
   // ============================================================================
@@ -112,6 +115,16 @@ export class TimeEntryService extends BaseService {
       createdAt: dbRate.createdAt,
       updatedAt: dbRate.updatedAt,
     };
+  }
+
+  private resolveCurrencyCode(metadata: Record<string, unknown> | null): string {
+    if (metadata && typeof metadata === 'object' && 'currencyCode' in metadata) {
+      const value = (metadata as Record<string, unknown>).currencyCode;
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+    }
+    return 'USD';
   }
 
   /**
@@ -1077,6 +1090,19 @@ export class TimeEntryService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
 
+    type ReadyTimeEntry = {
+      id: string;
+      hours: number;
+      totalCost: number;
+      projectId: string;
+      costCodeId: string;
+      employeeId: string;
+      entryDate: string;
+      subsidiaryId: string;
+      description: string | null;
+      currencyCode: string;
+    };
+
     const result: TimeEntryPostingResult = {
       success: true,
       postedCount: 0,
@@ -1090,15 +1116,7 @@ export class TimeEntryService extends BaseService {
       return result;
     }
 
-    // Validate all entries first
-    const entriesToPost: Array<{
-      id: string;
-      hours: number;
-      totalCost: number;
-      projectId: string | null;
-      employeeId: string;
-      entryDate: string;
-    }> = [];
+    const entriesToPost: ReadyTimeEntry[] = [];
 
     for (const entryId of timeEntryIds) {
       const entry = await this.repository.findById(entryId, organizationId);
@@ -1117,13 +1135,55 @@ export class TimeEntryService extends BaseService {
         continue;
       }
 
+      if (!entry.projectId) {
+        result.errors.push({
+          timeEntryId: entryId,
+          error: 'Project is required before posting time entry',
+        });
+        result.failedCount++;
+        continue;
+      }
+
+      if (!entry.costCodeId) {
+        result.errors.push({
+          timeEntryId: entryId,
+          error: 'Cost code is required before posting time entry',
+        });
+        result.failedCount++;
+        continue;
+      }
+
+      if (!entry.subsidiaryId) {
+        result.errors.push({
+          timeEntryId: entryId,
+          error: 'Subsidiary is required before posting time entry',
+        });
+        result.failedCount++;
+        continue;
+      }
+
+      const hours = parseFloat(entry.hours || '0');
+      const totalCost = parseFloat(entry.totalCost || '0');
+      if (!totalCost || totalCost <= 0) {
+        result.errors.push({
+          timeEntryId: entryId,
+          error: 'Time entry must have a positive total cost before posting',
+        });
+        result.failedCount++;
+        continue;
+      }
+
       entriesToPost.push({
         id: entry.id,
-        hours: parseFloat(entry.hours || '0'),
-        totalCost: parseFloat(entry.totalCost || '0'),
+        hours,
+        totalCost,
         projectId: entry.projectId,
+        costCodeId: entry.costCodeId,
         employeeId: entry.employeeId,
         entryDate: entry.entryDate,
+        subsidiaryId: entry.subsidiaryId,
+        description: entry.description,
+        currencyCode: this.resolveCurrencyCode(entry.metadata as Record<string, unknown> | null),
       });
     }
 
@@ -1161,48 +1221,69 @@ export class TimeEntryService extends BaseService {
         createdBy: userId,
       });
 
-      // Group entries by project for assignment updates
-      const entriesByProject = new Map<string, { employeeId: string; hours: number }[]>();
+      const postingGroups = new Map<string, ReadyTimeEntry[]>();
       for (const entry of entriesToPost) {
-        if (entry.projectId) {
-          const projectEntries = entriesByProject.get(entry.projectId) || [];
-          projectEntries.push({ employeeId: entry.employeeId, hours: entry.hours });
-          entriesByProject.set(entry.projectId, projectEntries);
-        }
+        const key = `${entry.subsidiaryId}|${entry.currencyCode}`;
+        const group = postingGroups.get(key) || [];
+        group.push(entry);
+        postingGroups.set(key, group);
       }
 
-      // Post each entry and update project assignment hours
-      for (const entry of entriesToPost) {
+      const glTransactionIds: string[] = [];
+
+      for (const groupEntries of postingGroups.values()) {
+        const postingEntries = groupEntries.map((entry) => ({
+          id: entry.id,
+          projectId: entry.projectId,
+          costCodeId: entry.costCodeId,
+          amount: entry.totalCost,
+          entryDate: entry.entryDate,
+          subsidiaryId: entry.subsidiaryId,
+          description: entry.description || `Labor cost for ${entry.entryDate}`,
+          currencyCode: entry.currencyCode,
+        }));
+
         try {
-          // Mark as posted with batch reference
-          await this.repository.markAsPosted(entry.id, organizationId, batch.id, batch.id);
-
-          // Update actual hours on project assignment if applicable
-          if (entry.projectId) {
-            await this.repository.updateAssignmentHours(
-              entry.employeeId,
-              entry.projectId,
-              organizationId,
-              entry.hours
-            );
+          const { glResult } = await this.jobCostPostingService.postLaborEntries(postingEntries);
+          const glTransactionId = glResult.glTransaction.id;
+          if (!glTransactionId) {
+            throw new ServiceError('GL transaction missing identifier', 'GL_TRANSACTION_INVALID', 500);
           }
+          glTransactionIds.push(glTransactionId);
 
-          result.postedCount++;
-        } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to post time entry';
-          result.errors.push({
-            timeEntryId: entry.id,
-            error: errorMessage,
-          });
-          result.failedCount++;
+          for (const entry of groupEntries) {
+            try {
+              await this.repository.markAsPosted(entry.id, organizationId, glTransactionId, batch.id);
+              await this.repository.updateAssignmentHours(
+                entry.employeeId,
+                entry.projectId,
+                organizationId,
+                entry.hours
+              );
+              result.postedCount++;
+            } catch (innerError) {
+              const message =
+                innerError instanceof Error ? innerError.message : 'Failed to mark time entry as posted';
+              result.errors.push({ timeEntryId: entry.id, error: message });
+              result.failedCount++;
+            }
+          }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Failed to post time entries to GL';
+          for (const entry of groupEntries) {
+            result.errors.push({ timeEntryId: entry.id, error: errorMessage });
+            result.failedCount++;
+          }
         }
       }
 
-      // Add batch info to result
-      (result as TimeEntryPostingResult & { batchId?: string; batchNumber?: string }).batchId =
-        batch.id;
-      (result as TimeEntryPostingResult & { batchId?: string; batchNumber?: string }).batchNumber =
-        batch.batchNumber;
+      result.batchId = batch.id;
+      result.batchNumber = batch.batchNumber;
+      if (glTransactionIds.length > 0) {
+        result.glTransactionId = glTransactionIds[0];
+        result.glTransactionIds = glTransactionIds;
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create posting batch';
       result.errors.push({

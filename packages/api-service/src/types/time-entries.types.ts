@@ -372,7 +372,10 @@ export interface TimeEntryPostingResult {
   success: boolean;
   postedCount: number;
   failedCount: number;
+  batchId?: string;
+  batchNumber?: string;
   glTransactionId?: string;
+  glTransactionIds?: string[];
   errors: Array<{
     timeEntryId: string;
     error: string;

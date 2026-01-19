@@ -3,18 +3,12 @@
 import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useQuery } from '@tanstack/react-query';
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Download, Printer, RefreshCw, Settings, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { Download, Printer, RefreshCw, Settings, Loader2, AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -38,49 +32,47 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 // API response interfaces (matching backend types)
-interface FinancialStatementLineItem {
+interface TrialBalanceAccount {
   accountId: string;
   accountNumber: string;
   accountName: string;
   accountCategory: string;
   accountSubcategory: string | null;
-  currentPeriodAmount: number;
-  ytdAmount: number;
-  priorPeriodAmount?: number;
+  debitBalance: number;
+  creditBalance: number;
+  netBalance: number;
+  isActive: boolean;
 }
 
-interface FinancialStatementSection {
-  name: string;
-  category: string;
-  subcategory?: string;
-  lineItems: FinancialStatementLineItem[];
-  sectionTotal: number;
-  priorPeriodTotal?: number;
+interface TrialBalanceTotals {
+  totalDebits: number;
+  totalCredits: number;
+  difference: number;
 }
 
-interface IncomeStatementResponse {
+interface TrialBalanceResponse {
   reportName: string;
   periodName: string;
   subsidiaryName: string;
   asOfDate: string;
-  revenueSection: FinancialStatementSection;
-  totalRevenue: number;
-  cogsSection: FinancialStatementSection;
-  totalCogs: number;
-  grossProfit: number;
-  grossProfitMargin: number;
-  operatingExpensesSection: FinancialStatementSection;
-  totalOperatingExpenses: number;
-  operatingIncome: number;
-  operatingMargin: number;
-  netIncome: number;
-  netProfitMargin: number;
+  assetAccounts: TrialBalanceAccount[];
+  liabilityAccounts: TrialBalanceAccount[];
+  equityAccounts: TrialBalanceAccount[];
+  revenueAccounts: TrialBalanceAccount[];
+  cogsAccounts: TrialBalanceAccount[];
+  expenseAccounts: TrialBalanceAccount[];
+  totals: TrialBalanceTotals;
 }
 
 interface AccountingPeriod {
@@ -97,7 +89,7 @@ interface Subsidiary {
 }
 
 // Form schema for report parameters
-const incomeStatementFormSchema = z.object({
+const trialBalanceFormSchema = z.object({
   periodId: z.string().min(1, "Period is required"),
   subsidiaryId: z.string().optional(),
   includeInactive: z.boolean().optional(),
@@ -106,17 +98,17 @@ const incomeStatementFormSchema = z.object({
   locationId: z.string().optional(),
 });
 
-type IncomeStatementFormValues = z.infer<typeof incomeStatementFormSchema>;
+type TrialBalanceFormValues = z.infer<typeof trialBalanceFormSchema>;
 
 // API fetch functions
-async function fetchIncomeStatement(params: {
+async function fetchTrialBalance(params: {
   periodId: string;
   subsidiaryId?: string;
   includeInactive?: boolean;
   classId?: string;
   departmentId?: string;
   locationId?: string;
-}): Promise<IncomeStatementResponse> {
+}): Promise<TrialBalanceResponse> {
   const searchParams = new URLSearchParams();
   searchParams.set('periodId', params.periodId);
   if (params.subsidiaryId) searchParams.set('subsidiaryId', params.subsidiaryId);
@@ -125,10 +117,10 @@ async function fetchIncomeStatement(params: {
   if (params.departmentId) searchParams.set('departmentId', params.departmentId);
   if (params.locationId) searchParams.set('locationId', params.locationId);
 
-  const response = await fetch(`/api/gl/reports/income-statement?${searchParams.toString()}`);
+  const response = await fetch(`/api/gl/reports/trial-balance?${searchParams.toString()}`);
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || 'Failed to fetch income statement');
+    throw new Error(error.message || 'Failed to fetch trial balance');
   }
   return response.json();
 }
@@ -151,9 +143,9 @@ async function fetchSubsidiaries(): Promise<Subsidiary[]> {
   return data.data || [];
 }
 
-export default function IncomeStatementPage() {
+export default function TrialBalancePage() {
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
-  const [reportParams, setReportParams] = useState<IncomeStatementFormValues | null>(null);
+  const [reportParams, setReportParams] = useState<TrialBalanceFormValues | null>(null);
   const { orgId } = useAuth();
 
   // Fetch available accounting periods
@@ -170,20 +162,19 @@ export default function IncomeStatementPage() {
     enabled: !!orgId,
   });
 
-  // Fetch income statement when params are set
+  // Fetch trial balance when params are set
   const {
-    data: incomeStatementData,
+    data: trialBalanceData,
     isLoading: reportLoading,
     error: reportError,
-    refetch: refetchReport,
   } = useQuery({
-    queryKey: ['income-statement', reportParams],
-    queryFn: () => fetchIncomeStatement(reportParams!),
+    queryKey: ['trial-balance', reportParams],
+    queryFn: () => fetchTrialBalance(reportParams!),
     enabled: !!reportParams && !!reportParams.periodId,
   });
 
-  const form = useForm<IncomeStatementFormValues>({
-    resolver: zodResolver(incomeStatementFormSchema),
+  const form = useForm<TrialBalanceFormValues>({
+    resolver: zodResolver(trialBalanceFormSchema),
     defaultValues: {
       periodId: "",
       subsidiaryId: "",
@@ -192,15 +183,15 @@ export default function IncomeStatementPage() {
   });
 
   // Handle generate report
-  const handleGenerateReport = async (values: IncomeStatementFormValues) => {
+  const handleGenerateReport = async (values: TrialBalanceFormValues) => {
     setReportParams(values);
     setIsOptionsDialogOpen(false);
-    toast.success('Generating income statement...');
+    toast.success('Generating trial balance...');
   };
 
   // Show error toast when report fetch fails
   if (reportError) {
-    toast.error(`Failed to generate income statement: ${reportError.message}`);
+    toast.error(`Failed to generate trial balance: ${reportError.message}`);
   }
 
   // Handle export
@@ -220,11 +211,11 @@ export default function IncomeStatementPage() {
       if (reportParams.departmentId) searchParams.set('departmentId', reportParams.departmentId);
       if (reportParams.locationId) searchParams.set('locationId', reportParams.locationId);
 
-      const response = await fetch(`/api/gl/reports/income-statement/export?${searchParams.toString()}`);
+      const response = await fetch(`/api/gl/reports/trial-balance/export?${searchParams.toString()}`);
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to export income statement');
+        throw new Error(error.message || 'Failed to export trial balance');
       }
 
       if (format === 'csv') {
@@ -232,27 +223,27 @@ export default function IncomeStatementPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `income-statement-${reportParams.periodId}.csv`;
+        a.download = `trial-balance-${reportParams.periodId}.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast.success('Income statement exported as CSV');
+        toast.success('Trial balance exported as CSV');
       } else {
         const data = await response.json();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `income-statement-${reportParams.periodId}.json`;
+        a.download = `trial-balance-${reportParams.periodId}.json`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast.success('Income statement exported as JSON');
+        toast.success('Trial balance exported as JSON');
       }
     } catch (error) {
-      toast.error(`Failed to export income statement: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to export trial balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -261,21 +252,69 @@ export default function IncomeStatementPage() {
     try {
       window.print();
     } catch (error) {
-      toast.error('Failed to print income statement');
+      toast.error('Failed to print trial balance');
     }
   };
 
   // Format currency
   const formatCurrency = (amount: number) => {
+    if (amount < 0) {
+      return `(${new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(Math.abs(amount))})`;
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
   };
 
-  // Format percentage
-  const formatPercentage = (percentage: number) => {
-    return `${percentage.toFixed(1)}%`;
+  // Check if balanced (within tolerance)
+  const isBalanced = trialBalanceData ? Math.abs(trialBalanceData.totals.difference) < 0.01 : false;
+
+  // Render account section
+  const renderAccountSection = (title: string, accounts: TrialBalanceAccount[]) => {
+    if (accounts.length === 0) return null;
+
+    return (
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold mb-2 bg-muted p-2 rounded">{title}</h3>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">Account #</TableHead>
+              <TableHead>Account Name</TableHead>
+              <TableHead className="text-right w-[150px]">Debit</TableHead>
+              <TableHead className="text-right w-[150px]">Credit</TableHead>
+              <TableHead className="text-right w-[150px]">Net Balance</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {accounts.map((account) => (
+              <TableRow key={account.accountId} className={!account.isActive ? 'opacity-60' : ''}>
+                <TableCell className="font-mono">{account.accountNumber}</TableCell>
+                <TableCell>
+                  {account.accountName}
+                  {!account.isActive && (
+                    <Badge variant="secondary" className="ml-2 text-xs">Inactive</Badge>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {account.debitBalance !== 0 ? formatCurrency(account.debitBalance) : '-'}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {account.creditBalance !== 0 ? formatCurrency(account.creditBalance) : '-'}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {formatCurrency(account.netBalance)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
   };
 
   if (!orgId) {
@@ -285,23 +324,26 @@ export default function IncomeStatementPage() {
   return (
     <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Income Statement</h1>
+        <div className="flex items-center gap-3">
+          <FileText className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold">Trial Balance</h1>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsOptionsDialogOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />
             Options
           </Button>
-          <Button variant="outline" onClick={() => handleGenerateReport(form.getValues())}>
+          <Button variant="outline" onClick={() => handleGenerateReport(form.getValues())} disabled={!reportParams?.periodId}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          <Button variant="outline" onClick={handlePrint}>
+          <Button variant="outline" onClick={handlePrint} disabled={!trialBalanceData}>
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={!incomeStatementData}>
+              <Button variant="outline" disabled={!trialBalanceData}>
                 <Download className="mr-2 h-4 w-4" />
                 Export
               </Button>
@@ -323,197 +365,81 @@ export default function IncomeStatementPage() {
           <CardContent className="py-16">
             <div className="flex flex-col items-center justify-center gap-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-muted-foreground">Generating income statement...</p>
+              <p className="text-muted-foreground">Generating trial balance...</p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {incomeStatementData && !reportLoading ? (
+      {trialBalanceData && !reportLoading ? (
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">{incomeStatementData.reportName}</CardTitle>
+            <CardTitle className="text-2xl">{trialBalanceData.reportName}</CardTitle>
             <CardDescription>
-              {incomeStatementData.periodName} | {incomeStatementData.subsidiaryName}
+              {trialBalanceData.periodName} | {trialBalanceData.subsidiaryName}
               <br />
-              As of {incomeStatementData.asOfDate}
+              As of {trialBalanceData.asOfDate}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-8">
-              {/* Revenue Section */}
-              <div>
-                <h2 className="text-xl font-bold mb-4">{incomeStatementData.revenueSection.name}</h2>
+            <div className="space-y-6">
+              {/* Account Sections */}
+              {renderAccountSection('ASSETS', trialBalanceData.assetAccounts)}
+              {renderAccountSection('LIABILITIES', trialBalanceData.liabilityAccounts)}
+              {renderAccountSection('EQUITY', trialBalanceData.equityAccounts)}
+              {renderAccountSection('REVENUE', trialBalanceData.revenueAccounts)}
+              {renderAccountSection('COST OF GOODS SOLD', trialBalanceData.cogsAccounts)}
+              {renderAccountSection('EXPENSES', trialBalanceData.expenseAccounts)}
+
+              {/* Totals */}
+              <div className="bg-muted p-4 rounded-lg border-4 border-double border-muted-foreground/30">
                 <Table>
                   <TableBody>
-                    {incomeStatementData.revenueSection.lineItems.map((item) => (
-                      <TableRow key={item.accountId}>
-                        <TableCell className="font-medium pl-8">
-                          {item.accountNumber} - {item.accountName}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(item.currentPeriodAmount)}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {formatCurrency(item.ytdAmount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    <TableRow className="font-bold text-lg">
+                      <TableCell className="w-[100px]"></TableCell>
+                      <TableCell>TOTALS</TableCell>
+                      <TableCell className="text-right w-[150px] font-mono">
+                        {formatCurrency(trialBalanceData.totals.totalDebits)}
+                      </TableCell>
+                      <TableCell className="text-right w-[150px] font-mono">
+                        {formatCurrency(trialBalanceData.totals.totalCredits)}
+                      </TableCell>
+                      <TableCell className="text-right w-[150px] font-mono">
+                        {formatCurrency(trialBalanceData.totals.difference)}
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
-                <div className="border-t-2 pt-2 mt-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold">TOTAL REVENUE</span>
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.totalRevenue)}</span>
-                  </div>
-                </div>
               </div>
 
-              {/* Cost of Goods Sold Section */}
-              <div>
-                <h2 className="text-xl font-bold mb-4">{incomeStatementData.cogsSection.name}</h2>
-                <Table>
-                  <TableBody>
-                    {incomeStatementData.cogsSection.lineItems.map((item) => (
-                      <TableRow key={item.accountId}>
-                        <TableCell className="font-medium pl-8">
-                          {item.accountNumber} - {item.accountName}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(item.currentPeriodAmount)}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {formatCurrency(item.ytdAmount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="border-t-2 pt-2 mt-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold">TOTAL COST OF GOODS SOLD</span>
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.totalCogs)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Gross Profit */}
-              <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg border-2 border-green-200 dark:border-green-800">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                    <span className="text-lg font-bold">GROSS PROFIT</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.grossProfit)}</span>
-                    <p className="text-sm text-green-600">
-                      Margin: {formatPercentage(incomeStatementData.grossProfitMargin)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Operating Expenses Section */}
-              <div>
-                <h2 className="text-xl font-bold mb-4">{incomeStatementData.operatingExpensesSection.name}</h2>
-                <Table>
-                  <TableBody>
-                    {incomeStatementData.operatingExpensesSection.lineItems.map((item) => (
-                      <TableRow key={item.accountId}>
-                        <TableCell className="font-medium pl-8">
-                          {item.accountNumber} - {item.accountName}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(item.currentPeriodAmount)}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {formatCurrency(item.ytdAmount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="border-t-2 pt-2 mt-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold">TOTAL OPERATING EXPENSES</span>
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.totalOperatingExpenses)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Operating Income */}
-              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-blue-600" />
-                    <span className="text-lg font-bold">OPERATING INCOME</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-lg font-bold">{formatCurrency(incomeStatementData.operatingIncome)}</span>
-                    <p className="text-sm text-blue-600">
-                      Margin: {formatPercentage(incomeStatementData.operatingMargin)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Net Income */}
-              <div className="bg-muted p-6 rounded-lg border-4 border-double border-muted-foreground/30">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    {incomeStatementData.netIncome >= 0 ? (
-                      <TrendingUp className="h-6 w-6 text-green-600" />
-                    ) : (
-                      <TrendingDown className="h-6 w-6 text-red-600" />
-                    )}
-                    <span className="text-xl font-bold">NET INCOME</span>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-xl font-bold ${incomeStatementData.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatCurrency(incomeStatementData.netIncome)}
-                    </span>
-                    <p className={`text-sm ${incomeStatementData.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      Margin: {formatPercentage(incomeStatementData.netProfitMargin)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Performance Metrics */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
-                  <h4 className="font-semibold text-green-700 dark:text-green-300">Gross Profit Margin</h4>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatPercentage(incomeStatementData.grossProfitMargin)}
-                  </p>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-center">
-                  <h4 className="font-semibold text-blue-700 dark:text-blue-300">Operating Margin</h4>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatPercentage(incomeStatementData.operatingMargin)}
-                  </p>
-                </div>
-                <div className="bg-muted p-4 rounded-lg text-center">
-                  <h4 className="font-semibold text-muted-foreground">Net Margin</h4>
-                  <p className={`text-2xl font-bold ${incomeStatementData.netProfitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatPercentage(incomeStatementData.netProfitMargin)}
-                  </p>
-                </div>
+              {/* Balance Check */}
+              <div className="text-center">
+                {isBalanced ? (
+                  <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white gap-2 px-4 py-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Trial Balance is Balanced
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="gap-2 px-4 py-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Trial Balance is NOT Balanced (Difference: {formatCurrency(trialBalanceData.totals.difference)})
+                  </Badge>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : !reportLoading && (
         <Card>
           <CardHeader>
-            <CardTitle>Income Statement</CardTitle>
+            <CardTitle>Trial Balance</CardTitle>
             <CardDescription>
-              Click "Options" to configure and generate the income statement report.
+              Click "Options" to configure and generate the trial balance report.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">No report data available.</p>
+              <p className="text-muted-foreground mb-4">No report data available.</p>
               <Button onClick={() => setIsOptionsDialogOpen(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configure Report
@@ -527,9 +453,9 @@ export default function IncomeStatementPage() {
       <Dialog open={isOptionsDialogOpen} onOpenChange={setIsOptionsDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Income Statement Options</DialogTitle>
+            <DialogTitle>Trial Balance Options</DialogTitle>
             <DialogDescription>
-              Configure the income statement report parameters.
+              Configure the trial balance report parameters.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
