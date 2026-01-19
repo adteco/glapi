@@ -63,3 +63,13 @@ export * from './bank-deposit-service';
 export * from './purchase-order-service';
 export * from './vendor-bill-service';
 export * from './bill-payment-service';
+
+// Hybrid Transaction Services (new model)
+export * from './base-transaction-service';
+export * from './purchase-order-hybrid-service';
+export * from './po-receipt-hybrid-service';
+export * from './vendor-bill-hybrid-service';
+export * from './bill-payment-hybrid-service';
+export * from './sales-order-hybrid-service';
+export * from './invoice-hybrid-service';
+export * from './customer-payment-hybrid-service';
