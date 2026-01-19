@@ -31,8 +31,6 @@ export * from './accounting-period-service';
 // Project cost codes and budgets
 export * from './project-cost-code-service';
 export * from './project-budget-service';
-export * from './project-service';
-export * from './project-task-service';
 
 // Time tracking
 export * from './time-entry-service';
@@ -65,22 +63,3 @@ export * from './bank-deposit-service';
 export * from './purchase-order-service';
 export * from './vendor-bill-service';
 export * from './bill-payment-service';
-
-// Hybrid Transaction Services (new model)
-export * from './base-transaction-service';
-export * from './purchase-order-hybrid-service';
-export * from './po-receipt-hybrid-service';
-export * from './vendor-bill-hybrid-service';
-export * from './bill-payment-hybrid-service';
-export * from './sales-order-hybrid-service';
-export * from './invoice-hybrid-service';
-export * from './customer-payment-hybrid-service';
-
-// Item Costing Configuration
-export * from './item-costing-config-service';
-
-// Inventory Adjustments and Transfers
-export * from './inventory-adjustment-service';
-export * from './inventory-transfer-service';
-export * from './inventory-gl-posting-service';
-export * from './inventory-valuation-service';
