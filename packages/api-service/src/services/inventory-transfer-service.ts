@@ -24,6 +24,7 @@ import {
 import { getDb } from '@glapi/database';
 import { DatabaseType } from '@glapi/database';
 import { ItemCostingConfigService } from './item-costing-config-service';
+import { InventoryGlPostingService, InventoryAccountConfig } from './inventory-gl-posting-service';
 
 // Service context
 export interface TransferServiceContext {
@@ -88,11 +89,16 @@ export class InventoryTransferService {
   private db: DatabaseType;
   private context: TransferServiceContext;
   private costingService: ItemCostingConfigService;
+  private glPostingService: InventoryGlPostingService;
 
   constructor(context: TransferServiceContext) {
     this.db = getDb();
     this.context = context;
     this.costingService = new ItemCostingConfigService({
+      organizationId: context.organizationId,
+      userId: context.userId,
+    });
+    this.glPostingService = new InventoryGlPostingService({
       organizationId: context.organizationId,
       userId: context.userId,
     });
@@ -333,7 +339,13 @@ export class InventoryTransferService {
    */
   async ship(
     id: string,
-    shipData?: { trackingNumber?: string; carrier?: string; shippedQuantities?: Record<string, number> }
+    shipData?: {
+      trackingNumber?: string;
+      carrier?: string;
+      estimatedArrival?: Date;
+      shippedQuantities?: Record<string, number>;
+      accountConfig?: InventoryAccountConfig;
+    }
   ): Promise<TransferWithLines> {
     const transfer = await this.getTransfer(id);
     if (!transfer) {
@@ -360,6 +372,13 @@ export class InventoryTransferService {
       await this.removeFromSourceInventory(transfer, line, shippedQty);
     }
 
+    // Post shipment to GL if account config provided
+    let shipGlTransactionId: string | undefined;
+    if (shipData?.accountConfig) {
+      const glResult = await this.glPostingService.postTransferShipment(id, shipData.accountConfig);
+      shipGlTransactionId = glResult.glTransactionId;
+    }
+
     // Update transfer header
     const [updated] = await this.db
       .update(inventoryTransfers)
@@ -369,6 +388,7 @@ export class InventoryTransferService {
         shippedAt: new Date(),
         trackingNumber: shipData?.trackingNumber,
         carrier: shipData?.carrier,
+        shipGlTransactionId,
         updatedAt: new Date(),
         updatedBy: this.context.userId,
       })
@@ -391,7 +411,10 @@ export class InventoryTransferService {
    */
   async receive(
     id: string,
-    receivedQuantities?: Record<string, number>
+    receiveData?: {
+      receivedQuantities?: Record<string, number>;
+      accountConfig?: InventoryAccountConfig;
+    }
   ): Promise<TransferWithLines> {
     const transfer = await this.getTransfer(id);
     if (!transfer) {
@@ -404,7 +427,7 @@ export class InventoryTransferService {
 
     // Update received quantities and add to destination inventory
     for (const line of transfer.lines) {
-      const receivedQty = receivedQuantities?.[line.id] ?? Number(line.quantityShipped);
+      const receivedQty = receiveData?.receivedQuantities?.[line.id] ?? Number(line.quantityShipped);
 
       await this.db
         .update(inventoryTransferLines)
@@ -418,12 +441,20 @@ export class InventoryTransferService {
       await this.addToDestinationInventory(transfer, line, receivedQty);
     }
 
+    // Post receipt to GL if account config provided
+    let receiveGlTransactionId: string | undefined;
+    if (receiveData?.accountConfig) {
+      const glResult = await this.glPostingService.postTransferReceipt(id, receiveData.accountConfig);
+      receiveGlTransactionId = glResult.glTransactionId;
+    }
+
     const [updated] = await this.db
       .update(inventoryTransfers)
       .set({
         status: 'RECEIVED',
         actualReceiveDate: new Date().toISOString().split('T')[0],
         receivedAt: new Date(),
+        receiveGlTransactionId,
         updatedAt: new Date(),
         updatedBy: this.context.userId,
       })
@@ -441,9 +472,9 @@ export class InventoryTransferService {
   }
 
   /**
-   * Post transfer to GL
+   * Post transfer to GL (finalize if not already posted during ship/receive)
    */
-  async post(id: string): Promise<TransferWithLines> {
+  async post(id: string, accountConfig?: InventoryAccountConfig): Promise<TransferWithLines> {
     const transfer = await this.getTransfer(id);
     if (!transfer) {
       throw new Error('Transfer not found');
@@ -453,8 +484,37 @@ export class InventoryTransferService {
       throw new Error('Transfer must be received before posting');
     }
 
-    // TODO: Create GL transactions via GL posting engine
-    // For intercompany transfers, create intercompany entries
+    // If GL entries haven't been created during ship/receive, create them now
+    if (accountConfig && !transfer.receiveGlTransactionId) {
+      // For intra-subsidiary transfers, we can do a direct entry
+      if (transfer.fromSubsidiaryId === transfer.toSubsidiaryId) {
+        const glResult = await this.glPostingService.postDirectTransfer(id, accountConfig);
+        await this.db
+          .update(inventoryTransfers)
+          .set({
+            receiveGlTransactionId: glResult.glTransactionId,
+          })
+          .where(eq(inventoryTransfers.id, id));
+      } else {
+        // For inter-subsidiary, ensure both ship and receive are posted
+        if (!transfer.shipGlTransactionId) {
+          const shipResult = await this.glPostingService.postTransferShipment(id, accountConfig);
+          await this.db
+            .update(inventoryTransfers)
+            .set({
+              shipGlTransactionId: shipResult.glTransactionId,
+            })
+            .where(eq(inventoryTransfers.id, id));
+        }
+        const receiptResult = await this.glPostingService.postTransferReceipt(id, accountConfig);
+        await this.db
+          .update(inventoryTransfers)
+          .set({
+            receiveGlTransactionId: receiptResult.glTransactionId,
+          })
+          .where(eq(inventoryTransfers.id, id));
+      }
+    }
 
     const [updated] = await this.db
       .update(inventoryTransfers)
@@ -469,7 +529,13 @@ export class InventoryTransferService {
 
     await this.recordApprovalHistory(id, 'POSTED', 'RECEIVED', 'POSTED');
 
-    return { ...updated, lines: transfer.lines };
+    // Refresh to get updated GL references
+    const lines = await this.db
+      .select()
+      .from(inventoryTransferLines)
+      .where(eq(inventoryTransferLines.transferId, id));
+
+    return { ...updated, lines };
   }
 
   /**
