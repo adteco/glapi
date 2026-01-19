@@ -35,10 +35,10 @@ export async function getServiceContext(): Promise<OrganizationContext> {
     };
   }
 
-  // Fallback for development - use UUID that matches seed data
+  // Fallback for development
   console.log('No org/user in headers - using development context');
   return {
-    organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Test Development Organization UUID
+    organizationId: 'org_development',
     userId: 'user_development',
     clerkOrganizationId: 'org_development'
   };
