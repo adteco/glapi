@@ -20,6 +20,7 @@ import {
   employeeProjectAssignments,
   timeEntryApprovals,
   timeEntryBatches,
+  timeEntryAttachments,
   type TimeEntry,
   type NewTimeEntry,
   type UpdateTimeEntry,
@@ -33,8 +34,10 @@ import {
   type NewTimeEntryBatch,
   type TimeEntryStatus,
   type ApprovalAction,
+  type TimeEntryAttachment,
+  type NewTimeEntryAttachment,
 } from '../db/schema/time-entries';
-import { projects } from '../db/schema/projects';
+import { projects, projectTasks } from '../db/schema/projects';
 import { users } from '../db/schema/users';
 
 // ============================================================================
@@ -45,6 +48,7 @@ export interface TimeEntryFilters {
   employeeId?: string;
   projectId?: string;
   costCodeId?: string;
+  projectTaskId?: string;
   status?: TimeEntryStatus | TimeEntryStatus[];
   startDate?: string;
   endDate?: string;
@@ -55,7 +59,9 @@ export interface TimeEntryFilters {
 export interface TimeEntryWithRelations extends TimeEntry {
   employee?: { id: string; email: string; firstName?: string | null; lastName?: string | null };
   project?: { id: string; name: string; projectCode: string };
+  projectTask?: { id: string; name: string; taskCode: string; status: string };
   approver?: { id: string; email: string; firstName?: string | null; lastName?: string | null };
+  attachments?: TimeEntryAttachment[];
 }
 
 export interface LaborRateFilters {
@@ -99,6 +105,9 @@ export class TimeEntryRepository extends BaseRepository {
     }
     if (filters.costCodeId) {
       conditions.push(eq(timeEntries.costCodeId, filters.costCodeId));
+    }
+    if (filters.projectTaskId) {
+      conditions.push(eq(timeEntries.projectTaskId, filters.projectTaskId));
     }
     if (filters.status) {
       if (Array.isArray(filters.status)) {
@@ -177,19 +186,30 @@ export class TimeEntryRepository extends BaseRepository {
           name: projects.name,
           projectCode: projects.projectCode,
         },
+        projectTask: {
+          id: projectTasks.id,
+          name: projectTasks.name,
+          taskCode: projectTasks.taskCode,
+          status: projectTasks.status,
+        },
       })
       .from(timeEntries)
       .leftJoin(users, eq(timeEntries.employeeId, users.id))
       .leftJoin(projects, eq(timeEntries.projectId, projects.id))
+      .leftJoin(projectTasks, eq(timeEntries.projectTaskId, projectTasks.id))
       .where(and(eq(timeEntries.id, id), eq(timeEntries.organizationId, organizationId)))
       .limit(1);
 
     if (!result[0]) return null;
 
+    const attachments = await this.listAttachments(id, organizationId);
+
     return {
       ...result[0].entry,
       employee: result[0].employee || undefined,
       project: result[0].project || undefined,
+      projectTask: result[0].projectTask || undefined,
+      attachments,
     };
   }
 
@@ -873,5 +893,34 @@ export class TimeEntryRepository extends BaseRepository {
       batches,
       totalCount: Number(countResult?.count || 0),
     };
+  }
+
+  // --------------------------------------------------------------------------
+  // Attachments
+  // --------------------------------------------------------------------------
+
+  async listAttachments(timeEntryId: string, organizationId: string): Promise<TimeEntryAttachment[]> {
+    return this.db
+      .select()
+      .from(timeEntryAttachments)
+      .where(
+        and(
+          eq(timeEntryAttachments.timeEntryId, timeEntryId),
+          eq(timeEntryAttachments.organizationId, organizationId)
+        )
+      )
+      .orderBy(desc(timeEntryAttachments.uploadedAt));
+  }
+
+  async addAttachment(data: NewTimeEntryAttachment): Promise<TimeEntryAttachment> {
+    const [result] = await this.db.insert(timeEntryAttachments).values(data).returning();
+    return result;
+  }
+
+  async deleteAttachment(id: string, organizationId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(timeEntryAttachments)
+      .where(and(eq(timeEntryAttachments.id, id), eq(timeEntryAttachments.organizationId, organizationId)));
+    return (result.rowCount || 0) > 0;
   }
 }
