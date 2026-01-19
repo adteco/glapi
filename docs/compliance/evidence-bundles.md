@@ -1,0 +1,62 @@
+# Compliance Evidence Bundles
+
+The evidence bundle generator collates every artifact required for SOX/ITGC reviews into a single export. Each bundle ties directly to an `audit_evidence_packages` record (see `packages/database/src/db/schema/audit-logs.ts`) and contains:
+
+- **Manifest** – bundle metadata (organization, range, filters, counts, hash)
+- **Audit logs** – full `unified_audit_log` entries for the period
+- **Approvals** – workflows + actions covering any document referenced in the logs
+- **Code references** – commit/file metadata captured on logs via `metadata.codeReferences`
+
+All sections are serialized as JSON and compressed with GZIP into `evidence-bundle-<package-id>.json.gz`. The manifest includes SHA-256 hashes so external auditors can verify integrity.
+
+## API surface
+
+The new TRPC router (`auditRouter`) exposes bundle creation and download endpoints:
+
+| Procedure | Description |
+| --- | --- |
+| `audit.createEvidencePackage` | Defines a package with date range + filters. |
+| `audit.listEvidencePackages` & `audit.getEvidencePackage` | Query packages for an org. |
+| `audit.generateEvidenceBundle` | Builds the bundle and returns a base64 payload + manifest. |
+
+Example client call:
+
+```ts
+await trpc.audit.generateEvidenceBundle.mutate({
+  packageId: 'c3d0c9d8-12d8-4d33-b57a-f3b7da0e7f1f',
+  includeRawLogs: true,
+  includeApprovals: true,
+  includeCodeReferences: true,
+})
+```
+
+The mutation returns `{ manifest, contentHash, size, bundleBase64 }`. Persist the `bundleBase64` payload (or decode to stream a download) and hand auditors the manifest for reconciliation.
+
+## CLI helper
+
+For ops teams that prefer a terminal workflow we also ship a thin wrapper around the same service:
+
+```bash
+# DATABASE_URL must already point at the desired tenant
+pnpm --filter @glapi/api-service evidence:bundle -- \
+  --package 9dd8af9d-51c0-4fb1-8857-93e2794e4f3d \
+  --org org-demo-001 \
+  --user auditor-123 \
+  --output ./evidence-bundles
+```
+
+Options:
+
+- `--inline` – skip writing to disk (still returns manifest/hash)
+- `--omit-logs`, `--omit-approvals`, `--omit-code` – drop sections for lightweight exports
+- `--file <name>` – override generated filename
+
+Bundles default to `<repo>/evidence-bundles/` and the folder is ignored by git.
+
+## Retention + follow-up
+
+- Newly generated bundles mark the package `READY` and store `contentHash` + path.
+- Failed builds set status `FAILED` with an error message so they can be retried or triaged.
+- Scheduling/retention automation (`glapi-yuk.3`) can now build on top of the generator by targeting the CLI or TRPC mutation.
+
+See `packages/api-service/src/services/audit-service.ts` and `packages/api-service/src/services/evidence-bundle-builder.ts` for the implementation details.
