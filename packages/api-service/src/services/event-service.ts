@@ -240,46 +240,46 @@ export class EventService extends BaseService {
     });
 
     // Group inputs by aggregate for version tracking
+    // Process sequentially to avoid race conditions with version tracking
     const versionMap = new Map<string, number>();
+    const preparedEvents = [];
 
-    const preparedEvents = await Promise.all(
-      inputs.map(async (input) => {
-        const aggregateKey = `${input.aggregateType}:${input.aggregateId}`;
+    for (const input of inputs) {
+      const aggregateKey = `${input.aggregateType}:${input.aggregateId}`;
 
-        // Get or compute version
-        let version: number;
-        if (versionMap.has(aggregateKey)) {
-          version = versionMap.get(aggregateKey)! + 1;
-        } else {
-          const currentVersion = await this.repository.getLatestVersion(
-            organizationId,
-            input.aggregateType,
-            input.aggregateId
-          );
-          version = currentVersion + 1;
-        }
-        versionMap.set(aggregateKey, version);
+      // Get or compute version
+      let version: number;
+      if (versionMap.has(aggregateKey)) {
+        version = versionMap.get(aggregateKey)! + 1;
+      } else {
+        const currentVersion = await this.repository.getLatestVersion(
+          organizationId,
+          input.aggregateType,
+          input.aggregateId
+        );
+        version = currentVersion + 1;
+      }
+      versionMap.set(aggregateKey, version);
 
-        return {
-          event: {
-            eventType: input.eventType,
-            eventCategory: input.eventCategory,
-            aggregateId: input.aggregateId,
-            aggregateType: input.aggregateType,
-            eventVersion: version,
-            eventData: input.data as Record<string, unknown>,
-            metadata: input.metadata,
-            eventTimestamp: input.timestamp || new Date(),
-            userId,
-            sessionId: input.sessionId,
-            correlationId: input.correlationId || correlationId,
-            causationId: input.causationId,
-            organizationId,
-          },
-          outboxConfig: input.publishConfig,
-        };
-      })
-    );
+      preparedEvents.push({
+        event: {
+          eventType: input.eventType,
+          eventCategory: input.eventCategory,
+          aggregateId: input.aggregateId,
+          aggregateType: input.aggregateType,
+          eventVersion: version,
+          eventData: input.data as Record<string, unknown>,
+          metadata: input.metadata,
+          eventTimestamp: input.timestamp || new Date(),
+          userId,
+          sessionId: input.sessionId,
+          correlationId: input.correlationId || correlationId,
+          causationId: input.causationId,
+          organizationId,
+        },
+        outboxConfig: input.publishConfig,
+      });
+    }
 
     // Emit with retry
     const results = await this.withRetry(

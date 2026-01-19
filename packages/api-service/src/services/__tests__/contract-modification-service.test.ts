@@ -52,18 +52,15 @@ vi.mock('drizzle-orm', () => ({
   sql: vi.fn(),
 }));
 
-// Mock the business layer services
-vi.mock('@glapi/business/services/contract-modification-engine', () => ({
+// Mock the business layer services - using the main @glapi/business entry point
+vi.mock('@glapi/business', () => ({
   ContractModificationEngine: vi.fn().mockImplementation(() => ({
     processModification: vi.fn(),
     applyModification: vi.fn(),
     processPartialTermination: vi.fn(),
     processUpgradeDowngrade: vi.fn(),
     processBlendAndExtend: vi.fn()
-  }))
-}));
-
-vi.mock('@glapi/business/services/modification-approval-workflow', () => ({
+  })),
   ModificationApprovalWorkflow: vi.fn().mockImplementation(() => ({
     submitForApproval: vi.fn(),
     processApproval: vi.fn(),
@@ -71,7 +68,16 @@ vi.mock('@glapi/business/services/modification-approval-workflow', () => ({
     recallModification: vi.fn(),
     delegateApproval: vi.fn(),
     checkForEscalations: vi.fn()
-  }))
+  })),
+}));
+
+// Also mock the individual imports for type resolution
+vi.mock('@glapi/business/services/contract-modification-engine', () => ({
+  ContractModificationEngine: vi.fn(),
+}));
+
+vi.mock('@glapi/business/services/modification-approval-workflow', () => ({
+  ModificationApprovalWorkflow: vi.fn(),
 }));
 
 // Import after mocking
@@ -82,23 +88,41 @@ describe('ContractModificationService', () => {
   let service: ContractModificationService;
   let mockDb: any;
 
+  // Helper to create a chainable mock that resolves to a value
+  const createQueryChain = (resolveValue: any) => {
+    const chain: any = {};
+    const methods = ['select', 'from', 'where', 'limit', 'offset', 'orderBy', 'groupBy'];
+    methods.forEach(method => {
+      chain[method] = vi.fn(() => chain);
+    });
+    // Make the chain thenable so await works
+    chain.then = (resolve: any) => Promise.resolve(resolveValue).then(resolve);
+    return chain;
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Setup mock database
+    // Setup mock database with methods that can be configured per test
     mockDb = {
-      select: vi.fn().mockReturnThis(),
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockReturnThis(),
-      groupBy: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockReturnThis(),
-      values: vi.fn().mockReturnThis(),
-      returning: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-      set: vi.fn().mockReturnThis()
+      select: vi.fn(),
+      from: vi.fn(),
+      where: vi.fn(),
+      limit: vi.fn(),
+      offset: vi.fn(),
+      orderBy: vi.fn(),
+      groupBy: vi.fn(),
+      insert: vi.fn(),
+      values: vi.fn(),
+      returning: vi.fn(),
+      update: vi.fn(),
+      set: vi.fn()
     };
+
+    // Default chain behavior - each method returns mockDb for chaining
+    Object.keys(mockDb).forEach(key => {
+      mockDb[key].mockReturnValue(mockDb);
+    });
 
     service = new ContractModificationService(mockDb as Database);
   });
@@ -216,42 +240,46 @@ describe('ContractModificationService', () => {
     it('should retrieve modification details', async () => {
       const modificationId = 'mod-001';
 
-      // Mock modification
-      mockDb.limit.mockResolvedValueOnce([{
-        id: modificationId,
-        modificationNumber: 'MOD-001',
-        subscriptionId: 'sub-123',
-        modificationType: 'add_items',
-        status: "pending_approval",
-        effectiveDate: new Date('2024-06-01'),
-        adjustmentAmount: '500',
-        requestDate: new Date('2024-05-01'),
-        revenueImpact: { totalImpact: 500 }
-      }]);
-
-      // Mock line items
-      mockDb.limit.mockResolvedValueOnce([
-        {
-          id: 'line-001',
-          modificationId,
-          changeType: 'add',
-          newItemId: 'item-456',
-          newQuantity: '5',
-          newUnitPrice: '100'
+      // Each query needs its own chain that resolves to the expected data
+      let queryCount = 0;
+      mockDb.select.mockImplementation(() => {
+        queryCount++;
+        if (queryCount === 1) {
+          // First query: modification
+          return createQueryChain([{
+            id: modificationId,
+            modificationNumber: 'MOD-001',
+            subscriptionId: 'sub-123',
+            modificationType: 'add_items',
+            status: "pending_approval",
+            effectiveDate: new Date('2024-06-01'),
+            adjustmentAmount: '500',
+            requestDate: new Date('2024-05-01'),
+            revenueImpact: { totalImpact: 500 }
+          }]);
+        } else if (queryCount === 2) {
+          // Second query: line items
+          return createQueryChain([{
+            id: 'line-001',
+            modificationId,
+            changeType: 'add',
+            newItemId: 'item-456',
+            newQuantity: '5',
+            newUnitPrice: '100'
+          }]);
+        } else if (queryCount === 3) {
+          // Third query: catch-up adjustments
+          return createQueryChain([]);
+        } else if (queryCount === 4) {
+          // Fourth query: approval history
+          return createQueryChain([{
+            approvalLevel: 'submitted',
+            approvalAction: 'submitted',
+            approvalDate: new Date('2024-05-01')
+          }]);
         }
-      ]);
-
-      // Mock catch-up adjustments
-      mockDb.limit.mockResolvedValueOnce([]);
-
-      // Mock approval history
-      mockDb.orderBy.mockResolvedValueOnce([
-        {
-          approvalLevel: 'submitted',
-          approvalAction: 'submitted',
-          approvalDate: new Date('2024-05-01')
-        }
-      ]);
+        return createQueryChain([]);
+      });
 
       // Mock approval status
       (service as any).approvalWorkflow.getApprovalStatus.mockResolvedValue({
@@ -270,7 +298,7 @@ describe('ContractModificationService', () => {
     });
 
     it('should return null for non-existent modification', async () => {
-      mockDb.limit.mockResolvedValueOnce([]);
+      mockDb.select.mockImplementation(() => createQueryChain([]));
 
       const result = await service.getModification('non-existent');
 
@@ -287,35 +315,38 @@ describe('ContractModificationService', () => {
         endDate: new Date('2024-12-31')
       };
 
-      // Mock count
-      mockDb.where.mockImplementationOnce(() => {
-        mockDb.limit.mockResolvedValueOnce([{ count: 2 }]);
-        return mockDb;
-      });
-
-      // Mock modifications
-      mockDb.limit.mockResolvedValueOnce([
-        {
-          id: 'mod-001',
-          modificationNumber: 'MOD-001',
-          subscriptionId: 'sub-123',
-          modificationType: 'add_items',
-          status: "approved",
-          effectiveDate: new Date('2024-03-01'),
-          adjustmentAmount: '500',
-          requestDate: new Date('2024-02-01')
-        },
-        {
-          id: 'mod-002',
-          modificationNumber: 'MOD-002',
-          subscriptionId: 'sub-123',
-          modificationType: 'price_change',
-          status: "approved",
-          effectiveDate: new Date('2024-06-01'),
-          adjustmentAmount: '200',
-          requestDate: new Date('2024-05-01')
+      let queryCount = 0;
+      mockDb.select.mockImplementation(() => {
+        queryCount++;
+        if (queryCount === 1) {
+          // Count query
+          return createQueryChain([{ count: 2 }]);
+        } else {
+          // Data query
+          return createQueryChain([
+            {
+              id: 'mod-001',
+              modificationNumber: 'MOD-001',
+              subscriptionId: 'sub-123',
+              modificationType: 'add_items',
+              status: "approved",
+              effectiveDate: new Date('2024-03-01'),
+              adjustmentAmount: '500',
+              requestDate: new Date('2024-02-01')
+            },
+            {
+              id: 'mod-002',
+              modificationNumber: 'MOD-002',
+              subscriptionId: 'sub-123',
+              modificationType: 'price_change',
+              status: "approved",
+              effectiveDate: new Date('2024-06-01'),
+              adjustmentAmount: '200',
+              requestDate: new Date('2024-05-01')
+            }
+          ]);
         }
-      ]);
+      });
 
       const result = await service.listModifications(filters, {
         limit: 10,
@@ -330,16 +361,15 @@ describe('ContractModificationService', () => {
     it('should handle pagination', async () => {
       const filters = {};
 
-      // Mock count
-      mockDb.where.mockImplementationOnce(() => {
-        mockDb.limit.mockResolvedValueOnce([{ count: 50 }]);
-        return mockDb;
-      });
-
-      // Mock paginated results
-      mockDb.limit.mockImplementationOnce((limit: number) => {
-        mockDb.offset.mockImplementationOnce(() => {
-          mockDb.limit.mockResolvedValueOnce([
+      let queryCount = 0;
+      mockDb.select.mockImplementation(() => {
+        queryCount++;
+        if (queryCount === 1) {
+          // Count query
+          return createQueryChain([{ count: 50 }]);
+        } else {
+          // Data query with offset
+          return createQueryChain([
             {
               id: 'mod-010',
               modificationNumber: 'MOD-010',
@@ -351,9 +381,7 @@ describe('ContractModificationService', () => {
               requestDate: new Date('2023-12-01')
             }
           ]);
-          return mockDb;
-        });
-        return mockDb;
+        }
       });
 
       const result = await service.listModifications(filters, {
@@ -428,8 +456,8 @@ describe('ContractModificationService', () => {
       const approverId = 'manager-001';
       const approverRole = 'manager';
 
-      // Mock pending modifications
-      mockDb.limit.mockResolvedValue([
+      // Mock pending modifications query
+      mockDb.select.mockImplementation(() => createQueryChain([
         {
           id: 'mod-001',
           modificationNumber: 'MOD-001',
@@ -450,7 +478,7 @@ describe('ContractModificationService', () => {
           adjustmentAmount: '1000',
           requestDate: new Date('2024-05-15')
         }
-      ]);
+      ]));
 
       // Mock approval status checks
       (service as any).approvalWorkflow.getApprovalStatus
@@ -480,36 +508,31 @@ describe('ContractModificationService', () => {
         endDate: new Date('2024-12-31')
       };
 
-      // Mock by type
-      mockDb.groupBy.mockImplementationOnce(() => {
-        mockDb.limit.mockResolvedValueOnce([
-          { type: 'add_items', count: 10 },
-          { type: 'price_change', count: 5 },
-          { type: 'early_termination', count: 2 }
-        ]);
-        return mockDb;
-      });
-
-      // Mock by status
-      mockDb.groupBy.mockImplementationOnce(() => {
-        mockDb.limit.mockResolvedValueOnce([
-          { status: "approved", count: 12 },
-          { status: "pending_approval", count: 3 },
-          { status: "rejected", count: 2 }
-        ]);
-        return mockDb;
-      });
-
-      // Mock total adjustment
-      mockDb.where.mockImplementationOnce(() => {
-        mockDb.limit.mockResolvedValueOnce([{ total: 50000 }]);
-        return mockDb;
-      });
-
-      // Mock average approval time
-      mockDb.where.mockImplementationOnce(() => {
-        mockDb.limit.mockResolvedValueOnce([{ avgTime: 48 }]); // 48 hours
-        return mockDb;
+      let queryCount = 0;
+      mockDb.select.mockImplementation(() => {
+        queryCount++;
+        if (queryCount === 1) {
+          // By type query
+          return createQueryChain([
+            { type: 'add_items', count: 10 },
+            { type: 'price_change', count: 5 },
+            { type: 'early_termination', count: 2 }
+          ]);
+        } else if (queryCount === 2) {
+          // By status query
+          return createQueryChain([
+            { status: "approved", count: 12 },
+            { status: "pending_approval", count: 3 },
+            { status: "rejected", count: 2 }
+          ]);
+        } else if (queryCount === 3) {
+          // Total adjustment query
+          return createQueryChain([{ total: 50000 }]);
+        } else if (queryCount === 4) {
+          // Average approval time query
+          return createQueryChain([{ avgTime: 48 }]);
+        }
+        return createQueryChain([]);
       });
 
       const result = await service.getStatistics(organizationId, period);
@@ -530,19 +553,22 @@ describe('ContractModificationService', () => {
       const reason = 'Requirements changed';
 
       // Mock modification lookup
-      mockDb.limit.mockResolvedValueOnce([{
+      mockDb.select.mockImplementation(() => createQueryChain([{
         id: modificationId,
         status: "draft"
-      }]);
+      }]));
 
-      // Mock update
-      mockDb.where.mockImplementationOnce(() => {
-        mockDb.returning.mockResolvedValueOnce([{
-          id: modificationId,
-          status: "cancelled"
-        }]);
-        return mockDb;
+      // Mock update - create a chain that resolves to the updated record
+      const updateChain: any = {};
+      const updateMethods = ['set', 'where', 'returning'];
+      updateMethods.forEach(method => {
+        updateChain[method] = vi.fn(() => updateChain);
       });
+      updateChain.then = (resolve: any) => Promise.resolve([{
+        id: modificationId,
+        status: "cancelled"
+      }]).then(resolve);
+      mockDb.update.mockReturnValue(updateChain);
 
       await service.cancelModification(modificationId, cancelledBy, reason);
 
@@ -552,17 +578,17 @@ describe('ContractModificationService', () => {
     it('should reject cancellation of non-draft modification', async () => {
       const modificationId = 'mod-002';
 
-      mockDb.limit.mockResolvedValueOnce([{
+      mockDb.select.mockImplementation(() => createQueryChain([{
         id: modificationId,
         status: "approved"
-      }]);
+      }]));
 
       await expect(service.cancelModification(modificationId, 'user-123', 'reason'))
         .rejects.toThrow('Only draft modifications can be cancelled');
     });
 
     it('should handle modification not found', async () => {
-      mockDb.limit.mockResolvedValueOnce([]);
+      mockDb.select.mockImplementation(() => createQueryChain([]));
 
       await expect(service.cancelModification('non-existent', 'user-123', 'reason'))
         .rejects.toThrow('Modification not found');
