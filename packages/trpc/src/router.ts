@@ -23,8 +23,6 @@ import { revenueRouter } from './routers/revenue';
 import { accountingPeriodsRouter } from './routers/accounting-periods';
 import { projectCostCodesRouter } from './routers/project-cost-codes';
 import { projectBudgetsRouter } from './routers/project-budgets';
-import { projectsRouter } from './routers/projects';
-import { projectTasksRouter } from './routers/project-tasks';
 import { timeEntriesRouter } from './routers/time-entries';
 import { closeManagementRouter } from './routers/close-management';
 import { scheduleOfValuesRouter } from './routers/schedule-of-values';
@@ -53,10 +51,8 @@ export const appRouter = router({
   payments: paymentsRouter,
   revenue: revenueRouter,
   accountingPeriods: accountingPeriodsRouter,
-  projects: projectsRouter,
   projectCostCodes: projectCostCodesRouter,
   projectBudgets: projectBudgetsRouter,
-  projectTasks: projectTasksRouter,
   timeEntries: timeEntriesRouter,
   closeManagement: closeManagementRouter,
   scheduleOfValues: scheduleOfValuesRouter,

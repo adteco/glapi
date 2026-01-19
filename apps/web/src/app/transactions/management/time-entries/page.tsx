@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  Paperclip,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, parseISO, isValid } from 'date-fns';
@@ -45,7 +44,6 @@ interface TimeEntry {
   employeeId: string;
   projectId?: string | null;
   costCodeId?: string | null;
-  projectTaskId?: string | null;
   entryDate: string;
   hours: string;
   entryType: TimeEntryType;
@@ -55,20 +53,6 @@ interface TimeEntry {
   laborCost?: string | null;
   totalCost?: string | null;
   createdAt: Date;
-}
-
-interface ProjectSummary {
-  id: string;
-  name: string;
-  projectCode: string;
-}
-
-interface ProjectTaskNode {
-  id: string;
-  name: string;
-  taskCode: string;
-  status: string;
-  children?: ProjectTaskNode[];
 }
 
 const STATUS_COLORS: Record<TimeEntryStatus, string> = {
@@ -99,12 +83,6 @@ const ENTRY_TYPE_LABELS: Record<TimeEntryType, string> = {
   OTHER: 'Other',
 };
 
-const flattenTaskTree = (nodes: ProjectTaskNode[] = [], depth = 0): Array<ProjectTaskNode & { depth: number }> =>
-  nodes.flatMap((node) => [
-    { ...node, depth },
-    ...flattenTaskTree(node.children || [], depth + 1),
-  ]);
-
 export default function TimeEntriesPage() {
   const { orgId } = useAuth();
   const router = useRouter();
@@ -113,13 +91,6 @@ export default function TimeEntriesPage() {
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'my-time' | 'approvals'>('my-time');
   const [statusFilter, setStatusFilter] = useState<TimeEntryStatus | 'ALL'>('ALL');
-  const [attachmentEntryId, setAttachmentEntryId] = useState<string | null>(null);
-  const [attachmentForm, setAttachmentForm] = useState({
-    fileName: '',
-    fileUrl: '',
-    contentType: '',
-    fileSize: '',
-  });
 
   const weekEnd = endOfWeek(selectedWeekStart, { weekStartsOn: 1 });
   const weekDays = eachDayOfInterval({ start: selectedWeekStart, end: weekEnd });
@@ -127,43 +98,12 @@ export default function TimeEntriesPage() {
   const [formData, setFormData] = useState({
     projectId: '',
     costCodeId: '',
-    projectTaskId: '',
     entryDate: format(new Date(), 'yyyy-MM-dd'),
     hours: '',
     entryType: 'REGULAR' as TimeEntryType,
     description: '',
     isBillable: true,
   });
-
-  const projectsQuery = trpc.projects.list.useQuery(
-    {
-      limit: 100,
-      orderBy: 'name',
-      orderDirection: 'asc',
-    },
-    { enabled: !!orgId }
-  );
-  const projects = projectsQuery.data?.data ?? [];
-  const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project] as const)), [projects]);
-
-  const { data: costCodesData } = trpc.projectCostCodes.list.useQuery(
-    formData.projectId
-      ? {
-          limit: 200,
-          filters: { projectId: formData.projectId },
-          orderBy: 'sortOrder',
-          orderDirection: 'asc',
-        }
-      : undefined,
-    { enabled: !!formData.projectId }
-  );
-  const costCodeOptions = costCodesData?.data ?? [];
-
-  const { data: projectTaskTree } = trpc.projectTasks.getTree.useQuery(
-    { projectId: formData.projectId as string },
-    { enabled: !!formData.projectId }
-  );
-  const taskOptions = useMemo(() => flattenTaskTree(projectTaskTree || []), [projectTaskTree]);
 
   // TRPC queries
   const {
@@ -248,37 +188,8 @@ export default function TimeEntriesPage() {
     },
   });
 
-  const attachmentsQuery = trpc.timeEntries.listAttachments.useQuery(
-    { timeEntryId: attachmentEntryId ?? '' },
-    {
-      enabled: !!attachmentEntryId,
-    }
-  );
-
-  const addAttachmentMutation = trpc.timeEntries.addAttachment.useMutation({
-    onSuccess: () => {
-      toast.success('Attachment added');
-      setAttachmentForm({ fileName: '', fileUrl: '', contentType: '', fileSize: '' });
-      attachmentsQuery.refetch();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to add attachment');
-    },
-  });
-
-  const deleteAttachmentMutation = trpc.timeEntries.deleteAttachment.useMutation({
-    onSuccess: () => {
-      toast.success('Attachment removed');
-      attachmentsQuery.refetch();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to remove attachment');
-    },
-  });
-
   const entries = entriesData?.data || [];
   const pendingList = pendingApprovals?.data || [];
-  const attachments = attachmentsQuery.data || [];
 
   const handleCreate = async () => {
     if (!formData.hours || !formData.entryDate) {
@@ -289,7 +200,6 @@ export default function TimeEntriesPage() {
     createMutation.mutate({
       projectId: formData.projectId || undefined,
       costCodeId: formData.costCodeId || undefined,
-      projectTaskId: formData.projectTaskId || undefined,
       entryDate: formData.entryDate,
       hours: formData.hours,
       entryType: formData.entryType,
@@ -329,30 +239,6 @@ export default function TimeEntriesPage() {
     deleteMutation.mutate({ id });
   };
 
-  const openAttachmentsDialog = (timeEntryId: string) => {
-    setAttachmentEntryId(timeEntryId);
-    setAttachmentForm({ fileName: '', fileUrl: '', contentType: '', fileSize: '' });
-  };
-
-  const handleAddAttachment = () => {
-    if (!attachmentEntryId) return;
-    if (!attachmentForm.fileName || !attachmentForm.fileUrl) {
-      toast.error('Attachment name and URL are required');
-      return;
-    }
-    addAttachmentMutation.mutate({
-      timeEntryId: attachmentEntryId,
-      fileName: attachmentForm.fileName.trim(),
-      fileUrl: attachmentForm.fileUrl.trim(),
-      contentType: attachmentForm.contentType || undefined,
-      fileSize: attachmentForm.fileSize ? Number(attachmentForm.fileSize) : undefined,
-    });
-  };
-
-  const handleDeleteAttachment = (attachmentId: string) => {
-    deleteAttachmentMutation.mutate({ attachmentId });
-  };
-
   const toggleEntrySelection = (id: string) => {
     setSelectedEntries((prev) => (prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]));
   };
@@ -366,7 +252,6 @@ export default function TimeEntriesPage() {
     setFormData({
       projectId: '',
       costCodeId: '',
-       projectTaskId: '',
       entryDate: format(new Date(), 'yyyy-MM-dd'),
       hours: '',
       entryType: 'REGULAR',
@@ -541,72 +426,14 @@ export default function TimeEntriesPage() {
                             </Select>
                           </div>
                         </div>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Project</Label>
-                            <Select
-                              value={formData.projectId}
-                              onValueChange={(value) =>
-                                setFormData({
-                                  ...formData,
-                                  projectId: value,
-                                  costCodeId: '',
-                                  projectTaskId: '',
-                                })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select project" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {projects.map((project) => (
-                                  <SelectItem key={project.id} value={project.id}>
-                                    {project.name} ({project.projectCode})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Cost Code</Label>
-                            <Select
-                              value={formData.costCodeId}
-                              onValueChange={(value) => setFormData({ ...formData, costCodeId: value })}
-                              disabled={!formData.projectId || costCodeOptions.length === 0}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select cost code" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {costCodeOptions.map((code) => (
-                                  <SelectItem key={code.id} value={code.id}>
-                                    {code.costCode} — {code.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Project Task</Label>
-                            <Select
-                              value={formData.projectTaskId}
-                              onValueChange={(value) => setFormData({ ...formData, projectTaskId: value })}
-                              disabled={!formData.projectId || taskOptions.length === 0}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Optional – select task" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {taskOptions.map((task) => (
-                                  <SelectItem key={task.id} value={task.id}>
-                                    {`${'— '.repeat(task.depth)}${task.name}`}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="projectId">Project ID (optional)</Label>
+                          <Input
+                            id="projectId"
+                            value={formData.projectId}
+                            onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                            placeholder="Enter project UUID"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="description">Description</Label>
@@ -672,8 +499,6 @@ export default function TimeEntriesPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Hours</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Task</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Billable</TableHead>
                     <TableHead>Cost</TableHead>
@@ -698,27 +523,6 @@ export default function TimeEntriesPage() {
                       <TableCell>
                         <Badge variant="outline">{ENTRY_TYPE_LABELS[entry.entryType]}</Badge>
                       </TableCell>
-                      <TableCell>
-                        {entry.projectId ? (
-                          <div>
-                            <p className="font-medium">
-                              {projectMap.get(entry.projectId)?.name || entry.projectId}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {projectMap.get(entry.projectId)?.projectCode || ''}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {entry.projectTaskId ? (
-                          <span>{entry.projectTaskId.slice(0, 8)}…</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
                       <TableCell className="max-w-[200px] truncate">{entry.description || '-'}</TableCell>
                       <TableCell>{entry.isBillable ? 'Yes' : 'No'}</TableCell>
                       <TableCell>${parseFloat(entry.totalCost || '0').toFixed(2)}</TableCell>
@@ -727,10 +531,7 @@ export default function TimeEntriesPage() {
                           {STATUS_LABELS[entry.status]}
                         </Badge>
                       </TableCell>
-                      <TableCell className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openAttachmentsDialog(entry.id)}>
-                          <Paperclip className="h-4 w-4" />
-                        </Button>
+                      <TableCell>
                         {entry.status === 'DRAFT' && (
                           <Button variant="ghost" size="sm" onClick={() => handleDelete(entry.id)}>
                             Delete
@@ -827,92 +628,6 @@ export default function TimeEntriesPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <Dialog
-        open={!!attachmentEntryId}
-        onOpenChange={(open) => {
-          if (!open) {
-            setAttachmentEntryId(null);
-            setAttachmentForm({ fileName: '', fileUrl: '', contentType: '', fileSize: '' });
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Time Entry Attachments</DialogTitle>
-            <DialogDescription>Link receipts or supporting documents to this entry.</DialogDescription>
-          </DialogHeader>
-
-          {attachmentsQuery.isLoading ? (
-            <p>Loading attachments...</p>
-          ) : attachments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No attachments yet.</p>
-          ) : (
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="flex items-center justify-between rounded border px-3 py-2 text-sm"
-                >
-                  <div>
-                    <p className="font-medium">{attachment.fileName}</p>
-                    <a
-                      className="text-xs text-blue-600 underline"
-                      href={attachment.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {attachment.fileUrl}
-                    </a>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteAttachment(attachment.id)}
-                    disabled={deleteAttachmentMutation.isPending}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Remove
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <Input
-              placeholder="File name"
-              value={attachmentForm.fileName}
-              onChange={(e) => setAttachmentForm({ ...attachmentForm, fileName: e.target.value })}
-            />
-            <Input
-              placeholder="File URL"
-              value={attachmentForm.fileUrl}
-              onChange={(e) => setAttachmentForm({ ...attachmentForm, fileUrl: e.target.value })}
-            />
-            <div className="grid gap-3 md:grid-cols-2">
-              <Input
-                placeholder="Content type (optional)"
-                value={attachmentForm.contentType}
-                onChange={(e) => setAttachmentForm({ ...attachmentForm, contentType: e.target.value })}
-              />
-              <Input
-                placeholder="File size bytes (optional)"
-                value={attachmentForm.fileSize}
-                onChange={(e) => setAttachmentForm({ ...attachmentForm, fileSize: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={handleAddAttachment}
-                disabled={addAttachmentMutation.isPending}
-              >
-                Add Attachment
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

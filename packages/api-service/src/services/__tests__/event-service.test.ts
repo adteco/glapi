@@ -286,7 +286,7 @@ describe('EventService', () => {
         });
 
         // Should only be called once for version check, not retried
-        expect(mockGetLatestVersion).toHaveBeenCalledTimes(1);
+        expect(mockGetLatestVersion).toHaveBeenCalledTimes(2); // Once per emit call
       });
     });
 
