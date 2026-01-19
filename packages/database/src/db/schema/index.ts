@@ -45,6 +45,7 @@ import * as itemAuditLog from './item-audit-log';
 // 606 Ledger schemas
 import * as subscriptions from './subscriptions';
 import * as subscriptionItems from './subscription-items';
+import * as subscriptionVersions from './subscription-versions';
 import * as invoices from './invoices';
 import * as payments from './payments';
 import * as revenueEnums from './revenue-enums';
@@ -92,9 +93,31 @@ import * as customerPaymentsSchemas from './customer-payments';
 // Close Management schemas
 import * as closeManagementSchemas from './close-management';
 
-// Procure-to-Pay schemas
+// Procure-to-Pay schemas (legacy - to be deprecated)
 import * as purchaseOrdersSchemas from './purchase-orders';
 import * as vendorBillsSchemas from './vendor-bills';
+
+// ========================================
+// Hybrid Transaction Model (NEW)
+// ========================================
+import * as transactionCoreSchemas from './transaction-core';
+import * as purchaseOrderExtSchemas from './purchase-order-ext';
+import * as poReceiptExtSchemas from './po-receipt-ext';
+import * as vendorBillExtSchemas from './vendor-bill-ext';
+import * as billPaymentExtSchemas from './bill-payment-ext';
+import * as salesOrderExtSchemas from './sales-order-ext';
+import * as invoiceExtSchemas from './invoice-ext';
+import * as customerPaymentExtSchemas from './customer-payment-ext';
+import * as transactionSupportingSchemas from './transaction-supporting';
+
+// Item Costing Configuration
+import * as itemCostingConfigSchemas from './item-costing-config';
+
+// Inventory Adjustments and Transfers
+import * as inventoryAdjustmentsSchemas from './inventory-adjustments';
+
+// Approval Workflow and Segregation of Duties
+import * as approvalWorkflowSchemas from './approval-workflow';
 
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
@@ -143,6 +166,7 @@ export const schema = {
   // 606 Ledger schemas
   ...subscriptions,
   ...subscriptionItems,
+  ...subscriptionVersions,
   ...invoices,
   ...payments,
   ...revenueEnums,
@@ -180,14 +204,38 @@ export const schema = {
   ...customerPaymentsSchemas,
   // Close Management schemas
   ...closeManagementSchemas,
-  // Procure-to-Pay schemas
+  // Procure-to-Pay schemas (legacy)
   ...purchaseOrdersSchemas,
   ...vendorBillsSchemas,
+  // ========================================
+  // Hybrid Transaction Model (NEW)
+  // ========================================
+  ...transactionCoreSchemas,
+  ...purchaseOrderExtSchemas,
+  ...poReceiptExtSchemas,
+  ...vendorBillExtSchemas,
+  ...billPaymentExtSchemas,
+  ...salesOrderExtSchemas,
+  ...invoiceExtSchemas,
+  ...customerPaymentExtSchemas,
+  ...transactionSupportingSchemas,
+  // Item Costing Configuration
+  ...itemCostingConfigSchemas,
+  // Inventory Adjustments and Transfers
+  ...inventoryAdjustmentsSchemas,
+  // Approval Workflow and Segregation of Duties
+  ...approvalWorkflowSchemas,
 };
 
 // Re-export specific types from new schemas
 export type { Subscription, NewSubscription, UpdateSubscription } from './subscriptions';
 export type { SubscriptionItem, NewSubscriptionItem, UpdateSubscriptionItem } from './subscription-items';
+export type {
+  SubscriptionVersion,
+  NewSubscriptionVersion,
+  SubscriptionVersionTypeValue,
+  SubscriptionVersionSourceValue,
+} from './subscription-versions';
 export type { Invoice, NewInvoice, UpdateInvoice } from './invoices';
 export type { Payment, NewPayment, UpdatePayment } from './payments';
 export type { PerformanceObligation, NewPerformanceObligation } from './performance-obligations';
@@ -207,6 +255,11 @@ export { kitComponents } from './kit-components';
 export type { KitComponent } from './kit-components';
 export { subscriptions } from './subscriptions';
 export { subscriptionItems } from './subscription-items';
+export {
+  subscriptionVersions,
+  subscriptionVersionTypeEnum as SubscriptionVersionType,
+  subscriptionVersionSourceEnum as SubscriptionVersionSource,
+} from './subscription-versions';
 export { invoices } from './invoices';
 export { payments } from './payments';
 
@@ -533,6 +586,7 @@ export type {
 } from './close-management';
 
 // Re-export entities and accounts tables for direct access
+export { organizations } from './organizations';
 export { entities } from './entities';
 export { accounts } from './accounts';
 export { locations } from './locations';
@@ -616,3 +670,313 @@ export type {
   ThreeWayMatchStatusValue,
   BillApprovalActionTypeValue,
 } from './vendor-bills';
+
+// ============================================================================
+// HYBRID TRANSACTION MODEL EXPORTS (NEW)
+// ============================================================================
+
+// Transaction Core - Enums and Status Constants
+export {
+  // Enums (renamed to avoid conflicts with legacy schemas)
+  purchaseOrderStatusEnum as hybridPurchaseOrderStatusEnum,
+  poReceiptStatusEnum as hybridPoReceiptStatusEnum,
+  vendorBillStatusEnum as hybridVendorBillStatusEnum,
+  billPaymentStatusEnum as hybridBillPaymentStatusEnum,
+  salesOrderStatusEnum2 as hybridSalesOrderStatusEnum,
+  invoiceStatusEnum2 as hybridInvoiceStatusEnum,
+  customerPaymentStatusEnum2 as hybridCustomerPaymentStatusEnum,
+  threeWayMatchStatusEnum2 as hybridThreeWayMatchStatusEnum,
+  lineMatchStatusEnum as hybridLineMatchStatusEnum,
+  transactionCategoryEnum,
+  entityRoleEnum,
+  // Status Constants (renamed to avoid conflicts)
+  PurchaseOrderStatus as HybridPurchaseOrderStatus,
+  POReceiptStatus as HybridPOReceiptStatus,
+  VendorBillStatus as HybridVendorBillStatus,
+  BillPaymentStatus as HybridBillPaymentStatus,
+  SalesOrderStatus2 as HybridSalesOrderStatus,
+  InvoiceStatus2 as HybridInvoiceStatus,
+  CustomerPaymentStatus2 as HybridCustomerPaymentStatus,
+  ThreeWayMatchStatus2 as HybridThreeWayMatchStatus,
+  LineMatchStatus as HybridLineMatchStatus,
+  TransactionCategory,
+  EntityRole,
+  TransactionTypeCode,
+  // Core Tables
+  transactionTypesRegistry,
+  transactionHeaders,
+  transactionLines,
+} from './transaction-core';
+
+export type {
+  TransactionHeader,
+  NewTransactionHeader,
+  UpdateTransactionHeader,
+  TransactionLine,
+  NewTransactionLine,
+  UpdateTransactionLine,
+  TransactionTypeRecord,
+  NewTransactionTypeRecord,
+  PurchaseOrderStatusValue as HybridPurchaseOrderStatusValue,
+  POReceiptStatusValue as HybridPOReceiptStatusValue,
+  VendorBillStatusValue as HybridVendorBillStatusValue,
+  BillPaymentStatusValue as HybridBillPaymentStatusValue,
+  SalesOrderStatusValue2 as HybridSalesOrderStatusValue,
+  InvoiceStatusValue2 as HybridInvoiceStatusValue,
+  CustomerPaymentStatusValue2 as HybridCustomerPaymentStatusValue,
+  ThreeWayMatchStatusValue2 as HybridThreeWayMatchStatusValue,
+  LineMatchStatusValue as HybridLineMatchStatusValue,
+  TransactionCategoryValue,
+  EntityRoleValue,
+  TransactionTypeCodeValue,
+} from './transaction-core';
+
+// Purchase Order Extension
+export {
+  purchaseOrderExt,
+  purchaseOrderLineExt,
+} from './purchase-order-ext';
+
+export type {
+  PurchaseOrderExtRecord,
+  NewPurchaseOrderExtRecord,
+  UpdatePurchaseOrderExtRecord,
+  PurchaseOrderLineExtRecord,
+  NewPurchaseOrderLineExtRecord,
+  UpdatePurchaseOrderLineExtRecord,
+} from './purchase-order-ext';
+
+// PO Receipt Extension
+export {
+  poReceiptExt,
+  poReceiptLineExt,
+} from './po-receipt-ext';
+
+export type {
+  POReceiptExtRecord,
+  NewPOReceiptExtRecord,
+  UpdatePOReceiptExtRecord,
+  POReceiptLineExtRecord,
+  NewPOReceiptLineExtRecord,
+  UpdatePOReceiptLineExtRecord,
+} from './po-receipt-ext';
+
+// Vendor Bill Extension
+export {
+  vendorBillExt,
+  vendorBillLineExt,
+} from './vendor-bill-ext';
+
+export type {
+  VendorBillExtRecord,
+  NewVendorBillExtRecord,
+  UpdateVendorBillExtRecord,
+  VendorBillLineExtRecord,
+  NewVendorBillLineExtRecord,
+  UpdateVendorBillLineExtRecord,
+} from './vendor-bill-ext';
+
+// Bill Payment Extension
+export {
+  billPaymentExt,
+  billPaymentApplications2,
+} from './bill-payment-ext';
+
+export type {
+  BillPaymentExtRecord,
+  NewBillPaymentExtRecord,
+  UpdateBillPaymentExtRecord,
+  BillPaymentApplication2,
+  NewBillPaymentApplication2,
+} from './bill-payment-ext';
+
+// Sales Order Extension
+export {
+  salesOrderExt,
+  salesOrderLineExt,
+  salesOrderApprovalHistory2,
+} from './sales-order-ext';
+
+export type {
+  SalesOrderExtRecord,
+  NewSalesOrderExtRecord,
+  UpdateSalesOrderExtRecord,
+  SalesOrderLineExtRecord,
+  NewSalesOrderLineExtRecord,
+  UpdateSalesOrderLineExtRecord,
+  SalesOrderApprovalHistoryRecord2,
+  NewSalesOrderApprovalHistoryRecord2,
+} from './sales-order-ext';
+
+// Invoice Extension
+export {
+  invoiceExt,
+  invoiceLineExt,
+} from './invoice-ext';
+
+export type {
+  InvoiceExtRecord,
+  NewInvoiceExtRecord,
+  UpdateInvoiceExtRecord,
+  InvoiceLineExtRecord,
+  NewInvoiceLineExtRecord,
+  UpdateInvoiceLineExtRecord,
+} from './invoice-ext';
+
+// Customer Payment Extension
+export {
+  customerPaymentExt,
+  customerPaymentApplications2,
+} from './customer-payment-ext';
+
+export type {
+  CustomerPaymentExtRecord,
+  NewCustomerPaymentExtRecord,
+  UpdateCustomerPaymentExtRecord,
+  CustomerPaymentApplication2,
+  NewCustomerPaymentApplication2,
+} from './customer-payment-ext';
+
+// Transaction Supporting Tables (Approval History, Credit Memos)
+export {
+  purchaseOrderApprovalHistory2,
+  vendorBillApprovalHistory2,
+  vendorCreditMemos2,
+  customerCreditMemos2,
+} from './transaction-supporting';
+
+export type {
+  PurchaseOrderApprovalHistoryRecord2,
+  NewPurchaseOrderApprovalHistoryRecord2,
+  VendorBillApprovalHistoryRecord2,
+  NewVendorBillApprovalHistoryRecord2,
+  VendorCreditMemo2,
+  NewVendorCreditMemo2,
+  CustomerCreditMemo2,
+  NewCustomerCreditMemo2,
+} from './transaction-supporting';
+
+// ============================================================================
+// ITEM COSTING CONFIGURATION EXPORTS
+// ============================================================================
+
+export {
+  CostingMethodEnum,
+  organizationCostingDefaults,
+  subsidiaryCostingConfig,
+  itemCostingMethods,
+  itemCostLayers,
+  itemCostHistory,
+} from './item-costing-config';
+
+export type {
+  CostingMethodValue,
+  OrganizationCostingDefaultsRecord,
+  InsertOrganizationCostingDefaults,
+  SubsidiaryCostingConfigRecord,
+  InsertSubsidiaryCostingConfig,
+  ItemCostingMethodRecord,
+  InsertItemCostingMethod,
+  ItemCostLayerRecord,
+  InsertItemCostLayer,
+  ItemCostHistoryRecord,
+  InsertItemCostHistory,
+} from './item-costing-config';
+
+// ============================================================================
+// INVENTORY ADJUSTMENTS AND TRANSFERS EXPORTS
+// ============================================================================
+
+export {
+  adjustmentTypeEnum,
+  adjustmentStatusEnum,
+  transferTypeEnum,
+  transferStatusEnum,
+  inventoryAdjustments,
+  inventoryAdjustmentLines,
+  inventoryTransfers,
+  inventoryTransferLines,
+  inventoryApprovalHistory,
+  adjustmentReasonCodes,
+} from './inventory-adjustments';
+
+export type {
+  AdjustmentTypeValue,
+  AdjustmentStatusValue,
+  TransferTypeValue,
+  TransferStatusValue,
+  InventoryAdjustmentRecord,
+  InsertInventoryAdjustment,
+  InventoryAdjustmentLineRecord,
+  InsertInventoryAdjustmentLine,
+  InventoryTransferRecord,
+  InsertInventoryTransfer,
+  InventoryTransferLineRecord,
+  InsertInventoryTransferLine,
+  InventoryApprovalHistoryRecord,
+  InsertInventoryApprovalHistory,
+  AdjustmentReasonCodeRecord,
+  InsertAdjustmentReasonCode,
+} from './inventory-adjustments';
+
+// ============================================================================
+// APPROVAL WORKFLOW AND SEGREGATION OF DUTIES EXPORTS
+// ============================================================================
+
+export {
+  // Enums
+  approvalDocumentTypeEnum,
+  approvalLevelEnum,
+  approvalInstanceStatusEnum,
+  workflowApprovalActionEnum,
+  sodConflictTypeEnum,
+  // Tables
+  approvalPolicies,
+  approvalSteps,
+  approvalInstances,
+  approvalActions,
+  sodPolicies,
+  sodRules,
+  sodViolations,
+  // Constants
+  ApprovalDocumentTypes,
+  ApprovalLevels,
+  ApprovalInstanceStatuses,
+  ApprovalActions as WorkflowApprovalActions,
+  SodConflictTypes,
+  SodEnforcementModes,
+  SodSeverityLevels,
+} from './approval-workflow';
+
+export type {
+  // Approval Policy types
+  ApprovalPolicy,
+  NewApprovalPolicy,
+  UpdateApprovalPolicy,
+  ApprovalStep,
+  NewApprovalStep,
+  UpdateApprovalStep,
+  ApprovalInstance,
+  NewApprovalInstance,
+  UpdateApprovalInstance,
+  WorkflowApprovalAction,
+  NewWorkflowApprovalAction,
+  // SoD types
+  SodPolicy,
+  NewSodPolicy,
+  UpdateSodPolicy,
+  SodRule,
+  NewSodRule,
+  UpdateSodRule,
+  SodViolation,
+  NewSodViolation,
+  // Enum value types
+  ApprovalDocumentType,
+  ApprovalLevel,
+  ApprovalInstanceStatus,
+  WorkflowApprovalActionType,
+  SodConflictType,
+  // Helper types
+  ApprovalConditionRule,
+  ApprovalSkipCondition,
+} from './approval-workflow';
