@@ -27,6 +27,30 @@ const subscriptionSchema = z.object({
   items: z.array(subscriptionItemSchema).min(1).optional()
 });
 
+const amendmentItemSchema = z.object({
+  id: z.string().uuid().optional(),
+  itemId: z.string().uuid(),
+  quantity: z.number().positive().optional(),
+  unitPrice: z.number().positive().optional(),
+  discountPercentage: z.number().min(0).max(1).optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional().nullable()
+});
+
+const subscriptionAmendmentSchema = z.object({
+  subscriptionId: z.string().uuid(),
+  subscriptionData: subscriptionSchema.omit({ items: true }).partial().optional(),
+  addItems: z.array(subscriptionItemSchema).optional(),
+  updateItems: z.array(amendmentItemSchema.extend({
+    id: z.string().uuid()
+  })).optional(),
+  removeItemIds: z.array(z.string().uuid()).optional(),
+  reason: z.string().optional(),
+  effectiveDate: z.coerce.date().optional(),
+  metadata: z.record(z.any()).optional(),
+  modificationId: z.string().optional()
+});
+
 export const subscriptionsRouter = router({
   // List subscriptions with filtering
   list: authenticatedProcedure
@@ -115,6 +139,31 @@ export const subscriptionsRouter = router({
       }
       
       return updated;
+    }),
+
+  // Amend subscription with partial changes
+  amend: authenticatedProcedure
+    .input(subscriptionAmendmentSchema)
+    .mutation(async ({ ctx, input }) => {
+      const service = new SubscriptionService(ctx.serviceContext);
+
+      return service.amendSubscription({
+        subscriptionId: input.subscriptionId,
+        subscriptionData: input.subscriptionData as any,
+        addItems: input.addItems?.map(item => ({
+          ...item,
+          endDate: item.endDate || undefined
+        })),
+        updateItems: input.updateItems?.map(item => ({
+          ...item,
+          endDate: item.endDate || undefined
+        })),
+        removeItemIds: input.removeItemIds,
+        reason: input.reason,
+        effectiveDate: input.effectiveDate,
+        metadata: input.metadata,
+        modificationId: input.modificationId
+      });
     }),
 
   // Delete subscription
@@ -307,6 +356,37 @@ export const subscriptionsRouter = router({
         }
         throw error;
       }
+    }),
+
+  // List subscription version history
+  listVersions: authenticatedProcedure
+    .input(z.object({
+      subscriptionId: z.string().uuid(),
+      limit: z.number().min(1).max(100).default(25)
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new SubscriptionService(ctx.serviceContext);
+      return service.listSubscriptionVersions(input.subscriptionId, input.limit);
+    }),
+
+  // Get a specific subscription version snapshot
+  getVersion: authenticatedProcedure
+    .input(z.object({
+      subscriptionId: z.string().uuid(),
+      versionId: z.string().uuid()
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new SubscriptionService(ctx.serviceContext);
+      const version = await service.getSubscriptionVersion(input.subscriptionId, input.versionId);
+
+      if (!version) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Subscription version not found'
+        });
+      }
+
+      return version;
     }),
 
   // Get subscription metrics

@@ -62,6 +62,7 @@ export const timeEntrySchema = z.object({
   employeeId: z.string().uuid(),
   projectId: z.string().uuid().nullable().optional(),
   costCodeId: z.string().uuid().nullable().optional(),
+  projectTaskId: z.string().uuid().nullable().optional(),
   entryDate: z.string(),
   hours: z.string(),
   entryType: TimeEntryTypeEnum,
@@ -110,12 +111,19 @@ export interface TimeEntryWithRelations extends TimeEntry {
     name: string;
     projectCode: string;
   };
+  projectTask?: {
+    id: string;
+    name: string;
+    taskCode: string;
+    status: string;
+  };
   approver?: {
     id: string;
     email: string;
     firstName?: string | null;
     lastName?: string | null;
   };
+  attachments?: TimeEntryAttachment[];
 }
 
 /**
@@ -125,6 +133,7 @@ export const createTimeEntrySchema = z.object({
   employeeId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
   costCodeId: z.string().uuid().optional(),
+  projectTaskId: z.string().uuid().optional(),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Entry date must be YYYY-MM-DD format'),
   hours: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Hours must be a positive number'),
   entryType: TimeEntryTypeEnum.default('REGULAR'),
@@ -144,6 +153,7 @@ export type CreateTimeEntryInput = z.infer<typeof createTimeEntrySchema>;
 export const updateTimeEntrySchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
   costCodeId: z.string().uuid().nullable().optional(),
+  projectTaskId: z.string().uuid().nullable().optional(),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   hours: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
   entryType: TimeEntryTypeEnum.optional(),
@@ -164,6 +174,7 @@ export const timeEntryFiltersSchema = z.object({
   employeeId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
   costCodeId: z.string().uuid().optional(),
+  projectTaskId: z.string().uuid().optional(),
   status: z.union([TimeEntryStatusEnum, z.array(TimeEntryStatusEnum)]).optional(),
   entryType: z.union([TimeEntryTypeEnum, z.array(TimeEntryTypeEnum)]).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -233,6 +244,32 @@ export const laborCostRateSchema = z.object({
 });
 
 export type LaborCostRate = z.infer<typeof laborCostRateSchema>;
+
+export const timeEntryAttachmentSchema = z.object({
+  id: z.string().uuid(),
+  organizationId: z.string().uuid(),
+  timeEntryId: z.string().uuid(),
+  fileName: z.string(),
+  fileUrl: z.string(),
+  contentType: z.string().nullable().optional(),
+  fileSize: z.number().nullable().optional(),
+  uploadedBy: z.string().uuid().nullable().optional(),
+  uploadedAt: z.date(),
+  metadata: z.record(z.unknown()).nullable().optional(),
+});
+
+export type TimeEntryAttachment = z.infer<typeof timeEntryAttachmentSchema>;
+
+export const createTimeEntryAttachmentSchema = z.object({
+  timeEntryId: z.string().uuid(),
+  fileName: z.string().min(1),
+  fileUrl: z.string().min(1),
+  contentType: z.string().optional(),
+  fileSize: z.number().nonnegative().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export type CreateTimeEntryAttachmentInput = z.infer<typeof createTimeEntryAttachmentSchema>;
 
 /**
  * Schema for creating a labor cost rate

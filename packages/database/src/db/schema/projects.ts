@@ -37,13 +37,52 @@ export const BUDGET_VERSION_STATUS = {
 
 export type BudgetVersionStatus = typeof BUDGET_VERSION_STATUS[keyof typeof BUDGET_VERSION_STATUS];
 
+export const PROJECT_STATUS = {
+  PLANNING: 'PLANNING',
+  ACTIVE: 'ACTIVE',
+  ON_HOLD: 'ON_HOLD',
+  COMPLETED: 'COMPLETED',
+  CLOSED: 'CLOSED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type ProjectStatus = typeof PROJECT_STATUS[keyof typeof PROJECT_STATUS];
+
+export const PROJECT_TASK_STATUS = {
+  NOT_STARTED: 'NOT_STARTED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  BLOCKED: 'BLOCKED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type ProjectTaskStatus = typeof PROJECT_TASK_STATUS[keyof typeof PROJECT_TASK_STATUS];
+
+export const PROJECT_TASK_PRIORITY = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
+} as const;
+
+export type ProjectTaskPriority = typeof PROJECT_TASK_PRIORITY[keyof typeof PROJECT_TASK_PRIORITY];
+
+export const PROJECT_ADDRESS_TYPE = {
+  JOB_SITE: 'JOB_SITE',
+  SHIPPING: 'SHIPPING',
+  BILLING: 'BILLING',
+  OTHER: 'OTHER',
+} as const;
+
+export type ProjectAddressType = typeof PROJECT_ADDRESS_TYPE[keyof typeof PROJECT_ADDRESS_TYPE];
+
 export const projects = pgTable('projects', {
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
   projectCode: text('project_code').notNull(),
   name: text('name').notNull(),
-  status: text('status').default('planning').notNull(),
+  status: text('status').default(PROJECT_STATUS.PLANNING).notNull(),
   startDate: date('start_date'),
   endDate: date('end_date'),
   externalSource: text('external_source'),
@@ -70,6 +109,24 @@ export const projectParticipants = pgTable('project_participants', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   participantIdx: uniqueIndex('idx_project_participants_role').on(table.projectId, table.participantRole, table.entityId),
+}));
+
+export const projectAddresses = pgTable('project_addresses', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  addressType: text('address_type').notNull().default(PROJECT_ADDRESS_TYPE.JOB_SITE),
+  addressLine1: text('address_line1'),
+  addressLine2: text('address_line2'),
+  city: text('city'),
+  state: text('state'),
+  postalCode: text('postal_code'),
+  country: text('country'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  projectAddressIdx: uniqueIndex('idx_project_addresses_type').on(table.projectId, table.addressType),
+  projectAddressProjectIdx: index('idx_project_addresses_project').on(table.projectId),
 }));
 
 export const projectCostCodes = pgTable('project_cost_codes', {
@@ -100,6 +157,34 @@ export const projectCostCodes = pgTable('project_cost_codes', {
   costCodeIdx: uniqueIndex('idx_project_cost_codes_project_code').on(table.projectId, table.costCode),
   parentIdx: index('idx_project_cost_codes_parent').on(table.parentCostCodeId),
   projectActiveIdx: index('idx_project_cost_codes_project_active').on(table.projectId, table.isActive),
+}));
+
+export const projectTasks = pgTable('project_tasks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  parentTaskId: uuid('parent_task_id'),
+  projectCostCodeId: uuid('project_cost_code_id').references(() => projectCostCodes.id, { onDelete: 'set null' }),
+  taskCode: text('task_code').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  status: text('status').notNull().default(PROJECT_TASK_STATUS.NOT_STARTED),
+  priority: text('priority').notNull().default(PROJECT_TASK_PRIORITY.MEDIUM),
+  startDate: date('start_date'),
+  endDate: date('end_date'),
+  durationDays: integer('duration_days'),
+  percentComplete: numeric('percent_complete', { precision: 5, scale: 2 }).default('0').notNull(),
+  isMilestone: boolean('is_milestone').default(false).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  assignedEntityId: uuid('assigned_entity_id').references(() => entities.id),
+  metadata: jsonb('metadata'),
+  createdBy: uuid('created_by').references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  projectTaskCodeIdx: uniqueIndex('idx_project_tasks_project_code').on(table.projectId, table.taskCode),
+  projectTaskParentIdx: index('idx_project_tasks_parent').on(table.parentTaskId),
+  projectTaskProjectIdx: index('idx_project_tasks_project').on(table.projectId),
+  projectTaskCostCodeIdx: index('idx_project_tasks_cost_code').on(table.projectCostCodeId),
 }));
 
 export const projectBudgetVersions = pgTable('project_budget_versions', {
@@ -204,7 +289,9 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     references: [subsidiaries.id],
   }),
   projectParticipants: many(projectParticipants),
+  projectAddresses: many(projectAddresses),
   projectCostCodes: many(projectCostCodes),
+  projectTasks: many(projectTasks),
   projectBudgetVersions: many(projectBudgetVersions),
 }));
 
@@ -216,6 +303,40 @@ export const projectParticipantsRelations = relations(projectParticipants, ({ on
   entity: one(entities, {
     fields: [projectParticipants.entityId],
     references: [entities.id],
+  }),
+}));
+
+export const projectAddressesRelations = relations(projectAddresses, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectAddresses.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const projectTasksRelations = relations(projectTasks, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [projectTasks.projectId],
+    references: [projects.id],
+  }),
+  parentTask: one(projectTasks, {
+    fields: [projectTasks.parentTaskId],
+    references: [projectTasks.id],
+    relationName: 'taskParentChild',
+  }),
+  childTasks: many(projectTasks, {
+    relationName: 'taskParentChild',
+  }),
+  costCode: one(projectCostCodes, {
+    fields: [projectTasks.projectCostCodeId],
+    references: [projectCostCodes.id],
+  }),
+  assignedEntity: one(entities, {
+    fields: [projectTasks.assignedEntityId],
+    references: [entities.id],
+  }),
+  createdByUser: one(users, {
+    fields: [projectTasks.createdBy],
+    references: [users.id],
   }),
 }));
 
@@ -241,6 +362,7 @@ export const projectCostCodesRelations = relations(projectCostCodes, ({ one, man
     references: [users.id],
   }),
   projectBudgetLines: many(projectBudgetLines),
+  projectTasks: many(projectTasks),
 }));
 
 export const projectBudgetVersionsRelations = relations(projectBudgetVersions, ({ one, many }) => ({
@@ -293,8 +415,12 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type ProjectParticipant = typeof projectParticipants.$inferSelect;
 export type NewProjectParticipant = typeof projectParticipants.$inferInsert;
+export type ProjectAddress = typeof projectAddresses.$inferSelect;
+export type NewProjectAddress = typeof projectAddresses.$inferInsert;
 export type ProjectCostCode = typeof projectCostCodes.$inferSelect;
 export type NewProjectCostCode = typeof projectCostCodes.$inferInsert;
+export type ProjectTask = typeof projectTasks.$inferSelect;
+export type NewProjectTask = typeof projectTasks.$inferInsert;
 export type ProjectBudgetVersion = typeof projectBudgetVersions.$inferSelect;
 export type NewProjectBudgetVersion = typeof projectBudgetVersions.$inferInsert;
 export type ProjectBudgetLine = typeof projectBudgetLines.$inferSelect;
