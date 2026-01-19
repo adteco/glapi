@@ -39,6 +39,14 @@
 - [x] Implement posting hooks: approved time entries create labor cost accruals (DR WIP, CR payroll clearing) and optionally feed billing.
 - [x] Document time entry lifecycle and add integration/e2e tests ensuring hours roll into project budgets + WIP.
 
+### Phase 2d – Job Cost Posting & Reporting 🚧 IN PROGRESS (glapi-0ib.3)
+- [x] Enforce cost code + project validation on both time and expense entries before GL posting.
+- [x] Add shared `JobCostPostingService` that maps approved labor/expense entries into WIP→expense postings via `GlPostingEngine`.
+- [x] Surface expense management UI controls so project accountants can post approved entries to GL once receipts are reviewed.
+- [x] Publish Job Cost Summary reporting endpoint + dashboard (Reports → Construction) showing budget vs actual, WIP, and percent complete.
+- [ ] Materialize job cost reporting views (WIP summary, percent complete, budget vs actual) that consume the new postings.
+- [ ] Document downstream validation steps + alert surfaces for failed postings, and extend reporting dashboards in `apps/web` / `reports`.
+
 ### Phase 3 – Transaction Typing & Retainage Workflow
 - [ ] Add new `transaction_types` (`PRIME_CONTRACT`, `COMMITMENT`, `CHANGE_ORDER`, `PAY_APP`, `RETAINAGE_RELEASE`, `OWNER_BILLING`).
 - [ ] Extend `business_transactions`/`_lines` with retainage + schedule-of-values fields and regenerate Drizzle schema.
@@ -54,6 +62,7 @@
 - Coordinate with authentication layer to fetch Clerk org context for RLS (shared with existing GL features).
 - Ensure migrations are backfilled in a sandbox before cutting over production tenants.
 - Align naming conventions with existing docs (`docs/transaction-based-design.md`, `docs/event-sourced-gl.md`).
+- All labor + expense postings now require `(project_id, cost_code_id, subsidiary_id)` and will hard-fail if those attributes are missing; downstream integrations must populate these fields before attempting GL posting.
 
 ## Task Tracker
 | Status | Task | Owner | Notes |
@@ -65,6 +74,7 @@
 | ✅ DONE | Deliver schedule-of-values + pay application workflow | glapi-wyc | SOV tables, TRPC router, UI pages complete |
 | ✅ DONE | Build Pay Applications UI | VioletWolf | List/detail pages with G702/G703 export |
 | ✅ DONE | Ship time tracking + labor costing tied to projects | FrostyLynx (glapi-zo0) | Schema, UI, posting hooks complete |
+| 🚧 IN PROGRESS | Deliver job cost posting + reporting (glapi-0ib.3) | Codex | Labor + expense posting lives, reporting views + dashboards outstanding |
 | ☐ TODO | Add construction transaction types + fields | | Blocks posting rule work |
 | ☐ TODO | Extend posting rules for retainage + WIP | | Needs GL review |
 | ☐ TODO | Build ingest pipeline | | Requires API credentials + external refs hooks |

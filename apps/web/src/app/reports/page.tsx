@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target } from 'lucide-react';
+import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Scale, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReportsPage() {
@@ -19,6 +19,12 @@ export default function ReportsPage() {
       description: "Core financial statements and analysis",
       icon: <DollarSign className="h-8 w-8 text-blue-600" />,
       reports: [
+        {
+          name: "Trial Balance",
+          description: "Summary of all account balances with debits and credits",
+          href: "/reports/financial/trial-balance",
+          icon: <Scale className="h-5 w-5" />
+        },
         {
           name: "Balance Sheet",
           description: "Assets, liabilities, and equity at a point in time",
@@ -38,6 +44,19 @@ export default function ReportsPage() {
           icon: <Activity className="h-5 w-5" />
         }
       ]
+    },
+    {
+      title: "Construction & Projects",
+      description: "Project health, WIP, and job cost analytics",
+      icon: <Building2 className="h-8 w-8 text-amber-600" />,
+      reports: [
+        {
+          name: "Job Cost Summary",
+          description: "Budget vs actual, commitments, and percent complete by project",
+          href: "/reports/construction/job-cost",
+          icon: <TrendingUp className="h-5 w-5" />
+        },
+      ],
     },
     {
       title: "Transaction Reports",
@@ -146,23 +165,29 @@ export default function ReportsPage() {
       {/* Quick Access Section */}
       <div className="mt-12 bg-gray-50 rounded-lg p-6">
         <h3 className="text-xl font-semibold mb-4">Quick Access</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link href="/reports/financial/trial-balance">
+            <Button variant="outline" className="w-full justify-start">
+              <Scale className="mr-2 h-4 w-4" />
+              Trial Balance
+            </Button>
+          </Link>
           <Link href="/reports/financial/balance-sheet">
             <Button variant="outline" className="w-full justify-start">
               <BarChart3 className="mr-2 h-4 w-4" />
-              Latest Balance Sheet
+              Balance Sheet
             </Button>
           </Link>
           <Link href="/reports/financial/income-statement">
             <Button variant="outline" className="w-full justify-start">
               <TrendingUp className="mr-2 h-4 w-4" />
-              Current Period P&L
+              Income Statement
             </Button>
           </Link>
           <Link href="/reports/financial/cash-flow-statement">
             <Button variant="outline" className="w-full justify-start">
               <Activity className="mr-2 h-4 w-4" />
-              Cash Flow Analysis
+              Cash Flow
             </Button>
           </Link>
         </div>

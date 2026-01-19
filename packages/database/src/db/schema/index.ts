@@ -19,6 +19,7 @@ import * as accounts from './accounts';
 import * as entities from './entities';
 import * as addresses from './addresses';
 import * as projects from './projects';
+import * as projectExpenses from './project-expenses';
 import * as transactionTypes from './transaction-types';
 import * as glTransactions from './gl-transactions';
 import * as accountingPeriods from './accounting-periods';
@@ -119,6 +120,9 @@ import * as inventoryAdjustmentsSchemas from './inventory-adjustments';
 // Approval Workflow and Segregation of Duties
 import * as approvalWorkflowSchemas from './approval-workflow';
 
+// Workflow Automation Engine
+import * as workflowAutomationSchemas from './workflow-automation';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -144,6 +148,7 @@ export const schema = {
   ...entities,
   ...addresses,
   ...projects,
+  ...projectExpenses,
   ...testGl,
   // Items system schemas
   ...unitsOfMeasure,
@@ -225,6 +230,8 @@ export const schema = {
   ...inventoryAdjustmentsSchemas,
   // Approval Workflow and Segregation of Duties
   ...approvalWorkflowSchemas,
+  // Workflow Automation Engine
+  ...workflowAutomationSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -980,3 +987,77 @@ export type {
   ApprovalConditionRule,
   ApprovalSkipCondition,
 } from './approval-workflow';
+
+// ============================================================================
+// WORKFLOW AUTOMATION ENGINE EXPORTS
+// ============================================================================
+
+export {
+  // Enums
+  workflowTriggerTypeEnum,
+  workflowActionTypeEnum,
+  workflowDefinitionStatusEnum,
+  workflowInstanceStatusEnum,
+  workflowStepExecutionStatusEnum,
+  workflowErrorStrategyEnum,
+  notificationChannelEnum,
+  // Tables
+  workflowDefinitions,
+  workflowSteps,
+  workflowInstances,
+  workflowStepExecutions,
+  workflowWebhooks,
+  workflowSchedules,
+  workflowEventSubscriptions,
+  // Relations
+  workflowDefinitionsRelations,
+  workflowStepsRelations,
+  workflowInstancesRelations,
+  workflowStepExecutionsRelations,
+  workflowWebhooksRelations,
+  workflowSchedulesRelations,
+  workflowEventSubscriptionsRelations,
+} from './workflow-automation';
+
+export type {
+  // Table types
+  WorkflowDefinition,
+  NewWorkflowDefinition,
+  WorkflowStep,
+  NewWorkflowStep,
+  WorkflowInstance,
+  NewWorkflowInstance,
+  WorkflowStepExecution,
+  NewWorkflowStepExecution,
+  WorkflowWebhook,
+  NewWorkflowWebhook,
+  WorkflowSchedule,
+  NewWorkflowSchedule,
+  WorkflowEventSubscription,
+  NewWorkflowEventSubscription,
+  // Enum types
+  WorkflowTriggerType,
+  WorkflowActionType,
+  WorkflowDefinitionStatus,
+  WorkflowInstanceStatus,
+  WorkflowStepExecutionStatus,
+  WorkflowErrorStrategy,
+  NotificationChannel,
+  // Configuration types
+  EventTriggerConfig,
+  ScheduleTriggerConfig,
+  WebhookTriggerConfig,
+  ManualTriggerConfig,
+  TriggerCondition,
+  WebhookActionConfig,
+  InternalActionConfig,
+  NotificationActionConfig,
+  ConditionActionConfig,
+  DelayActionConfig,
+  TransformActionConfig,
+  ApprovalActionConfig,
+  LoopActionConfig,
+  ParallelActionConfig,
+  SubWorkflowActionConfig,
+  RetryConfig,
+} from './workflow-automation';

@@ -581,12 +581,16 @@ export class GlPostingEngine extends BaseService {
     const exchangeRate = Number(businessTransaction.exchangeRate || 1);
     const baseAmount = amount * exchangeRate;
     
+    const lineCustomFields = (businessLine as any)?.customFields || {};
+    const debitAccountId = rule.debitAccountId ?? lineCustomFields.debitAccountId;
+    const creditAccountId = rule.creditAccountId ?? lineCustomFields.creditAccountId;
+
     // Create debit line if debit account specified
-    if (rule.debitAccountId) {
+    if (debitAccountId) {
       const debitLine: CreateGlTransactionLineInput = {
         transactionId: glTransactionId,
         lineNumber: startingLineNumber,
-        accountId: rule.debitAccountId,
+        accountId: debitAccountId,
         classId: businessLine.classId,
         departmentId: businessLine.departmentId,
         locationId: businessLine.locationId,
@@ -611,11 +615,11 @@ export class GlPostingEngine extends BaseService {
     }
 
     // Create credit line if credit account specified
-    if (rule.creditAccountId) {
+    if (creditAccountId) {
       const creditLine: CreateGlTransactionLineInput = {
         transactionId: glTransactionId,
         lineNumber: startingLineNumber + 1,
-        accountId: rule.creditAccountId,
+        accountId: creditAccountId,
         classId: businessLine.classId,
         departmentId: businessLine.departmentId,
         locationId: businessLine.locationId,

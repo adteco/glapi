@@ -31,6 +31,7 @@ const {
   mockDeleteAttachment,
   mockTaskGetAccessibleIds,
   mockTaskFindById,
+  mockJobCostPostLaborEntries,
 } = vi.hoisted(() => ({
   mockFindAll: vi.fn(),
   mockFindById: vi.fn(),
@@ -60,6 +61,7 @@ const {
   mockDeleteAttachment: vi.fn(),
   mockTaskGetAccessibleIds: vi.fn(),
   mockTaskFindById: vi.fn(),
+  mockJobCostPostLaborEntries: vi.fn(),
 }));
 
 // Mock the database module
@@ -98,6 +100,12 @@ vi.mock('@glapi/database', () => ({
   })),
 }));
 
+vi.mock('../job-cost-posting-service', () => ({
+  JobCostPostingService: vi.fn().mockImplementation(() => ({
+    postLaborEntries: mockJobCostPostLaborEntries,
+  })),
+}));
+
 // Import after mocking
 import { TimeEntryService } from '../time-entry-service';
 
@@ -113,10 +121,10 @@ describe('TimeEntryService', () => {
   const mockTimeEntry = {
     id: 'entry-123',
     organizationId: testOrgId,
-    subsidiaryId: null,
+    subsidiaryId: 'sub-123',
     employeeId: testEmployeeId,
     projectId: testProjectId,
-    costCodeId: null,
+    costCodeId: 'cost-123',
     entryDate: '2024-01-15',
     hours: '8.00',
     entryType: 'REGULAR',
@@ -190,6 +198,11 @@ describe('TimeEntryService', () => {
       taskCode: 'TASK-001',
       name: 'Task',
       status: 'IN_PROGRESS',
+    });
+    mockJobCostPostLaborEntries.mockResolvedValue({
+      glResult: {
+        glTransaction: { id: 'gl-transaction-1' },
+      },
     });
   });
 
@@ -463,6 +476,15 @@ describe('TimeEntryService', () => {
       expect(result.success).toBe(true);
       expect(result.postedCount).toBe(1);
       expect(result.failedCount).toBe(0);
+      expect(result.glTransactionId).toBe('gl-transaction-1');
+      expect(result.glTransactionIds).toEqual(['gl-transaction-1']);
+      expect(mockJobCostPostLaborEntries).toHaveBeenCalledTimes(1);
+      expect(mockMarkAsPosted).toHaveBeenCalledWith(
+        'entry-123',
+        testOrgId,
+        'gl-transaction-1',
+        'batch-123'
+      );
     });
 
     it('should fail posting non-approved entries', async () => {
@@ -474,6 +496,23 @@ describe('TimeEntryService', () => {
       expect(result.failedCount).toBe(1);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].error).toContain('APPROVED');
+      expect(mockJobCostPostLaborEntries).not.toHaveBeenCalled();
+    });
+
+    it('records failure when GL posting fails', async () => {
+      const approvedEntry = { ...mockTimeEntry, status: 'APPROVED' };
+      mockFindById.mockResolvedValue(approvedEntry);
+      mockGenerateBatchNumber.mockResolvedValue('BATCH-002');
+      mockCreatePostingBatch.mockResolvedValue({ id: 'batch-234', batchNumber: 'BATCH-002' });
+      mockJobCostPostLaborEntries.mockRejectedValue(new Error('GL engine offline'));
+
+      const result = await service.postToGL(['entry-123']);
+
+      expect(result.success).toBe(false);
+      expect(result.postedCount).toBe(0);
+      expect(result.failedCount).toBe(1);
+      expect(result.errors[0].error).toContain('GL engine offline');
+      expect(mockMarkAsPosted).not.toHaveBeenCalled();
     });
   });
 });
