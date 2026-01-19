@@ -656,9 +656,6 @@ export class GlPostingEngine extends BaseService {
         return Number(businessLine.costAmount || 0);
       case 'discount_amount':
         return Number(businessLine.discountAmount || 0);
-      case 'total_line_amount':
-      case 'total_amount':
-        return Number(businessLine.totalLineAmount || 0);
       default:
         // TODO: Implement expression evaluator for complex formulas
         return Number(businessLine.lineAmount || 0);

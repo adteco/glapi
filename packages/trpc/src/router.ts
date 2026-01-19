@@ -23,15 +23,10 @@ import { revenueRouter } from './routers/revenue';
 import { accountingPeriodsRouter } from './routers/accounting-periods';
 import { projectCostCodesRouter } from './routers/project-cost-codes';
 import { projectBudgetsRouter } from './routers/project-budgets';
-import { projectsRouter } from './routers/projects';
-import { projectTasksRouter } from './routers/project-tasks';
-import { projectExpensesRouter } from './routers/project-expenses';
 import { timeEntriesRouter } from './routers/time-entries';
 import { closeManagementRouter } from './routers/close-management';
 import { scheduleOfValuesRouter } from './routers/schedule-of-values';
 import { payApplicationsRouter } from './routers/pay-applications';
-import { financialStatementsRouter } from './routers/financial-statements';
-import { auditRouter } from './routers/audit';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -56,17 +51,12 @@ export const appRouter = router({
   payments: paymentsRouter,
   revenue: revenueRouter,
   accountingPeriods: accountingPeriodsRouter,
-  projects: projectsRouter,
   projectCostCodes: projectCostCodesRouter,
   projectBudgets: projectBudgetsRouter,
-  projectTasks: projectTasksRouter,
-  projectExpenses: projectExpensesRouter,
   timeEntries: timeEntriesRouter,
   closeManagement: closeManagementRouter,
   scheduleOfValues: scheduleOfValuesRouter,
   payApplications: payApplicationsRouter,
-  financialStatements: financialStatementsRouter,
-  audit: auditRouter,
 });
 
 export type AppRouter = typeof appRouter;

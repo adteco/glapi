@@ -9,35 +9,34 @@
 
 ## Milestones & Phases
 
-### Phase 0 – Schema Alignment Foundations ✅ COMPLETE
-- [x] Backfill `activity_codes` columns (`organization_id`, `subsidiary_id`, `revenue_account_id`, `cost_account_id`) so generated schema matches typed schema.
-- [x] Add missing RLS policies for `activity_codes`, `business_transactions`, and `business_transaction_lines` to enforce tenant scope.
-- [x] Create migration scaffolding + testing harness for construction accounting tables.
+### Phase 0 – Schema Alignment Foundations
+- [ ] Backfill `activity_codes` columns (`organization_id`, `subsidiary_id`, `revenue_account_id`, `cost_account_id`) so generated schema matches typed schema.
+- [ ] Add missing RLS policies for `activity_codes`, `business_transactions`, and `business_transaction_lines` to enforce tenant scope.
+- [ ] Create migration scaffolding + testing harness for construction accounting tables.
   - Migration `0007_construction_projects.sql` introduces projects/external references foundation.
 
-### Phase 1 – Project Master Data ✅ COMPLETE
-- [x] Migrate `projects`, `project_participants`, `project_addresses` tables with indexes + RLS.
-- [x] Build TRPC service endpoints for CRUD + list including external references.
-- [x] Seed Clerk org ↔ subsidiary mapping rules to support project scoping.
+### Phase 1 – Project Master Data
+- [ ] Migrate `projects`, `project_participants`, `project_addresses` tables with indexes + RLS.
+- [ ] Build TRPC service endpoints for CRUD + list including external references.
+- [ ] Seed Clerk org ↔ subsidiary mapping rules to support project scoping.
 
-### Phase 2 – Cost Structure & Budgets ✅ COMPLETE
-- [x] Create `project_cost_codes`, `project_budget_versions`, `project_budget_lines` tables.
-- [x] Wire `business_transaction_lines` to enforce valid `(project_id, cost_code_id)` combinations.
-- [x] Import baseline budget via staging tables + idempotent loader.
-- [x] Publish budget authoring UI + API (align with `apps/web/.../budgets` patterns) and document budget import process.
+### Phase 2 – Cost Structure & Budgets
+- [ ] Create `project_cost_codes`, `project_budget_versions`, `project_budget_lines` tables.
+- [ ] Wire `business_transaction_lines` to enforce valid `(project_id, cost_code_id)` combinations.
+- [ ] Import baseline budget via staging tables + idempotent loader.
+- [ ] Publish budget authoring UI + API (align with `apps/web/.../budgets` patterns) and document budget import process.
 
-### Phase 2b – Schedule of Values & Pay Applications ✅ COMPLETE
-- [x] Model `project_schedule_values` rows (one per cost code/phase) with committed, approved, billed, and retainage tracking.
-- [x] Extend `business_transactions` to support `PAY_APP`, `OWNER_BILLING`, and `RETAINAGE_RELEASE` line metadata (e.g., percent complete, retainage percent, billed-to-date).
-- [x] Build pay application workflow (draft → submitted → approved → billed) with approvals + integrations to owner billing and GL postings.
-- [x] Build Pay Applications UI pages (list + detail) with full workflow actions and G702/G703 export.
-- [x] Document schedule-of-values usage, import/export flows, and add Playwright coverage for the SOV grid + pay app approval UX.
+### Phase 2b – Schedule of Values & Pay Applications
+- [ ] Model `project_schedule_values` rows (one per cost code/phase) with committed, approved, billed, and retainage tracking.
+- [ ] Extend `business_transactions` to support `PAY_APP`, `OWNER_BILLING`, and `RETAINAGE_RELEASE` line metadata (e.g., percent complete, retainage percent, billed-to-date).
+- [ ] Build pay application workflow (draft → submitted → approved → billed) with approvals + integrations to owner billing and GL postings.
+- [ ] Document schedule-of-values usage, import/export flows, and add Playwright coverage for the SOV grid + pay app approval UX.
 
-### Phase 2c – Time Tracking & Labor Costing ✅ COMPLETE (glapi-zo0)
-- [x] Introduce `time_entries`, `labor_cost_rates`, and mapping tables linking employees/vendors to projects and cost codes.
-- [x] Build APIs/UI to log, edit, and approve time against projects, including billable/non-billable flags and memo fields.
-- [x] Implement posting hooks: approved time entries create labor cost accruals (DR WIP, CR payroll clearing) and optionally feed billing.
-- [x] Document time entry lifecycle and add integration/e2e tests ensuring hours roll into project budgets + WIP.
+### Phase 2c – Time Tracking & Labor Costing
+- [ ] Introduce `time_entries`, `labor_cost_rates`, and mapping tables linking employees/vendors to projects and cost codes.
+- [ ] Build APIs/UI to log, edit, and approve time against projects, including billable/non-billable flags and memo fields.
+- [ ] Implement posting hooks: approved time entries create labor cost accruals (DR WIP, CR payroll clearing) and optionally feed billing.
+- [ ] Document time entry lifecycle and add integration/e2e tests ensuring hours roll into project budgets + WIP.
 
 ### Phase 3 – Transaction Typing & Retainage Workflow
 - [ ] Add new `transaction_types` (`PRIME_CONTRACT`, `COMMITMENT`, `CHANGE_ORDER`, `PAY_APP`, `RETAINAGE_RELEASE`, `OWNER_BILLING`).
@@ -58,13 +57,11 @@
 ## Task Tracker
 | Status | Task | Owner | Notes |
 |--------|------|-------|-------|
-| ✅ DONE | Align `activity_codes` schema + RLS | | Migration + TypeScript updates complete |
-| ✅ DONE | Add `projects` + participants tables | | External refs + RLS implemented |
-| ✅ DONE | Deliver project task hierarchy + services (glapi-0ib.1) | | Projects/tasks schema, APIs, UI, and unit tests complete |
-| ✅ DONE | Implement project budget structures | | Budget tables and UI complete |
-| ✅ DONE | Deliver schedule-of-values + pay application workflow | glapi-wyc | SOV tables, TRPC router, UI pages complete |
-| ✅ DONE | Build Pay Applications UI | VioletWolf | List/detail pages with G702/G703 export |
-| ✅ DONE | Ship time tracking + labor costing tied to projects | FrostyLynx (glapi-zo0) | Schema, UI, posting hooks complete |
+| ☐ TODO | Align `activity_codes` schema + RLS | | Requires migration + TypeScript updates |
+| ☐ TODO | Add `projects` + participants tables | | Include external refs + RLS |
+| ☐ TODO | Implement project budget structures | | Depends on projects |
+| ☐ TODO | Deliver schedule-of-values + pay application workflow | | Needs project budgets + retainage fields |
+| ☐ TODO | Ship time tracking + labor costing tied to projects | | Requires employees + cost code linkage |
 | ☐ TODO | Add construction transaction types + fields | | Blocks posting rule work |
 | ☐ TODO | Extend posting rules for retainage + WIP | | Needs GL review |
 | ☐ TODO | Build ingest pipeline | | Requires API credentials + external refs hooks |
