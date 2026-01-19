@@ -436,7 +436,7 @@ describe('GL Posting Integration Tests', () => {
             ruleName: 'Credit AP',
             sequenceNumber: 3,
             creditAccountId: ACCOUNTS.ACCOUNTS_PAYABLE,
-            amountFormula: 'total_amount', // Use total_amount to include line_amount + tax_amount
+            amountFormula: 'line_amount',
             effectiveDate: '2024-01-01',
             isActive: true,
           },

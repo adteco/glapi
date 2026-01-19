@@ -23,10 +23,6 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "seed:test-org": "tsx src/seed-test-org.ts",
-    "seed:financial": "tsx src/seed-financial-test-data.ts",
-    "seed:financial-standalone": "tsx src/seed-financial-standalone.ts",
-    "seed:approval-policies": "tsx src/seed-approval-policies.ts",
-    "seed:workflow-templates": "tsx src/seed-workflow-templates.ts",
     "run:entities-migration": "tsx src/scripts/run-entities-migration.ts"
   },
   "dependencies": {

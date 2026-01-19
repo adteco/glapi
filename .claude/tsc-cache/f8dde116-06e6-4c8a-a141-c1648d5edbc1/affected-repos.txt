@@ -1,3 +1,0 @@
-packages/database
-packages/api-service
-packages/trpc
