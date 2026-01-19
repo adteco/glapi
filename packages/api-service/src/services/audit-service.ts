@@ -1,10 +1,14 @@
 import { createHash } from 'crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { BaseService } from './base-service';
 import { ServiceContext, ServiceError, PaginationParams, PaginatedResult } from '../types';
 import { db } from '@glapi/database';
 import {
   unifiedAuditLog,
   auditEvidencePackages,
+  approvalInstances,
+  approvalActions,
   AuditActionType,
   AuditSeverity,
   type UnifiedAuditLogRecord,
@@ -14,9 +18,18 @@ import {
   type AuditActionTypeValue,
   type AuditSeverityValue,
   type EventStoreRecord,
+  type ApprovalInstance,
+  type WorkflowApprovalAction,
 } from '@glapi/database/schema';
-import { eq, and, gte, lte, desc, sql, inArray, or, like } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, sql, inArray, or, like, asc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  buildEvidenceBundleArchive,
+  type EvidenceBundleBuilderOptions,
+  type EvidenceBundleBuildResult,
+  type EvidenceBundleManifest,
+  type EvidenceApprovalDetail,
+} from './evidence-bundle-builder';
 
 // ============================================================================
 // Types
@@ -108,6 +121,30 @@ export interface AuditLogStats {
     last7Days: number;
     last30Days: number;
   };
+}
+
+export interface EvidenceBundleOptions extends EvidenceBundleBuilderOptions {
+  /**
+   * Directory path where bundles should be written.
+   * Defaults to `<repo-root>/evidence-bundles`.
+   */
+  outputDir?: string;
+  /**
+   * When false the bundle is only returned in-memory and not written to disk.
+   */
+  persistToDisk?: boolean;
+  /**
+     * Optional override for generated file name.
+     */
+  fileName?: string;
+}
+
+export interface EvidenceBundleResult {
+  manifest: EvidenceBundleManifest;
+  bundle: Buffer;
+  size: number;
+  filePath?: string;
+  contentHash: string;
 }
 
 // ============================================================================
@@ -781,9 +818,146 @@ export class AuditService extends BaseService {
     return results;
   }
 
+  /**
+   * Generate an evidence bundle archive with audit logs, approvals, and code references
+   */
+  async generateEvidenceBundle(
+    packageId: string,
+    options: EvidenceBundleOptions = {}
+  ): Promise<EvidenceBundleResult> {
+    const pkg = await this.getEvidencePackage(packageId);
+    if (!pkg) {
+      throw new ServiceError('Evidence package not found', 'NOT_FOUND', 404);
+    }
+
+    await db
+      .update(auditEvidencePackages)
+      .set({
+        status: 'GENERATING',
+        errorMessage: null,
+      })
+      .where(eq(auditEvidencePackages.id, packageId));
+
+    try {
+      const logs = await this.getEvidencePackageLogs(packageId);
+      const approvals = await this.fetchApprovalsForLogs(pkg, logs);
+
+      const buildResult = buildEvidenceBundleArchive({
+        pkg,
+        logs,
+        approvals,
+        options,
+      });
+
+      const contentHash = this.calculateBufferHash(buildResult.bundle);
+
+      let filePath: string | undefined;
+      if (options.persistToDisk !== false) {
+        const outputDir = options.outputDir
+          ? path.resolve(options.outputDir)
+          : path.resolve(process.cwd(), 'evidence-bundles');
+        const fileName = options.fileName ?? `evidence-bundle-${pkg.id}.json.gz`;
+        await mkdir(outputDir, { recursive: true });
+        filePath = path.join(outputDir, fileName);
+        await writeFile(filePath, buildResult.bundle);
+      }
+
+      await db
+        .update(auditEvidencePackages)
+        .set({
+          status: 'READY',
+          storageLocation: filePath ?? 'inline',
+          contentHash,
+          errorMessage: null,
+          logCount: String(logs.length),
+        })
+        .where(eq(auditEvidencePackages.id, packageId));
+
+      return {
+        manifest: buildResult.manifest,
+        bundle: buildResult.bundle,
+        size: buildResult.bundle.length,
+        filePath,
+        contentHash,
+      };
+    } catch (error) {
+      await db
+        .update(auditEvidencePackages)
+        .set({
+          status: 'FAILED',
+          errorMessage:
+            error instanceof Error ? error.message : 'Failed to build evidence bundle',
+        })
+        .where(eq(auditEvidencePackages.id, packageId));
+
+      throw error;
+    }
+  }
+
   // --------------------------------------------------------------------------
   // Helpers
   // --------------------------------------------------------------------------
+
+  /**
+   * Load approvals + actions for documents referenced in logs
+   */
+  private async fetchApprovalsForLogs(
+    pkg: AuditEvidencePackageRecord,
+    logs: UnifiedAuditLogRecord[]
+  ): Promise<EvidenceApprovalDetail[]> {
+    const organizationId = this.requireOrganizationContext();
+    if (!logs.length) {
+      return [];
+    }
+
+    const startDate = new Date(pkg.startDate);
+    const endDate = new Date(pkg.endDate);
+    const documentIds = Array.from(new Set(logs.map((log) => log.resourceId))).filter(
+      Boolean
+    ) as string[];
+
+    const conditions = [
+      eq(approvalInstances.organizationId, organizationId),
+      gte(approvalInstances.submittedAt, startDate),
+      lte(approvalInstances.submittedAt, endDate),
+    ];
+
+    if (documentIds.length) {
+      conditions.push(inArray(approvalInstances.documentId, documentIds));
+    }
+
+    const instances = await db
+      .select()
+      .from(approvalInstances)
+      .where(and(...conditions))
+      .orderBy(asc(approvalInstances.submittedAt));
+
+    if (!instances.length) {
+      return [];
+    }
+
+    const instanceIds = instances.map((instance) => instance.id);
+    const actions = await db
+      .select()
+      .from(approvalActions)
+      .where(inArray(approvalActions.approvalInstanceId, instanceIds))
+      .orderBy(asc(approvalActions.actionAt));
+
+    const groupedActions = actions.reduce<Map<string, WorkflowApprovalAction[]>>(
+      (map, action) => {
+        const collection = map.get(action.approvalInstanceId) || [];
+        collection.push(action);
+        map.set(action.approvalInstanceId, collection);
+        return map;
+      },
+      new Map()
+    );
+
+    return instances.map((instance: ApprovalInstance) => ({
+      instance,
+      actions: groupedActions.get(instance.id) || [],
+    }));
+  }
 
   /**
    * Calculate SHA-256 hash of payload for integrity
@@ -791,6 +965,13 @@ export class AuditService extends BaseService {
   private calculatePayloadHash(payload: Record<string, unknown>): string {
     const json = JSON.stringify(payload, Object.keys(payload).sort());
     return createHash('sha256').update(json).digest('hex');
+  }
+
+  /**
+   * Calculate SHA-256 hash for binary bundle content
+   */
+  private calculateBufferHash(buffer: Buffer): string {
+    return createHash('sha256').update(buffer).digest('hex');
   }
 
   /**
@@ -933,3 +1114,4 @@ export function createAuditService(
 
 // Export types and constants
 export { AuditActionType, AuditSeverity };
+export type { EvidenceBundleManifest } from './evidence-bundle-builder';
