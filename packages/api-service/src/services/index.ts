@@ -22,6 +22,7 @@ export * from './vendor-items-service';
 // export * from './assemblies-kits-service';
 export * from './warehouse-pricing-service';
 export * from './subscription-service';
+export * from './billing-schedule-service';
 export * from './invoice-service';
 export * from './payment-service';
 export * from './revenue-service';
@@ -33,6 +34,9 @@ export * from './project-cost-code-service';
 export * from './project-budget-service';
 export * from './project-service';
 export * from './project-task-service';
+export * from './project-expense-service';
+export * from './project-reporting-service';
+export * from './job-cost-posting-service';
 
 // Time tracking
 export * from './time-entry-service';
@@ -52,6 +56,7 @@ export * from './approval-workflow-service';
 
 // Audit logging
 export * from './audit-service';
+export * from './change-management-service';
 
 // Order-to-Cash
 export * from './sales-order-service';

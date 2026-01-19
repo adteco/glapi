@@ -10,7 +10,8 @@
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "evidence:bundle": "tsx src/scripts/generate-evidence-bundle.ts"
+    "evidence:bundle": "tsx src/scripts/generate-evidence-bundle.ts",
+    "evidence:retention": "tsx src/scripts/run-evidence-retention.ts"
   },
   "dependencies": {
     "@glapi/business": "workspace:*",

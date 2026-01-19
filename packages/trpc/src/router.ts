@@ -17,6 +17,7 @@ import { contactsRouter } from './routers/contacts';
 import { unitsOfMeasureRouter } from './routers/units-of-measure';
 import { businessTransactionsRouter } from './routers/business-transactions';
 import { subscriptionsRouter } from './routers/subscriptions';
+import { billingSchedulesRouter } from './routers/billing-schedules';
 import { invoicesRouter } from './routers/invoices';
 import { paymentsRouter } from './routers/payments';
 import { revenueRouter } from './routers/revenue';
@@ -26,12 +27,15 @@ import { projectBudgetsRouter } from './routers/project-budgets';
 import { projectsRouter } from './routers/projects';
 import { projectTasksRouter } from './routers/project-tasks';
 import { projectExpensesRouter } from './routers/project-expenses';
+import { projectReportingRouter } from './routers/project-reporting';
 import { timeEntriesRouter } from './routers/time-entries';
 import { closeManagementRouter } from './routers/close-management';
 import { scheduleOfValuesRouter } from './routers/schedule-of-values';
 import { payApplicationsRouter } from './routers/pay-applications';
 import { financialStatementsRouter } from './routers/financial-statements';
 import { auditRouter } from './routers/audit';
+import { jobCostPostingRouter } from './routers/job-cost-posting';
+import { changeManagementRouter } from './routers/change-management';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -52,6 +56,7 @@ export const appRouter = router({
   unitsOfMeasure: unitsOfMeasureRouter,
   businessTransactions: businessTransactionsRouter,
   subscriptions: subscriptionsRouter,
+  billingSchedules: billingSchedulesRouter,
   invoices: invoicesRouter,
   payments: paymentsRouter,
   revenue: revenueRouter,
@@ -61,12 +66,15 @@ export const appRouter = router({
   projectBudgets: projectBudgetsRouter,
   projectTasks: projectTasksRouter,
   projectExpenses: projectExpensesRouter,
+  projectReporting: projectReportingRouter,
   timeEntries: timeEntriesRouter,
   closeManagement: closeManagementRouter,
   scheduleOfValues: scheduleOfValuesRouter,
   payApplications: payApplicationsRouter,
   financialStatements: financialStatementsRouter,
   audit: auditRouter,
+  jobCostPosting: jobCostPostingRouter,
+  changeManagement: changeManagementRouter,
 });
 
 export type AppRouter = typeof appRouter;
