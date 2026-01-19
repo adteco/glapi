@@ -16,19 +16,24 @@ import {
   VALID_TIME_ENTRY_STATUS_TRANSITIONS,
   TimeEntryStatus,
   TimeEntryPostingResult,
+  TimeEntryAttachment,
+  CreateTimeEntryAttachmentInput,
 } from '../types/time-entries.types';
 import { PaginationParams, PaginatedResult, ServiceError } from '../types';
 import {
   TimeEntryRepository,
   TimeEntryWithRelations as RepoTimeEntryWithRelations,
+  ProjectTaskRepository,
 } from '@glapi/database';
 
 export class TimeEntryService extends BaseService {
   private repository: TimeEntryRepository;
+  private projectTaskRepository: ProjectTaskRepository;
 
   constructor(context = {}) {
     super(context);
     this.repository = new TimeEntryRepository();
+    this.projectTaskRepository = new ProjectTaskRepository();
   }
 
   // ============================================================================
@@ -46,6 +51,7 @@ export class TimeEntryService extends BaseService {
       employeeId: dbEntry.employeeId,
       projectId: dbEntry.projectId,
       costCodeId: dbEntry.costCodeId,
+      projectTaskId: dbEntry.projectTaskId,
       entryDate: dbEntry.entryDate,
       hours: dbEntry.hours,
       entryType: dbEntry.entryType,
@@ -130,6 +136,15 @@ export class TimeEntryService extends BaseService {
       createdAt: dbAssignment.createdAt,
       updatedAt: dbAssignment.updatedAt,
     };
+  }
+
+  private async getAccessibleProjectTask(taskId: string, organizationId: string) {
+    const projectIds = await this.projectTaskRepository.getAccessibleProjectIds(organizationId);
+    const task = await this.projectTaskRepository.findById(taskId, projectIds);
+    if (!task) {
+      throw new ServiceError('Project task not found', 'PROJECT_TASK_NOT_FOUND', 404);
+    }
+    return task;
   }
 
   /**
@@ -264,11 +279,26 @@ export class TimeEntryService extends BaseService {
     // Default employee to current user if not specified
     const employeeId = input.employeeId || userId;
 
+    let projectId = input.projectId || null;
+    let projectTaskId = input.projectTaskId || null;
+
+    if (projectTaskId) {
+      const task = await this.getAccessibleProjectTask(projectTaskId, organizationId);
+      if (projectId && projectId !== task.projectId) {
+        throw new ServiceError(
+          'Project task must belong to the selected project',
+          'PROJECT_TASK_MISMATCH',
+          400
+        );
+      }
+      projectId = task.projectId;
+    }
+
     // Verify employee has access to project if specified
-    if (input.projectId) {
+    if (projectId) {
       const hasAccess = await this.repository.isEmployeeAssignedToProject(
         employeeId,
-        input.projectId,
+        projectId,
         organizationId
       );
       if (!hasAccess) {
@@ -283,7 +313,7 @@ export class TimeEntryService extends BaseService {
     // Calculate labor costs
     const costs = await this.calculateLaborCosts(
       employeeId,
-      input.projectId,
+      projectId,
       input.costCodeId,
       input.entryDate,
       input.hours,
@@ -293,8 +323,9 @@ export class TimeEntryService extends BaseService {
     const created = await this.repository.create({
       organizationId,
       employeeId,
-      projectId: input.projectId || null,
+      projectId,
       costCodeId: input.costCodeId || null,
+      projectTaskId,
       entryDate: input.entryDate,
       hours: input.hours,
       entryType: input.entryType || 'REGULAR',
@@ -335,6 +366,38 @@ export class TimeEntryService extends BaseService {
       );
     }
 
+    let projectId =
+      input.projectId !== undefined ? input.projectId : existing.projectId;
+    let projectTaskId =
+      input.projectTaskId !== undefined ? input.projectTaskId : existing.projectTaskId;
+
+    if (projectTaskId) {
+      const task = await this.getAccessibleProjectTask(projectTaskId, organizationId);
+      if (projectId && projectId !== task.projectId) {
+        throw new ServiceError(
+          'Project task must belong to the selected project',
+          'PROJECT_TASK_MISMATCH',
+          400
+        );
+      }
+      projectId = task.projectId;
+    }
+
+    if (projectId) {
+      const hasAccess = await this.repository.isEmployeeAssignedToProject(
+        existing.employeeId,
+        projectId,
+        organizationId
+      );
+      if (!hasAccess) {
+        throw new ServiceError(
+          'Employee is not assigned to this project',
+          'EMPLOYEE_NOT_ASSIGNED',
+          403
+        );
+      }
+    }
+
     // Recalculate costs if hours or entry type changed
     let costUpdates: Partial<{
       laborRate: string;
@@ -346,7 +409,6 @@ export class TimeEntryService extends BaseService {
     if (input.hours || input.entryType) {
       const hours = input.hours || existing.hours;
       const entryType = input.entryType || existing.entryType;
-      const projectId = input.projectId !== undefined ? input.projectId : existing.projectId;
       const costCodeId = input.costCodeId !== undefined ? input.costCodeId : existing.costCodeId;
       const entryDate = input.entryDate || existing.entryDate;
 
@@ -362,6 +424,8 @@ export class TimeEntryService extends BaseService {
 
     const updateData: any = {
       ...input,
+      projectId: projectId || null,
+      projectTaskId: projectTaskId || null,
       ...costUpdates,
     };
 
@@ -380,6 +444,58 @@ export class TimeEntryService extends BaseService {
     }
 
     return this.transformEntry(updated);
+  }
+
+  /**
+   * List attachments for a time entry
+   */
+  async listAttachments(timeEntryId: string): Promise<TimeEntryAttachment[]> {
+    const organizationId = this.requireOrganizationContext();
+    const entry = await this.repository.findById(timeEntryId, organizationId);
+
+    if (!entry) {
+      throw new ServiceError('Time entry not found', 'TIME_ENTRY_NOT_FOUND', 404);
+    }
+
+    return this.repository.listAttachments(timeEntryId, organizationId);
+  }
+
+  /**
+   * Add an attachment to a time entry
+   */
+  async addAttachment(input: CreateTimeEntryAttachmentInput): Promise<TimeEntryAttachment> {
+    const organizationId = this.requireOrganizationContext();
+    const userId = this.requireUserContext();
+
+    const entry = await this.repository.findById(input.timeEntryId, organizationId);
+    if (!entry) {
+      throw new ServiceError('Time entry not found', 'TIME_ENTRY_NOT_FOUND', 404);
+    }
+
+    return this.repository.addAttachment({
+      organizationId,
+      timeEntryId: input.timeEntryId,
+      fileName: input.fileName,
+      fileUrl: input.fileUrl,
+      contentType: input.contentType || null,
+      fileSize: input.fileSize ?? null,
+      uploadedBy: userId,
+      metadata: input.metadata || null,
+    });
+  }
+
+  /**
+   * Delete an attachment from a time entry
+   */
+  async deleteAttachment(attachmentId: string): Promise<{ success: boolean }> {
+    const organizationId = this.requireOrganizationContext();
+
+    const removed = await this.repository.deleteAttachment(attachmentId, organizationId);
+    if (!removed) {
+      throw new ServiceError('Attachment not found', 'TIME_ENTRY_ATTACHMENT_NOT_FOUND', 404);
+    }
+
+    return { success: true };
   }
 
   /**

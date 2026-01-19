@@ -17,6 +17,8 @@ export * from './units-of-measure';
 export * from './subscriptions';
 export * from './invoices';
 export * from './payments';
+export * from './projects';
+export * from './project-tasks';
 export * from './time-entries';
 export * from './schedule-of-values';
 export * from './pay-applications';

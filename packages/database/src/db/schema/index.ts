@@ -116,6 +116,9 @@ import * as itemCostingConfigSchemas from './item-costing-config';
 // Inventory Adjustments and Transfers
 import * as inventoryAdjustmentsSchemas from './inventory-adjustments';
 
+// Approval Workflow and Segregation of Duties
+import * as approvalWorkflowSchemas from './approval-workflow';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -220,6 +223,8 @@ export const schema = {
   ...itemCostingConfigSchemas,
   // Inventory Adjustments and Transfers
   ...inventoryAdjustmentsSchemas,
+  // Approval Workflow and Segregation of Duties
+  ...approvalWorkflowSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -913,3 +918,65 @@ export type {
   AdjustmentReasonCodeRecord,
   InsertAdjustmentReasonCode,
 } from './inventory-adjustments';
+
+// ============================================================================
+// APPROVAL WORKFLOW AND SEGREGATION OF DUTIES EXPORTS
+// ============================================================================
+
+export {
+  // Enums
+  approvalDocumentTypeEnum,
+  approvalLevelEnum,
+  approvalInstanceStatusEnum,
+  workflowApprovalActionEnum,
+  sodConflictTypeEnum,
+  // Tables
+  approvalPolicies,
+  approvalSteps,
+  approvalInstances,
+  approvalActions,
+  sodPolicies,
+  sodRules,
+  sodViolations,
+  // Constants
+  ApprovalDocumentTypes,
+  ApprovalLevels,
+  ApprovalInstanceStatuses,
+  ApprovalActions as WorkflowApprovalActions,
+  SodConflictTypes,
+  SodEnforcementModes,
+  SodSeverityLevels,
+} from './approval-workflow';
+
+export type {
+  // Approval Policy types
+  ApprovalPolicy,
+  NewApprovalPolicy,
+  UpdateApprovalPolicy,
+  ApprovalStep,
+  NewApprovalStep,
+  UpdateApprovalStep,
+  ApprovalInstance,
+  NewApprovalInstance,
+  UpdateApprovalInstance,
+  WorkflowApprovalAction,
+  NewWorkflowApprovalAction,
+  // SoD types
+  SodPolicy,
+  NewSodPolicy,
+  UpdateSodPolicy,
+  SodRule,
+  NewSodRule,
+  UpdateSodRule,
+  SodViolation,
+  NewSodViolation,
+  // Enum value types
+  ApprovalDocumentType,
+  ApprovalLevel,
+  ApprovalInstanceStatus,
+  WorkflowApprovalActionType,
+  SodConflictType,
+  // Helper types
+  ApprovalConditionRule,
+  ApprovalSkipCondition,
+} from './approval-workflow';

@@ -47,6 +47,8 @@ export * from './event-service';
 // RBAC services
 export * from './permission-service';
 export * from './role-management-service';
+export * from './segregation-of-duties-service';
+export * from './approval-workflow-service';
 
 // Audit logging
 export * from './audit-service';

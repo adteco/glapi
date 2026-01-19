@@ -26,6 +26,7 @@ const createTimeEntrySchema = z.object({
   employeeId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
   costCodeId: z.string().uuid().optional(),
+  projectTaskId: z.string().uuid().optional(),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Entry date must be YYYY-MM-DD format'),
   hours: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Hours must be a positive number'),
   entryType: TimeEntryTypeEnum.default('REGULAR'),
@@ -40,6 +41,7 @@ const createTimeEntrySchema = z.object({
 const updateTimeEntrySchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
   costCodeId: z.string().uuid().nullable().optional(),
+  projectTaskId: z.string().uuid().nullable().optional(),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   hours: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
   entryType: TimeEntryTypeEnum.optional(),
@@ -56,6 +58,7 @@ const timeEntryFiltersSchema = z
     employeeId: z.string().uuid().optional(),
     projectId: z.string().uuid().optional(),
     costCodeId: z.string().uuid().optional(),
+    projectTaskId: z.string().uuid().optional(),
     status: z.union([TimeEntryStatusEnum, z.array(TimeEntryStatusEnum)]).optional(),
     entryType: z.union([TimeEntryTypeEnum, z.array(TimeEntryTypeEnum)]).optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -91,6 +94,15 @@ const createEmployeeAssignmentSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   canApproveTime: z.boolean().default(false),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+const createAttachmentSchema = z.object({
+  timeEntryId: z.string().uuid(),
+  fileName: z.string().min(1),
+  fileUrl: z.string().min(1),
+  contentType: z.string().optional(),
+  fileSize: z.number().nonnegative().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -208,6 +220,28 @@ export const timeEntriesRouter = router({
     await service.delete(input.id);
     return { success: true };
   }),
+
+  /**
+   * Attachment routes
+   */
+  listAttachments: authenticatedProcedure
+    .input(z.object({ timeEntryId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const service = new TimeEntryService(ctx.serviceContext);
+      return service.listAttachments(input.timeEntryId);
+    }),
+
+  addAttachment: authenticatedProcedure.input(createAttachmentSchema).mutation(async ({ ctx, input }) => {
+    const service = new TimeEntryService(ctx.serviceContext);
+    return service.addAttachment(input);
+  }),
+
+  deleteAttachment: authenticatedProcedure
+    .input(z.object({ attachmentId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new TimeEntryService(ctx.serviceContext);
+      return service.deleteAttachment(input.attachmentId);
+    }),
 
   // ========== Approval Workflow Routes ==========
 
