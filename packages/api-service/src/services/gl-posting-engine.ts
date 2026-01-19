@@ -581,16 +581,12 @@ export class GlPostingEngine extends BaseService {
     const exchangeRate = Number(businessTransaction.exchangeRate || 1);
     const baseAmount = amount * exchangeRate;
     
-    const lineCustomFields = (businessLine as any)?.customFields || {};
-    const debitAccountId = rule.debitAccountId ?? lineCustomFields.debitAccountId;
-    const creditAccountId = rule.creditAccountId ?? lineCustomFields.creditAccountId;
-
     // Create debit line if debit account specified
-    if (debitAccountId) {
+    if (rule.debitAccountId) {
       const debitLine: CreateGlTransactionLineInput = {
         transactionId: glTransactionId,
         lineNumber: startingLineNumber,
-        accountId: debitAccountId,
+        accountId: rule.debitAccountId,
         classId: businessLine.classId,
         departmentId: businessLine.departmentId,
         locationId: businessLine.locationId,
@@ -615,11 +611,11 @@ export class GlPostingEngine extends BaseService {
     }
 
     // Create credit line if credit account specified
-    if (creditAccountId) {
+    if (rule.creditAccountId) {
       const creditLine: CreateGlTransactionLineInput = {
         transactionId: glTransactionId,
         lineNumber: startingLineNumber + 1,
-        accountId: creditAccountId,
+        accountId: rule.creditAccountId,
         classId: businessLine.classId,
         departmentId: businessLine.departmentId,
         locationId: businessLine.locationId,
@@ -660,9 +656,6 @@ export class GlPostingEngine extends BaseService {
         return Number(businessLine.costAmount || 0);
       case 'discount_amount':
         return Number(businessLine.discountAmount || 0);
-      case 'total_line_amount':
-      case 'total_amount':
-        return Number(businessLine.totalLineAmount || 0);
       default:
         // TODO: Implement expression evaluator for complex formulas
         return Number(businessLine.lineAmount || 0);

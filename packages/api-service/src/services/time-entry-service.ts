@@ -16,27 +16,19 @@ import {
   VALID_TIME_ENTRY_STATUS_TRANSITIONS,
   TimeEntryStatus,
   TimeEntryPostingResult,
-  TimeEntryAttachment,
-  CreateTimeEntryAttachmentInput,
 } from '../types/time-entries.types';
 import { PaginationParams, PaginatedResult, ServiceError } from '../types';
 import {
   TimeEntryRepository,
   TimeEntryWithRelations as RepoTimeEntryWithRelations,
-  ProjectTaskRepository,
 } from '@glapi/database';
-import { JobCostPostingService } from './job-cost-posting-service';
 
 export class TimeEntryService extends BaseService {
   private repository: TimeEntryRepository;
-  private projectTaskRepository: ProjectTaskRepository;
-  private jobCostPostingService: JobCostPostingService;
 
   constructor(context = {}) {
     super(context);
     this.repository = new TimeEntryRepository();
-    this.projectTaskRepository = new ProjectTaskRepository();
-    this.jobCostPostingService = new JobCostPostingService(context);
   }
 
   // ============================================================================
@@ -54,7 +46,6 @@ export class TimeEntryService extends BaseService {
       employeeId: dbEntry.employeeId,
       projectId: dbEntry.projectId,
       costCodeId: dbEntry.costCodeId,
-      projectTaskId: dbEntry.projectTaskId,
       entryDate: dbEntry.entryDate,
       hours: dbEntry.hours,
       entryType: dbEntry.entryType,
@@ -117,16 +108,6 @@ export class TimeEntryService extends BaseService {
     };
   }
 
-  private resolveCurrencyCode(metadata: Record<string, unknown> | null): string {
-    if (metadata && typeof metadata === 'object' && 'currencyCode' in metadata) {
-      const value = (metadata as Record<string, unknown>).currencyCode;
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value;
-      }
-    }
-    return 'USD';
-  }
-
   /**
    * Transform database assignment to service layer type
    */
@@ -149,15 +130,6 @@ export class TimeEntryService extends BaseService {
       createdAt: dbAssignment.createdAt,
       updatedAt: dbAssignment.updatedAt,
     };
-  }
-
-  private async getAccessibleProjectTask(taskId: string, organizationId: string) {
-    const projectIds = await this.projectTaskRepository.getAccessibleProjectIds(organizationId);
-    const task = await this.projectTaskRepository.findById(taskId, projectIds);
-    if (!task) {
-      throw new ServiceError('Project task not found', 'PROJECT_TASK_NOT_FOUND', 404);
-    }
-    return task;
   }
 
   /**
@@ -292,26 +264,11 @@ export class TimeEntryService extends BaseService {
     // Default employee to current user if not specified
     const employeeId = input.employeeId || userId;
 
-    let projectId = input.projectId || null;
-    let projectTaskId = input.projectTaskId || null;
-
-    if (projectTaskId) {
-      const task = await this.getAccessibleProjectTask(projectTaskId, organizationId);
-      if (projectId && projectId !== task.projectId) {
-        throw new ServiceError(
-          'Project task must belong to the selected project',
-          'PROJECT_TASK_MISMATCH',
-          400
-        );
-      }
-      projectId = task.projectId;
-    }
-
     // Verify employee has access to project if specified
-    if (projectId) {
+    if (input.projectId) {
       const hasAccess = await this.repository.isEmployeeAssignedToProject(
         employeeId,
-        projectId,
+        input.projectId,
         organizationId
       );
       if (!hasAccess) {
@@ -326,7 +283,7 @@ export class TimeEntryService extends BaseService {
     // Calculate labor costs
     const costs = await this.calculateLaborCosts(
       employeeId,
-      projectId,
+      input.projectId,
       input.costCodeId,
       input.entryDate,
       input.hours,
@@ -336,9 +293,8 @@ export class TimeEntryService extends BaseService {
     const created = await this.repository.create({
       organizationId,
       employeeId,
-      projectId,
+      projectId: input.projectId || null,
       costCodeId: input.costCodeId || null,
-      projectTaskId,
       entryDate: input.entryDate,
       hours: input.hours,
       entryType: input.entryType || 'REGULAR',
@@ -379,38 +335,6 @@ export class TimeEntryService extends BaseService {
       );
     }
 
-    let projectId =
-      input.projectId !== undefined ? input.projectId : existing.projectId;
-    let projectTaskId =
-      input.projectTaskId !== undefined ? input.projectTaskId : existing.projectTaskId;
-
-    if (projectTaskId) {
-      const task = await this.getAccessibleProjectTask(projectTaskId, organizationId);
-      if (projectId && projectId !== task.projectId) {
-        throw new ServiceError(
-          'Project task must belong to the selected project',
-          'PROJECT_TASK_MISMATCH',
-          400
-        );
-      }
-      projectId = task.projectId;
-    }
-
-    if (projectId) {
-      const hasAccess = await this.repository.isEmployeeAssignedToProject(
-        existing.employeeId,
-        projectId,
-        organizationId
-      );
-      if (!hasAccess) {
-        throw new ServiceError(
-          'Employee is not assigned to this project',
-          'EMPLOYEE_NOT_ASSIGNED',
-          403
-        );
-      }
-    }
-
     // Recalculate costs if hours or entry type changed
     let costUpdates: Partial<{
       laborRate: string;
@@ -422,6 +346,7 @@ export class TimeEntryService extends BaseService {
     if (input.hours || input.entryType) {
       const hours = input.hours || existing.hours;
       const entryType = input.entryType || existing.entryType;
+      const projectId = input.projectId !== undefined ? input.projectId : existing.projectId;
       const costCodeId = input.costCodeId !== undefined ? input.costCodeId : existing.costCodeId;
       const entryDate = input.entryDate || existing.entryDate;
 
@@ -437,8 +362,6 @@ export class TimeEntryService extends BaseService {
 
     const updateData: any = {
       ...input,
-      projectId: projectId || null,
-      projectTaskId: projectTaskId || null,
       ...costUpdates,
     };
 
@@ -457,58 +380,6 @@ export class TimeEntryService extends BaseService {
     }
 
     return this.transformEntry(updated);
-  }
-
-  /**
-   * List attachments for a time entry
-   */
-  async listAttachments(timeEntryId: string): Promise<TimeEntryAttachment[]> {
-    const organizationId = this.requireOrganizationContext();
-    const entry = await this.repository.findById(timeEntryId, organizationId);
-
-    if (!entry) {
-      throw new ServiceError('Time entry not found', 'TIME_ENTRY_NOT_FOUND', 404);
-    }
-
-    return this.repository.listAttachments(timeEntryId, organizationId);
-  }
-
-  /**
-   * Add an attachment to a time entry
-   */
-  async addAttachment(input: CreateTimeEntryAttachmentInput): Promise<TimeEntryAttachment> {
-    const organizationId = this.requireOrganizationContext();
-    const userId = this.requireUserContext();
-
-    const entry = await this.repository.findById(input.timeEntryId, organizationId);
-    if (!entry) {
-      throw new ServiceError('Time entry not found', 'TIME_ENTRY_NOT_FOUND', 404);
-    }
-
-    return this.repository.addAttachment({
-      organizationId,
-      timeEntryId: input.timeEntryId,
-      fileName: input.fileName,
-      fileUrl: input.fileUrl,
-      contentType: input.contentType || null,
-      fileSize: input.fileSize ?? null,
-      uploadedBy: userId,
-      metadata: input.metadata || null,
-    });
-  }
-
-  /**
-   * Delete an attachment from a time entry
-   */
-  async deleteAttachment(attachmentId: string): Promise<{ success: boolean }> {
-    const organizationId = this.requireOrganizationContext();
-
-    const removed = await this.repository.deleteAttachment(attachmentId, organizationId);
-    if (!removed) {
-      throw new ServiceError('Attachment not found', 'TIME_ENTRY_ATTACHMENT_NOT_FOUND', 404);
-    }
-
-    return { success: true };
   }
 
   /**
@@ -1090,19 +961,6 @@ export class TimeEntryService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
 
-    type ReadyTimeEntry = {
-      id: string;
-      hours: number;
-      totalCost: number;
-      projectId: string;
-      costCodeId: string;
-      employeeId: string;
-      entryDate: string;
-      subsidiaryId: string;
-      description: string | null;
-      currencyCode: string;
-    };
-
     const result: TimeEntryPostingResult = {
       success: true,
       postedCount: 0,
@@ -1116,7 +974,15 @@ export class TimeEntryService extends BaseService {
       return result;
     }
 
-    const entriesToPost: ReadyTimeEntry[] = [];
+    // Validate all entries first
+    const entriesToPost: Array<{
+      id: string;
+      hours: number;
+      totalCost: number;
+      projectId: string | null;
+      employeeId: string;
+      entryDate: string;
+    }> = [];
 
     for (const entryId of timeEntryIds) {
       const entry = await this.repository.findById(entryId, organizationId);
@@ -1135,55 +1001,13 @@ export class TimeEntryService extends BaseService {
         continue;
       }
 
-      if (!entry.projectId) {
-        result.errors.push({
-          timeEntryId: entryId,
-          error: 'Project is required before posting time entry',
-        });
-        result.failedCount++;
-        continue;
-      }
-
-      if (!entry.costCodeId) {
-        result.errors.push({
-          timeEntryId: entryId,
-          error: 'Cost code is required before posting time entry',
-        });
-        result.failedCount++;
-        continue;
-      }
-
-      if (!entry.subsidiaryId) {
-        result.errors.push({
-          timeEntryId: entryId,
-          error: 'Subsidiary is required before posting time entry',
-        });
-        result.failedCount++;
-        continue;
-      }
-
-      const hours = parseFloat(entry.hours || '0');
-      const totalCost = parseFloat(entry.totalCost || '0');
-      if (!totalCost || totalCost <= 0) {
-        result.errors.push({
-          timeEntryId: entryId,
-          error: 'Time entry must have a positive total cost before posting',
-        });
-        result.failedCount++;
-        continue;
-      }
-
       entriesToPost.push({
         id: entry.id,
-        hours,
-        totalCost,
+        hours: parseFloat(entry.hours || '0'),
+        totalCost: parseFloat(entry.totalCost || '0'),
         projectId: entry.projectId,
-        costCodeId: entry.costCodeId,
         employeeId: entry.employeeId,
         entryDate: entry.entryDate,
-        subsidiaryId: entry.subsidiaryId,
-        description: entry.description,
-        currencyCode: this.resolveCurrencyCode(entry.metadata as Record<string, unknown> | null),
       });
     }
 
@@ -1221,69 +1045,48 @@ export class TimeEntryService extends BaseService {
         createdBy: userId,
       });
 
-      const postingGroups = new Map<string, ReadyTimeEntry[]>();
+      // Group entries by project for assignment updates
+      const entriesByProject = new Map<string, { employeeId: string; hours: number }[]>();
       for (const entry of entriesToPost) {
-        const key = `${entry.subsidiaryId}|${entry.currencyCode}`;
-        const group = postingGroups.get(key) || [];
-        group.push(entry);
-        postingGroups.set(key, group);
-      }
-
-      const glTransactionIds: string[] = [];
-
-      for (const groupEntries of postingGroups.values()) {
-        const postingEntries = groupEntries.map((entry) => ({
-          id: entry.id,
-          projectId: entry.projectId,
-          costCodeId: entry.costCodeId,
-          amount: entry.totalCost,
-          entryDate: entry.entryDate,
-          subsidiaryId: entry.subsidiaryId,
-          description: entry.description || `Labor cost for ${entry.entryDate}`,
-          currencyCode: entry.currencyCode,
-        }));
-
-        try {
-          const { glResult } = await this.jobCostPostingService.postLaborEntries(postingEntries);
-          const glTransactionId = glResult.glTransaction.id;
-          if (!glTransactionId) {
-            throw new ServiceError('GL transaction missing identifier', 'GL_TRANSACTION_INVALID', 500);
-          }
-          glTransactionIds.push(glTransactionId);
-
-          for (const entry of groupEntries) {
-            try {
-              await this.repository.markAsPosted(entry.id, organizationId, glTransactionId, batch.id);
-              await this.repository.updateAssignmentHours(
-                entry.employeeId,
-                entry.projectId,
-                organizationId,
-                entry.hours
-              );
-              result.postedCount++;
-            } catch (innerError) {
-              const message =
-                innerError instanceof Error ? innerError.message : 'Failed to mark time entry as posted';
-              result.errors.push({ timeEntryId: entry.id, error: message });
-              result.failedCount++;
-            }
-          }
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Failed to post time entries to GL';
-          for (const entry of groupEntries) {
-            result.errors.push({ timeEntryId: entry.id, error: errorMessage });
-            result.failedCount++;
-          }
+        if (entry.projectId) {
+          const projectEntries = entriesByProject.get(entry.projectId) || [];
+          projectEntries.push({ employeeId: entry.employeeId, hours: entry.hours });
+          entriesByProject.set(entry.projectId, projectEntries);
         }
       }
 
-      result.batchId = batch.id;
-      result.batchNumber = batch.batchNumber;
-      if (glTransactionIds.length > 0) {
-        result.glTransactionId = glTransactionIds[0];
-        result.glTransactionIds = glTransactionIds;
+      // Post each entry and update project assignment hours
+      for (const entry of entriesToPost) {
+        try {
+          // Mark as posted with batch reference
+          await this.repository.markAsPosted(entry.id, organizationId, batch.id, batch.id);
+
+          // Update actual hours on project assignment if applicable
+          if (entry.projectId) {
+            await this.repository.updateAssignmentHours(
+              entry.employeeId,
+              entry.projectId,
+              organizationId,
+              entry.hours
+            );
+          }
+
+          result.postedCount++;
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to post time entry';
+          result.errors.push({
+            timeEntryId: entry.id,
+            error: errorMessage,
+          });
+          result.failedCount++;
+        }
       }
+
+      // Add batch info to result
+      (result as TimeEntryPostingResult & { batchId?: string; batchNumber?: string }).batchId =
+        batch.id;
+      (result as TimeEntryPostingResult & { batchId?: string; batchNumber?: string }).batchNumber =
+        batch.batchNumber;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create posting batch';
       result.errors.push({

@@ -1,2 +1,0 @@
-packages/api-service
-packages/database

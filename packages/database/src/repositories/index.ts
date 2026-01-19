@@ -29,7 +29,6 @@ export * from './warehouse-repository';
 // Export subscription repositories
 export * from './subscription-repository';
 export * from './subscription-item-repository';
-export * from './subscription-version-repository';
 export * from './invoice-repository';
 export * from './payment-repository';
 
@@ -59,12 +58,6 @@ export * from './audit-log-repository';
 // Export project cost code and budget repositories
 export * from './project-cost-code-repository';
 export * from './project-budget-repository';
-export * from './project-repository';
-export * from './project-task-repository';
-export * from './project-expense-repository';
-export * from './project-reporting-repository';
-export * from './project-repository';
-export * from './project-task-repository';
 
 // Export time tracking repository
 export * from './time-entry-repository';
@@ -75,12 +68,6 @@ export * from './pay-application-repository';
 
 // Export Close Management repository
 export * from './close-management-repository';
-
-// Export Approval Workflow and SoD repository
-export * from './approval-workflow-repository';
-
-// Export Workflow Automation repository
-export * from './workflow-automation-repository';
 
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
@@ -100,7 +87,6 @@ import { AssembliesKitsRepository } from './assemblies-kits-repository';
 import { WarehouseRepository } from './warehouse-repository';
 import { SubscriptionRepository } from './subscription-repository';
 import { SubscriptionItemRepository } from './subscription-item-repository';
-import { SubscriptionVersionRepository } from './subscription-version-repository';
 import { InvoiceRepository } from './invoice-repository';
 import { PaymentRepository } from './payment-repository';
 import { SSPAnalyticsRepository } from './ssp-analytics-repository';
@@ -116,15 +102,10 @@ import { AuditLogRepository } from './audit-log-repository';
 import { EventProjectionRepository } from './event-projection-repository';
 import { ProjectCostCodeRepository } from './project-cost-code-repository';
 import { ProjectBudgetRepository } from './project-budget-repository';
-import { ProjectRepository } from './project-repository';
-import { ProjectTaskRepository } from './project-task-repository';
-import { ProjectExpenseRepository } from './project-expense-repository';
 import { TimeEntryRepository } from './time-entry-repository';
 import { SovRepository } from './sov-repository';
 import { PayApplicationRepository } from './pay-application-repository';
 import { CloseManagementRepository } from './close-management-repository';
-import { ApprovalWorkflowRepository } from './approval-workflow-repository';
-import { WorkflowAutomationRepository } from './workflow-automation-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -144,7 +125,6 @@ export const assembliesKitsRepository = new AssembliesKitsRepository();
 export const warehouseRepository = new WarehouseRepository();
 export const subscriptionRepository = new SubscriptionRepository();
 export const subscriptionItemRepository = new SubscriptionItemRepository();
-export const subscriptionVersionRepository = new SubscriptionVersionRepository();
 export const invoiceRepository = new InvoiceRepository();
 export const paymentRepository = new PaymentRepository();
 export const sspAnalyticsRepository = new SSPAnalyticsRepository();
@@ -160,12 +140,7 @@ export const auditLogRepository = new AuditLogRepository();
 export const eventProjectionRepository = new EventProjectionRepository();
 export const projectCostCodeRepository = new ProjectCostCodeRepository();
 export const projectBudgetRepository = new ProjectBudgetRepository();
-export const projectRepository = new ProjectRepository();
-export const projectTaskRepository = new ProjectTaskRepository();
-export const projectExpenseRepository = new ProjectExpenseRepository();
 export const timeEntryRepository = new TimeEntryRepository();
 export const sovRepository = new SovRepository();
 export const payApplicationRepository = new PayApplicationRepository();
 export const closeManagementRepository = new CloseManagementRepository();
-export const approvalWorkflowRepository = new ApprovalWorkflowRepository();
-export const workflowAutomationRepository = new WorkflowAutomationRepository();

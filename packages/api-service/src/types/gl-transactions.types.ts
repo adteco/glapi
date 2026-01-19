@@ -120,7 +120,7 @@ export const businessTransactionLineSchema = z.object({
   id: z.string().uuid().optional(),
   businessTransactionId: z.string().uuid(),
   lineNumber: z.number().int(),
-  lineType: z.enum(['ITEM', 'SERVICE', 'DISCOUNT', 'TAX', 'SHIPPING', 'JOB_COST']),
+  lineType: z.enum(['ITEM', 'SERVICE', 'DISCOUNT', 'TAX', 'SHIPPING']),
   itemId: z.string().uuid().optional(),
   description: z.string(),
   quantity: z.string().or(z.number()).default('0'),
