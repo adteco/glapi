@@ -120,6 +120,9 @@ import * as deliveryQueueSchemas from './delivery-queue';
 // Import staging schemas (data migration)
 import * as importStagingSchemas from './import-staging';
 
+// Onboarding schemas
+import * as onboardingSchemas from './onboarding';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -224,6 +227,8 @@ export const schema = {
   ...deliveryQueueSchemas,
   // Import staging schemas (data migration)
   ...importStagingSchemas,
+  // Onboarding schemas
+  ...onboardingSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -822,3 +827,26 @@ export type {
   ValidationWarning,
   ImportErrorSummary,
 } from './import-staging';
+
+// Re-export Onboarding schemas
+export {
+  organizationOnboarding,
+  onboardingSteps,
+  onboardingChecklistItems,
+  onboardingEvents,
+  onboardingStepStatusEnum,
+  onboardingStatusEnum,
+  DEFAULT_ONBOARDING_STEPS,
+} from './onboarding';
+export type {
+  OrganizationOnboarding,
+  NewOrganizationOnboarding,
+  OnboardingStep,
+  NewOnboardingStep,
+  OnboardingChecklistItem,
+  NewOnboardingChecklistItem,
+  OnboardingEvent,
+  NewOnboardingEvent,
+  OnboardingStepStatus,
+  OnboardingStatus,
+} from './onboarding';

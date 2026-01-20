@@ -42,6 +42,7 @@ import { bankDepositsRouter } from './routers/bank-deposits';
 import { reportSchedulesRouter } from './routers/report-schedules';
 import { deliveryQueueRouter } from './routers/delivery-queue';
 import { importsRouter } from './routers/imports';
+import { onboardingRouter } from './routers/onboarding';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -87,6 +88,7 @@ export const appRouter = router({
   reportSchedules: reportSchedulesRouter,
   deliveryQueue: deliveryQueueRouter,
   imports: importsRouter,
+  onboarding: onboardingRouter,
 });
 
 export type AppRouter = typeof appRouter;
