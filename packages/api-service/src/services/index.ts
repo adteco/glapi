@@ -77,3 +77,6 @@ export * from './bill-payment-service';
 export * from './consolidation-service';
 export * from './consolidation-engine';
 export * from './consolidation-reporting-service';
+
+// Metrics and dashboards
+export * from './metrics-service';
