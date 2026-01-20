@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Building2, Wallet, Clock, Receipt, LayoutDashboard, Layers, Users } from 'lucide-react';
+import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Building2, Wallet, Clock, Receipt, LayoutDashboard, Layers } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReportsPage() {
@@ -237,15 +237,31 @@ export default function ReportsPage() {
             <h3 className="text-xl font-semibold">Scheduled Reports</h3>
             <p className="text-gray-600">Automate report generation and delivery</p>
           </div>
-          <Button>
-            <Calendar className="mr-2 h-4 w-4" />
-            Schedule Report
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/reports/schedules/monitoring">
+              <Button variant="outline">
+                <Activity className="mr-2 h-4 w-4" />
+                Monitoring
+              </Button>
+            </Link>
+            <Link href="/reports/schedules">
+              <Button>
+                <Calendar className="mr-2 h-4 w-4" />
+                Manage Schedules
+              </Button>
+            </Link>
+          </div>
         </div>
-        <div className="text-center py-8 text-gray-500">
-          <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
-          <p>No scheduled reports configured.</p>
-          <p className="text-sm">Set up automated report generation to receive regular financial updates.</p>
+        <p className="text-center py-4 text-gray-500">
+          <Calendar className="mx-auto h-10 w-10 mb-3 opacity-50" />
+          Create and manage scheduled reports to receive automated financial updates via email or webhook.
+        </p>
+        <div className="flex justify-center">
+          <Link href="/reports/schedules">
+            <Button variant="outline">
+              View All Scheduled Reports
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
