@@ -35,6 +35,7 @@ import { auditRouter } from './routers/audit';
 import { jobCostPostingRouter } from './routers/job-cost-posting';
 import { changeManagementRouter } from './routers/change-management';
 import { wipReportingRouter } from './routers/wip-reporting';
+import { consolidationRouter } from './routers/consolidation';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -73,6 +74,7 @@ export const appRouter = router({
   jobCostPosting: jobCostPostingRouter,
   changeManagement: changeManagementRouter,
   wipReporting: wipReportingRouter,
+  consolidation: consolidationRouter,
 });
 
 export type AppRouter = typeof appRouter;
