@@ -1195,10 +1195,3 @@ export function createAuditService(
 // Export types and constants
 export { AuditActionType, AuditSeverity };
 export type { EvidenceBundleManifest } from './evidence-bundle-builder';
-    if (options.changeRequestId && pkg.changeRequestId !== options.changeRequestId) {
-      await db
-        .update(auditEvidencePackages)
-        .set({ changeRequestId: options.changeRequestId })
-        .where(eq(auditEvidencePackages.id, packageId));
-      pkg.changeRequestId = options.changeRequestId;
-    }
