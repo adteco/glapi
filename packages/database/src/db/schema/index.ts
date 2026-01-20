@@ -114,6 +114,9 @@ import * as metricsSchemas from './metrics';
 // Report scheduling schemas
 import * as reportSchedulesSchemas from './report-schedules';
 
+// Delivery queue schemas
+import * as deliveryQueueSchemas from './delivery-queue';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -214,6 +217,8 @@ export const schema = {
   ...metricsSchemas,
   // Report scheduling schemas
   ...reportSchedulesSchemas,
+  // Delivery queue schemas
+  ...deliveryQueueSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -770,3 +775,22 @@ export type {
   ReportFilters,
   DeliveryConfig,
 } from './report-schedules';
+
+// Re-export Delivery queue schemas
+export {
+  deliveryQueue,
+  deliveryAttempts,
+  deliveryStatusEnum,
+  deliveryTypeEnum,
+} from './delivery-queue';
+export type {
+  DeliveryQueueItem,
+  NewDeliveryQueueItem,
+  UpdateDeliveryQueueItem,
+  DeliveryAttempt,
+  NewDeliveryAttempt,
+  DeliveryQueueConfig,
+  DeliveryResponse,
+  DeliveryStatus,
+  DeliveryType,
+} from './delivery-queue';
