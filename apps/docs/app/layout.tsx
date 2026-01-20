@@ -8,6 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || 'https://docs.glapi.io'
+  ),
   title: {
     default: 'GLAPI Documentation',
     template: '%s | GLAPI Docs',
