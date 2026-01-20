@@ -2,6 +2,7 @@ import { eq, and, desc, sql, gte, lte, or, inArray } from 'drizzle-orm';
 import { BaseService } from './base-service';
 import { ServiceError, type PaginatedResult, type PaginationParams } from '../types';
 import { EventService } from './event-service';
+import { PaymentPostingService, type PaymentGLConfig, type PaymentPostingResult } from './payment-posting-service';
 import { db } from '@glapi/database';
 import {
   customerPayments,
@@ -27,6 +28,9 @@ import type {
   CustomerAccountSummary,
   CashReceiptsSummary,
   CustomerPaymentStatusValue,
+  ReceivePaymentWithPostingInput,
+  PaymentGLPostingResult,
+  PaymentValidationResult,
 } from '../types';
 
 /**
@@ -38,13 +42,16 @@ import type {
  * - Handle unapplied balances and on-account credits
  * - Manage credit memos
  * - Void payments
+ * - GL posting for clearing/suspense accounts
  */
 export class CustomerPaymentService extends BaseService {
   private eventService: EventService;
+  private postingService: PaymentPostingService;
 
   constructor(context: { organizationId?: string; userId?: string } = {}) {
     super(context);
     this.eventService = new EventService(context);
+    this.postingService = new PaymentPostingService(context);
   }
 
   // ==========================================================================
@@ -517,6 +524,48 @@ export class CustomerPaymentService extends BaseService {
     return this.getPaymentById(paymentId) as Promise<CustomerPaymentWithDetails>;
   }
 
+  /**
+   * Void a payment with GL reversal posting
+   *
+   * This method:
+   * 1. Reverses all payment applications
+   * 2. Posts reversing GL entries
+   * 3. Voids the payment
+   */
+  async voidPaymentWithPosting(
+    paymentId: string,
+    reason: string,
+    glConfig: PaymentGLConfig
+  ): Promise<{
+    payment: CustomerPaymentWithDetails;
+    reversalPosting?: PaymentGLPostingResult;
+  }> {
+    // First void the payment (this reverses applications)
+    const payment = await this.voidPayment(paymentId, reason);
+
+    // Post reversing GL entries if payment was previously posted
+    let reversalPosting: PaymentGLPostingResult | undefined;
+    if (payment.glTransactionId) {
+      const result = await this.postingService.postPaymentVoid(paymentId, glConfig, reason);
+      reversalPosting = {
+        success: result.success,
+        glTransactionId: result.glTransactionId,
+        journalEntries: result.journalEntries.map((e) => ({
+          accountId: e.accountId,
+          accountNumber: e.accountNumber,
+          accountName: e.accountName,
+          debitAmount: e.debitAmount,
+          creditAmount: e.creditAmount,
+          description: e.description,
+        })),
+        postedAt: result.postedAt?.toISOString(),
+        error: result.error,
+      };
+    }
+
+    return { payment, reversalPosting };
+  }
+
   // ==========================================================================
   // Credit Memos
   // ==========================================================================
@@ -644,6 +693,149 @@ export class CustomerPaymentService extends BaseService {
     await this.updateInvoiceAfterPayment(input.invoiceId);
 
     return this.getCreditMemoById(input.creditMemoId) as Promise<CreditMemoWithDetails>;
+  }
+
+  // ==========================================================================
+  // GL Posting Methods
+  // ==========================================================================
+
+  /**
+   * Post a payment receipt to GL
+   *
+   * Creates journal entries:
+   * - DR Cash Account
+   * - CR Unapplied Cash (Suspense)
+   */
+  async postPaymentToGL(
+    paymentId: string,
+    glConfig: PaymentGLConfig
+  ): Promise<PaymentGLPostingResult> {
+    const result = await this.postingService.postPaymentReceipt({
+      paymentId,
+      cashAccountId: glConfig.cashAccountId,
+      unappliedCashAccountId: glConfig.unappliedCashAccountId,
+    });
+
+    return {
+      success: result.success,
+      glTransactionId: result.glTransactionId,
+      journalEntries: result.journalEntries.map((e) => ({
+        accountId: e.accountId,
+        accountNumber: e.accountNumber,
+        accountName: e.accountName,
+        debitAmount: e.debitAmount,
+        creditAmount: e.creditAmount,
+        description: e.description,
+      })),
+      postedAt: result.postedAt?.toISOString(),
+      error: result.error,
+    };
+  }
+
+  /**
+   * Post a payment application to GL
+   *
+   * Creates journal entries:
+   * - DR Unapplied Cash (clears suspense)
+   * - CR Accounts Receivable
+   * - DR Discount Expense (if discount)
+   * - DR Bad Debt (if write-off)
+   */
+  async postApplicationToGL(
+    applicationId: string,
+    glConfig: PaymentGLConfig
+  ): Promise<PaymentGLPostingResult> {
+    const result = await this.postingService.postPaymentApplication({
+      applicationId,
+      unappliedCashAccountId: glConfig.unappliedCashAccountId,
+      arAccountId: glConfig.arAccountId,
+      discountAccountId: glConfig.discountAccountId,
+      writeOffAccountId: glConfig.writeOffAccountId,
+    });
+
+    return {
+      success: result.success,
+      glTransactionId: result.glTransactionId,
+      journalEntries: result.journalEntries.map((e) => ({
+        accountId: e.accountId,
+        accountNumber: e.accountNumber,
+        accountName: e.accountName,
+        debitAmount: e.debitAmount,
+        creditAmount: e.creditAmount,
+        description: e.description,
+      })),
+      postedAt: result.postedAt?.toISOString(),
+      error: result.error,
+    };
+  }
+
+  /**
+   * Receive a payment with immediate GL posting
+   *
+   * This is a convenience method that combines:
+   * 1. Receive payment
+   * 2. Post to GL (DR Cash, CR Unapplied Cash)
+   * 3. Optionally apply to invoices
+   * 4. Post applications to GL (DR Unapplied Cash, CR A/R)
+   */
+  async receivePaymentWithPosting(
+    input: ReceivePaymentWithPostingInput,
+    glConfig: PaymentGLConfig
+  ): Promise<{
+    payment: CustomerPaymentWithDetails;
+    receiptPosting?: PaymentGLPostingResult;
+    applicationPostings?: PaymentGLPostingResult[];
+  }> {
+    // Step 1: Receive the payment
+    const payment = await this.receivePayment(input);
+
+    const result: {
+      payment: CustomerPaymentWithDetails;
+      receiptPosting?: PaymentGLPostingResult;
+      applicationPostings?: PaymentGLPostingResult[];
+    } = { payment };
+
+    // Step 2: Post receipt to GL if requested
+    if (input.postImmediately !== false) {
+      result.receiptPosting = await this.postPaymentToGL(payment.id, glConfig);
+    }
+
+    // Step 3: Post applications to GL (if any applications were created)
+    if (payment.applications && payment.applications.length > 0) {
+      result.applicationPostings = [];
+      for (const app of payment.applications) {
+        const appPosting = await this.postApplicationToGL(app.id, glConfig);
+        result.applicationPostings.push(appPosting);
+      }
+    }
+
+    // Refresh payment to get updated GL references
+    result.payment = (await this.getPaymentById(payment.id))!;
+
+    return result;
+  }
+
+  /**
+   * Validate a payment for GL posting
+   */
+  async validatePaymentForPosting(paymentId: string): Promise<PaymentValidationResult> {
+    return this.postingService.validatePaymentForPosting(paymentId);
+  }
+
+  /**
+   * Get GL posting summary for a payment
+   */
+  async getPaymentGLSummary(paymentId: string): Promise<{
+    isPosted: boolean;
+    glTransactionId?: string;
+    postedAt?: string;
+  }> {
+    const summary = await this.postingService.getPaymentPostingSummary(paymentId);
+    return {
+      isPosted: summary.isPosted,
+      glTransactionId: summary.glTransactionId,
+      postedAt: summary.postedAt?.toISOString(),
+    };
   }
 
   // ==========================================================================
