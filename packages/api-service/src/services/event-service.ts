@@ -508,6 +508,22 @@ export const PaymentEvents = {
   REFUNDED: 'PaymentRefunded',
 } as const;
 
+/**
+ * Invoice event types
+ */
+export const InvoiceEvents = {
+  CREATED: 'InvoiceCreated',
+  UPDATED: 'InvoiceUpdated',
+  SENT: 'InvoiceSent',
+  SUBMITTED_FOR_APPROVAL: 'InvoiceSubmittedForApproval',
+  APPROVED: 'InvoiceApproved',
+  REJECTED: 'InvoiceRejected',
+  POSTED: 'InvoicePosted',
+  POSTING_FAILED: 'InvoicePostingFailed',
+  VOIDED: 'InvoiceVoided',
+  PAID: 'InvoicePaid',
+} as const;
+
 // Re-export useful types from database
 export { EventCategory } from '@glapi/database';
 export type { EventCategoryType } from '@glapi/database';
