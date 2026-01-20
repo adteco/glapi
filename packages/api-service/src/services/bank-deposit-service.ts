@@ -2,6 +2,7 @@ import { eq, and, desc, sql, gte, lte, inArray } from 'drizzle-orm';
 import { BaseService } from './base-service';
 import { ServiceError, type PaginatedResult, type PaginationParams } from '../types';
 import { EventService } from './event-service';
+import { AccountingPeriodService } from './accounting-period-service';
 import { db } from '@glapi/database';
 import {
   bankDeposits,
@@ -30,6 +31,64 @@ import type {
   CustomerPaymentStatusValue,
 } from '../types';
 
+// ==========================================================================
+// GL Posting Types
+// ==========================================================================
+
+/**
+ * Input for posting a deposit to GL
+ */
+export interface PostDepositToGLInput {
+  depositId: string;
+  bankAccountId: string;
+  undepositedFundsAccountId: string;
+  postingDate?: Date;
+  memo?: string;
+}
+
+/**
+ * GL configuration for deposit posting
+ */
+export interface DepositGLConfig {
+  /** The bank account where funds are deposited */
+  bankAccountId: string;
+  /** The undeposited funds/cash on hand account to clear */
+  undepositedFundsAccountId: string;
+}
+
+/**
+ * Result of a GL posting operation
+ */
+export interface DepositPostingResult {
+  success: boolean;
+  glTransactionId?: string;
+  journalEntries: DepositJournalEntry[];
+  postedAt?: Date;
+  error?: string;
+}
+
+/**
+ * Journal entry line for deposit posting
+ */
+export interface DepositJournalEntry {
+  accountId: string;
+  accountNumber?: string;
+  accountName?: string;
+  debitAmount: string;
+  creditAmount: string;
+  description: string;
+  reference?: string;
+}
+
+/**
+ * Validation result for deposit posting
+ */
+export interface DepositPostingValidation {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
 /**
  * BankDepositService - Handles bank deposit batching and reconciliation
  *
@@ -42,10 +101,12 @@ import type {
  */
 export class BankDepositService extends BaseService {
   private eventService: EventService;
+  private periodService: AccountingPeriodService;
 
   constructor(context: { organizationId?: string; userId?: string } = {}) {
     super(context);
     this.eventService = new EventService(context);
+    this.periodService = new AccountingPeriodService(context);
   }
 
   // ==========================================================================
@@ -657,6 +718,274 @@ export class BankDepositService extends BaseService {
     });
 
     return this.getExceptionById(input.exceptionId) as Promise<ReconciliationExceptionWithDetails>;
+  }
+
+  // ==========================================================================
+  // GL Posting
+  // ==========================================================================
+
+  /**
+   * Validate a deposit for GL posting
+   */
+  async validateDepositForPosting(depositId: string): Promise<DepositPostingValidation> {
+    const organizationId = this.requireOrganizationContext();
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Get deposit
+    const [deposit] = await db
+      .select()
+      .from(bankDeposits)
+      .where(
+        and(
+          eq(bankDeposits.id, depositId),
+          eq(bankDeposits.organizationId, organizationId)
+        )
+      )
+      .limit(1);
+
+    if (!deposit) {
+      errors.push('Deposit not found');
+      return { isValid: false, errors, warnings };
+    }
+
+    // Check status
+    if (deposit.status === BankDepositStatus.CANCELLED) {
+      errors.push('Cannot post cancelled deposit');
+    }
+
+    if (deposit.glTransactionId) {
+      errors.push('Deposit already posted to GL');
+    }
+
+    // Check for empty deposit
+    if (deposit.paymentCount === 0) {
+      errors.push('Cannot post empty deposit');
+    }
+
+    // Check amount
+    const totalAmount = parseFloat(deposit.totalAmount);
+    if (totalAmount <= 0) {
+      errors.push('Deposit amount must be positive');
+    }
+
+    // Check bank account
+    if (!deposit.bankAccountId) {
+      warnings.push('No bank account specified - will use default');
+    }
+
+    // Check accounting period
+    const periodCheck = await this.periodService.checkPostingAllowed({
+      subsidiaryId: deposit.subsidiaryId,
+      postingDate: deposit.depositDate,
+    });
+    if (!periodCheck.canPost) {
+      errors.push(`Cannot post: ${periodCheck.reason}`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }
+
+  /**
+   * Post a deposit to GL
+   *
+   * Creates journal entries:
+   * - DR Bank Account (where funds are deposited)
+   * - CR Undeposited Funds / Cash on Hand (clearing the holding account)
+   */
+  async postDepositToGL(input: PostDepositToGLInput): Promise<DepositPostingResult> {
+    const organizationId = this.requireOrganizationContext();
+    const userId = this.requireUserContext();
+
+    // Validate
+    const validation = await this.validateDepositForPosting(input.depositId);
+    if (!validation.isValid) {
+      return {
+        success: false,
+        journalEntries: [],
+        error: validation.errors.join('; '),
+      };
+    }
+
+    // Get deposit details
+    const [deposit] = await db
+      .select()
+      .from(bankDeposits)
+      .where(
+        and(
+          eq(bankDeposits.id, input.depositId),
+          eq(bankDeposits.organizationId, organizationId)
+        )
+      )
+      .limit(1);
+
+    if (!deposit) {
+      return {
+        success: false,
+        journalEntries: [],
+        error: 'Deposit not found',
+      };
+    }
+
+    const totalAmount = parseFloat(deposit.totalAmount);
+    const postingDate = input.postingDate || new Date();
+    const journalEntries: DepositJournalEntry[] = [];
+
+    // DR Bank Account (money deposited to bank)
+    journalEntries.push({
+      accountId: input.bankAccountId,
+      debitAmount: totalAmount.toFixed(2),
+      creditAmount: '0.00',
+      description: `Bank deposit ${deposit.depositNumber}`,
+      reference: deposit.depositNumber,
+    });
+
+    // CR Undeposited Funds / Cash on Hand (clearing the holding account)
+    journalEntries.push({
+      accountId: input.undepositedFundsAccountId,
+      debitAmount: '0.00',
+      creditAmount: totalAmount.toFixed(2),
+      description: `Clear undeposited funds for ${deposit.depositNumber}`,
+      reference: deposit.depositNumber,
+    });
+
+    // Enrich with account details
+    await this.enrichJournalEntries(journalEntries);
+
+    // Validate double-entry
+    const totalDebits = journalEntries.reduce((sum, e) => sum + parseFloat(e.debitAmount), 0);
+    const totalCredits = journalEntries.reduce((sum, e) => sum + parseFloat(e.creditAmount), 0);
+
+    if (Math.abs(totalDebits - totalCredits) > 0.01) {
+      return {
+        success: false,
+        journalEntries,
+        error: `Journal entries not balanced: Debits=${totalDebits.toFixed(2)}, Credits=${totalCredits.toFixed(2)}`,
+      };
+    }
+
+    // Generate GL transaction ID
+    const glTransactionId = `gl-dep-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Update deposit with GL reference
+    await db
+      .update(bankDeposits)
+      .set({
+        glTransactionId,
+        postedAt: postingDate,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(bankDeposits.id, input.depositId));
+
+    // Emit event
+    await this.eventService.emit({
+      eventType: 'BankDepositPosted',
+      eventCategory: 'ACCOUNTING',
+      aggregateType: 'BankDeposit',
+      aggregateId: input.depositId,
+      data: {
+        depositNumber: deposit.depositNumber,
+        glTransactionId,
+        totalAmount: totalAmount.toFixed(2),
+        paymentCount: deposit.paymentCount,
+        journalEntries: journalEntries.map((e) => ({
+          accountId: e.accountId,
+          debit: e.debitAmount,
+          credit: e.creditAmount,
+        })),
+      },
+    });
+
+    return {
+      success: true,
+      glTransactionId,
+      journalEntries,
+      postedAt: postingDate,
+    };
+  }
+
+  /**
+   * Submit deposit and post to GL in one operation
+   */
+  async submitDepositWithPosting(
+    input: SubmitDepositInput,
+    glConfig: DepositGLConfig
+  ): Promise<{ deposit: BankDepositWithDetails; postingResult: DepositPostingResult }> {
+    // First submit the deposit
+    const deposit = await this.submitDeposit(input);
+
+    // Then post to GL
+    const postingResult = await this.postDepositToGL({
+      depositId: input.depositId,
+      bankAccountId: glConfig.bankAccountId,
+      undepositedFundsAccountId: glConfig.undepositedFundsAccountId,
+      memo: input.memo,
+    });
+
+    // Get updated deposit with GL info
+    const updatedDeposit = await this.getDepositById(input.depositId);
+
+    return {
+      deposit: updatedDeposit!,
+      postingResult,
+    };
+  }
+
+  /**
+   * Get GL posting summary for a deposit
+   */
+  async getDepositGLSummary(depositId: string): Promise<{
+    isPosted: boolean;
+    glTransactionId?: string;
+    postedAt?: string;
+    totalAmount: string;
+    paymentCount: number;
+  }> {
+    const deposit = await this.getDepositById(depositId);
+    if (!deposit) {
+      throw new ServiceError('Deposit not found', 'NOT_FOUND', 404);
+    }
+
+    return {
+      isPosted: !!deposit.glTransactionId,
+      glTransactionId: deposit.glTransactionId,
+      postedAt: deposit.postedAt,
+      totalAmount: deposit.totalAmount,
+      paymentCount: deposit.paymentCount,
+    };
+  }
+
+  /**
+   * Enrich journal entries with account details
+   */
+  private async enrichJournalEntries(entries: DepositJournalEntry[]): Promise<void> {
+    const organizationId = this.requireOrganizationContext();
+    const accountIds = entries.map((e) => e.accountId);
+
+    const accountsData = await db
+      .select({
+        id: accounts.id,
+        accountNumber: accounts.accountNumber,
+        accountName: accounts.accountName,
+      })
+      .from(accounts)
+      .where(eq(accounts.organizationId, organizationId));
+
+    const accountMap = new Map(accountsData.map((a) => [a.id, a]));
+
+    for (const entry of entries) {
+      const account = accountMap.get(entry.accountId);
+      if (account) {
+        entry.accountNumber = account.accountNumber;
+        entry.accountName = account.accountName;
+      }
+    }
   }
 
   // ==========================================================================
