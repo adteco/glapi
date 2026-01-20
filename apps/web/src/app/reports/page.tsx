@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Building2, Wallet, Clock, Receipt } from 'lucide-react';
+import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Building2, Wallet, Clock, Receipt, LayoutDashboard, Layers, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReportsPage() {
@@ -14,6 +14,31 @@ export default function ReportsPage() {
   }
 
   const reportCategories = [
+    {
+      title: "Management & Analytics",
+      description: "KPI dashboards, segment analysis, and performance metrics",
+      icon: <LayoutDashboard className="h-8 w-8 text-indigo-600" />,
+      reports: [
+        {
+          name: "Management Dashboard",
+          description: "KPIs, segment performance, and trend analysis with dimension filtering",
+          href: "/reports/management",
+          icon: <LayoutDashboard className="h-5 w-5" />
+        },
+        {
+          name: "Segment Analysis",
+          description: "Performance breakdown by class, department, and location",
+          href: "/reports/management?tab=segments",
+          icon: <Layers className="h-5 w-5" />
+        },
+        {
+          name: "Trend Analysis",
+          description: "Historical performance trends and forecasting",
+          href: "/reports/management?tab=trends",
+          icon: <TrendingUp className="h-5 w-5" />
+        }
+      ]
+    },
     {
       title: "Financial Reports",
       description: "Core financial statements and analysis",
@@ -177,7 +202,13 @@ export default function ReportsPage() {
       {/* Quick Access Section */}
       <div className="mt-12 bg-gray-50 rounded-lg p-6">
         <h3 className="text-xl font-semibold mb-4">Quick Access</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Link href="/reports/management">
+            <Button variant="outline" className="w-full justify-start">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Management Dashboard
+            </Button>
+          </Link>
           <Link href="/reports/financial/balance-sheet">
             <Button variant="outline" className="w-full justify-start">
               <BarChart3 className="mr-2 h-4 w-4" />

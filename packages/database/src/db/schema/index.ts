@@ -108,6 +108,9 @@ import * as vendorBillsSchemas from './vendor-bills';
 // Consolidation schemas (multi-book accounting)
 import * as consolidationSchemas from './consolidation';
 
+// Metrics and dashboards schemas
+import * as metricsSchemas from './metrics';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -204,6 +207,8 @@ export const schema = {
   ...vendorBillsSchemas,
   // Consolidation schemas (multi-book accounting)
   ...consolidationSchemas,
+  // Metrics and dashboards schemas
+  ...metricsSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -725,3 +730,11 @@ export {
   translationMethodEnum,
   consolidationRunStatusEnum,
 } from './consolidation';
+
+// Re-export Metrics and dashboard schemas
+export {
+  customMetrics,
+  savedViews,
+  metricSnapshots,
+  dashboardLayouts,
+} from './metrics';
