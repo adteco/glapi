@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target } from 'lucide-react';
+import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Building2, Wallet, Clock, Receipt } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReportsPage() {
@@ -36,6 +36,37 @@ export default function ReportsPage() {
           description: "Cash inflows and outflows from operations, investing, and financing",
           href: "/reports/financial/cash-flow-statement",
           icon: <Activity className="h-5 w-5" />
+        }
+      ]
+    },
+    {
+      title: "Construction & Projects",
+      description: "Project health, WIP, and job cost analytics",
+      icon: <Building2 className="h-8 w-8 text-amber-600" />,
+      reports: [
+        {
+          name: "Job Cost Summary",
+          description: "Budget vs actual, commitments, and percent complete by project",
+          href: "/reports/construction/job-cost",
+          icon: <TrendingUp className="h-5 w-5" />
+        },
+        {
+          name: "WIP & Budget Analysis",
+          description: "Work-in-progress clearing, commitments, and budget utilization",
+          href: "/reports/construction/wip",
+          icon: <Wallet className="h-5 w-5" />
+        },
+        {
+          name: "Time Entries",
+          description: "Track employee time, approvals, and labor costs by project",
+          href: "/construction/time",
+          icon: <Clock className="h-5 w-5" />
+        },
+        {
+          name: "Expense Entries",
+          description: "Manage expense reports, reimbursements, and billable costs",
+          href: "/construction/expenses",
+          icon: <Receipt className="h-5 w-5" />
         }
       ]
     },
