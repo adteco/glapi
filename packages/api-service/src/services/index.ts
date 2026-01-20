@@ -81,3 +81,6 @@ export * from './consolidation-reporting-service';
 
 // Metrics and dashboards
 export * from './metrics-service';
+
+// Payment GL Posting
+export * from './payment-posting-service';

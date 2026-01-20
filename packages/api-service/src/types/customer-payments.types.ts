@@ -437,7 +437,45 @@ export interface CashReceiptPostingResult {
 export interface CashReceiptGLConfig {
   defaultCashAccountId: string;
   defaultARAccountId: string;
+  defaultUnappliedCashAccountId: string;
   defaultDiscountAccountId?: string;
   defaultWriteOffAccountId?: string;
   postOnReceive: boolean; // Post immediately on receive vs. on deposit
+}
+
+/**
+ * Extended input for receiving payment with GL posting
+ */
+export interface ReceivePaymentWithPostingInput extends ReceiveCustomerPaymentInput {
+  /** Unapplied cash/suspense account for posting */
+  unappliedCashAccountId?: string;
+  /** Whether to post to GL immediately */
+  postImmediately?: boolean;
+}
+
+/**
+ * Result of posting a payment to GL
+ */
+export interface PaymentGLPostingResult {
+  success: boolean;
+  glTransactionId?: string;
+  journalEntries: {
+    accountId: string;
+    accountNumber?: string;
+    accountName?: string;
+    debitAmount: string;
+    creditAmount: string;
+    description: string;
+  }[];
+  postedAt?: string;
+  error?: string;
+}
+
+/**
+ * Validation result for payment operations
+ */
+export interface PaymentValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
 }
