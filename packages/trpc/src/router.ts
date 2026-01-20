@@ -38,6 +38,7 @@ import { wipReportingRouter } from './routers/wip-reporting';
 import { consolidationRouter } from './routers/consolidation';
 import { metricsRouter } from './routers/metrics';
 import { salesOrdersRouter } from './routers/sales-orders';
+import { bankDepositsRouter } from './routers/bank-deposits';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -79,6 +80,7 @@ export const appRouter = router({
   consolidation: consolidationRouter,
   metrics: metricsRouter,
   salesOrders: salesOrdersRouter,
+  bankDeposits: bankDepositsRouter,
 });
 
 export type AppRouter = typeof appRouter;
