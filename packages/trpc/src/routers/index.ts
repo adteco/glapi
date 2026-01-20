@@ -30,3 +30,4 @@ export * from './job-cost-posting';
 export * from './wip-reporting';
 export * from './consolidation';
 export * from './metrics';
+export * from './sales-orders';

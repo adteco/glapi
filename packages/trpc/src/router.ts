@@ -37,6 +37,7 @@ import { changeManagementRouter } from './routers/change-management';
 import { wipReportingRouter } from './routers/wip-reporting';
 import { consolidationRouter } from './routers/consolidation';
 import { metricsRouter } from './routers/metrics';
+import { salesOrdersRouter } from './routers/sales-orders';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -77,6 +78,7 @@ export const appRouter = router({
   wipReporting: wipReportingRouter,
   consolidation: consolidationRouter,
   metrics: metricsRouter,
+  salesOrders: salesOrdersRouter,
 });
 
 export type AppRouter = typeof appRouter;
