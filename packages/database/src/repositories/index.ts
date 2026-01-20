@@ -98,6 +98,9 @@ export * from './delivery-queue-repository';
 // Export Import Batch repository (data migration)
 export * from './import-batch-repository';
 
+// Export Onboarding repository
+export * from './onboarding-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
