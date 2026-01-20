@@ -93,3 +93,8 @@ export * from './delivery-connectors-service';
 
 // External Connector Framework
 export * from './connector-framework';
+
+// Bank Feed Connectors
+export * from './plaid-connector';
+export * from './yodlee-connector';
+export * from './bank-feed-service';

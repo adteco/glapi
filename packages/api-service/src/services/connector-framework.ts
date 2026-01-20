@@ -341,6 +341,31 @@ export class BearerTokenProvider implements AuthProvider {
 }
 
 /**
+ * Custom auth provider (no-op)
+ * Used when subclasses handle authentication themselves
+ */
+export class CustomAuthProvider implements AuthProvider {
+  readonly method: AuthMethod = 'custom';
+
+  async getAuthHeaders(): Promise<Record<string, string>> {
+    // Custom auth is handled by the connector subclass
+    return {};
+  }
+
+  async refreshIfNeeded(): Promise<boolean> {
+    return false;
+  }
+
+  isExpired(): boolean {
+    return false;
+  }
+
+  getExpiresAt(): Date | undefined {
+    return undefined;
+  }
+}
+
+/**
  * Create an auth provider from credentials
  */
 export function createAuthProvider(
@@ -357,7 +382,9 @@ export function createAuthProvider(
     case 'bearer':
       return new BearerTokenProvider(credentials as BearerTokenCredentials);
     case 'custom':
-      throw new Error('Custom auth requires a custom auth provider implementation');
+      // Return a no-op auth provider for custom auth
+      // Subclasses should override auth handling
+      return new CustomAuthProvider();
     default:
       throw new Error(`Unsupported auth method: ${(credentials as any).method}`);
   }
