@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { trpc } from '@/lib/trpc';
-import { CoaSetup, OpeningBalances as OpeningBalancesComponent } from './components';
+import { CoaSetup, OpeningBalances as OpeningBalancesComponent, HelpButton, HelpCard } from './components';
+import { useOnboardingAnalytics, type OnboardingStepKey } from '@/hooks/use-onboarding-analytics';
 
 // =============================================================================
 // Types
@@ -160,7 +161,10 @@ function WelcomeStep({
     <div className="text-center space-y-6">
       <div className="text-6xl">👋</div>
       <div>
-        <h2 className="text-2xl font-bold mb-2">Welcome to GLAPI</h2>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Welcome to GLAPI</h2>
+          <HelpButton stepKey="welcome" variant="icon" />
+        </div>
         <p className="text-muted-foreground max-w-md mx-auto">
           Let&apos;s get your accounting system set up. This wizard will guide you through
           the essential steps to configure your organization.
@@ -251,11 +255,19 @@ function OrganizationStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Organization Setup</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Organization Setup</h2>
+          <HelpButton stepKey="organization" variant="icon" />
+        </div>
         <p className="text-muted-foreground">
           Configure your company structure and settings
         </p>
       </div>
+
+      <HelpCard title="What's this for?" variant="info">
+        Set up your organization structure including subsidiaries, departments, and locations.
+        These dimensions help segment your financial data in reports.
+      </HelpCard>
 
       <div className="space-y-3">
         {checklistItems.map(item => (
@@ -361,7 +373,10 @@ function ChartOfAccountsStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Chart of Accounts</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Chart of Accounts</h2>
+          <HelpButton stepKey="chart_of_accounts" variant="icon" />
+        </div>
         <p className="text-muted-foreground">
           Set up your account structure for tracking finances
         </p>
@@ -504,7 +519,10 @@ function OpeningBalancesStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Opening Balances</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Opening Balances</h2>
+          <HelpButton stepKey="opening_balances" variant="icon" />
+        </div>
         <p className="text-muted-foreground">
           Enter your starting account balances as of your go-live date
         </p>
@@ -635,11 +653,19 @@ function IntegrationsStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Integrations</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Integrations</h2>
+          <HelpButton stepKey="integrations" variant="icon" />
+        </div>
         <p className="text-muted-foreground">
           Connect with your existing tools and services
         </p>
       </div>
+
+      <HelpCard title="Integrations are optional" variant="tip">
+        You can skip this step and set up integrations later from Settings.
+        Bank feeds and other connections can be configured at any time.
+      </HelpCard>
 
       <div className="grid grid-cols-2 gap-4">
         {integrations.map(integration => (
@@ -778,6 +804,13 @@ export default function OnboardingPage() {
   // Fetch onboarding state
   const { data: onboardingState, isLoading: stateLoading, refetch } = trpc.onboarding.getOrInitialize.useQuery();
 
+  // Analytics
+  const organizationId = onboardingState?.progress?.organizationId;
+  const analytics = useOnboardingAnalytics(organizationId);
+  const onboardingStartTimeRef = useRef<number | null>(null);
+  const hasTrackedStartRef = useRef(false);
+  const lastTrackedStepRef = useRef<string | null>(null);
+
   // Mutations
   const startStepMutation = trpc.onboarding.startStep.useMutation({
     onSuccess: () => refetch(),
@@ -822,6 +855,49 @@ export default function OnboardingPage() {
     completeItemMutation.isPending ||
     uncompleteItemMutation.isPending;
 
+  // Track onboarding start/resume
+  useEffect(() => {
+    if (stateLoading || !onboardingState || hasTrackedStartRef.current) return;
+
+    onboardingStartTimeRef.current = Date.now();
+    hasTrackedStartRef.current = true;
+
+    const progress = onboardingState.progress;
+    if (progress && progress.completedSteps > 0 && currentStepKey) {
+      // User is resuming onboarding - calculate skipped steps from steps array
+      const skippedStepsCount = onboardingState?.steps?.filter(s =>
+        s.step.status === 'skipped'
+      ).length ?? 0;
+
+      analytics.trackOnboardingResumed(currentStepKey as OnboardingStepKey, {
+        completed_steps: progress.completedSteps,
+        skipped_steps: skippedStepsCount,
+        percent_complete: progress.percentComplete,
+      });
+    } else {
+      // User is starting fresh
+      analytics.trackOnboardingStarted({
+        total_steps: stepConfigs.length,
+      });
+    }
+  }, [stateLoading, onboardingState, currentStepKey, analytics]);
+
+  // Track step views
+  useEffect(() => {
+    if (!currentStepKey || currentStepKey === lastTrackedStepRef.current) return;
+
+    lastTrackedStepRef.current = currentStepKey;
+    analytics.trackStepViewed(
+      currentStepKey as OnboardingStepKey,
+      currentStepIndex,
+      stepConfigs.length,
+      {
+        step_name: stepConfigs[currentStepIndex]?.name,
+        checklist_items_count: currentStep?.checklistItems?.length ?? 0,
+      }
+    );
+  }, [currentStepKey, currentStepIndex, currentStep?.checklistItems?.length, analytics]);
+
   // Handlers
   const handleCompleteStep = async (stepKey?: StepKey) => {
     const key = stepKey ?? currentStepKey;
@@ -830,16 +906,41 @@ export default function OnboardingPage() {
     try {
       const result = await completeStepMutation.mutateAsync({ stepKey: key });
       if (result.success) {
+        // Track step completion
+        analytics.trackStepCompleted(
+          key as OnboardingStepKey,
+          currentStepIndex,
+          stepConfigs.length,
+          {
+            checklist_items_completed: currentStep?.checklistItems?.filter(i => i.isCompleted).length ?? 0,
+            checklist_items_total: currentStep?.checklistItems?.length ?? 0,
+          }
+        );
+
         if (result.isOnboardingComplete) {
+          // Track onboarding completion
+          const totalTimeSeconds = onboardingStartTimeRef.current
+            ? Math.round((Date.now() - onboardingStartTimeRef.current) / 1000)
+            : 0;
+          const skippedStepsCount = onboardingState?.steps?.filter(s =>
+            s.step.status === 'skipped'
+          ).length ?? 0;
+          analytics.trackOnboardingCompleted(
+            totalTimeSeconds,
+            onboardingState?.progress?.completedSteps ?? 0,
+            skippedStepsCount
+          );
           toast.success('Onboarding complete!');
         } else if (result.nextStep) {
           // Auto-start next step
           await startStepMutation.mutateAsync({ stepKey: result.nextStep.stepKey as StepKey });
         }
       } else if (result.error) {
+        analytics.trackStepError(key as OnboardingStepKey, 'completion_error', result.error);
         toast.error(result.error);
       }
     } catch (error) {
+      analytics.trackStepError(key as OnboardingStepKey, 'completion_exception', String(error));
       toast.error('Failed to complete step');
     }
   };
@@ -847,11 +948,21 @@ export default function OnboardingPage() {
   const handleSkipStep = async () => {
     if (!currentStepKey) return;
 
+    const skipReason = 'Skipped during onboarding';
+
     try {
       const result = await skipStepMutation.mutateAsync({
         stepKey: currentStepKey,
-        reason: 'Skipped during onboarding',
+        reason: skipReason,
       });
+
+      // Track step skip
+      analytics.trackStepSkipped(currentStepKey as OnboardingStepKey, skipReason, {
+        step_index: currentStepIndex,
+        checklist_items_completed: currentStep?.checklistItems?.filter(i => i.isCompleted).length ?? 0,
+        checklist_items_total: currentStep?.checklistItems?.length ?? 0,
+      });
+
       if (result.success && result.nextStep) {
         await startStepMutation.mutateAsync({ stepKey: result.nextStep.stepKey as StepKey });
       } else if (result.error) {
@@ -865,6 +976,16 @@ export default function OnboardingPage() {
   const handleCompleteItem = async (itemId: string) => {
     try {
       await completeItemMutation.mutateAsync({ itemId });
+
+      // Track checklist item completion
+      const item = currentStep?.checklistItems?.find(i => i.id === itemId);
+      if (item && currentStepKey) {
+        analytics.trackChecklistItemCompleted(
+          currentStepKey as OnboardingStepKey,
+          item.itemKey,
+          { item_name: item.itemName, is_required: item.isRequired }
+        );
+      }
     } catch (error) {
       toast.error('Failed to update checklist item');
     }

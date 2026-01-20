@@ -27,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { trpc } from '@/lib/trpc';
+import { useOnboardingAnalytics } from '@/hooks/use-onboarding-analytics';
 
 // =============================================================================
 // Types
@@ -264,6 +265,7 @@ interface CoaSetupProps {
 
 export function CoaSetup({ onComplete, onCancel }: CoaSetupProps) {
   const router = useRouter();
+  const analytics = useOnboardingAnalytics();
   const [step, setStep] = useState<'choose' | 'review' | 'customize'>('choose');
   const [setupMethod, setSetupMethod] = useState<'template' | 'import' | 'scratch'>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -289,6 +291,11 @@ export function CoaSetup({ onComplete, onCancel }: CoaSetupProps) {
     if (tmpl) {
       // Select all accounts by default
       setSelectedAccounts(new Set(tmpl.accounts.map(a => a.accountNumber)));
+
+      // Track template selection
+      analytics.trackTemplateSelected(templateId, tmpl.name, {
+        account_count: tmpl.accounts.length,
+      });
     }
   };
 
