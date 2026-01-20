@@ -105,6 +105,9 @@ import * as closeManagementSchemas from './close-management';
 import * as purchaseOrdersSchemas from './purchase-orders';
 import * as vendorBillsSchemas from './vendor-bills';
 
+// Consolidation schemas (multi-book accounting)
+import * as consolidationSchemas from './consolidation';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -199,6 +202,8 @@ export const schema = {
   // Procure-to-Pay schemas
   ...purchaseOrdersSchemas,
   ...vendorBillsSchemas,
+  // Consolidation schemas (multi-book accounting)
+  ...consolidationSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -704,3 +709,19 @@ export type {
   BillingScheduleStatus,
   BillingScheduleLineStatus,
 } from './billing-schedules';
+
+// Re-export Consolidation schemas (multi-book accounting)
+export {
+  consolidationGroups,
+  consolidationGroupMembers,
+  eliminationRules,
+  fxTranslationRules,
+  consolidationExchangeRates,
+  consolidationRuns,
+  consolidationAdjustments,
+  intercompanyAccountMappings,
+  consolidationMethodEnum,
+  eliminationTypeEnum,
+  translationMethodEnum,
+  consolidationRunStatusEnum,
+} from './consolidation';

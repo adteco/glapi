@@ -72,3 +72,8 @@ export * from './bank-deposit-service';
 export * from './purchase-order-service';
 export * from './vendor-bill-service';
 export * from './bill-payment-service';
+
+// Consolidation (multi-book accounting)
+export * from './consolidation-service';
+export * from './consolidation-engine';
+export * from './consolidation-reporting-service';

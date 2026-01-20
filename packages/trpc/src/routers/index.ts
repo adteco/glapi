@@ -28,3 +28,4 @@ export * from './audit';
 export * from './change-management';
 export * from './job-cost-posting';
 export * from './wip-reporting';
+export * from './consolidation';
