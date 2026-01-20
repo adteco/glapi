@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { trpc } from '@/lib/trpc';
+import { CoaSetup, OpeningBalances as OpeningBalancesComponent } from './components';
 
 // =============================================================================
 // Types
@@ -327,15 +328,35 @@ function ChartOfAccountsStep({
   canProceed: boolean;
   loading: boolean;
 }) {
-  const router = useRouter();
+  const [showGuidedSetup, setShowGuidedSetup] = useState(false);
 
-  const handleToggle = (itemId: string, completed: boolean) => {
-    if (completed) {
-      onCompleteItem(itemId);
-    } else {
-      onUncompleteItem(itemId);
+  // Check if accounts already exist
+  const { data: existingAccounts } = trpc.accounts.list.useQuery({ limit: 1 });
+  const hasAccounts = (existingAccounts?.total ?? 0) > 0;
+
+  // Auto-complete the "import_coa" checklist item when accounts are created
+  useEffect(() => {
+    if (hasAccounts) {
+      const coaItem = checklistItems.find(item => item.itemKey === 'import_coa');
+      if (coaItem && !coaItem.isCompleted) {
+        onCompleteItem(coaItem.id);
+      }
     }
+  }, [hasAccounts, checklistItems, onCompleteItem]);
+
+  const handleCoaComplete = (accountCount: number) => {
+    setShowGuidedSetup(false);
+    // The account creation will trigger the useEffect above
   };
+
+  if (showGuidedSetup) {
+    return (
+      <CoaSetup
+        onComplete={handleCoaComplete}
+        onCancel={() => setShowGuidedSetup(false)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -346,25 +367,65 @@ function ChartOfAccountsStep({
         </p>
       </div>
 
+      {!hasAccounts && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="text-3xl">📊</div>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-1">Get Started Quickly</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Use our guided setup to create your chart of accounts from an industry template,
+                  or import from your existing accounting system.
+                </p>
+                <Button onClick={() => setShowGuidedSetup(true)}>
+                  Launch Guided Setup
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {hasAccounts && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-green-800">
+            <span className="text-lg">✓</span>
+            <span className="font-medium">
+              {existingAccounts?.total ?? 0} accounts configured
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         {checklistItems.map(item => (
           <ChecklistItem
             key={item.id}
             item={item}
-            onToggle={handleToggle}
+            onToggle={(itemId, completed) => {
+              if (completed) {
+                onCompleteItem(itemId);
+              } else {
+                onUncompleteItem(itemId);
+              }
+            }}
             disabled={loading}
           />
         ))}
       </div>
 
       <div className="bg-muted/50 rounded-lg p-4">
-        <h4 className="font-medium mb-2">Quick Links</h4>
+        <h4 className="font-medium mb-2">Other Options</h4>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => router.push('/admin/accounts')}>
-            Manage Accounts
+          <Button variant="outline" size="sm" onClick={() => setShowGuidedSetup(true)}>
+            Use Template
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/admin/migration')}>
+          <Button variant="outline" size="sm" onClick={() => window.open('/admin/migration', '_blank')}>
             Import from CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/admin/accounts', '_blank')}>
+            Manual Setup
           </Button>
         </div>
       </div>
@@ -414,15 +475,31 @@ function OpeningBalancesStep({
   canProceed: boolean;
   loading: boolean;
 }) {
-  const router = useRouter();
+  const [showGuidedEntry, setShowGuidedEntry] = useState(false);
 
-  const handleToggle = (itemId: string, completed: boolean) => {
-    if (completed) {
-      onCompleteItem(itemId);
-    } else {
-      onUncompleteItem(itemId);
-    }
+  const handleBalancesComplete = () => {
+    setShowGuidedEntry(false);
+    // Mark all checklist items as complete
+    checklistItems.forEach(item => {
+      if (!item.isCompleted) {
+        onCompleteItem(item.id);
+      }
+    });
+    onComplete();
   };
+
+  if (showGuidedEntry) {
+    return (
+      <OpeningBalancesComponent
+        onComplete={handleBalancesComplete}
+        onSkip={() => {
+          setShowGuidedEntry(false);
+          onSkip();
+        }}
+        canSkip={canSkip}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -433,33 +510,62 @@ function OpeningBalancesStep({
         </p>
       </div>
 
+      <Card className="border-primary/50 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="text-3xl">💰</div>
+            <div className="flex-1">
+              <h3 className="font-semibold mb-1">Guided Balance Entry</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Use our guided tool to enter your opening balances with real-time
+                validation to ensure debits equal credits.
+              </p>
+              <Button onClick={() => setShowGuidedEntry(true)}>
+                Enter Opening Balances
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-3">
         {checklistItems.map(item => (
           <ChecklistItem
             key={item.id}
             item={item}
-            onToggle={handleToggle}
+            onToggle={(itemId, completed) => {
+              if (completed) {
+                onCompleteItem(itemId);
+              } else {
+                onUncompleteItem(itemId);
+              }
+            }}
             disabled={loading}
           />
         ))}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-800 mb-2">Tip</h4>
-        <p className="text-sm text-blue-700">
-          Opening balances should be entered as of your accounting period start date.
-          Make sure debits equal credits before proceeding.
-        </p>
+        <h4 className="font-medium text-blue-800 mb-2">About Opening Balances</h4>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• Opening balances represent your account values at a specific point in time</li>
+          <li>• Typically entered as of the last day of your previous accounting period</li>
+          <li>• Total debits must equal total credits (double-entry principle)</li>
+          <li>• You can skip this step and enter balances later</li>
+        </ul>
       </div>
 
       <div className="bg-muted/50 rounded-lg p-4">
-        <h4 className="font-medium mb-2">Quick Links</h4>
+        <h4 className="font-medium mb-2">Alternative Methods</h4>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => router.push('/transactions/journal')}>
-            Journal Entry
+          <Button variant="outline" size="sm" onClick={() => setShowGuidedEntry(true)}>
+            Guided Entry
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/admin/migration')}>
-            Import Balances
+          <Button variant="outline" size="sm" onClick={() => window.open('/admin/migration', '_blank')}>
+            Import from File
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/transactions/journal', '_blank')}>
+            Manual Journal Entry
           </Button>
         </div>
       </div>
