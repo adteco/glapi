@@ -84,3 +84,6 @@ export * from './metrics-service';
 
 // Payment GL Posting
 export * from './payment-posting-service';
+
+// Report Scheduling
+export * from './report-scheduler-service';

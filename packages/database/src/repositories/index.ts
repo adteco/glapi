@@ -89,6 +89,9 @@ export * from './consolidation-repository';
 // Export Metrics repository
 export * from './metrics-repository';
 
+// Export Report Schedule repository
+export * from './report-schedule-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -134,6 +137,7 @@ import { CloseManagementRepository } from './close-management-repository';
 import { WipReportingRepository } from './wip-reporting-repository';
 import { ConsolidationRepository } from './consolidation-repository';
 import { MetricsRepository } from './metrics-repository';
+import { ReportScheduleRepository } from './report-schedule-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -180,3 +184,4 @@ export const closeManagementRepository = new CloseManagementRepository();
 export const wipReportingRepository = new WipReportingRepository();
 export const consolidationRepository = new ConsolidationRepository();
 export const metricsRepository = new MetricsRepository();
+export const reportScheduleRepository = new ReportScheduleRepository();

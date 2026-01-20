@@ -32,3 +32,4 @@ export * from './consolidation';
 export * from './metrics';
 export * from './sales-orders';
 export * from './bank-deposits';
+export * from './report-schedules';

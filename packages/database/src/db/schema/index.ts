@@ -111,6 +111,9 @@ import * as consolidationSchemas from './consolidation';
 // Metrics and dashboards schemas
 import * as metricsSchemas from './metrics';
 
+// Report scheduling schemas
+import * as reportSchedulesSchemas from './report-schedules';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -209,6 +212,8 @@ export const schema = {
   ...consolidationSchemas,
   // Metrics and dashboards schemas
   ...metricsSchemas,
+  // Report scheduling schemas
+  ...reportSchedulesSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -738,3 +743,30 @@ export {
   metricSnapshots,
   dashboardLayouts,
 } from './metrics';
+
+// Re-export Report scheduling schemas
+export {
+  reportSchedules,
+  reportJobExecutions,
+  reportScheduleStatusEnum,
+  reportScheduleFrequencyEnum,
+  reportTypeEnum,
+  jobExecutionStatusEnum,
+  reportOutputFormatEnum,
+} from './report-schedules';
+export type {
+  ReportSchedule,
+  NewReportSchedule,
+  UpdateReportSchedule,
+  ReportJobExecution,
+  NewReportJobExecution,
+  UpdateReportJobExecution,
+  ReportScheduleWithExecutions,
+  ReportScheduleStatus,
+  ReportScheduleFrequency,
+  ReportType,
+  JobExecutionStatus,
+  ReportOutputFormat,
+  ReportFilters,
+  DeliveryConfig,
+} from './report-schedules';
