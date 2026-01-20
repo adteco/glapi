@@ -95,6 +95,9 @@ export * from './report-schedule-repository';
 // Export Delivery Queue repository
 export * from './delivery-queue-repository';
 
+// Export Import Batch repository (data migration)
+export * from './import-batch-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -142,6 +145,7 @@ import { ConsolidationRepository } from './consolidation-repository';
 import { MetricsRepository } from './metrics-repository';
 import { ReportScheduleRepository } from './report-schedule-repository';
 import { DeliveryQueueRepository } from './delivery-queue-repository';
+import { ImportBatchRepository } from './import-batch-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -190,3 +194,4 @@ export const consolidationRepository = new ConsolidationRepository();
 export const metricsRepository = new MetricsRepository();
 export const reportScheduleRepository = new ReportScheduleRepository();
 export const deliveryQueueRepository = new DeliveryQueueRepository();
+export const importBatchRepository = new ImportBatchRepository();

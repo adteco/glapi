@@ -117,6 +117,9 @@ import * as reportSchedulesSchemas from './report-schedules';
 // Delivery queue schemas
 import * as deliveryQueueSchemas from './delivery-queue';
 
+// Import staging schemas (data migration)
+import * as importStagingSchemas from './import-staging';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -219,6 +222,8 @@ export const schema = {
   ...reportSchedulesSchemas,
   // Delivery queue schemas
   ...deliveryQueueSchemas,
+  // Import staging schemas (data migration)
+  ...importStagingSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -794,3 +799,26 @@ export type {
   DeliveryStatus,
   DeliveryType,
 } from './delivery-queue';
+
+// Re-export Import Staging schemas (data migration)
+export {
+  importBatches,
+  importRecords,
+  importFieldMappings,
+  importTemplates,
+  importAuditLogs,
+  importBatchStatusEnum,
+  importRecordStatusEnum,
+  importDataTypeEnum,
+  importSourceSystemEnum,
+} from './import-staging';
+export type {
+  ImportBatchOptions,
+  ImportTemplateOptions,
+  FieldMapping,
+  FieldTransformation,
+  ValidationRule,
+  ValidationError,
+  ValidationWarning,
+  ImportErrorSummary,
+} from './import-staging';

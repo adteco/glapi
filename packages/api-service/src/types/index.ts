@@ -27,3 +27,4 @@ export * from './connector.types';
 export * from './bank-feed.types';
 export * from './payroll.types';
 export * from './crm.types';
+export * from './import.types';
