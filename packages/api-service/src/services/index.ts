@@ -87,3 +87,6 @@ export * from './payment-posting-service';
 
 // Report Scheduling
 export * from './report-scheduler-service';
+
+// Delivery Connectors
+export * from './delivery-connectors-service';
