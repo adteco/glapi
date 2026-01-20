@@ -23,3 +23,4 @@ export * from './financial-statements.types';
 export * from './customer-payments.types';
 export * from './procure-to-pay.types';
 export * from './metrics.types';
+export * from './connector.types';
