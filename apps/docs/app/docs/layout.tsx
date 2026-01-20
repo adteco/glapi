@@ -1,6 +1,7 @@
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { baseOptions } from '@/lib/layout.shared';
 import { source } from '@/lib/source';
+import { VersionSelector } from '@/components/version-selector';
 
 export default function Layout({ children }: LayoutProps<'/docs'>) {
   return (
@@ -10,6 +11,14 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
       sidebar={{
         defaultOpenLevel: 1,
         collapsible: true,
+        banner: (
+          <div className="p-3 border-b border-fd-border">
+            <label className="text-xs text-fd-muted-foreground mb-1.5 block">
+              API Version
+            </label>
+            <VersionSelector />
+          </div>
+        ),
         footer: (
           <div className="p-4 text-xs text-muted-foreground border-t">
             <p>Need help?</p>
