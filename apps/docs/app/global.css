@@ -1,3 +1,125 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+/* =============================================================================
+   GLAPI Brand Theme Customization
+   ============================================================================= */
+
+:root {
+  /* Primary brand colors - emerald/teal for financial/accounting theme */
+  --fd-primary: 160 84% 39%; /* emerald-600 */
+  --fd-primary-foreground: 0 0% 100%;
+
+  /* Accent colors */
+  --fd-accent: 160 84% 39%;
+  --fd-accent-foreground: 0 0% 100%;
+
+  /* Background improvements */
+  --fd-background: 0 0% 100%;
+  --fd-foreground: 222 47% 11%;
+
+  /* Code block styling */
+  --fd-code-background: 220 14% 96%;
+  --fd-code-foreground: 222 47% 11%;
+}
+
+.dark {
+  /* Dark mode brand colors */
+  --fd-primary: 160 84% 45%; /* slightly brighter for dark mode */
+  --fd-primary-foreground: 0 0% 100%;
+
+  /* Dark mode backgrounds */
+  --fd-background: 222 47% 11%;
+  --fd-foreground: 210 40% 98%;
+
+  /* Code block styling for dark mode */
+  --fd-code-background: 220 14% 16%;
+  --fd-code-foreground: 210 40% 98%;
+}
+
+/* =============================================================================
+   Custom Component Styles
+   ============================================================================= */
+
+/* Improve code block appearance */
+[data-rehype-pretty-code-figure] pre {
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--fd-border));
+}
+
+/* Callout improvements */
+.fd-callout {
+  border-radius: 0.5rem;
+}
+
+/* API reference styling */
+.scalar-api-reference {
+  --scalar-background-1: hsl(var(--fd-background));
+  --scalar-background-2: hsl(var(--fd-card));
+  --scalar-color-1: hsl(var(--fd-foreground));
+  --scalar-color-accent: hsl(var(--fd-primary));
+}
+
+/* Search improvements */
+[data-search] {
+  --fd-search-background: hsl(var(--fd-popover));
+}
+
+/* Table styling */
+.fd-prose table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.fd-prose th,
+.fd-prose td {
+  border: 1px solid hsl(var(--fd-border));
+  padding: 0.5rem 0.75rem;
+}
+
+.fd-prose th {
+  background: hsl(var(--fd-muted));
+  font-weight: 600;
+}
+
+/* Badge for HTTP methods */
+.http-method {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.http-method-get {
+  background: hsl(142 76% 36% / 0.1);
+  color: hsl(142 76% 36%);
+}
+
+.http-method-post {
+  background: hsl(217 91% 60% / 0.1);
+  color: hsl(217 91% 60%);
+}
+
+.http-method-put {
+  background: hsl(38 92% 50% / 0.1);
+  color: hsl(38 92% 50%);
+}
+
+.http-method-delete {
+  background: hsl(0 84% 60% / 0.1);
+  color: hsl(0 84% 60%);
+}
+
+/* Footer branding */
+.fd-footer::after {
+  content: 'Powered by GLAPI';
+  display: block;
+  text-align: center;
+  padding-top: 1rem;
+  font-size: 0.75rem;
+  color: hsl(var(--fd-muted-foreground));
+}
