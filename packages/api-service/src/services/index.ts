@@ -105,3 +105,6 @@ export * from './gusto-connector';
 // CRM Connectors
 export * from './salesforce-connector';
 export * from './hubspot-connector';
+
+// Data Import/Migration
+export * from './import-service';
