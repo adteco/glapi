@@ -1,28 +1,28 @@
 import { BaseService } from './base-service';
 import {
-  BusinessTransaction,
-  BusinessTransactionLine,
-  GlTransaction,
-  GlTransactionLine,
-  GlPostingRule,
-  CreateGlTransactionInput,
-  CreateGlTransactionLineInput,
+  type BusinessTransaction,
+  type BusinessTransactionLine,
+  type GlTransaction,
+  type GlTransactionLine,
+  type GlPostingRule,
+  type CreateGlTransactionInput,
+  type CreateGlTransactionLineInput,
   ServiceError,
   // Double-entry and FX types
-  DoubleEntryValidationResult,
-  DoubleEntryValidationOptions,
-  DoubleEntryError,
-  DoubleEntryErrorCode,
-  FxRateMetadata,
-  FxRateSource,
-  PostingAuditEntry,
-  GlPostingResult,
-  AccountBalanceUpdate,
+  type DoubleEntryValidationResult,
+  type DoubleEntryValidationOptions,
+  type DoubleEntryError,
+  type DoubleEntryErrorCode,
+  type FxRateMetadata,
+  type FxRateSource,
+  type PostingAuditEntry,
+  type GlPostingResult,
+  type AccountBalanceUpdate,
 } from '../types';
 import { AccountingPeriodService } from './accounting-period-service';
 
 // Re-export for backwards compatibility
-export { AccountBalanceUpdate, GlPostingResult as PostingResult };
+export type { AccountBalanceUpdate, GlPostingResult as PostingResult } from '../types';
 
 export interface PostingContext {
   businessTransaction: BusinessTransaction;

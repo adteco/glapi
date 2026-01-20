@@ -58,7 +58,8 @@ export * from './event-projection-repository';
 export * from './permission-repository';
 export * from './audit-log-repository';
 
-// Export project cost code and budget repositories
+// Export project repositories
+export * from './project-repository';
 export * from './project-cost-code-repository';
 export * from './project-budget-repository';
 // TODO: Create project-expense-repository
@@ -68,6 +69,9 @@ export * from './project-progress-snapshot-repository';
 
 // Export time tracking repository
 export * from './time-entry-repository';
+
+// Export expense tracking repository
+export * from './expense-entry-repository';
 
 // Export SOV and Pay Application repositories
 export * from './sov-repository';
@@ -110,9 +114,11 @@ import { AccountingPeriodRepository } from './accounting-period-repository';
 import { PermissionRepository } from './permission-repository';
 import { AuditLogRepository } from './audit-log-repository';
 import { EventProjectionRepository } from './event-projection-repository';
+import { ProjectRepository } from './project-repository';
 import { ProjectCostCodeRepository } from './project-cost-code-repository';
 import { ProjectBudgetRepository } from './project-budget-repository';
 import { TimeEntryRepository } from './time-entry-repository';
+import { ExpenseEntryRepository } from './expense-entry-repository';
 import { SovRepository } from './sov-repository';
 import { PayApplicationRepository } from './pay-application-repository';
 import { CloseManagementRepository } from './close-management-repository';
@@ -151,9 +157,11 @@ export const accountingPeriodRepository = new AccountingPeriodRepository();
 export const permissionRepository = new PermissionRepository();
 export const auditLogRepository = new AuditLogRepository();
 export const eventProjectionRepository = new EventProjectionRepository();
+export const projectRepository = new ProjectRepository();
 export const projectCostCodeRepository = new ProjectCostCodeRepository();
 export const projectBudgetRepository = new ProjectBudgetRepository();
 export const timeEntryRepository = new TimeEntryRepository();
+export const expenseEntryRepository = new ExpenseEntryRepository();
 export const sovRepository = new SovRepository();
 export const payApplicationRepository = new PayApplicationRepository();
 export const closeManagementRepository = new CloseManagementRepository();

@@ -53,6 +53,7 @@
 - Coordinate with authentication layer to fetch Clerk org context for RLS (shared with existing GL features).
 - Ensure migrations are backfilled in a sandbox before cutting over production tenants.
 - Align naming conventions with existing docs (`docs/transaction-based-design.md`, `docs/event-sourced-gl.md`).
+- Percent-complete reporting now stores snapshots in `project_progress_snapshots`; downstream consumers should prefer those rows when plotting history instead of recalculating from GL each time.
 
 ## Task Tracker
 | Status | Task | Owner | Notes |

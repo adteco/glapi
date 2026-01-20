@@ -2,12 +2,12 @@ import { BaseService } from './base-service';
 import { ServiceContext, ServiceError } from '../types';
 import {
   eventStoreRepository,
-  EventStoreRepository,
-  EventQueryOptions,
-  AppendEventResult,
-  EventStoreRecord,
-  BaseEvent,
-  EventCategoryType,
+  type EventStoreRepository,
+  type EventQueryOptions,
+  type AppendEventResult,
+  type EventStoreRecord,
+  type BaseEvent,
+  type EventCategoryType,
   EventCategory,
 } from '@glapi/database';
 import { v4 as uuidv4 } from 'uuid';
@@ -509,4 +509,5 @@ export const PaymentEvents = {
 } as const;
 
 // Re-export useful types from database
-export { EventCategory, EventCategoryType } from '@glapi/database';
+export { EventCategory } from '@glapi/database';
+export type { EventCategoryType } from '@glapi/database';

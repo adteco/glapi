@@ -25,14 +25,12 @@ import { accountingPeriodsRouter } from './routers/accounting-periods';
 import { projectCostCodesRouter } from './routers/project-cost-codes';
 import { projectBudgetsRouter } from './routers/project-budgets';
 import { projectsRouter } from './routers/projects';
-import { projectTasksRouter } from './routers/project-tasks';
-import { projectExpensesRouter } from './routers/project-expenses';
 import { projectReportingRouter } from './routers/project-reporting';
 import { timeEntriesRouter } from './routers/time-entries';
+import { expenseEntriesRouter } from './routers/expense-entries';
 import { closeManagementRouter } from './routers/close-management';
 import { scheduleOfValuesRouter } from './routers/schedule-of-values';
 import { payApplicationsRouter } from './routers/pay-applications';
-import { financialStatementsRouter } from './routers/financial-statements';
 import { auditRouter } from './routers/audit';
 import { jobCostPostingRouter } from './routers/job-cost-posting';
 import { changeManagementRouter } from './routers/change-management';
@@ -64,14 +62,12 @@ export const appRouter = router({
   projects: projectsRouter,
   projectCostCodes: projectCostCodesRouter,
   projectBudgets: projectBudgetsRouter,
-  projectTasks: projectTasksRouter,
-  projectExpenses: projectExpensesRouter,
   projectReporting: projectReportingRouter,
   timeEntries: timeEntriesRouter,
+  expenseEntries: expenseEntriesRouter,
   closeManagement: closeManagementRouter,
   scheduleOfValues: scheduleOfValuesRouter,
   payApplications: payApplicationsRouter,
-  financialStatements: financialStatementsRouter,
   audit: auditRouter,
   jobCostPosting: jobCostPostingRouter,
   changeManagement: changeManagementRouter,
