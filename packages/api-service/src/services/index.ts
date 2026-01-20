@@ -90,3 +90,6 @@ export * from './report-scheduler-service';
 
 // Delivery Connectors
 export * from './delivery-connectors-service';
+
+// External Connector Framework
+export * from './connector-framework';
