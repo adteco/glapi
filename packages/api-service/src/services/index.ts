@@ -108,3 +108,4 @@ export * from './hubspot-connector';
 
 // Data Import/Migration
 export * from './import-service';
+export * from './import-rollback-service';
