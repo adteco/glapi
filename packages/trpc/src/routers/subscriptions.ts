@@ -16,7 +16,7 @@ const subscriptionItemSchema = z.object({
 const subscriptionSchema = z.object({
   entityId: z.string().uuid(),
   subscriptionNumber: z.string().min(1).optional(),
-  status: z.enum(['draft', 'active', 'suspended', 'cancelled']).default('draft'),
+  status: z.enum(['draft', 'active', 'suspended', 'cancelled', 'expired']).default('draft'),
   startDate: z.coerce.date(),
   endDate: z.coerce.date().optional().nullable(),
   contractValue: z.number().positive().optional().nullable(),
@@ -26,6 +26,20 @@ const subscriptionSchema = z.object({
   metadata: z.record(z.any()).optional().nullable(),
   items: z.array(subscriptionItemSchema).min(1).optional()
 });
+
+// Helper to map service errors to TRPC errors
+function handleServiceError(error: any): never {
+  if (error.code === 'NOT_FOUND') {
+    throw new TRPCError({ code: 'NOT_FOUND', message: error.message });
+  }
+  if (error.code === 'INVALID_STATE' || error.code === 'INVALID_STATE_TRANSITION' || error.code === 'MISSING_ITEMS') {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: error.message });
+  }
+  if (error.code === 'ALREADY_CANCELLED') {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: error.message });
+  }
+  throw error;
+}
 
 export const subscriptionsRouter = router({
   // List subscriptions with filtering
@@ -203,32 +217,12 @@ export const subscriptionsRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const service = new SubscriptionService(ctx.serviceContext);
-      
-      // Get subscription to verify it exists and check status
-      const subscription = await service.getSubscriptionById(input.id);
-      if (!subscription) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Subscription not found'
-        });
+
+      try {
+        return await service.suspendSubscription(input.id, input.reason);
+      } catch (error: any) {
+        handleServiceError(error);
       }
-      
-      if (subscription.status !== 'active') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only active subscriptions can be suspended'
-        });
-      }
-      
-      // Update status to suspended
-      return service.updateSubscription(input.id, {
-        status: 'suspended',
-        metadata: {
-          ...(subscription.metadata as any || {}),
-          suspensionReason: input.reason,
-          suspensionDate: new Date().toISOString()
-        }
-      });
     }),
 
   // Resume suspended subscription
@@ -236,31 +230,117 @@ export const subscriptionsRouter = router({
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new SubscriptionService(ctx.serviceContext);
-      
-      // Get subscription to verify it exists and check status
-      const subscription = await service.getSubscriptionById(input.id);
-      if (!subscription) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Subscription not found'
-        });
+
+      try {
+        return await service.resumeSubscription(input.id);
+      } catch (error: any) {
+        handleServiceError(error);
       }
-      
-      if (subscription.status !== 'suspended') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only suspended subscriptions can be resumed'
-        });
+    }),
+
+  // Renew subscription
+  renew: authenticatedProcedure
+    .input(z.object({
+      id: z.string().uuid(),
+      renewalTermMonths: z.number().positive(),
+      newEndDate: z.coerce.date()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new SubscriptionService(ctx.serviceContext);
+
+      try {
+        return await service.renewSubscription(
+          input.id,
+          input.renewalTermMonths,
+          input.newEndDate
+        );
+      } catch (error: any) {
+        handleServiceError(error);
       }
-      
-      // Update status back to active
-      return service.updateSubscription(input.id, {
-        status: 'active',
-        metadata: {
-          ...(subscription.metadata as any || {}),
-          resumptionDate: new Date().toISOString()
+    }),
+
+  // Amend subscription (contract modification)
+  amend: authenticatedProcedure
+    .input(z.object({
+      id: z.string().uuid(),
+      effectiveDate: z.coerce.date(),
+      reason: z.string().min(1),
+      changes: subscriptionSchema.partial()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new SubscriptionService(ctx.serviceContext);
+
+      try {
+        // Convert nullable fields to undefined for service
+        const changesForService = {
+          ...input.changes,
+          startDate: input.changes.startDate ? (typeof input.changes.startDate === 'string' ? input.changes.startDate : input.changes.startDate.toISOString().split('T')[0]) : undefined,
+          endDate: input.changes.endDate === null ? undefined : (input.changes.endDate ? (typeof input.changes.endDate === 'string' ? input.changes.endDate : input.changes.endDate.toISOString().split('T')[0]) : undefined),
+          contractValue: input.changes.contractValue === null ? undefined : (input.changes.contractValue ? String(input.changes.contractValue) : undefined),
+          billingFrequency: input.changes.billingFrequency === null ? undefined : input.changes.billingFrequency,
+          renewalTermMonths: input.changes.renewalTermMonths === null ? undefined : input.changes.renewalTermMonths,
+          metadata: input.changes.metadata === null ? undefined : input.changes.metadata,
+          items: input.changes.items?.map(item => ({
+            ...item,
+            endDate: item.endDate === null ? undefined : item.endDate
+          }))
+        };
+
+        return await service.amendSubscription({
+          subscriptionId: input.id,
+          changes: changesForService as any,
+          effectiveDate: input.effectiveDate,
+          reason: input.reason
+        });
+      } catch (error: any) {
+        handleServiceError(error);
+      }
+    }),
+
+  // Get version history
+  getVersionHistory: authenticatedProcedure
+    .input(z.object({
+      id: z.string().uuid(),
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(50)
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new SubscriptionService(ctx.serviceContext);
+
+      try {
+        return await service.getVersionHistory(input.id, {
+          page: input.page,
+          limit: input.limit
+        });
+      } catch (error: any) {
+        handleServiceError(error);
+      }
+    }),
+
+  // Get specific version
+  getVersion: authenticatedProcedure
+    .input(z.object({
+      id: z.string().uuid(),
+      versionNumber: z.number().positive()
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new SubscriptionService(ctx.serviceContext);
+
+      try {
+        const version = await service.getVersion(input.id, input.versionNumber);
+
+        if (!version) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Version ${input.versionNumber} not found for this subscription`
+          });
         }
-      });
+
+        return version;
+      } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
+        handleServiceError(error);
+      }
     }),
 
   // Calculate revenue recognition

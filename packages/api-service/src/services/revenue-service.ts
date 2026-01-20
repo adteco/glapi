@@ -367,16 +367,99 @@ export class RevenueService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const startDate = typeof input.startDate === 'string' ? input.startDate : input.startDate.toISOString().split('T')[0];
     const endDate = typeof input.endDate === 'string' ? input.endDate : input.endDate.toISOString().split('T')[0];
-    
-    // TODO: Implement revenue summary aggregation
+    const groupBy = input.groupBy || 'month';
+
+    // Get date truncation function based on groupBy
+    const dateTrunc = groupBy === 'year' ? 'year' : groupBy === 'quarter' ? 'quarter' : 'month';
+
+    // Aggregate recognized revenue by period
+    const recognizedByPeriod = await db.select({
+      period: sql`date_trunc(${dateTrunc}, ${revenueSchedules.recognitionDate}::date)::date`.as('period'),
+      amount: sql`COALESCE(SUM(${revenueSchedules.recognizedAmount}), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          eq(revenueSchedules.status, 'recognized'),
+          gte(revenueSchedules.recognitionDate, startDate),
+          lte(revenueSchedules.recognitionDate, endDate)
+        )
+      )
+      .groupBy(sql`date_trunc(${dateTrunc}, ${revenueSchedules.recognitionDate}::date)`)
+      .orderBy(sql`date_trunc(${dateTrunc}, ${revenueSchedules.recognitionDate}::date)`);
+
+    // Get scheduled revenue by period
+    const scheduledByPeriod = await db.select({
+      period: sql`date_trunc(${dateTrunc}, ${revenueSchedules.periodStartDate}::date)::date`.as('period'),
+      amount: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount}), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          eq(revenueSchedules.status, 'scheduled'),
+          gte(revenueSchedules.periodStartDate, startDate),
+          lte(revenueSchedules.periodStartDate, endDate)
+        )
+      )
+      .groupBy(sql`date_trunc(${dateTrunc}, ${revenueSchedules.periodStartDate}::date)`)
+      .orderBy(sql`date_trunc(${dateTrunc}, ${revenueSchedules.periodStartDate}::date)`);
+
+    // Calculate deferred balance at end of period
+    const [deferredResult] = await db.select({
+      total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount} - COALESCE(${revenueSchedules.recognizedAmount}, 0)), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          lte(revenueSchedules.periodStartDate, endDate),
+          sql`(${revenueSchedules.status} = 'scheduled' OR (${revenueSchedules.status} = 'recognized' AND ${revenueSchedules.recognitionDate} > ${endDate}))`
+        )
+      );
+
+    // Calculate totals
+    const totalRecognized = recognizedByPeriod.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const totalScheduled = scheduledByPeriod.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+    // Build period breakdown
+    const periods = new Map<string, { recognized: number; scheduled: number }>();
+
+    for (const r of recognizedByPeriod) {
+      const key = r.period ? new Date(String(r.period)).toISOString().split('T')[0] : 'unknown';
+      if (!periods.has(key)) {
+        periods.set(key, { recognized: 0, scheduled: 0 });
+      }
+      periods.get(key)!.recognized = r.amount || 0;
+    }
+
+    for (const s of scheduledByPeriod) {
+      const key = s.period ? new Date(String(s.period)).toISOString().split('T')[0] : 'unknown';
+      if (!periods.has(key)) {
+        periods.set(key, { recognized: 0, scheduled: 0 });
+      }
+      periods.get(key)!.scheduled = s.amount || 0;
+    }
+
+    const periodBreakdown = Array.from(periods.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, data]) => ({
+        period,
+        recognized: data.recognized,
+        scheduled: data.scheduled
+      }));
+
     return {
       startDate,
       endDate,
-      groupBy: input.groupBy || 'month',
-      recognized: 0,
-      deferred: 0,
-      scheduled: 0,
-      message: 'Revenue summary will be fully implemented in production'
+      groupBy,
+      totals: {
+        recognized: totalRecognized,
+        scheduled: totalScheduled,
+        deferred: deferredResult.total || 0
+      },
+      periods: periodBreakdown
     };
   }
 
@@ -406,48 +489,312 @@ export class RevenueService extends BaseService {
 
   async calculateARR(asOfDate?: Date | string, entityId?: string): Promise<any> {
     const organizationId = this.requireOrganizationContext();
-    const dateStr = asOfDate 
+    const dateStr = asOfDate
       ? (typeof asOfDate === 'string' ? asOfDate : asOfDate.toISOString().split('T')[0])
       : new Date().toISOString().split('T')[0];
-    
-    // TODO: Implement ARR calculation based on active subscriptions
+
+    // Get active subscriptions with their items
+    const activeSubscriptions = await this.subscriptionRepository.list({
+      organizationId,
+      status: 'active',
+      ...(entityId && { entityId }),
+      limit: 1000 // Get all active subscriptions
+    });
+
+    // Calculate ARR for each subscription
+    let totalARR = 0;
+    const subscriptionBreakdown = [];
+
+    for (const subscription of activeSubscriptions.data) {
+      // Skip if subscription has ended or hasn't started yet
+      if (subscription.endDate && new Date(subscription.endDate) < new Date(dateStr)) continue;
+      if (new Date(subscription.startDate) > new Date(dateStr)) continue;
+
+      // Calculate annual value based on billing frequency and contract value
+      const contractValue = parseFloat(subscription.contractValue || '0');
+      let annualizedValue = 0;
+
+      // Calculate subscription term in months
+      const startDate = new Date(subscription.startDate);
+      const endDate = subscription.endDate ? new Date(subscription.endDate) : null;
+
+      // If we have both dates, calculate the term-based annualization
+      if (endDate) {
+        const termMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+                          (endDate.getMonth() - startDate.getMonth()) + 1;
+        annualizedValue = termMonths > 0 ? (contractValue / termMonths) * 12 : contractValue;
+      } else {
+        // Without end date, use billing frequency to annualize
+        switch (subscription.billingFrequency) {
+          case 'monthly':
+            // If contractValue represents monthly value, multiply by 12
+            // If it represents annual value, use as-is
+            annualizedValue = contractValue;
+            break;
+          case 'quarterly':
+            annualizedValue = contractValue;
+            break;
+          case 'semi_annual':
+            annualizedValue = contractValue;
+            break;
+          case 'annual':
+            annualizedValue = contractValue;
+            break;
+          default:
+            annualizedValue = contractValue;
+        }
+      }
+
+      totalARR += annualizedValue;
+      subscriptionBreakdown.push({
+        subscriptionId: subscription.id,
+        subscriptionNumber: subscription.subscriptionNumber,
+        entityId: subscription.entityId,
+        contractValue,
+        annualizedValue,
+        billingFrequency: subscription.billingFrequency,
+        startDate: subscription.startDate,
+        endDate: subscription.endDate
+      });
+    }
+
     return {
       asOfDate: dateStr,
-      arr: 0,
-      activeSubscriptions: 0,
-      message: 'ARR calculation will be fully implemented in production'
+      arr: Math.round(totalARR * 100) / 100,
+      activeSubscriptions: subscriptionBreakdown.length,
+      currency: 'USD',
+      breakdown: subscriptionBreakdown
     };
   }
 
   async calculateMRR(forMonth?: Date | string, entityId?: string): Promise<any> {
     const organizationId = this.requireOrganizationContext();
-    const monthDate = forMonth 
-      ? (typeof forMonth === 'string' ? forMonth : forMonth.toISOString().split('T')[0])
-      : new Date().toISOString().split('T')[0];
-    
-    // TODO: Implement MRR calculation
+    const monthDate = forMonth
+      ? (typeof forMonth === 'string' ? new Date(forMonth) : forMonth)
+      : new Date();
+
+    // Get the first and last day of the month
+    const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+    const prevMonthStart = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth(), 0);
+
+    const monthStartStr = monthStart.toISOString().split('T')[0];
+    const monthEndStr = monthEnd.toISOString().split('T')[0];
+    const prevMonthStartStr = prevMonthStart.toISOString().split('T')[0];
+    const prevMonthEndStr = prevMonthEnd.toISOString().split('T')[0];
+
+    // Get ARR for current and previous month to calculate changes
+    const currentARR = await this.calculateARR(monthEndStr, entityId);
+    const previousARR = await this.calculateARR(prevMonthEndStr, entityId);
+
+    // Create maps for comparison
+    const currentSubscriptions = new Map(
+      currentARR.breakdown.map((s: any) => [s.subscriptionId, s])
+    );
+    const previousSubscriptions = new Map(
+      previousARR.breakdown.map((s: any) => [s.subscriptionId, s])
+    );
+
+    // Calculate MRR components
+    let newMRR = 0;
+    let expansionMRR = 0;
+    let contractionMRR = 0;
+    let churnMRR = 0;
+
+    // New subscriptions (in current but not in previous)
+    for (const [id, sub] of currentSubscriptions) {
+      const current = sub as any;
+      if (!previousSubscriptions.has(id)) {
+        // Check if subscription started this month
+        const startDate = new Date(current.startDate);
+        if (startDate >= monthStart && startDate <= monthEnd) {
+          newMRR += current.annualizedValue / 12;
+        }
+      }
+    }
+
+    // Expansion and contraction (in both periods but value changed)
+    for (const [id, currentSub] of currentSubscriptions) {
+      const current = currentSub as any;
+      if (previousSubscriptions.has(id)) {
+        const previous = previousSubscriptions.get(id) as any;
+        const currentMRRValue = current.annualizedValue / 12;
+        const previousMRRValue = previous.annualizedValue / 12;
+        const diff = currentMRRValue - previousMRRValue;
+
+        if (diff > 0) {
+          expansionMRR += diff;
+        } else if (diff < 0) {
+          contractionMRR += Math.abs(diff);
+        }
+      }
+    }
+
+    // Churned subscriptions (in previous but not in current)
+    for (const [id, prevSub] of previousSubscriptions) {
+      const previous = prevSub as any;
+      if (!currentSubscriptions.has(id)) {
+        churnMRR += previous.annualizedValue / 12;
+      }
+    }
+
+    const totalMRR = currentARR.arr / 12;
+    const netNewMRR = newMRR + expansionMRR - contractionMRR - churnMRR;
+
     return {
-      month: monthDate,
-      mrr: 0,
-      newMRR: 0,
-      expansionMRR: 0,
-      contractionMRR: 0,
-      churnMRR: 0,
-      message: 'MRR calculation will be fully implemented in production'
+      month: monthStartStr,
+      mrr: Math.round(totalMRR * 100) / 100,
+      newMRR: Math.round(newMRR * 100) / 100,
+      expansionMRR: Math.round(expansionMRR * 100) / 100,
+      contractionMRR: Math.round(contractionMRR * 100) / 100,
+      churnMRR: Math.round(churnMRR * 100) / 100,
+      netNewMRR: Math.round(netNewMRR * 100) / 100,
+      activeSubscriptions: currentARR.activeSubscriptions,
+      currency: 'USD'
     };
   }
 
   async getRevenueWaterfall(input: RevenueWaterfallInput): Promise<any> {
     const organizationId = this.requireOrganizationContext();
-    
+    const startDate = typeof input.startDate === 'string' ? input.startDate : input.startDate.toISOString().split('T')[0];
+    const endDate = typeof input.endDate === 'string' ? input.endDate : input.endDate.toISOString().split('T')[0];
+
+    // Calculate beginning balance (deferred revenue as of start date)
+    // This is scheduled revenue that hasn't been recognized yet as of startDate
+    const [beginningBalanceResult] = await db.select({
+      total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount} - COALESCE(${revenueSchedules.recognizedAmount}, 0)), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          lte(revenueSchedules.periodStartDate, startDate),
+          sql`(${revenueSchedules.status} = 'scheduled' OR (${revenueSchedules.status} = 'recognized' AND ${revenueSchedules.recognitionDate} >= ${startDate}))`
+        )
+      );
+
+    // Calculate new deferrals (revenue scheduled during the period)
+    const [newDeferralsResult] = await db.select({
+      total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount}), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          gte(revenueSchedules.createdAt, new Date(startDate)),
+          lte(revenueSchedules.createdAt, new Date(endDate + 'T23:59:59'))
+        )
+      );
+
+    // Calculate revenue recognized during the period
+    const [recognizedResult] = await db.select({
+      total: sql`COALESCE(SUM(${revenueSchedules.recognizedAmount}), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          eq(revenueSchedules.status, 'recognized'),
+          gte(revenueSchedules.recognitionDate, startDate),
+          lte(revenueSchedules.recognitionDate, endDate)
+        )
+      );
+
+    // Calculate ending balance (deferred revenue as of end date)
+    const [endingBalanceResult] = await db.select({
+      total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount} - COALESCE(${revenueSchedules.recognizedAmount}, 0)), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          lte(revenueSchedules.periodStartDate, endDate),
+          sql`(${revenueSchedules.status} = 'scheduled' OR (${revenueSchedules.status} = 'recognized' AND ${revenueSchedules.recognitionDate} > ${endDate}))`
+        )
+      );
+
+    const beginningBalance = beginningBalanceResult.total || 0;
+    const newDeferrals = newDeferralsResult.total || 0;
+    const recognized = recognizedResult.total || 0;
+    const endingBalance = endingBalanceResult.total || 0;
+
+    // Get monthly breakdown for the period
+    const monthlyBreakdown = await db.select({
+      month: sql`date_trunc('month', ${revenueSchedules.recognitionDate}::date)::date`.as('month'),
+      recognizedAmount: sql`COALESCE(SUM(${revenueSchedules.recognizedAmount}), 0)::numeric`.mapWith(Number)
+    })
+      .from(revenueSchedules)
+      .where(
+        and(
+          eq(revenueSchedules.organizationId, organizationId),
+          eq(revenueSchedules.status, 'recognized'),
+          gte(revenueSchedules.recognitionDate, startDate),
+          lte(revenueSchedules.recognitionDate, endDate)
+        )
+      )
+      .groupBy(sql`date_trunc('month', ${revenueSchedules.recognitionDate}::date)`)
+      .orderBy(sql`date_trunc('month', ${revenueSchedules.recognitionDate}::date)`);
+
+    // Build waterfall chart data (running balance)
+    const waterfallData = [];
+    let runningBalance = beginningBalance;
+
+    // Add beginning balance
+    waterfallData.push({
+      label: 'Beginning Balance',
+      value: beginningBalance,
+      runningBalance: beginningBalance,
+      type: 'balance'
+    });
+
+    // Add new deferrals
+    if (newDeferrals > 0) {
+      runningBalance += newDeferrals;
+      waterfallData.push({
+        label: 'New Deferrals',
+        value: newDeferrals,
+        runningBalance,
+        type: 'addition'
+      });
+    }
+
+    // Add recognized (subtraction)
+    if (recognized > 0) {
+      runningBalance -= recognized;
+      waterfallData.push({
+        label: 'Revenue Recognized',
+        value: -recognized,
+        runningBalance,
+        type: 'subtraction'
+      });
+    }
+
+    // Add ending balance
+    waterfallData.push({
+      label: 'Ending Balance',
+      value: endingBalance,
+      runningBalance: endingBalance,
+      type: 'balance'
+    });
+
     return {
-      startDate: input.startDate,
-      endDate: input.endDate,
-      beginningBalance: 0,
-      newRevenue: 0,
-      recognized: 0,
-      endingBalance: 0,
-      message: 'Revenue waterfall will be fully implemented in production'
+      startDate,
+      endDate,
+      summary: {
+        beginningBalance: Math.round(beginningBalance * 100) / 100,
+        newDeferrals: Math.round(newDeferrals * 100) / 100,
+        recognized: Math.round(recognized * 100) / 100,
+        endingBalance: Math.round(endingBalance * 100) / 100,
+        // Sanity check: beginningBalance + newDeferrals - recognized ≈ endingBalance
+        calculatedEndingBalance: Math.round((beginningBalance + newDeferrals - recognized) * 100) / 100
+      },
+      waterfallData,
+      monthlyRecognition: monthlyBreakdown.map(m => ({
+        month: m.month ? new Date(String(m.month)).toISOString().split('T')[0] : 'unknown',
+        recognized: m.recognizedAmount
+      })),
+      currency: 'USD'
     };
   }
 

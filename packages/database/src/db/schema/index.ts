@@ -76,11 +76,17 @@ import * as glJournalEntrySchemas from './gl-journal-entries';
 // Event sourcing schemas
 import * as eventStoreSchemas from './event-store';
 
+// Approval workflow schemas
+import * as approvalWorkflowSchemas from './approval-workflow';
+
 // Audit logging schemas
 import * as auditLogSchemas from './audit-logs';
 
 // Time tracking schemas
 import * as timeEntriesSchemas from './time-entries';
+
+// Expense tracking schemas
+import * as expenseEntriesSchemas from './expense-entries';
 
 // Schedule of Values and Pay Applications schemas
 import * as scheduleOfValuesSchemas from './schedule-of-values';
@@ -173,10 +179,14 @@ export const schema = {
   ...glJournalEntrySchemas,
   // Event sourcing schemas
   ...eventStoreSchemas,
+  // Approval workflow schemas
+  ...approvalWorkflowSchemas,
   // Audit logging schemas
   ...auditLogSchemas,
   // Time tracking schemas
   ...timeEntriesSchemas,
+  // Expense tracking schemas
+  ...expenseEntriesSchemas,
   // Schedule of Values and Pay Applications schemas
   ...scheduleOfValuesSchemas,
   ...payApplicationsSchemas,
@@ -359,6 +369,20 @@ export type {
   OutboxStatusType,
 } from './event-store';
 
+// Re-export approval workflow schemas
+export {
+  approvalInstances,
+  approvalActions,
+  approvalStatusEnum,
+  workflowApprovalActionTypeEnum,
+} from './approval-workflow';
+export type {
+  ApprovalInstance,
+  NewApprovalInstance,
+  WorkflowApprovalAction,
+  NewApprovalAction,
+} from './approval-workflow';
+
 // Re-export unified audit log schemas
 export {
   unifiedAuditLog,
@@ -411,6 +435,39 @@ export type {
   TimeEntryType,
   ApprovalAction,
 } from './time-entries';
+
+// Re-export expense tracking schemas
+export {
+  expenseEntries,
+  expenseAttachments,
+  expenseEntryApprovals,
+  expenseReports,
+  expenseReportItems,
+  expensePolicies,
+  expenseEntryStatusEnum,
+  expenseCategoryEnum,
+  paymentMethodEnum,
+} from './expense-entries';
+export type {
+  ExpenseEntry,
+  NewExpenseEntry,
+  UpdateExpenseEntry,
+  ExpenseAttachment,
+  NewExpenseAttachment,
+  ExpenseEntryApproval,
+  NewExpenseEntryApproval,
+  ExpenseReport,
+  NewExpenseReport,
+  UpdateExpenseReport,
+  ExpenseReportItem,
+  NewExpenseReportItem,
+  ExpensePolicy,
+  NewExpensePolicy,
+  UpdateExpensePolicy,
+  ExpenseEntryStatus,
+  ExpenseCategory,
+  PaymentMethod,
+} from './expense-entries';
 
 // Re-export Schedule of Values schemas
 export {
@@ -466,7 +523,7 @@ export {
   salesOrderApprovalHistory,
   salesOrderInvoices,
   salesOrderStatusEnum,
-  approvalActionTypeEnum,
+  salesOrderApprovalActionEnum,
   SalesOrderStatus,
   ApprovalActionType,
   VALID_SALES_ORDER_TRANSITIONS,

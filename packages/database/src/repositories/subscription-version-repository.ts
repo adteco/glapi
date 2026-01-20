@@ -1,0 +1,264 @@
+import { eq, and, desc, sql } from 'drizzle-orm';
+import { db } from '../db';
+import {
+  subscriptionVersions,
+  type SubscriptionVersion,
+  type NewSubscriptionVersion,
+} from '../db/schema/subscription-versions';
+
+export class SubscriptionVersionRepository {
+  /**
+   * Create a new subscription version record
+   */
+  async create(data: NewSubscriptionVersion): Promise<SubscriptionVersion> {
+    const [version] = await db
+      .insert(subscriptionVersions)
+      .values(data)
+      .returning();
+    return version;
+  }
+
+  /**
+   * Find a version by ID
+   */
+  async findById(id: string): Promise<SubscriptionVersion | null> {
+    const [version] = await db
+      .select()
+      .from(subscriptionVersions)
+      .where(eq(subscriptionVersions.id, id))
+      .limit(1);
+    return version || null;
+  }
+
+  /**
+   * Get all versions for a subscription, ordered by version number descending
+   */
+  async findBySubscriptionId(subscriptionId: string): Promise<SubscriptionVersion[]> {
+    return await db
+      .select()
+      .from(subscriptionVersions)
+      .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
+      .orderBy(desc(subscriptionVersions.versionNumber));
+  }
+
+  /**
+   * Get the latest version for a subscription
+   */
+  async findLatestVersion(subscriptionId: string): Promise<SubscriptionVersion | null> {
+    const [version] = await db
+      .select()
+      .from(subscriptionVersions)
+      .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
+      .orderBy(desc(subscriptionVersions.versionNumber))
+      .limit(1);
+    return version || null;
+  }
+
+  /**
+   * Get the next version number for a subscription
+   */
+  async getNextVersionNumber(subscriptionId: string): Promise<number> {
+    const latest = await this.findLatestVersion(subscriptionId);
+    return latest ? latest.versionNumber + 1 : 1;
+  }
+
+  /**
+   * Get version history with pagination
+   */
+  async getVersionHistory(
+    subscriptionId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<{ data: SubscriptionVersion[]; total: number }> {
+    const { limit = 50, offset = 0 } = options;
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(subscriptionVersions)
+      .where(eq(subscriptionVersions.subscriptionId, subscriptionId));
+
+    const data = await db
+      .select()
+      .from(subscriptionVersions)
+      .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
+      .orderBy(desc(subscriptionVersions.versionNumber))
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      data,
+      total: countResult?.count || 0,
+    };
+  }
+
+  /**
+   * Get a specific version by subscription ID and version number
+   */
+  async findBySubscriptionAndVersion(
+    subscriptionId: string,
+    versionNumber: number
+  ): Promise<SubscriptionVersion | null> {
+    const [version] = await db
+      .select()
+      .from(subscriptionVersions)
+      .where(
+        and(
+          eq(subscriptionVersions.subscriptionId, subscriptionId),
+          eq(subscriptionVersions.versionNumber, versionNumber)
+        )
+      )
+      .limit(1);
+    return version || null;
+  }
+
+  /**
+   * Get versions by type (e.g., all amendments)
+   */
+  async findByType(
+    subscriptionId: string,
+    versionType: string
+  ): Promise<SubscriptionVersion[]> {
+    return await db
+      .select()
+      .from(subscriptionVersions)
+      .where(
+        and(
+          eq(subscriptionVersions.subscriptionId, subscriptionId),
+          eq(subscriptionVersions.versionType, versionType as any)
+        )
+      )
+      .orderBy(desc(subscriptionVersions.versionNumber));
+  }
+
+  /**
+   * Get versions created by a specific user
+   */
+  async findByCreatedBy(
+    organizationId: string,
+    userId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<SubscriptionVersion[]> {
+    const { limit = 50, offset = 0 } = options;
+
+    return await db
+      .select()
+      .from(subscriptionVersions)
+      .where(
+        and(
+          eq(subscriptionVersions.organizationId, organizationId),
+          eq(subscriptionVersions.createdBy, userId)
+        )
+      )
+      .orderBy(desc(subscriptionVersions.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  /**
+   * Get versions within a date range
+   */
+  async findByDateRange(
+    organizationId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<SubscriptionVersion[]> {
+    return await db
+      .select()
+      .from(subscriptionVersions)
+      .where(
+        and(
+          eq(subscriptionVersions.organizationId, organizationId),
+          sql`${subscriptionVersions.createdAt} >= ${startDate.toISOString()}`,
+          sql`${subscriptionVersions.createdAt} <= ${endDate.toISOString()}`
+        )
+      )
+      .orderBy(desc(subscriptionVersions.createdAt));
+  }
+
+  /**
+   * Count versions for a subscription
+   */
+  async countBySubscriptionId(subscriptionId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(subscriptionVersions)
+      .where(eq(subscriptionVersions.subscriptionId, subscriptionId));
+    return result?.count || 0;
+  }
+
+  /**
+   * Get total contract value changes for a subscription
+   */
+  async getContractValueHistory(subscriptionId: string): Promise<{
+    versionNumber: number;
+    effectiveDate: string;
+    contractValue: string | null;
+    delta: string | null;
+  }[]> {
+    const versions = await db
+      .select({
+        versionNumber: subscriptionVersions.versionNumber,
+        effectiveDate: subscriptionVersions.effectiveDate,
+        contractValue: subscriptionVersions.newContractValue,
+        delta: subscriptionVersions.contractValueDelta,
+      })
+      .from(subscriptionVersions)
+      .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
+      .orderBy(subscriptionVersions.versionNumber);
+
+    return versions;
+  }
+
+  /**
+   * Record a version with calculated fields
+   */
+  async recordVersion(params: {
+    organizationId: string;
+    subscriptionId: string;
+    versionType: NewSubscriptionVersion['versionType'];
+    versionSource?: NewSubscriptionVersion['versionSource'];
+    previousStatus?: string;
+    newStatus: string;
+    subscriptionSnapshot: Record<string, unknown>;
+    itemsSnapshot?: Record<string, unknown>[];
+    changedFields?: { field: string; oldValue: unknown; newValue: unknown }[];
+    changeSummary?: string;
+    changeReason?: string;
+    previousContractValue?: string;
+    newContractValue?: string;
+    effectiveDate: Date;
+    createdBy?: string;
+    createdByName?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<SubscriptionVersion> {
+    const nextVersion = await this.getNextVersionNumber(params.subscriptionId);
+
+    // Calculate contract value delta if both values provided
+    let contractValueDelta: string | undefined;
+    if (params.previousContractValue && params.newContractValue) {
+      const delta = parseFloat(params.newContractValue) - parseFloat(params.previousContractValue);
+      contractValueDelta = delta.toFixed(2);
+    }
+
+    return this.create({
+      organizationId: params.organizationId,
+      subscriptionId: params.subscriptionId,
+      versionNumber: nextVersion,
+      versionType: params.versionType,
+      versionSource: params.versionSource || 'user',
+      previousStatus: params.previousStatus,
+      newStatus: params.newStatus,
+      subscriptionSnapshot: params.subscriptionSnapshot,
+      itemsSnapshot: params.itemsSnapshot,
+      changedFields: params.changedFields,
+      changeSummary: params.changeSummary,
+      changeReason: params.changeReason,
+      previousContractValue: params.previousContractValue,
+      newContractValue: params.newContractValue,
+      contractValueDelta,
+      effectiveDate: params.effectiveDate.toISOString().split('T')[0],
+      createdBy: params.createdBy,
+      createdByName: params.createdByName,
+      metadata: params.metadata,
+    });
+  }
+}

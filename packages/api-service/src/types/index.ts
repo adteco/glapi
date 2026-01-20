@@ -12,6 +12,8 @@ export * from './accounting-periods.types';
 export * from './rbac.types';
 export * from './project-cost-codes.types';
 export * from './project-budgets.types';
+export * from './project-expenses.types';
+export * from './project-reporting.types';
 export * from './time-entries.types';
 export * from './sov.types';
 export * from './pay-applications.types';
