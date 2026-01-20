@@ -80,6 +80,9 @@ export * from './pay-application-repository';
 // Export Close Management repository
 export * from './close-management-repository';
 
+// Export WIP Reporting repository
+export * from './wip-reporting-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -122,6 +125,7 @@ import { ExpenseEntryRepository } from './expense-entry-repository';
 import { SovRepository } from './sov-repository';
 import { PayApplicationRepository } from './pay-application-repository';
 import { CloseManagementRepository } from './close-management-repository';
+import { WipReportingRepository } from './wip-reporting-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -165,3 +169,4 @@ export const expenseEntryRepository = new ExpenseEntryRepository();
 export const sovRepository = new SovRepository();
 export const payApplicationRepository = new PayApplicationRepository();
 export const closeManagementRepository = new CloseManagementRepository();
+export const wipReportingRepository = new WipReportingRepository();

@@ -36,6 +36,11 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle2,
+  Download,
+  RefreshCw,
+  Clock,
+  DollarSign,
+  FileText,
 } from 'lucide-react';
 import {
   BarChart,
@@ -74,14 +79,7 @@ const CHART_COLORS = {
   variance: '#ef4444',
   positive: '#22c55e',
   negative: '#ef4444',
-};
-
-const COST_TYPE_COLORS: Record<string, string> = {
-  LABOR: '#3b82f6',
-  MATERIAL: '#10b981',
-  EQUIPMENT: '#f59e0b',
-  SUBCONTRACT: '#8b5cf6',
-  OTHER: '#6b7280',
+  billed: '#06b6d4',
 };
 
 interface ChartTooltipProps {
@@ -107,132 +105,257 @@ const WipTooltip = ({ active, payload, label }: ChartTooltipProps) => {
   return null;
 };
 
+// CSV Export helper
+const exportToCSV = (
+  data: Record<string, unknown>[],
+  filename: string,
+  columns: { key: string; header: string }[]
+) => {
+  const headers = columns.map((c) => c.header).join(',');
+  const rows = data.map((row) =>
+    columns
+      .map((c) => {
+        const value = row[c.key];
+        if (typeof value === 'string' && value.includes(',')) {
+          return `"${value}"`;
+        }
+        return value ?? '';
+      })
+      .join(',')
+  );
+  const csv = [headers, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 export default function WipDashboardPage() {
   const { orgId } = useAuth();
   const [search, setSearch] = useState('');
   const [selectedSubsidiary, setSelectedSubsidiary] = useState<string>('all');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  const { data: jobCostData, isLoading } = trpc.projectReporting.jobCostSummary.useQuery(
-    { search: search.trim() || undefined },
-    { enabled: Boolean(orgId) }
-  );
+  // Use new wipReporting endpoints for materialized view data
+  const { data: wipDashboard, isLoading: wipLoading, refetch: refetchWip } =
+    trpc.wipReporting.getWipDashboard.useQuery(
+      {
+        subsidiaryId: selectedSubsidiary !== 'all' ? selectedSubsidiary : undefined,
+      },
+      { enabled: Boolean(orgId) }
+    );
 
-  const budgetVarianceQuery = trpc.projectReporting.budgetVariance.useQuery(
-    { projectId: selectedProjectId! },
-    { enabled: Boolean(orgId && selectedProjectId) }
-  );
+  const { data: percentCompleteDashboard, isLoading: pctLoading } =
+    trpc.wipReporting.getPercentCompleteDashboard.useQuery(
+      {
+        subsidiaryId: selectedSubsidiary !== 'all' ? selectedSubsidiary : undefined,
+      },
+      { enabled: Boolean(orgId) }
+    );
 
-  // Normalize data for calculations
-  const normalizedData = useMemo(() => {
+  const { data: retainageData, isLoading: retainageLoading } =
+    trpc.wipReporting.getRetainageAging.useQuery(
+      {
+        subsidiaryId: selectedSubsidiary !== 'all' ? selectedSubsidiary : undefined,
+      },
+      { enabled: Boolean(orgId) }
+    );
+
+  const refreshMutation = trpc.wipReporting.refreshViews.useMutation({
+    onSuccess: () => {
+      refetchWip();
+    },
+  });
+
+  // Fallback to original reporting if materialized views not ready
+  const { data: jobCostData, isLoading: jobCostLoading } =
+    trpc.projectReporting.jobCostSummary.useQuery(
+      { search: search.trim() || undefined },
+      { enabled: Boolean(orgId) && !wipDashboard }
+    );
+
+  const isLoading = wipLoading || jobCostLoading;
+
+  // Extract WIP data from dashboard or fallback
+  const wipData = useMemo(() => {
+    if (wipDashboard) {
+      return [
+        ...wipDashboard.projectsWithUnderbillings,
+        ...wipDashboard.projectsWithOverbillings.filter(
+          (p) =>
+            !wipDashboard.projectsWithUnderbillings.find((u) => u.projectId === p.projectId)
+        ),
+      ];
+    }
+    // Fallback to old format
     const toNumber = (value?: string | null) => parseFloat(value || '0') || 0;
     return (jobCostData || []).map((row) => ({
-      ...row,
-      budget: toNumber(row.totalBudgetAmount),
-      committed: toNumber(row.totalCommittedAmount),
-      actual: toNumber(row.totalActualCost),
-      wip: toNumber(row.totalWipClearing),
-      percent: toNumber(row.percentComplete),
+      projectId: row.projectId,
+      projectCode: row.projectCode || '',
+      projectName: row.projectName,
+      projectStatus: 'active',
+      subsidiaryId: row.subsidiaryId || null,
+      totalBudgetAmount: row.totalBudgetAmount || '0',
+      budgetByType: { labor: '0', material: '0', equipment: '0', subcontract: '0', other: '0' },
+      totalCommittedAmount: row.totalCommittedAmount || '0',
+      totalActualCost: row.totalActualCost || '0',
+      actualByType: { labor: '0', material: '0', equipment: '0', subcontract: '0', other: '0' },
+      totalBilledAmount: '0',
+      totalCollectedAmount: '0',
+      totalRetainageHeld: '0',
+      wipBalance: String(toNumber(row.totalWipClearing)),
+      underbillings: String(Math.max(0, toNumber(row.totalActualCost) - toNumber(row.totalWipClearing))),
+      overbillings: String(Math.max(0, toNumber(row.totalWipClearing) - toNumber(row.totalActualCost))),
+      budgetVariance: String(toNumber(row.totalBudgetAmount) - toNumber(row.totalActualCost)),
+      projectStartDate: null,
+      projectEndDate: null,
+      refreshedAt: new Date().toISOString(),
     }));
-  }, [jobCostData]);
+  }, [wipDashboard, jobCostData]);
 
-  // Filter by subsidiary
+  // Filter by search
   const filteredData = useMemo(() => {
-    if (selectedSubsidiary === 'all') return normalizedData;
-    return normalizedData.filter((p) => p.subsidiaryId === selectedSubsidiary);
-  }, [normalizedData, selectedSubsidiary]);
+    if (!search.trim()) return wipData;
+    const lower = search.toLowerCase();
+    return wipData.filter(
+      (p) =>
+        p.projectName.toLowerCase().includes(lower) ||
+        p.projectCode?.toLowerCase().includes(lower)
+    );
+  }, [wipData, search]);
 
   // Get unique subsidiaries for filter
   const subsidiaries = useMemo(() => {
-    const subs = new Set(normalizedData.map((p) => p.subsidiaryId).filter(Boolean));
+    const subs = new Set(wipData.map((p) => p.subsidiaryId).filter(Boolean));
     return Array.from(subs) as string[];
-  }, [normalizedData]);
+  }, [wipData]);
 
-  // Calculate totals
+  // Summary from dashboard or calculate
   const totals = useMemo(() => {
+    if (wipDashboard) {
+      return wipDashboard.summary;
+    }
     return filteredData.reduce(
       (acc, row) => {
-        acc.budget += row.budget;
-        acc.actual += row.actual;
-        acc.committed += row.committed;
-        acc.wip += row.wip;
+        acc.totalBudget += parseFloat(row.totalBudgetAmount);
+        acc.totalActualCost += parseFloat(row.totalActualCost);
+        acc.totalWipBalance += parseFloat(row.wipBalance);
+        acc.totalUnderbillings += parseFloat(row.underbillings);
+        acc.totalOverbillings += parseFloat(row.overbillings);
+        acc.totalRetainageHeld += parseFloat(row.totalRetainageHeld);
+        acc.totalProjects++;
         return acc;
       },
-      { budget: 0, actual: 0, committed: 0, wip: 0 }
+      {
+        totalProjects: 0,
+        totalBudget: 0,
+        totalActualCost: 0,
+        totalWipBalance: 0,
+        totalUnderbillings: 0,
+        totalOverbillings: 0,
+        totalRetainageHeld: 0,
+      }
     );
-  }, [filteredData]);
+  }, [wipDashboard, filteredData]);
 
-  // WIP Analysis
-  const wipAnalysis = useMemo(() => {
-    const wipDifference = totals.wip - totals.actual;
-    const underBilled = filteredData.filter((p) => p.wip < p.actual).length;
-    const overBilled = filteredData.filter((p) => p.wip > p.actual).length;
-    return {
-      wipDifference,
-      underBilled,
-      overBilled,
-      balanced: filteredData.length - underBilled - overBilled,
-    };
-  }, [filteredData, totals]);
-
-  // Commitment analysis
-  const commitmentAnalysis = useMemo(() => {
-    const overCommitted = filteredData.filter((p) => p.committed > p.budget);
-    const totalOverCommitment = overCommitted.reduce(
-      (sum, p) => sum + (p.committed - p.budget),
-      0
-    );
-    return {
-      overCommittedCount: overCommitted.length,
-      totalOverCommitment,
-      utilizationRate: totals.budget > 0 ? (totals.committed / totals.budget) * 100 : 0,
-    };
-  }, [filteredData, totals]);
-
-  // Chart data for WIP vs Actual
-  const wipVsActualChartData = useMemo(() => {
+  // Chart data for WIP
+  const wipChartData = useMemo(() => {
     return filteredData
       .slice(0, 10)
-      .sort((a, b) => Math.abs(b.wip - b.actual) - Math.abs(a.wip - a.actual))
+      .sort(
+        (a, b) =>
+          Math.abs(parseFloat(b.underbillings) + parseFloat(b.overbillings)) -
+          Math.abs(parseFloat(a.underbillings) + parseFloat(a.overbillings))
+      )
       .map((p) => ({
-        name: p.projectName.length > 20 ? `${p.projectName.slice(0, 20)}…` : p.projectName,
+        name:
+          p.projectName.length > 20 ? `${p.projectName.slice(0, 20)}…` : p.projectName,
         fullName: p.projectName,
-        wip: p.wip,
-        actual: p.actual,
-        difference: p.wip - p.actual,
-      }));
-  }, [filteredData]);
-
-  // Chart data for Budget vs Committed
-  const budgetVsCommittedData = useMemo(() => {
-    return filteredData
-      .slice(0, 10)
-      .sort((a, b) => b.budget - a.budget)
-      .map((p) => ({
-        name: p.projectName.length > 20 ? `${p.projectName.slice(0, 20)}…` : p.projectName,
-        fullName: p.projectName,
-        budget: p.budget,
-        committed: p.committed,
-        actual: p.actual,
-        remaining: Math.max(0, p.budget - p.committed),
+        actual: parseFloat(p.totalActualCost),
+        billed: parseFloat(p.totalBilledAmount),
+        underbillings: parseFloat(p.underbillings),
+        overbillings: parseFloat(p.overbillings),
       }));
   }, [filteredData]);
 
   // Status distribution for pie chart
   const statusDistribution = useMemo(() => {
-    const healthy = filteredData.filter((p) => p.committed <= p.budget * 0.9 && p.actual <= p.budget * 0.9).length;
-    const warning = filteredData.filter((p) =>
-      (p.committed > p.budget * 0.9 && p.committed <= p.budget) ||
-      (p.actual > p.budget * 0.9 && p.actual <= p.budget)
-    ).length;
-    const critical = filteredData.filter((p) => p.committed > p.budget || p.actual > p.budget).length;
+    const underCount = filteredData.filter((p) => parseFloat(p.underbillings) > 0).length;
+    const overCount = filteredData.filter((p) => parseFloat(p.overbillings) > 0).length;
+    const balanced = filteredData.length - underCount - overCount;
 
     return [
-      { name: 'Healthy', value: healthy, fill: '#22c55e' },
-      { name: 'Warning', value: warning, fill: '#f59e0b' },
-      { name: 'Critical', value: critical, fill: '#ef4444' },
+      { name: 'Over-billed', value: overCount, fill: '#22c55e' },
+      { name: 'Balanced', value: balanced, fill: '#6b7280' },
+      { name: 'Under-billed', value: underCount, fill: '#ef4444' },
     ].filter((item) => item.value > 0);
   }, [filteredData]);
+
+  // Export handlers
+  const handleExportWipSummary = () => {
+    exportToCSV(
+      filteredData.map((p) => ({
+        ...p,
+        budget: p.totalBudgetAmount,
+        actual: p.totalActualCost,
+        committed: p.totalCommittedAmount,
+      })),
+      'wip_summary',
+      [
+        { key: 'projectCode', header: 'Project Code' },
+        { key: 'projectName', header: 'Project Name' },
+        { key: 'budget', header: 'Budget' },
+        { key: 'actual', header: 'Actual Cost' },
+        { key: 'totalBilledAmount', header: 'Billed' },
+        { key: 'underbillings', header: 'Underbillings' },
+        { key: 'overbillings', header: 'Overbillings' },
+        { key: 'totalRetainageHeld', header: 'Retainage Held' },
+      ]
+    );
+  };
+
+  const handleExportRetainage = () => {
+    if (!retainageData) return;
+    exportToCSV(retainageData, 'retainage_aging', [
+      { key: 'projectCode', header: 'Project Code' },
+      { key: 'projectName', header: 'Project Name' },
+      { key: 'totalRetainageHeld', header: 'Total Retainage' },
+      { key: 'current', header: 'Current' },
+      { key: 'days30', header: '30 Days' },
+      { key: 'days60', header: '60 Days' },
+      { key: 'days90', header: '90 Days' },
+      { key: 'over90', header: 'Over 90 Days' },
+      { key: 'retainageOutstanding', header: 'Outstanding' },
+      { key: 'expectedReleaseDate', header: 'Expected Release' },
+    ]);
+  };
+
+  const handleExportPercentComplete = () => {
+    if (!percentCompleteDashboard) return;
+    const allProjects = [
+      ...percentCompleteDashboard.projectsBehindSchedule,
+      ...percentCompleteDashboard.projectsAtRisk.filter(
+        (p) =>
+          !percentCompleteDashboard.projectsBehindSchedule.find(
+            (b) => b.projectId === p.projectId
+          )
+      ),
+    ];
+    exportToCSV(allProjects, 'percent_complete', [
+      { key: 'projectCode', header: 'Project Code' },
+      { key: 'projectName', header: 'Project Name' },
+      { key: 'budgetAtCompletion', header: 'Budget at Completion' },
+      { key: 'actualCost', header: 'Actual Cost' },
+      { key: 'earnedValue', header: 'Earned Value' },
+      { key: 'costPercentComplete', header: '% Complete' },
+      { key: 'costPerformanceIndex', header: 'CPI' },
+      { key: 'estimateAtCompletion', header: 'EAC' },
+      { key: 'varianceAtCompletion', header: 'VAC' },
+    ]);
+  };
 
   if (!orgId) {
     return (
@@ -248,10 +371,16 @@ export default function WipDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold">WIP & Budget Analysis</h1>
           <p className="text-muted-foreground mt-2">
-            Work-in-progress clearing, commitments, and budget utilization dashboards.
+            Work-in-progress, over/under billings, and retainage exposure dashboards.
           </p>
+          {wipDashboard?.lastRefreshed && (
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Last refreshed: {new Date(wipDashboard.lastRefreshed).toLocaleString()}
+            </p>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Input
             placeholder="Search projects…"
             value={search}
@@ -273,68 +402,81 @@ export default function WipDashboardPage() {
               </SelectContent>
             </Select>
           )}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => refreshMutation.mutate({})}
+            disabled={refreshMutation.isPending}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`}
+            />
+          </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total WIP Clearing</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currencyFormatter.format(totals.wip)}</div>
+            <div className="text-2xl font-bold">{totals.totalProjects}</div>
+            <p className="text-xs text-muted-foreground">Active projects</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{currencyFormatter.format(totals.totalBudget)}</div>
             <p className="text-xs text-muted-foreground">
-              {wipAnalysis.wipDifference >= 0 ? (
-                <span className="text-green-600">+{currencyFormatter.format(wipAnalysis.wipDifference)} vs actual</span>
-              ) : (
-                <span className="text-red-600">{currencyFormatter.format(wipAnalysis.wipDifference)} vs actual</span>
-              )}
+              {currencyFormatter.format(totals.totalActualCost)} spent
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Committed</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{currencyFormatter.format(totals.committed)}</div>
-            <p className="text-xs text-muted-foreground">
-              {commitmentAnalysis.utilizationRate.toFixed(1)}% of budget utilized
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Budget Remaining</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {currencyFormatter.format(Math.max(0, totals.budget - totals.committed))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {((1 - totals.committed / totals.budget) * 100).toFixed(1)}% available
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Projects Over Budget</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Underbillings</CardTitle>
+            <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {commitmentAnalysis.overCommittedCount}
+              {currencyFormatter.format(totals.totalUnderbillings)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {currencyFormatter.format(commitmentAnalysis.totalOverCommitment)} over-committed
-            </p>
+            <p className="text-xs text-muted-foreground">Cost exceeds billings</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Overbillings</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {currencyFormatter.format(totals.totalOverbillings)}
+            </div>
+            <p className="text-xs text-muted-foreground">Billings exceed cost</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Retainage Held</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {currencyFormatter.format(totals.totalRetainageHeld)}
+            </div>
+            <p className="text-xs text-muted-foreground">Pending release</p>
           </CardContent>
         </Card>
       </div>
@@ -342,16 +484,25 @@ export default function WipDashboardPage() {
       <Tabs defaultValue="wip" className="space-y-4">
         <TabsList>
           <TabsTrigger value="wip">WIP Analysis</TabsTrigger>
-          <TabsTrigger value="budget">Budget vs Actual</TabsTrigger>
+          <TabsTrigger value="percent-complete">% Complete</TabsTrigger>
+          <TabsTrigger value="retainage">Retainage Aging</TabsTrigger>
           <TabsTrigger value="detail">Project Detail</TabsTrigger>
         </TabsList>
 
         <TabsContent value="wip" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={handleExportWipSummary}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>WIP vs Actual Cost</CardTitle>
-                <CardDescription>Compare WIP clearing balances against actual posted costs</CardDescription>
+                <CardTitle>Over/Under Billings by Project</CardTitle>
+                <CardDescription>
+                  Top projects by billing variance against actual costs
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -361,14 +512,18 @@ export default function WipDashboardPage() {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={wipVsActualChartData} layout="vertical">
+                    <BarChart data={wipChartData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" tickFormatter={formatCurrencyShort} tick={{ fontSize: 11 }} />
+                      <XAxis
+                        type="number"
+                        tickFormatter={formatCurrencyShort}
+                        tick={{ fontSize: 11 }}
+                      />
                       <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
                       <Tooltip content={<WipTooltip />} />
                       <Legend />
-                      <Bar dataKey="wip" fill={CHART_COLORS.wip} name="WIP Clearing" />
                       <Bar dataKey="actual" fill={CHART_COLORS.actual} name="Actual Cost" />
+                      <Bar dataKey="billed" fill={CHART_COLORS.billed} name="Billed" />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -377,21 +532,27 @@ export default function WipDashboardPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>WIP Status Distribution</CardTitle>
-                <CardDescription>Projects by billing status relative to actual costs</CardDescription>
+                <CardTitle>Billing Status Distribution</CardTitle>
+                <CardDescription>Projects by billing status relative to costs</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950">
-                    <div className="text-2xl font-bold text-green-600">{wipAnalysis.overBilled}</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {statusDistribution.find((s) => s.name === 'Over-billed')?.value || 0}
+                    </div>
                     <p className="text-xs text-muted-foreground">Over-billed</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
-                    <div className="text-2xl font-bold">{wipAnalysis.balanced}</div>
+                    <div className="text-2xl font-bold">
+                      {statusDistribution.find((s) => s.name === 'Balanced')?.value || 0}
+                    </div>
                     <p className="text-xs text-muted-foreground">Balanced</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950">
-                    <div className="text-2xl font-bold text-red-600">{wipAnalysis.underBilled}</div>
+                    <div className="text-2xl font-bold text-red-600">
+                      {statusDistribution.find((s) => s.name === 'Under-billed')?.value || 0}
+                    </div>
                     <p className="text-xs text-muted-foreground">Under-billed</p>
                   </div>
                 </div>
@@ -414,95 +575,242 @@ export default function WipDashboardPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="budget" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Budget vs Commitments</CardTitle>
-                <CardDescription>Compare original budgets against committed and actual amounts</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading…
+        <TabsContent value="percent-complete" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={handleExportPercentComplete}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+          {pctLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading percent complete data…
+            </div>
+          ) : percentCompleteDashboard ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Portfolio Summary</CardTitle>
+                  <CardDescription>Earned value metrics across all projects</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        Average % Complete
+                      </span>
+                      <span className="text-xl font-bold">
+                        {percentCompleteDashboard.summary.averagePercentComplete.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        Budget at Completion
+                      </span>
+                      <span className="font-mono">
+                        {currencyFormatter.format(
+                          percentCompleteDashboard.summary.totalBudgetAtCompletion
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Actual Cost</span>
+                      <span className="font-mono">
+                        {currencyFormatter.format(
+                          percentCompleteDashboard.summary.totalActualCost
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        Estimate at Completion
+                      </span>
+                      <span className="font-mono">
+                        {currencyFormatter.format(
+                          percentCompleteDashboard.summary.totalEstimateAtCompletion
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        Projected Variance
+                      </span>
+                      <span
+                        className={`font-mono ${
+                          percentCompleteDashboard.summary.totalProjectedVariance >= 0
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}
+                      >
+                        {currencyFormatter.format(
+                          percentCompleteDashboard.summary.totalProjectedVariance
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Average CPI</span>
+                      <span
+                        className={`text-xl font-bold ${
+                          percentCompleteDashboard.summary.averageCPI >= 1
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}
+                      >
+                        {percentCompleteDashboard.summary.averageCPI.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={budgetVsCommittedData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
-                      <YAxis tickFormatter={formatCurrencyShort} tick={{ fontSize: 11 }} />
-                      <Tooltip content={<WipTooltip />} />
-                      <Legend />
-                      <Bar dataKey="budget" fill={CHART_COLORS.budget} name="Budget" />
-                      <Bar dataKey="committed" fill={CHART_COLORS.committed} name="Committed" />
-                      <Line type="monotone" dataKey="actual" stroke={CHART_COLORS.actual} strokeWidth={2} name="Actual" dot />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
+              <Card>
+                <CardHeader>
+                  <CardTitle>Projects At Risk</CardTitle>
+                  <CardDescription>
+                    Projects with CPI &lt; 0.9 or negative projected variance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {percentCompleteDashboard.projectsAtRisk.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                      <CheckCircle2 className="h-8 w-8 text-green-500 mb-2" />
+                      <p>No projects at risk</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {percentCompleteDashboard.projectsAtRisk.slice(0, 5).map((project) => (
+                        <div
+                          key={project.projectId}
+                          className="flex items-center justify-between p-2 rounded border"
+                        >
+                          <div>
+                            <p className="font-medium text-sm">{project.projectName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {project.projectCode}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="destructive">
+                              CPI: {parseFloat(project.costPerformanceIndex).toFixed(2)}
+                            </Badge>
+                            <p className="text-xs text-red-600 mt-1">
+                              VAC: {currencyFormatter.format(parseFloat(project.varianceAtCompletion))}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-12">
+              No percent complete data available.
+            </p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="retainage" className="space-y-4">
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportRetainage}
+              disabled={!retainageData?.length}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+          {retainageLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading retainage data…
+            </div>
+          ) : retainageData && retainageData.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Cost Type Breakdown</CardTitle>
+                <CardTitle>Retainage Aging Report</CardTitle>
                 <CardDescription>
-                  {selectedProjectId
-                    ? `Variance by cost type for selected project`
-                    : 'Select a project to see cost type breakdown'}
+                  Retainage held by project with aging buckets
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {!selectedProjectId ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <p className="text-sm">Select a project from the detail tab</p>
-                  </div>
-                ) : budgetVarianceQuery.isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading…
-                  </div>
-                ) : budgetVarianceQuery.data?.byCostType.length ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart
-                      data={budgetVarianceQuery.data.byCostType.map((ct) => ({
-                        costType: ct.costType,
-                        budget: parseFloat(ct.totalBudget),
-                        actual: parseFloat(ct.totalActual),
-                        variance: parseFloat(ct.totalVariance),
-                      }))}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="costType" tick={{ fontSize: 11 }} />
-                      <YAxis tickFormatter={formatCurrencyShort} tick={{ fontSize: 11 }} />
-                      <Tooltip content={<WipTooltip />} />
-                      <Legend />
-                      <Bar dataKey="budget" name="Budget">
-                        {budgetVarianceQuery.data.byCostType.map((entry) => (
-                          <Cell key={entry.costType} fill={COST_TYPE_COLORS[entry.costType] || COST_TYPE_COLORS.OTHER} />
-                        ))}
-                      </Bar>
-                      <Bar dataKey="actual" fill={CHART_COLORS.actual} name="Actual" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center py-12 text-muted-foreground">
-                    <p className="text-sm">No cost type data available</p>
-                  </div>
-                )}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Project</TableHead>
+                        <TableHead className="text-right">Total Held</TableHead>
+                        <TableHead className="text-right">Current</TableHead>
+                        <TableHead className="text-right">30 Days</TableHead>
+                        <TableHead className="text-right">60 Days</TableHead>
+                        <TableHead className="text-right">90 Days</TableHead>
+                        <TableHead className="text-right">90+ Days</TableHead>
+                        <TableHead className="text-right">Outstanding</TableHead>
+                        <TableHead>Expected Release</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {retainageData.map((row) => (
+                        <TableRow key={row.projectId}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{row.projectName}</p>
+                              <p className="text-xs text-muted-foreground">{row.projectCode}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {currencyFormatter.format(parseFloat(row.totalRetainageHeld))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {currencyFormatter.format(parseFloat(row.current))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {currencyFormatter.format(parseFloat(row.days30))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {currencyFormatter.format(parseFloat(row.days60))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {currencyFormatter.format(parseFloat(row.days90))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-amber-600">
+                            {currencyFormatter.format(parseFloat(row.over90))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-medium">
+                            {currencyFormatter.format(parseFloat(row.retainageOutstanding))}
+                          </TableCell>
+                          <TableCell>
+                            {row.expectedReleaseDate || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
-          </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-12">
+              No retainage data available.
+            </p>
+          )}
         </TabsContent>
 
         <TabsContent value="detail" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={handleExportWipSummary}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Project Detail</CardTitle>
-              <CardDescription>
-                Click a row to select a project and view cost type breakdown
-              </CardDescription>
+              <CardDescription>All projects with WIP and billing details</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -511,7 +819,9 @@ export default function WipDashboardPage() {
                   Loading data…
                 </div>
               ) : filteredData.length === 0 ? (
-                <p className="text-center text-muted-foreground py-12">No projects available.</p>
+                <p className="text-center text-muted-foreground py-12">
+                  No projects available.
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -519,21 +829,18 @@ export default function WipDashboardPage() {
                       <TableRow>
                         <TableHead>Project</TableHead>
                         <TableHead className="text-right">Budget</TableHead>
-                        <TableHead className="text-right">Committed</TableHead>
                         <TableHead className="text-right">Actual</TableHead>
-                        <TableHead className="text-right">WIP</TableHead>
-                        <TableHead className="text-right">Variance</TableHead>
+                        <TableHead className="text-right">Billed</TableHead>
+                        <TableHead className="text-right">Under-billings</TableHead>
+                        <TableHead className="text-right">Over-billings</TableHead>
+                        <TableHead className="text-right">Retainage</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredData.map((project) => {
-                        const variance = project.budget - project.actual;
-                        const variancePercent = project.budget > 0
-                          ? ((variance / project.budget) * 100).toFixed(1)
-                          : '0';
-                        const isOverBudget = project.actual > project.budget;
-                        const isOverCommitted = project.committed > project.budget;
+                        const hasUnder = parseFloat(project.underbillings) > 0;
+                        const hasOver = parseFloat(project.overbillings) > 0;
 
                         return (
                           <TableRow
@@ -552,37 +859,49 @@ export default function WipDashboardPage() {
                               </div>
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              {currencyFormatter.format(project.budget)}
+                              {currencyFormatter.format(parseFloat(project.totalBudgetAmount))}
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              <span className={isOverCommitted ? 'text-red-600 font-medium' : ''}>
-                                {currencyFormatter.format(project.committed)}
-                              </span>
+                              {currencyFormatter.format(parseFloat(project.totalActualCost))}
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              <span className={isOverBudget ? 'text-red-600 font-medium' : ''}>
-                                {currencyFormatter.format(project.actual)}
-                              </span>
+                              {currencyFormatter.format(parseFloat(project.totalBilledAmount))}
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              {currencyFormatter.format(project.wip)}
+                              {hasUnder && (
+                                <span className="text-red-600">
+                                  {currencyFormatter.format(parseFloat(project.underbillings))}
+                                </span>
+                              )}
                             </TableCell>
-                            <TableCell className="text-right">
-                              <span className={variance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {variance >= 0 ? '+' : ''}{currencyFormatter.format(variance)}
-                              </span>
-                              <p className="text-xs text-muted-foreground">{variancePercent}%</p>
+                            <TableCell className="text-right font-mono">
+                              {hasOver && (
+                                <span className="text-green-600">
+                                  {currencyFormatter.format(parseFloat(project.overbillings))}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {currencyFormatter.format(parseFloat(project.totalRetainageHeld))}
                             </TableCell>
                             <TableCell>
-                              {isOverBudget || isOverCommitted ? (
+                              {hasUnder ? (
                                 <Badge variant="destructive" className="gap-1">
                                   <AlertCircle className="h-3 w-3" />
-                                  {isOverBudget ? 'Over Budget' : 'Over Committed'}
+                                  Under-billed
+                                </Badge>
+                              ) : hasOver ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="gap-1 bg-green-100 text-green-800"
+                                >
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Over-billed
                                 </Badge>
                               ) : (
                                 <Badge variant="secondary" className="gap-1">
                                   <CheckCircle2 className="h-3 w-3" />
-                                  On Track
+                                  Balanced
                                 </Badge>
                               )}
                             </TableCell>
