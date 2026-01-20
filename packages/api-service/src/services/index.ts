@@ -35,6 +35,7 @@ export * from './project-budget-service';
 export * from './project-service';
 export * from './project-reporting-service';
 export * from './job-cost-posting-service';
+export * from './wip-reporting-service';
 
 // Time tracking
 export * from './time-entry-service';
