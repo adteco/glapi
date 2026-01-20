@@ -98,3 +98,10 @@ export * from './connector-framework';
 export * from './plaid-connector';
 export * from './yodlee-connector';
 export * from './bank-feed-service';
+
+// Payroll Connectors
+export * from './gusto-connector';
+
+// CRM Connectors
+export * from './salesforce-connector';
+export * from './hubspot-connector';
