@@ -43,6 +43,7 @@ import { reportSchedulesRouter } from './routers/report-schedules';
 import { deliveryQueueRouter } from './routers/delivery-queue';
 import { importsRouter } from './routers/imports';
 import { onboardingRouter } from './routers/onboarding';
+import { estimatesRouter } from './routers/estimates';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -89,6 +90,7 @@ export const appRouter = router({
   deliveryQueue: deliveryQueueRouter,
   imports: importsRouter,
   onboarding: onboardingRouter,
+  estimates: estimatesRouter,
 });
 
 export type AppRouter = typeof appRouter;

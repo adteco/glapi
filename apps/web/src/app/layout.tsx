@@ -22,7 +22,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={{ baseTheme: dark }}>
+    <ClerkProvider
+      appearance={{ baseTheme: dark }}
+      {...(process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true' && {
+        isSatellite: true,
+        domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,         // e.g., "https://glapi.net"
+        signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL, // e.g., "https://adteco.com/sign-in"
+        signUpUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL, // e.g., "https://adteco.com/sign-up"
+      })}
+    >
       <html lang="en" className="dark" suppressHydrationWarning>
         <body className={`${inter.className} bg-background text-foreground`}>
           <PostHogProvider>

@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Eye, Send, DollarSign, Check, Clock } from 'lucide-react';
+import { Plus, Trash2, Eye, Send, DollarSign, Check, Clock, FileText, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import {
@@ -46,204 +46,292 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Define interfaces for the Sales Invoice data
-interface SalesInvoice {
+// Type definitions
+interface Invoice {
   id: string;
-  transactionNumber: string;
-  salesOrderNumber?: string;
+  invoiceNumber: string;
   entityId: string;
-  customerName: string;
-  transactionDate: string;
-  dueDate: string;
-  subtotalAmount: number;
-  taxAmount: number;
-  totalAmount: number;
-  amountPaid: number;
-  balanceDue: number;
-  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'SENT' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
-  paymentTerms: string;
-  billingAddress: string;
-  shippingAddress: string;
-  notes: string;
-  lines: SalesInvoiceLine[];
+  customerName?: string;
+  invoiceDate: string | Date;
+  dueDate: string | Date | null;
+  subtotal: number | string;
+  taxAmount: number | string;
+  totalAmount: number | string;
+  paidAmount?: number | string;
+  balanceDue?: number | string;
+  status: string;
+  metadata?: Record<string, unknown>;
 }
 
-interface SalesInvoiceLine {
+interface InvoiceLineItem {
   id: string;
-  salesOrderLineId?: string;
-  itemId: string;
-  itemName: string;
-  itemSku: string;
+  itemId: string | null;
+  itemName?: string;
   description: string;
-  quantity: number;
-  unitPrice: number;
-  discountPercent: number;
-  lineAmount: number;
-  taxAmount: number;
-  totalLineAmount: number;
+  quantity: number | string;
+  unitPrice: number | string;
+  amount: number | string;
+}
+
+interface SalesOrder {
+  id: string;
+  orderNumber: string;
+  entityId: string;
+  customerName?: string;
+  status: string;
+  totalAmount: number | string;
 }
 
 // Form schemas
-const salesInvoiceLineSchema = z.object({
-  itemId: z.string().min(1, "Item is required"),
+const invoiceLineSchema = z.object({
+  itemId: z.string().optional(),
   description: z.string().min(1, "Description is required"),
   quantity: z.number().min(0.01, "Quantity must be greater than 0"),
   unitPrice: z.number().min(0, "Unit price must be positive"),
-  discountPercent: z.number().min(0).max(100, "Discount must be between 0 and 100").optional(),
 });
 
-const salesInvoiceFormSchema = z.object({
-  salesOrderId: z.string().optional(),
+const invoiceFormSchema = z.object({
   entityId: z.string().min(1, "Customer is required"),
-  transactionDate: z.string().min(1, "Transaction date is required"),
+  invoiceDate: z.string().min(1, "Invoice date is required"),
   dueDate: z.string().min(1, "Due date is required"),
-  paymentTerms: z.string().min(1, "Payment terms are required"),
-  billingAddressId: z.string().optional(),
-  shippingAddressId: z.string().optional(),
-  notes: z.string().max(1000, "Notes too long").optional(),
-  requiresApproval: z.boolean().optional(),
-  lines: z.array(salesInvoiceLineSchema).min(1, "At least one line item is required"),
+  memo: z.string().max(1000, "Memo too long").optional(),
+  lineItems: z.array(invoiceLineSchema).min(1, "At least one line item is required"),
 });
 
-type SalesInvoiceFormValues = z.infer<typeof salesInvoiceFormSchema>;
+const createFromSalesOrderSchema = z.object({
+  salesOrderId: z.string().min(1, "Sales order is required"),
+  invoiceDate: z.string().optional(),
+  dueDate: z.string().optional(),
+  memo: z.string().optional(),
+});
+
+type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
+type CreateFromSOFormValues = z.infer<typeof createFromSalesOrderSchema>;
 
 export default function SalesInvoicesPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isCreateFromSODialogOpen, setIsCreateFromSODialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
+  const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [voidReason, setVoidReason] = useState('');
   const { orgId } = useAuth();
-  
-  // Mock data for now - replace with TRPC when available
-  const invoices: SalesInvoice[] = [];
-  const customers = [
-    { id: '1', name: 'Acme Corp', email: 'contact@acme.com' },
-    { id: '2', name: 'Tech Solutions Inc', email: 'info@techsolutions.com' },
-    { id: '3', name: 'Global Industries', email: 'business@global.com' },
-  ];
-  const salesOrders = [
-    { id: '1', number: 'SO-2024-001', customerName: 'Acme Corp' },
-    { id: '2', number: 'SO-2024-002', customerName: 'Tech Solutions Inc' },
-  ];
-  const items = [
-    { id: '1', name: 'Product A', sku: 'PROD-A-001', price: 99.99 },
-    { id: '2', name: 'Product B', sku: 'PROD-B-002', price: 149.99 },
-    { id: '3', name: 'Service Package', sku: 'SERV-001', price: 299.99 },
-  ];
-  const paymentTermsOptions = [
-    'Net 30',
-    'Net 15',
-    'Net 10',
-    '2/10 Net 30',
-    '1/10 Net 30',
-    'Due on Receipt',
-    'COD',
-  ];
 
-  const form = useForm<SalesInvoiceFormValues>({
-    resolver: zodResolver(salesInvoiceFormSchema),
+  // TRPC Queries
+  const { data: invoicesData, isLoading, refetch } = trpc.invoices.list.useQuery(
+    { page: 1, limit: 50 },
+    { enabled: !!orgId }
+  );
+
+  const { data: customersData } = trpc.customers.list.useQuery(
+    {},
+    { enabled: !!orgId }
+  );
+
+  const { data: salesOrdersData } = trpc.salesOrders.list.useQuery(
+    { filters: { status: 'APPROVED' } },
+    { enabled: !!orgId }
+  );
+
+  const { data: itemsData } = trpc.items.list.useQuery(
+    {},
+    { enabled: !!orgId }
+  );
+
+  const { data: selectedInvoiceDetail } = trpc.invoices.get.useQuery(
+    { id: selectedInvoice?.id || '' },
+    { enabled: !!selectedInvoice?.id && isViewDialogOpen }
+  );
+
+  // TRPC Mutations
+  const createMutation = trpc.invoices.create.useMutation({
+    onSuccess: () => {
+      toast.success('Invoice created successfully');
+      setIsAddDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create invoice');
+    },
+  });
+
+  const createFromSOMutation = trpc.salesOrders.createInvoice.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Invoice ${data.invoiceNumber} created from sales order`);
+      setIsCreateFromSODialogOpen(false);
+      soForm.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create invoice from sales order');
+    },
+  });
+
+  const sendMutation = trpc.invoices.send.useMutation({
+    onSuccess: () => {
+      toast.success('Invoice sent to customer');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to send invoice');
+    },
+  });
+
+  const voidMutation = trpc.invoices.void.useMutation({
+    onSuccess: () => {
+      toast.success('Invoice voided');
+      setIsVoidDialogOpen(false);
+      setVoidReason('');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to void invoice');
+    },
+  });
+
+  // Data extraction
+  const invoices = invoicesData?.data || [];
+  const customers = customersData || [];
+  const salesOrders = salesOrdersData?.data || [];
+  const items = itemsData || [];
+
+  // Forms
+  const form = useForm<InvoiceFormValues>({
+    resolver: zodResolver(invoiceFormSchema),
+    defaultValues: {
+      entityId: "",
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      memo: "",
+      lineItems: [{ itemId: "", description: "", quantity: 1, unitPrice: 0 }],
+    },
+  });
+
+  const soForm = useForm<CreateFromSOFormValues>({
+    resolver: zodResolver(createFromSalesOrderSchema),
     defaultValues: {
       salesOrderId: "",
-      entityId: "",
-      transactionDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-      paymentTerms: "",
-      billingAddressId: "",
-      shippingAddressId: "",
-      notes: "",
-      requiresApproval: false,
-      lines: [
-        { itemId: "", description: "", quantity: 1, unitPrice: 0, discountPercent: 0 },
-      ],
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      memo: "",
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
-    name: "lines",
+    name: "lineItems",
   });
 
-  // Handle add invoice
-  const handleAddInvoice = async (values: SalesInvoiceFormValues) => {
-    try {
-      // TODO: Implement TRPC mutation
-      const status = values.requiresApproval ? 'PENDING_APPROVAL' : 'DRAFT';
-      toast.success(`Invoice created with status: ${status}`);
-      setIsAddDialogOpen(false);
-      form.reset();
-    } catch (error) {
-      toast.error('Failed to create invoice');
+  // Handlers
+  const handleCreateInvoice = async (values: InvoiceFormValues) => {
+    const lineItems = values.lineItems.map(line => ({
+      itemId: line.itemId || undefined,
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      amount: line.quantity * line.unitPrice,
+    }));
+
+    const subtotal = lineItems.reduce((sum, line) => sum + line.amount, 0);
+
+    createMutation.mutate({
+      entityId: values.entityId,
+      invoiceDate: new Date(values.invoiceDate),
+      dueDate: new Date(values.dueDate),
+      subtotal,
+      totalAmount: subtotal, // Add tax calculation if needed
+      lineItems,
+      metadata: values.memo ? { memo: values.memo } : undefined,
+    });
+  };
+
+  const handleCreateFromSalesOrder = async (values: CreateFromSOFormValues) => {
+    createFromSOMutation.mutate({
+      salesOrderId: values.salesOrderId,
+      invoiceDate: values.invoiceDate ? new Date(values.invoiceDate) : undefined,
+      dueDate: values.dueDate ? new Date(values.dueDate) : undefined,
+      memo: values.memo,
+    });
+  };
+
+  const handleSendInvoice = (invoice: Invoice) => {
+    sendMutation.mutate({ id: invoice.id });
+  };
+
+  const handleVoidInvoice = () => {
+    if (selectedInvoice && voidReason) {
+      voidMutation.mutate({ id: selectedInvoice.id, reason: voidReason });
     }
   };
 
-  // Handle approve invoice
-  const handleApproveInvoice = async (invoice: SalesInvoice) => {
-    try {
-      // TODO: Implement TRPC mutation to approve invoice
-      toast.success('Invoice approved successfully');
-    } catch (error) {
-      toast.error('Failed to approve invoice');
-    }
+  // Helpers
+  const formatCurrency = (value: number | string | null | undefined) => {
+    const num = typeof value === 'string' ? parseFloat(value) : (value || 0);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
   };
 
-  // Handle send invoice
-  const handleSendInvoice = async (invoice: SalesInvoice) => {
-    try {
-      // TODO: Implement TRPC mutation to send invoice to customer
-      toast.success('Invoice sent to customer');
-    } catch (error) {
-      toast.error('Failed to send invoice');
-    }
-  };
-
-  // Handle record payment
-  const handleRecordPayment = async (invoice: SalesInvoice) => {
-    try {
-      // TODO: Implement TRPC mutation to record payment
-      toast.success('Payment recorded for invoice');
-    } catch (error) {
-      toast.error('Failed to record payment');
-    }
-  };
-
-  // Handle delete invoice
-  const handleDeleteInvoice = async () => {
-    try {
-      // TODO: Implement TRPC mutation
-      toast.success('Invoice deleted successfully');
-      setIsDeleteDialogOpen(false);
-    } catch (error) {
-      toast.error('Failed to delete invoice');
-    }
+  const formatDate = (date: string | Date | null | undefined) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString();
   };
 
   const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'DRAFT': return 'outline';
-      case 'PENDING_APPROVAL': return 'secondary';
-      case 'APPROVED': return 'default';
-      case 'SENT': return 'default';
-      case 'PARTIALLY_PAID': return 'secondary';
-      case 'PAID': return 'default';
-      case 'OVERDUE': return 'destructive';
-      case 'CANCELLED': return 'destructive';
+    switch (status?.toLowerCase()) {
+      case 'draft': return 'outline';
+      case 'sent': return 'default';
+      case 'paid': return 'default';
+      case 'overdue': return 'destructive';
+      case 'void': return 'secondary';
       default: return 'outline';
     }
   };
 
+  const getCustomerName = (entityId: string) => {
+    const customer = customers.find((c: { id?: string; companyName: string }) => c.id === entityId);
+    return customer?.companyName || 'Unknown';
+  };
+
   if (!orgId) {
-    return <div className="container mx-auto py-10"><p>Please select an organization to view invoices.</p></div>;
+    return (
+      <div className="container mx-auto py-10">
+        <p>Please select an organization to view invoices.</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-10">
+        <div className="flex justify-between items-center mb-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Sales Invoices</h1>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Invoice
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsCreateFromSODialogOpen(true)}>
+            <FileText className="mr-2 h-4 w-4" />
+            From Sales Order
+          </Button>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Invoice
+          </Button>
+        </div>
       </div>
 
       <Table>
@@ -255,7 +343,7 @@ export default function SalesInvoicesPage() {
             <TableHead>Date</TableHead>
             <TableHead>Due Date</TableHead>
             <TableHead className="text-right">Amount</TableHead>
-            <TableHead className="text-right">Balance Due</TableHead>
+            <TableHead className="text-right">Balance</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -268,14 +356,14 @@ export default function SalesInvoicesPage() {
               </TableCell>
             </TableRow>
           ) : (
-            invoices.map((invoice) => (
+            invoices.map((invoice: Invoice) => (
               <TableRow key={invoice.id}>
-                <TableCell className="font-medium">{invoice.transactionNumber}</TableCell>
-                <TableCell>{invoice.customerName}</TableCell>
-                <TableCell>{new Date(invoice.transactionDate).toLocaleDateString()}</TableCell>
-                <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">${invoice.totalAmount.toFixed(2)}</TableCell>
-                <TableCell className="text-right">${invoice.balanceDue.toFixed(2)}</TableCell>
+                <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                <TableCell>{getCustomerName(invoice.entityId)}</TableCell>
+                <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
+                <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(invoice.totalAmount)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(invoice.balanceDue || invoice.totalAmount)}</TableCell>
                 <TableCell>
                   <Badge variant={getStatusBadgeVariant(invoice.status)}>
                     {invoice.status}
@@ -290,49 +378,33 @@ export default function SalesInvoicesPage() {
                         setSelectedInvoice(invoice);
                         setIsViewDialogOpen(true);
                       }}
+                      title="View Details"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    {invoice.status === 'PENDING_APPROVAL' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleApproveInvoice(invoice)}
-                        title="Approve Invoice"
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {(invoice.status === 'APPROVED' || invoice.status === 'DRAFT') && (
+                    {invoice.status?.toLowerCase() === 'draft' && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleSendInvoice(invoice)}
-                        title="Send to Customer"
+                        title="Send Invoice"
                       >
                         <Send className="h-4 w-4" />
                       </Button>
                     )}
-                    {(invoice.status === 'SENT' || invoice.status === 'PARTIALLY_PAID' || invoice.status === 'OVERDUE') && (
+                    {['draft', 'sent'].includes(invoice.status?.toLowerCase() || '') && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleRecordPayment(invoice)}
-                        title="Record Payment"
+                        onClick={() => {
+                          setSelectedInvoice(invoice);
+                          setIsVoidDialogOpen(true);
+                        }}
+                        title="Void Invoice"
                       >
-                        <DollarSign className="h-4 w-4" />
+                        <XCircle className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSelectedInvoice(invoice);
-                        setIsDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -341,24 +413,22 @@ export default function SalesInvoicesPage() {
         </TableBody>
       </Table>
 
-      {/* Add Invoice Dialog */}
+      {/* Create Invoice Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New Sales Invoice</DialogTitle>
-            <DialogDescription>
-              Create a new sales invoice for a customer.
-            </DialogDescription>
+            <DialogDescription>Create a new invoice for a customer.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleAddInvoice)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleCreateInvoice)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="entityId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer</FormLabel>
+                      <FormLabel>Customer *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -366,9 +436,9 @@ export default function SalesInvoicesPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
+                          {customers.map((customer: { id?: string; companyName: string }) => (
+                            <SelectItem key={customer.id} value={customer.id || ''}>
+                              {customer.companyName}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -379,38 +449,10 @@ export default function SalesInvoicesPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="salesOrderId"
+                  name="invoiceDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Sales Order (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select sales order" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="">None</SelectItem>
-                          {salesOrders.map((order) => (
-                            <SelectItem key={order.id} value={order.id}>
-                              {order.number} - {order.customerName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="transactionDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Invoice Date</FormLabel>
+                      <FormLabel>Invoice Date *</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
                       </FormControl>
@@ -423,7 +465,7 @@ export default function SalesInvoicesPage() {
                   name="dueDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Due Date</FormLabel>
+                      <FormLabel>Due Date *</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
                       </FormControl>
@@ -433,63 +475,14 @@ export default function SalesInvoicesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="paymentTerms"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Terms</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select payment terms" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {paymentTermsOptions.map((terms) => (
-                            <SelectItem key={terms} value={terms}>
-                              {terms}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="requiresApproval"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <input
-                          type="checkbox"
-                          checked={field.value}
-                          onChange={field.onChange}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Requires Approval</FormLabel>
-                        <p className="text-sm text-muted-foreground">
-                          Invoice will be created with "Pending Approval" status
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
               <FormField
                 control={form.control}
-                name="notes"
+                name="memo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Notes</FormLabel>
+                    <FormLabel>Memo</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Additional notes..." {...field} />
+                      <Textarea placeholder="Notes for this invoice..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -502,154 +495,197 @@ export default function SalesInvoicesPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => append({ itemId: "", description: "", quantity: 1, unitPrice: 0, discountPercent: 0 })}
+                    onClick={() => append({ itemId: "", description: "", quantity: 1, unitPrice: 0 })}
                   >
-                    Add Line Item
+                    Add Line
                   </Button>
                 </div>
 
-                {fields.map((field, index) => {
-                  const selectedItem = items.find(item => item.id === field.itemId);
-                  const lineAmount = field.quantity * field.unitPrice * (1 - (field.discountPercent || 0) / 100);
-                  
-                  return (
-                    <div key={field.id} className="border rounded-lg p-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Line {index + 1}</span>
-                        {fields.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => remove(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <FormField
-                          control={form.control}
-                          name={`lines.${index}.itemId`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Item</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select item" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {items.map((item) => (
-                                    <SelectItem key={item.id} value={item.id}>
-                                      {item.name} ({item.sku})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`lines.${index}.description`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Description</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Line description..." {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`lines.${index}.quantity`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Quantity</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  {...field}
-                                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`lines.${index}.unitPrice`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Unit Price</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  {...field}
-                                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`lines.${index}.discountPercent`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Discount %</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  {...field}
-                                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      {selectedItem && (
-                        <div className="bg-gray-50 p-3 rounded-md">
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="font-medium">Standard Price:</span>
-                              <p>${selectedItem.price.toFixed(2)}</p>
-                            </div>
-                            <div>
-                              <span className="font-medium">Line Total:</span>
-                              <p>${lineAmount.toFixed(2)}</p>
-                            </div>
-                          </div>
-                        </div>
+                {fields.map((field, index) => (
+                  <div key={field.id} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Line {index + 1}</span>
+                      {fields.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
-                  );
-                })}
+                    <div className="grid grid-cols-4 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`lineItems.${index}.itemId`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Item</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select item" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="">Custom</SelectItem>
+                                {items.map((item: { id: string; name: string }) => (
+                                  <SelectItem key={item.id} value={item.id}>
+                                    {item.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`lineItems.${index}.description`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description *</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Description" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`lineItems.${index}.quantity`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Qty</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                {...field}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`lineItems.${index}.unitPrice`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Price</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                {...field}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Create Invoice
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? 'Creating...' : 'Create Invoice'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create from Sales Order Dialog */}
+      <Dialog open={isCreateFromSODialogOpen} onOpenChange={setIsCreateFromSODialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create Invoice from Sales Order</DialogTitle>
+            <DialogDescription>
+              Select an approved sales order to create an invoice.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...soForm}>
+            <form onSubmit={soForm.handleSubmit(handleCreateFromSalesOrder)} className="space-y-4">
+              <FormField
+                control={soForm.control}
+                name="salesOrderId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sales Order *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select sales order" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {salesOrders.map((order: SalesOrder) => (
+                          <SelectItem key={order.id} value={order.id}>
+                            {order.orderNumber} - {order.customerName || 'Customer'} ({formatCurrency(order.totalAmount)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={soForm.control}
+                name="invoiceDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Invoice Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={soForm.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={soForm.control}
+                name="memo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Memo</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Notes..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateFromSODialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createFromSOMutation.isPending}>
+                  {createFromSOMutation.isPending ? 'Creating...' : 'Create Invoice'}
                 </Button>
               </DialogFooter>
             </form>
@@ -662,117 +698,96 @@ export default function SalesInvoicesPage() {
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle>Invoice Details</DialogTitle>
-            <DialogDescription>
-              View invoice {selectedInvoice?.transactionNumber}
-            </DialogDescription>
+            <DialogDescription>Invoice {selectedInvoice?.invoiceNumber}</DialogDescription>
           </DialogHeader>
           {selectedInvoice && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Invoice Number</label>
-                  <p className="text-sm">{selectedInvoice.transactionNumber}</p>
+                  <p className="text-sm text-muted-foreground">Customer</p>
+                  <p className="font-medium">{getCustomerName(selectedInvoice.entityId)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Customer</label>
-                  <p className="text-sm">{selectedInvoice.customerName}</p>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge variant={getStatusBadgeVariant(selectedInvoice.status)}>
+                    {selectedInvoice.status}
+                  </Badge>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Invoice Date</label>
-                  <p className="text-sm">{new Date(selectedInvoice.transactionDate).toLocaleDateString()}</p>
+                  <p className="text-sm text-muted-foreground">Invoice Date</p>
+                  <p className="font-medium">{formatDate(selectedInvoice.invoiceDate)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Due Date</label>
-                  <p className="text-sm">{new Date(selectedInvoice.dueDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Payment Terms</label>
-                  <p className="text-sm">{selectedInvoice.paymentTerms}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Status</label>
-                  <p className="text-sm">
-                    <Badge variant={getStatusBadgeVariant(selectedInvoice.status)}>
-                      {selectedInvoice.status}
-                    </Badge>
-                  </p>
+                  <p className="text-sm text-muted-foreground">Due Date</p>
+                  <p className="font-medium">{formatDate(selectedInvoice.dueDate)}</p>
                 </div>
               </div>
-              {selectedInvoice.notes && (
+
+              {selectedInvoiceDetail?.lineItems && (
                 <div>
-                  <label className="text-sm font-medium">Notes</label>
-                  <p className="text-sm">{selectedInvoice.notes}</p>
+                  <p className="text-sm text-muted-foreground mb-2">Line Items</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedInvoiceDetail.lineItems.map((line: InvoiceLineItem) => (
+                        <TableRow key={line.id}>
+                          <TableCell>{line.description}</TableCell>
+                          <TableCell className="text-right">{line.quantity}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(line.unitPrice)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(line.amount)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
-              <div>
-                <label className="text-sm font-medium">Line Items</label>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedInvoice.lines.map((line) => (
-                      <TableRow key={line.id}>
-                        <TableCell>{line.itemName}</TableCell>
-                        <TableCell>{line.description}</TableCell>
-                        <TableCell>{line.quantity}</TableCell>
-                        <TableCell>${line.unitPrice.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${line.totalLineAmount.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Subtotal:</span>
-                  <span className="text-sm">${selectedInvoice.subtotalAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Tax:</span>
-                  <span className="text-sm">${selectedInvoice.taxAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
-                  <span className="text-lg font-semibold">Total:</span>
-                  <span className="text-lg font-bold">${selectedInvoice.totalAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Amount Paid:</span>
-                  <span className="text-sm">${selectedInvoice.amountPaid.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Balance Due:</span>
-                  <span className="text-sm font-bold">${selectedInvoice.balanceDue.toFixed(2)}</span>
-                </div>
+
+              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+                <span className="font-semibold">Total Amount</span>
+                <span className="text-xl font-bold">{formatCurrency(selectedInvoice.totalAmount)}</span>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {/* Void Invoice Dialog */}
+      <AlertDialog open={isVoidDialogOpen} onOpenChange={setIsVoidDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogTitle>Void Invoice</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete invoice {selectedInvoice?.transactionNumber}?
-              This action cannot be undone.
+              Are you sure you want to void invoice {selectedInvoice?.invoiceNumber}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium">Reason for voiding *</label>
+            <Textarea
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="Enter reason..."
+              className="mt-2"
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setIsVoidDialogOpen(false);
+              setVoidReason('');
+            }}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteInvoice}
-              className="bg-red-600 hover:bg-red-700"
+              onClick={handleVoidInvoice}
+              disabled={!voidReason || voidMutation.isPending}
             >
-              Delete
+              {voidMutation.isPending ? 'Voiding...' : 'Void Invoice'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
