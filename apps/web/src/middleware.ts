@@ -2,9 +2,23 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
 const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/lists(.*)', '/admin(.*)', '/relationships(.*)'])
 
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) await auth.protect()
-})
+// Satellite domain configuration for cross-domain auth
+const isSatellite = process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true'
+const domain = process.env.NEXT_PUBLIC_CLERK_SATELLITE_DOMAIN // e.g., "glapi.net"
+const signInUrl = process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL   // e.g., "https://adteco.com/sign-in"
+
+export default clerkMiddleware(
+  async (auth, req) => {
+    if (isProtectedRoute(req)) await auth.protect()
+  },
+  {
+    ...(isSatellite && {
+      isSatellite: true,
+      domain,
+      signInUrl,
+    }),
+  }
+)
 
 export const config = {
   matcher: [
