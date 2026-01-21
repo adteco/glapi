@@ -227,6 +227,14 @@ const NewPageSidebar = () => {
                   <span>Statements</span>
                 </Link>
               </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/banking/reconciliation" className={`${baseSubLinkClass} ${isActive('/banking/reconciliation') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <Building2Icon className="h-4 w-4" />
+                  <span>Bank Reconciliation</span>
+                </Link>
+              </li>
             </ul>
           )}
         </div>
