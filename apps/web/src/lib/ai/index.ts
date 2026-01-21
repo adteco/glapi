@@ -2,7 +2,8 @@
  * GLAPI Conversational Ledger AI Module
  *
  * This module provides the core AI functionality for the conversational ledger,
- * including intent management, guardrails, and safety policies.
+ * including intent management, guardrails, action execution, and the main
+ * conversational service.
  */
 
 // Intent definitions and catalog
@@ -33,5 +34,36 @@ export {
   type GuardrailErrorCode,
 } from './guardrails';
 
-// Middleware (to be implemented)
-export { createIntentMiddleware, type IntentMiddlewareOptions } from './middleware';
+// Middleware
+export {
+  createIntentMiddleware,
+  createProductionMiddleware,
+  createTestMiddleware,
+  type IntentMiddlewareOptions,
+  type MiddlewareContext,
+  type MiddlewareResult,
+  type AuditLogEntry,
+} from './middleware';
+
+// Action executor
+export {
+  createActionExecutor,
+  type ActionExecutor,
+  type ActionExecutorConfig,
+  type ActionRequest,
+  type ActionResult,
+  type PendingAction,
+  type ConversationState,
+  type ConversationMessage,
+  type MCPClient,
+} from './action-executor';
+
+// Conversational service
+export {
+  createConversationalService,
+  type ConversationalService,
+  type ConversationalServiceConfig,
+  type ConversationalResponse,
+  type Message,
+  type PendingConfirmation,
+} from './conversational-service';
