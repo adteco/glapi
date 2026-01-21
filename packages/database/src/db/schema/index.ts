@@ -638,6 +638,7 @@ export { locations } from './locations';
 export { departments } from './departments';
 export { classes } from './classes';
 export { subsidiaries } from './subsidiaries';
+export { projects } from './projects';
 
 // Re-export Purchase Order schemas (Procure-to-Pay)
 export {

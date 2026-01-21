@@ -48,6 +48,7 @@ const NewPageSidebar = () => {
   const pathname = usePathname();
   const { user } = useUser();
 
+  const [isClientToCashOpen, setIsClientToCashOpen] = useState(false);
   const [isListsOpen, setIsListsOpen] = useState(false);
   const [isAccountingOpen, setIsAccountingOpen] = useState(false);
   const [isRelationshipsOpen, setIsRelationshipsOpen] = useState(false);
@@ -136,16 +137,7 @@ const NewPageSidebar = () => {
             </li>
             <li>
               {/* @ts-ignore */}
-              <Link href="/organizations" 
-                    className={`${baseLinkClass} ${isActive('/organizations') ? activeLinkClass : inactiveLinkClass}`}>
-                {/* @ts-ignore */}
-                <BriefcaseIcon className="h-5 w-5" />
-                <span>Organizations</span>
-              </Link>
-            </li>
-            <li>
-              {/* @ts-ignore */}
-              <Link href="/reports" 
+              <Link href="/reports"
                     className={`${baseLinkClass} ${isActive('/reports') ? activeLinkClass : inactiveLinkClass}`}>
                 {/* @ts-ignore */}
                 <FileTextIcon className="h-5 w-5" />
@@ -153,6 +145,98 @@ const NewPageSidebar = () => {
               </Link>
             </li>
           </ul>
+        </div>
+
+        {/* Client to Cash Section (Expandable) */}
+        <div>
+          <button
+            onClick={() => setIsClientToCashOpen(!isClientToCashOpen)}
+            className={`${baseLinkClass} w-full justify-between text-gray-300 hover:text-white hover:bg-gray-700/50`}
+          >
+            <div className="flex items-center space-x-3">
+              {/* @ts-ignore */}
+              <DollarSignIcon className="h-5 w-5" />
+              <span>Client to Cash</span>
+            </div>
+            {/* @ts-ignore */}
+            {isClientToCashOpen ? <ChevronDownIcon className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
+          </button>
+          {isClientToCashOpen && (
+            <ul className="mt-1 space-y-1">
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/clients" className={`${baseSubLinkClass} ${isActive('/clients') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <UsersIcon className="h-4 w-4" />
+                  <span>Clients</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/projects" className={`${baseSubLinkClass} ${isActive('/projects') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <BriefcaseIcon className="h-4 w-4" />
+                  <span>Projects</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/projects/time" className={`${baseSubLinkClass} ${isActive('/projects/time') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <CalendarIcon className="h-4 w-4" />
+                  <span>Time Tracking</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/transactions/sales/estimates" className={`${baseSubLinkClass} ${isActive('/transactions/sales/estimates') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <FileBarChartIcon className="h-4 w-4" />
+                  <span>Estimates</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/transactions/sales/sales-orders" className={`${baseSubLinkClass} ${isActive('/transactions/sales/sales-orders') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <ListOrderedIcon className="h-4 w-4" />
+                  <span>Sales Orders</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/transactions/sales/invoices" className={`${baseSubLinkClass} ${isActive('/transactions/sales/invoices') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <FileTextIcon className="h-4 w-4" />
+                  <span>Invoices</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/payments" className={`${baseSubLinkClass} ${isActive('/payments') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <WalletCardsIcon className="h-4 w-4" />
+                  <span>Payments</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/statements" className={`${baseSubLinkClass} ${isActive('/statements') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <ReceiptIcon className="h-4 w-4" />
+                  <span>Statements</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/banking/reconciliation" className={`${baseSubLinkClass} ${isActive('/banking/reconciliation') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <Building2Icon className="h-4 w-4" />
+                  <span>Bank Reconciliation</span>
+                </Link>
+              </li>
+            </ul>
+          )}
         </div>
 
         {/* Lists Section (Expandable) */}
@@ -632,44 +716,17 @@ const NewPageSidebar = () => {
           )}
         </div>
 
-        {/* Account Section - Kept as is */}
+        {/* Account Section */}
         <div>
           <h3 className="px-3 mb-2 mt-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Account</h3>
           <ul className="space-y-1">
             <li>
               {/* @ts-ignore */}
-              <Link href="/apps" 
-                    className={`${baseLinkClass} ${isActive('/apps') ? activeLinkClass : inactiveLinkClass}`}>
+              <Link href="/admin/settings"
+                    className={`${baseLinkClass} ${isActive('/admin/settings') ? activeLinkClass : inactiveLinkClass}`}>
                 {/* @ts-ignore */}
-                <AppWindowIcon className="h-5 w-5" />
-                <span>Apps</span>
-              </Link>
-            </li>
-            <li>
-              {/* @ts-ignore */}
-              <Link href="/settings" 
-                    className={`${baseLinkClass} ${isActive('/settings') ? activeLinkClass : inactiveLinkClass}`}>
-                {/* @ts-ignore */}
-                <SettingsIcon className="h-5 w-5" /> 
-                <span>User Settings</span>
-              </Link>
-            </li>
-             <li>
-              {/* @ts-ignore */}
-              <Link href="/account" 
-                    className={`${baseLinkClass} ${isActive('/account') ? activeLinkClass : inactiveLinkClass}`}>
-                {/* @ts-ignore */}
-                <UsersIconComponent className="h-5 w-5" /> 
-                <span>Profile</span>
-              </Link>
-            </li>
-            <li>
-              {/* @ts-ignore */}
-              <Link href="/tickets" 
-                    className={`${baseLinkClass} ${isActive('/tickets') ? activeLinkClass : inactiveLinkClass}`}>
-                {/* @ts-ignore */}
-                <TicketIcon className="h-5 w-5" />
-                <span>Tickets</span>
+                <SettingsIcon className="h-5 w-5" />
+                <span>Admin Settings</span>
               </Link>
             </li>
           </ul>
