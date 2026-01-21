@@ -529,9 +529,10 @@ export class SSPExceptionMonitor {
       .reduce((sum, e) => sum + Number(e.impactedRevenue || 0), 0)
       .toFixed(2);
 
-    const itemsRequiringAttention: string[] = [...new Set(exceptions
+    const criticalItemIds = exceptions
       .filter(e => e.severity === ExceptionSeverity.CRITICAL)
-      .map(e => String(e.itemId)))];
+      .map(e => String(e.itemId));
+    const itemsRequiringAttention = Array.from<string>(new Set(criticalItemIds));
 
     return {
       totalExceptions: exceptions.length,
