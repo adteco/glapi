@@ -24,9 +24,12 @@ export default function RootLayout({
   return (
     <ClerkProvider
       appearance={{ baseTheme: dark }}
-      isSatellite={process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true'}
-      domain={process.env.NEXT_PUBLIC_CLERK_DOMAIN}
-      signInUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+      {...(process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true' && {
+        isSatellite: true,
+        domain: process.env.NEXT_PUBLIC_CLERK_SATELLITE_DOMAIN, // e.g., "glapi.net"
+        signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,   // e.g., "https://adteco.com/sign-in"
+        signInForceRedirectUrl: '/',
+      })}
     >
       <html lang="en" className="dark" suppressHydrationWarning>
         <body className={`${inter.className} bg-background text-foreground`}>
