@@ -7,6 +7,7 @@ import { ConditionalLayout } from "@/components/ConditionalLayout";
 import { Toaster } from 'sonner';
 import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
+import { ConversationalLedger } from "@/components/chat/conversational-ledger";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,6 +33,7 @@ export default function RootLayout({
             </TRPCProvider>
           </PostHogProvider>
           <Toaster richColors closeButton position="top-right" />
+          <ConversationalLedger />
         </body>
       </html>
     </ClerkProvider>

@@ -35,14 +35,14 @@ import {
 export interface ConversationalServiceConfig {
   /** OpenAI API key */
   openaiApiKey: string;
-  /** MCP server URL */
-  mcpServerUrl: string;
+  /** MCP client instance */
+  mcpClient: MCPClient;
   /** OpenAI model to use */
   model?: string;
-  /** System prompt customization */
-  systemPromptAdditions?: string;
-  /** Enable debug logging */
-  debug?: boolean;
+  /** System prompt override */
+  systemPrompt?: string;
+  /** Enable logging */
+  enableLogging?: boolean;
 }
 
 /**
@@ -354,7 +354,8 @@ function getToolDefinitionForIntent(
     function: {
       name: intent.mcpTool,
       description: intent.description,
-      parameters: schema,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      parameters: schema as any,
     },
   };
 }
@@ -412,10 +413,10 @@ Remember: You're helping users manage their business operations. Accuracy and cl
 export function createConversationalService(config: ConversationalServiceConfig) {
   const {
     openaiApiKey,
-    mcpServerUrl,
+    mcpClient,
     model = 'gpt-4-0125-preview',
-    systemPromptAdditions = '',
-    debug = false,
+    systemPrompt: systemPromptOverride,
+    enableLogging = false,
   } = config;
 
   // Initialize OpenAI client
@@ -424,44 +425,17 @@ export function createConversationalService(config: ConversationalServiceConfig)
     dangerouslyAllowBrowser: true, // For client-side use - use backend proxy in production
   });
 
-  // Create MCP client
-  const mcpClient: MCPClient = {
-    async callTool(toolName: string, parameters: Record<string, unknown>, authToken: string) {
-      const response = await fetch(mcpServerUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: Date.now(),
-          method: 'tools/call',
-          params: { name: toolName, arguments: parameters },
-        }),
-      });
-
-      const result = await response.json();
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
-      return result.result;
-    },
-  };
-
   // Create action executor
   const actionExecutor = createActionExecutor({
     mcpClient,
-    enableLogging: debug,
+    enableLogging,
   });
 
   // Generate tool definitions
   const tools = generateToolDefinitions();
 
   // System prompt
-  const systemPrompt = systemPromptAdditions
-    ? `${BASE_SYSTEM_PROMPT}\n\n${systemPromptAdditions}`
-    : BASE_SYSTEM_PROMPT;
+  const systemPrompt = systemPromptOverride || BASE_SYSTEM_PROMPT;
 
   /**
    * Process a user message and return a response
@@ -549,7 +523,7 @@ export function createConversationalService(config: ConversationalServiceConfig)
         const toolName = toolCall.function.name;
         const toolArgs = JSON.parse(toolCall.function.arguments);
 
-        if (debug) {
+        if (enableLogging) {
           console.log(`[Conversational] Tool call: ${toolName}`, toolArgs);
         }
 
