@@ -8,7 +8,6 @@ import {
   customerPayments,
   customerPaymentApplications,
   accounts,
-  type Account,
 } from '@glapi/database/schema';
 import type {
   CustomerPaymentWithDetails,
@@ -16,6 +15,9 @@ import type {
   CashReceiptPostingResult,
   CashReceiptGLConfig,
 } from '../types';
+
+// Type alias for Account from schema inference
+type Account = typeof accounts.$inferSelect;
 
 // ============================================================================
 // Types
@@ -220,10 +222,10 @@ export class PaymentPostingService extends BaseService {
       return { isValid: false, error: 'Account is inactive' };
     }
 
-    if (expectedType && account.accountType !== expectedType) {
+    if (expectedType && account.accountCategory !== expectedType) {
       return {
         isValid: false,
-        error: `Expected ${expectedType} account, got ${account.accountType}`,
+        error: `Expected ${expectedType} account, got ${account.accountCategory}`,
       };
     }
 
@@ -328,7 +330,7 @@ export class PaymentPostingService extends BaseService {
     // Emit event
     await this.eventService.emit({
       eventType: 'PaymentPosted',
-      eventCategory: 'GL',
+      eventCategory: 'ACCOUNTING',
       aggregateType: 'CustomerPayment',
       aggregateId: input.paymentId,
       data: {
@@ -480,7 +482,7 @@ export class PaymentPostingService extends BaseService {
     // Emit event
     await this.eventService.emit({
       eventType: 'PaymentApplicationPosted',
-      eventCategory: 'GL',
+      eventCategory: 'ACCOUNTING',
       aggregateType: 'CustomerPaymentApplication',
       aggregateId: input.applicationId,
       data: {
@@ -579,7 +581,7 @@ export class PaymentPostingService extends BaseService {
     // Emit event
     await this.eventService.emit({
       eventType: 'PaymentVoidPosted',
-      eventCategory: 'GL',
+      eventCategory: 'ACCOUNTING',
       aggregateType: 'CustomerPayment',
       aggregateId: paymentId,
       data: {
@@ -647,14 +649,17 @@ export class PaymentPostingService extends BaseService {
     // In production, this would fetch from a subsidiary settings or GL defaults table
     // For now, we'll try to find common account types
 
+    // TODO: When subsidiary support is added, filter by subsidiaryId
+    // For now, subsidiaryId parameter is ignored until accounts table has subsidiary column
+    void subsidiaryId;
+
     const [cashAccount] = await db
       .select()
       .from(accounts)
       .where(
         and(
           eq(accounts.organizationId, organizationId),
-          eq(accounts.subsidiaryId, subsidiaryId),
-          eq(accounts.accountType, 'Asset'),
+          eq(accounts.accountCategory, 'Asset'),
           eq(accounts.isActive, true)
         )
       )
@@ -666,8 +671,7 @@ export class PaymentPostingService extends BaseService {
       .where(
         and(
           eq(accounts.organizationId, organizationId),
-          eq(accounts.subsidiaryId, subsidiaryId),
-          eq(accounts.accountType, 'Asset'),
+          eq(accounts.accountCategory, 'Asset'),
           eq(accounts.isActive, true)
         )
       )

@@ -1,4 +1,5 @@
-import { BaseService, ServiceContext, ServiceError } from './base-service';
+import { BaseService } from './base-service';
+import { ServiceContext, ServiceError } from '../types';
 import {
   deliveryQueueRepository,
   DeliveryQueueItem,

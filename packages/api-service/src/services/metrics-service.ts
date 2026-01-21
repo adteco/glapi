@@ -637,8 +637,8 @@ export class MetricsService extends BaseService {
       isDefault: v.isDefault || false,
       isShared: v.isShared || false,
       createdBy: v.createdBy,
-      createdAt: v.createdAt,
-      updatedAt: v.updatedAt,
+      createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt),
+      updatedAt: v.updatedAt instanceof Date ? v.updatedAt.toISOString() : String(v.updatedAt),
     }));
   }
 
@@ -661,8 +661,8 @@ export class MetricsService extends BaseService {
       isDefault: view.isDefault || false,
       isShared: view.isShared || false,
       createdBy: view.createdBy,
-      createdAt: view.createdAt,
-      updatedAt: view.updatedAt,
+      createdAt: view.createdAt instanceof Date ? view.createdAt.toISOString() : String(view.createdAt),
+      updatedAt: view.updatedAt instanceof Date ? view.updatedAt.toISOString() : String(view.updatedAt),
     };
   }
 
@@ -698,8 +698,8 @@ export class MetricsService extends BaseService {
       isDefault: view.isDefault || false,
       isShared: view.isShared || false,
       createdBy: view.createdBy,
-      createdAt: view.createdAt,
-      updatedAt: view.updatedAt,
+      createdAt: view.createdAt instanceof Date ? view.createdAt.toISOString() : String(view.createdAt),
+      updatedAt: view.updatedAt instanceof Date ? view.updatedAt.toISOString() : String(view.updatedAt),
     };
   }
 
@@ -746,8 +746,8 @@ export class MetricsService extends BaseService {
       isDefault: updated!.isDefault || false,
       isShared: updated!.isShared || false,
       createdBy: updated!.createdBy,
-      createdAt: updated!.createdAt,
-      updatedAt: updated!.updatedAt,
+      createdAt: updated!.createdAt instanceof Date ? updated!.createdAt.toISOString() : String(updated!.createdAt),
+      updatedAt: updated!.updatedAt instanceof Date ? updated!.updatedAt.toISOString() : String(updated!.updatedAt),
     };
   }
 
@@ -789,7 +789,7 @@ export class MetricsService extends BaseService {
     organizationId: string
   ): Promise<any | null> {
     if (periodId) {
-      return this.periodRepository.findById(periodId, organizationId);
+      return this.periodRepository.findByIdForOrganization(periodId, organizationId);
     }
     // Get current open period
     return this.periodRepository.findCurrentPeriod(organizationId);
@@ -811,7 +811,7 @@ export class MetricsService extends BaseService {
     if (periodIds && periodIds.length > 0) {
       const periods = [];
       for (const id of periodIds) {
-        const period = await this.periodRepository.findById(id, organizationId);
+        const period = await this.periodRepository.findByIdForOrganization(id, organizationId);
         if (period) periods.push(period);
       }
       return periods;
