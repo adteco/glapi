@@ -10,6 +10,7 @@ import {
   NewDeliveryAttempt,
   DeliveryStatus,
   DeliveryType,
+  DeliveryResponse,
 } from '../db/schema';
 
 export class DeliveryQueueRepository {
@@ -137,7 +138,7 @@ export class DeliveryQueueRepository {
    */
   async markAsDelivered(
     id: string,
-    response: Record<string, unknown>
+    response: DeliveryResponse
   ): Promise<DeliveryQueueItem | null> {
     const [result] = await db
       .update(deliveryQueue)

@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, Database } from '../db';
 import { 
   items, 
   subscriptionItems, 
@@ -13,7 +13,7 @@ import {
 import { eq, and, gte, lte, sql, desc, asc } from 'drizzle-orm';
 
 export class SSPAnalyticsRepository {
-  constructor(private database = db) {}
+  constructor(private database: Database = db) {}
 
   /**
    * Get transaction data for ML training
