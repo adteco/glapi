@@ -20,6 +20,7 @@ import {
 import type {
   ConnectorConfig,
   ConnectorResponse,
+  ConnectionTestResult,
 } from '../types/connector.types';
 
 import type {
@@ -194,6 +195,7 @@ export class SalesforceConnector extends BaseConnector {
 
     const connectorConfig: ConnectorConfig = {
       id: `salesforce-${context.organizationId ?? 'default'}`,
+      name: 'Salesforce CRM',
       type: 'salesforce',
       baseUrl: instanceUrl,
       credentials: {
@@ -222,9 +224,11 @@ export class SalesforceConnector extends BaseConnector {
         retryableStatusCodes: [408, 429, 500, 502, 503, 504],
       },
       circuitBreaker: {
+        enabled: true,
         failureThreshold: 5,
         successThreshold: 3,
         resetTimeoutMs: 30000,
+        windowSize: 60000,
       },
       defaultTimeoutMs: 30000,
     };
@@ -253,11 +257,8 @@ export class SalesforceConnector extends BaseConnector {
   /**
    * Test connection to Salesforce
    */
-  async testConnection(): Promise<{
-    success: boolean;
-    message: string;
-    details?: Record<string, unknown>;
-  }> {
+  async testConnection(): Promise<ConnectionTestResult> {
+    const startTime = Date.now();
     try {
       const response = await this.get<{
         identity: string;
@@ -268,6 +269,7 @@ export class SalesforceConnector extends BaseConnector {
 
       return {
         success: true,
+        latencyMs: Date.now() - startTime,
         message: 'Successfully connected to Salesforce',
         details: {
           username: response.data.username,
@@ -278,6 +280,7 @@ export class SalesforceConnector extends BaseConnector {
     } catch (error) {
       return {
         success: false,
+        latencyMs: Date.now() - startTime,
         message: `Failed to connect to Salesforce: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
