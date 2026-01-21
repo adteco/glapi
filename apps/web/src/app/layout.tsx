@@ -22,7 +22,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={{ baseTheme: dark }}>
+    <ClerkProvider
+      appearance={{ baseTheme: dark }}
+      isSatellite={process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true'}
+      domain={process.env.NEXT_PUBLIC_CLERK_DOMAIN}
+      signInUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+    >
       <html lang="en" className="dark" suppressHydrationWarning>
         <body className={`${inter.className} bg-background text-foreground`}>
           <PostHogProvider>
