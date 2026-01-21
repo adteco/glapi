@@ -46,6 +46,7 @@ export interface UpdateSubscriptionData extends Partial<UpdateSubscription> {
     endDate?: Date | string | null;
   }>;
   changeReason?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ListSubscriptionsInput {

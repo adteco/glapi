@@ -203,7 +203,7 @@ export class EventService extends BaseService {
     };
 
     // Emit with retry
-    const result = await this.withRetry(
+    const result = await this.withRetry<AppendEventResult>(
       () => this.repository.appendEvent(eventRecord, input.publishConfig),
       `emit event ${input.eventType}`
     );
@@ -282,7 +282,7 @@ export class EventService extends BaseService {
     );
 
     // Emit with retry
-    const results = await this.withRetry(
+    const results = await this.withRetry<AppendEventResult[]>(
       () => this.repository.appendEvents(preparedEvents),
       `emit batch of ${inputs.length} events`
     );

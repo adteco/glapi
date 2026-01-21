@@ -12,7 +12,8 @@
  */
 
 import { WorkerBase, WorkerConfig, WorkerLogger } from './worker-base';
-import { eventStoreRepository, db, eventOutbox, eq, and, lte, or, isNull, sql } from '@glapi/database';
+import { eventStoreRepository, db, eventOutbox } from '@glapi/database';
+import { eq, and, lte, or, isNull, sql } from 'drizzle-orm';
 
 export interface OutboxProcessorConfig extends Partial<WorkerConfig> {
   /** Maximum number of retries before moving to dead letter */

@@ -99,7 +99,7 @@ export class AccountingPeriodService extends BaseService {
   }
 
   /**
-   * Get period for a specific date
+   * Get period for a specific date (subsidiary-specific)
    */
   async getPeriodForDate(subsidiaryId: string, date: string): Promise<AccountingPeriod | null> {
     const subsidiaryIds = await this.getAccessibleSubsidiaryIds();
@@ -114,6 +114,28 @@ export class AccountingPeriodService extends BaseService {
 
     const period = await this.periodRepository.findByDate(subsidiaryId, date);
     return period ? this.transformPeriod(period) : null;
+  }
+
+  /**
+   * Find any open period containing the given date across all accessible subsidiaries
+   * This is useful for invoice posting when the subsidiary is not yet known
+   */
+  async findPeriodForDate(date: string): Promise<AccountingPeriod | null> {
+    const subsidiaryIds = await this.getAccessibleSubsidiaryIds();
+
+    if (subsidiaryIds.length === 0) {
+      return null;
+    }
+
+    // Try to find a period containing this date in any accessible subsidiary
+    for (const subsidiaryId of subsidiaryIds) {
+      const period = await this.periodRepository.findByDate(subsidiaryId, date);
+      if (period && (period.status === 'OPEN' || period.status === 'SOFT_CLOSED')) {
+        return this.transformPeriod(period);
+      }
+    }
+
+    return null;
   }
 
   /**
