@@ -29,8 +29,11 @@ export * from './warehouse-repository';
 // Export subscription repositories
 export * from './subscription-repository';
 export * from './subscription-item-repository';
+export * from './subscription-version-repository';
+export * from './billing-schedule-repository';
 export * from './invoice-repository';
 export * from './payment-repository';
+export * from './change-request-repository';
 
 // Export SSP analytics repository
 export * from './ssp-analytics-repository';
@@ -55,12 +58,20 @@ export * from './event-projection-repository';
 export * from './permission-repository';
 export * from './audit-log-repository';
 
-// Export project cost code and budget repositories
+// Export project repositories
+export * from './project-repository';
 export * from './project-cost-code-repository';
 export * from './project-budget-repository';
+// TODO: Create project-expense-repository
+// export * from './project-expense-repository';
+export * from './project-reporting-repository';
+export * from './project-progress-snapshot-repository';
 
 // Export time tracking repository
 export * from './time-entry-repository';
+
+// Export expense tracking repository
+export * from './expense-entry-repository';
 
 // Export SOV and Pay Application repositories
 export * from './sov-repository';
@@ -68,6 +79,27 @@ export * from './pay-application-repository';
 
 // Export Close Management repository
 export * from './close-management-repository';
+
+// Export WIP Reporting repository
+export * from './wip-reporting-repository';
+
+// Export Consolidation repository
+export * from './consolidation-repository';
+
+// Export Metrics repository
+export * from './metrics-repository';
+
+// Export Report Schedule repository
+export * from './report-schedule-repository';
+
+// Export Delivery Queue repository
+export * from './delivery-queue-repository';
+
+// Export Import Batch repository (data migration)
+export * from './import-batch-repository';
+
+// Export Onboarding repository
+export * from './onboarding-repository';
 
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
@@ -87,8 +119,11 @@ import { AssembliesKitsRepository } from './assemblies-kits-repository';
 import { WarehouseRepository } from './warehouse-repository';
 import { SubscriptionRepository } from './subscription-repository';
 import { SubscriptionItemRepository } from './subscription-item-repository';
+import { SubscriptionVersionRepository } from './subscription-version-repository';
+import { BillingScheduleRepository } from './billing-schedule-repository';
 import { InvoiceRepository } from './invoice-repository';
 import { PaymentRepository } from './payment-repository';
+import { ChangeRequestRepository } from './change-request-repository';
 import { SSPAnalyticsRepository } from './ssp-analytics-repository';
 import { GLIntegrationRepository } from './gl-integration-repository';
 import { RevenueForecastingRepository } from './revenue-forecasting-repository';
@@ -100,12 +135,20 @@ import { AccountingPeriodRepository } from './accounting-period-repository';
 import { PermissionRepository } from './permission-repository';
 import { AuditLogRepository } from './audit-log-repository';
 import { EventProjectionRepository } from './event-projection-repository';
+import { ProjectRepository } from './project-repository';
 import { ProjectCostCodeRepository } from './project-cost-code-repository';
 import { ProjectBudgetRepository } from './project-budget-repository';
 import { TimeEntryRepository } from './time-entry-repository';
+import { ExpenseEntryRepository } from './expense-entry-repository';
 import { SovRepository } from './sov-repository';
 import { PayApplicationRepository } from './pay-application-repository';
 import { CloseManagementRepository } from './close-management-repository';
+import { WipReportingRepository } from './wip-reporting-repository';
+import { ConsolidationRepository } from './consolidation-repository';
+import { MetricsRepository } from './metrics-repository';
+import { ReportScheduleRepository } from './report-schedule-repository';
+import { DeliveryQueueRepository } from './delivery-queue-repository';
+import { ImportBatchRepository } from './import-batch-repository';
 
 // Create singleton instances - initialized on first use
 export const departmentRepository = new DepartmentRepository();
@@ -125,8 +168,11 @@ export const assembliesKitsRepository = new AssembliesKitsRepository();
 export const warehouseRepository = new WarehouseRepository();
 export const subscriptionRepository = new SubscriptionRepository();
 export const subscriptionItemRepository = new SubscriptionItemRepository();
+export const subscriptionVersionRepository = new SubscriptionVersionRepository();
+export const billingScheduleRepository = new BillingScheduleRepository();
 export const invoiceRepository = new InvoiceRepository();
 export const paymentRepository = new PaymentRepository();
+export const changeRequestRepository = new ChangeRequestRepository();
 export const sspAnalyticsRepository = new SSPAnalyticsRepository();
 export const glIntegrationRepository = new GLIntegrationRepository();
 export const revenueForecastingRepository = new RevenueForecastingRepository();
@@ -138,9 +184,17 @@ export const accountingPeriodRepository = new AccountingPeriodRepository();
 export const permissionRepository = new PermissionRepository();
 export const auditLogRepository = new AuditLogRepository();
 export const eventProjectionRepository = new EventProjectionRepository();
+export const projectRepository = new ProjectRepository();
 export const projectCostCodeRepository = new ProjectCostCodeRepository();
 export const projectBudgetRepository = new ProjectBudgetRepository();
 export const timeEntryRepository = new TimeEntryRepository();
+export const expenseEntryRepository = new ExpenseEntryRepository();
 export const sovRepository = new SovRepository();
 export const payApplicationRepository = new PayApplicationRepository();
 export const closeManagementRepository = new CloseManagementRepository();
+export const wipReportingRepository = new WipReportingRepository();
+export const consolidationRepository = new ConsolidationRepository();
+export const metricsRepository = new MetricsRepository();
+export const reportScheduleRepository = new ReportScheduleRepository();
+export const deliveryQueueRepository = new DeliveryQueueRepository();
+export const importBatchRepository = new ImportBatchRepository();

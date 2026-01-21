@@ -18,7 +18,7 @@
     "lint:fix": "turbo lint:fix",
     "api:mock": "prism mock docs/api-specs/*.openapi.yaml",
     "api:validate": "prism validate docs/api-specs/*.openapi.yaml",
-    "api:generate-sdk": "openapi --input docs/api-specs --output packages/sdk --client axios",
+    "api:generate-sdk": "pnpm --filter @glapi/sdk generate",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
     "test:playwright:headed": "playwright test --headed",

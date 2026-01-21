@@ -1,0 +1,13 @@
+{
+  "title": "Documentation",
+  "description": "GLAPI Documentation v1",
+  "icon": "Book",
+  "pages": [
+    "index",
+    "getting-started",
+    "quickstart",
+    "sdks",
+    "---API Reference---",
+    "api"
+  ]
+}

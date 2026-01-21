@@ -221,6 +221,123 @@ const orders = await salesOrderService.listSalesOrders(
 4. **Hold management** - Use hold status for credit review, not for rejection
 5. **Event subscriptions** - Subscribe to events for downstream integrations
 
+## Web UI
+
+### Sales Orders Page
+
+The sales orders UI is available at `/transactions/sales/sales-orders` and provides:
+
+- **List View**: Table showing all orders with status badges, amounts, and action buttons
+- **Create Dialog**: Modal form for creating new sales orders with line items
+- **View Dialog**: Modal showing order details and line items
+- **Workflow Actions**: Context-aware action buttons based on order status
+
+### Status-Based Actions
+
+| Status | Available Actions |
+|--------|------------------|
+| DRAFT | Submit for Approval, Cancel |
+| SUBMITTED | Approve, Reject, Cancel |
+| APPROVED | Create Invoice, Create Fulfillment, Cancel |
+| PARTIALLY_FULFILLED | Create Invoice, Create Fulfillment, Cancel |
+| REJECTED | (Edit and resubmit) |
+| CANCELLED | (No actions) |
+| CLOSED | (No actions) |
+
+### UI Test IDs
+
+The UI includes `data-testid` attributes for E2E testing:
+
+| Element | Test ID Pattern |
+|---------|----------------|
+| New Order Button | `new-sales-order-btn` |
+| Order Row | `sales-order-row-{orderNumber}` |
+| Status Badge | `status-{orderNumber}` |
+| View Button | `view-btn-{orderNumber}` |
+| Submit Button | `submit-btn-{orderNumber}` |
+| Approve Button | `approve-btn-{orderNumber}` |
+| Reject Button | `reject-btn-{orderNumber}` |
+| Invoice Button | `invoice-btn-{orderNumber}` |
+| Fulfill Button | `fulfill-btn-{orderNumber}` |
+| Cancel Button | `cancel-btn-{orderNumber}` |
+
+### Form Test IDs
+
+| Element | Test ID |
+|---------|---------|
+| Subsidiary Select | `subsidiary-select` |
+| Customer Select | `customer-select` |
+| Order Date | `order-date-input` |
+| Delivery Date | `delivery-date-input` |
+| Memo | `memo-input` |
+| Line Item | `line-item-{index}` |
+| Line Description | `line-description-{index}` |
+| Line Quantity | `line-quantity-{index}` |
+| Line Price | `line-price-{index}` |
+| Add Line | `add-line-btn` |
+| Create Order | `create-order-btn` |
+
+## E2E Testing
+
+### Running Tests
+
+```bash
+# Run all O2C tests
+npx playwright test tests/transactions/order-to-cash.spec.ts
+
+# Run with UI mode
+npx playwright test tests/transactions/order-to-cash.spec.ts --ui
+
+# Run specific test
+npx playwright test -g "should display sales orders page"
+```
+
+### Test Coverage
+
+The E2E tests cover:
+
+1. **Page Load**: Verifies page renders with header, table, and create button
+2. **Create Dialog**: Tests form fields, line items, and validation
+3. **Workflow Actions**: Verifies correct buttons appear for each status
+4. **View Dialog**: Tests order detail display
+5. **Approve/Reject/Cancel**: Tests confirmation dialogs and reason inputs
+6. **Responsive Design**: Tests mobile viewport adaptation
+
+### Complete O2C Flow Test
+
+The `order-to-cash.spec.ts` file includes a skipped complete workflow test that demonstrates the full happy path:
+
+1. Create sales order (DRAFT)
+2. Submit for approval (SUBMITTED)
+3. Approve order (APPROVED)
+4. Create invoice
+5. Verify invoice created
+
+Enable this test when a seeded test database is available.
+
+## TRPC Router
+
+### Available Endpoints
+
+| Endpoint | Type | Description |
+|----------|------|-------------|
+| `salesOrders.list` | Query | List orders with filtering and pagination |
+| `salesOrders.get` | Query | Get order by ID |
+| `salesOrders.getByOrderNumber` | Query | Get order by order number |
+| `salesOrders.create` | Mutation | Create new order |
+| `salesOrders.update` | Mutation | Update draft/rejected order |
+| `salesOrders.submit` | Mutation | Submit for approval |
+| `salesOrders.approve` | Mutation | Approve order |
+| `salesOrders.reject` | Mutation | Reject order with reason |
+| `salesOrders.returnForRevision` | Mutation | Return for revision |
+| `salesOrders.hold` | Mutation | Put order on hold |
+| `salesOrders.release` | Mutation | Release from hold |
+| `salesOrders.cancel` | Mutation | Cancel order with reason |
+| `salesOrders.close` | Mutation | Close fulfilled order |
+| `salesOrders.createInvoice` | Mutation | Create invoice from order |
+| `salesOrders.summary` | Query | Get order statistics |
+| `salesOrders.pendingApproval` | Query | Get orders pending approval |
+
 ## Related Modules
 
 - [Invoice Service](./invoices.md) - Invoice creation and management

@@ -1,0 +1,11 @@
+{
+  "title": "API Reference",
+  "description": "Complete API documentation",
+  "icon": "Code",
+  "pages": [
+    "index",
+    "authentication",
+    "endpoints",
+    "objects"
+  ]
+}

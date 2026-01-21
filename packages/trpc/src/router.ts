@@ -17,16 +17,32 @@ import { contactsRouter } from './routers/contacts';
 import { unitsOfMeasureRouter } from './routers/units-of-measure';
 import { businessTransactionsRouter } from './routers/business-transactions';
 import { subscriptionsRouter } from './routers/subscriptions';
+import { billingSchedulesRouter } from './routers/billing-schedules';
 import { invoicesRouter } from './routers/invoices';
 import { paymentsRouter } from './routers/payments';
 import { revenueRouter } from './routers/revenue';
 import { accountingPeriodsRouter } from './routers/accounting-periods';
 import { projectCostCodesRouter } from './routers/project-cost-codes';
 import { projectBudgetsRouter } from './routers/project-budgets';
+import { projectsRouter } from './routers/projects';
+import { projectReportingRouter } from './routers/project-reporting';
 import { timeEntriesRouter } from './routers/time-entries';
+import { expenseEntriesRouter } from './routers/expense-entries';
 import { closeManagementRouter } from './routers/close-management';
 import { scheduleOfValuesRouter } from './routers/schedule-of-values';
 import { payApplicationsRouter } from './routers/pay-applications';
+import { auditRouter } from './routers/audit';
+import { jobCostPostingRouter } from './routers/job-cost-posting';
+import { changeManagementRouter } from './routers/change-management';
+import { wipReportingRouter } from './routers/wip-reporting';
+import { consolidationRouter } from './routers/consolidation';
+import { metricsRouter } from './routers/metrics';
+import { salesOrdersRouter } from './routers/sales-orders';
+import { bankDepositsRouter } from './routers/bank-deposits';
+import { reportSchedulesRouter } from './routers/report-schedules';
+import { deliveryQueueRouter } from './routers/delivery-queue';
+import { importsRouter } from './routers/imports';
+import { onboardingRouter } from './routers/onboarding';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -47,16 +63,32 @@ export const appRouter = router({
   unitsOfMeasure: unitsOfMeasureRouter,
   businessTransactions: businessTransactionsRouter,
   subscriptions: subscriptionsRouter,
+  billingSchedules: billingSchedulesRouter,
   invoices: invoicesRouter,
   payments: paymentsRouter,
   revenue: revenueRouter,
   accountingPeriods: accountingPeriodsRouter,
+  projects: projectsRouter,
   projectCostCodes: projectCostCodesRouter,
   projectBudgets: projectBudgetsRouter,
+  projectReporting: projectReportingRouter,
   timeEntries: timeEntriesRouter,
+  expenseEntries: expenseEntriesRouter,
   closeManagement: closeManagementRouter,
   scheduleOfValues: scheduleOfValuesRouter,
   payApplications: payApplicationsRouter,
+  audit: auditRouter,
+  jobCostPosting: jobCostPostingRouter,
+  changeManagement: changeManagementRouter,
+  wipReporting: wipReportingRouter,
+  consolidation: consolidationRouter,
+  metrics: metricsRouter,
+  salesOrders: salesOrdersRouter,
+  bankDeposits: bankDepositsRouter,
+  reportSchedules: reportSchedulesRouter,
+  deliveryQueue: deliveryQueueRouter,
+  imports: importsRouter,
+  onboarding: onboardingRouter,
 });
 
 export type AppRouter = typeof appRouter;

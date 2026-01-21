@@ -71,7 +71,7 @@ export const VALID_SALES_ORDER_TRANSITIONS: Record<SalesOrderStatusValue, SalesO
 /**
  * Approval Action Types
  */
-export const approvalActionTypeEnum = pgEnum('approval_action_type', [
+export const salesOrderApprovalActionEnum = pgEnum('approval_action_type', [
   'SUBMIT',
   'APPROVE',
   'REJECT',
@@ -239,7 +239,7 @@ export const salesOrderApprovalHistory = pgTable('sales_order_approval_history',
     .notNull(),
 
   // Action details
-  action: approvalActionTypeEnum('action').notNull(),
+  action: salesOrderApprovalActionEnum('action').notNull(),
   fromStatus: salesOrderStatusEnum('from_status').notNull(),
   toStatus: salesOrderStatusEnum('to_status').notNull(),
 

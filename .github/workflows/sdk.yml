@@ -1,0 +1,127 @@
+name: SDK CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/sdk/**'
+      - 'apps/docs/public/api/openapi.json'
+      - '.github/workflows/sdk.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'packages/sdk/**'
+      - 'apps/docs/public/api/openapi.json'
+      - '.github/workflows/sdk.yml'
+
+jobs:
+  build:
+    name: Build & Verify SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate SDK from OpenAPI
+        run: pnpm --filter @glapi/sdk generate
+
+      - name: Type check SDK
+        run: pnpm --filter @glapi/sdk type-check
+
+      - name: Build SDK
+        run: pnpm --filter @glapi/sdk build
+
+      - name: Verify SDK exports
+        run: |
+          cd packages/sdk
+          # Verify the generated files exist
+          test -f dist/index.js || (echo "Missing CJS build" && exit 1)
+          test -f dist/index.mjs || (echo "Missing ESM build" && exit 1)
+          test -f dist/index.d.ts || (echo "Missing type definitions" && exit 1)
+          echo "SDK build verified successfully"
+
+      - name: Run example scripts (syntax check)
+        run: |
+          cd packages/sdk
+          # Type-check examples without actually running against API
+          npx tsc --noEmit --skipLibCheck examples/*.ts
+          echo "Example scripts type-check passed"
+
+  python-sdk:
+    name: Build & Verify Python SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python SDK dependencies
+        run: |
+          cd packages/sdk-python
+          pip install -r requirements.txt
+          pip install -r test-requirements.txt
+          pip install -e .
+
+      - name: Lint Python SDK
+        run: |
+          pip install flake8
+          cd packages/sdk-python
+          flake8 glapi --count --select=E9,F63,F7,F82 --show-source --statistics || true
+
+      - name: Verify Python SDK imports
+        run: |
+          python -c "import glapi; print('Python SDK imports successfully')"
+          python -c "from glapi import CustomersApi, VendorsApi, AccountsApi; print('API classes available')"
+
+  # Uncomment to enable npm publishing on release
+  # publish:
+  #   name: Publish to npm
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         registry-url: 'https://registry.npmjs.org'
+  #     - uses: pnpm/action-setup@v4
+  #       with:
+  #         version: 10
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: pnpm --filter @glapi/sdk build
+  #     - run: pnpm --filter @glapi/sdk publish --no-git-checks
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
