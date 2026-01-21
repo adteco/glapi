@@ -211,6 +211,14 @@ const NewPageSidebar = () => {
                   <span>Payments</span>
                 </Link>
               </li>
+              <li>
+                {/* @ts-ignore */}
+                <Link href="/statements" className={`${baseSubLinkClass} ${isActive('/statements') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <ReceiptIcon className="h-4 w-4" />
+                  <span>Statements</span>
+                </Link>
+              </li>
             </ul>
           )}
         </div>
