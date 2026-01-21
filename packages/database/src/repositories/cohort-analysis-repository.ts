@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, Database } from '../db';
 import { 
   cohortAnalysis,
   deferredRevenueRollforward,
@@ -10,7 +10,7 @@ import {
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 
 export class CohortAnalysisRepository {
-  constructor(private database = db) {}
+  constructor(private database: Database = db) {}
 
   /**
    * Create a new cohort analysis

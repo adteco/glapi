@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, Database } from '../db';
 import { 
   scenarioAnalysis,
   ScenarioAnalysis,
@@ -7,7 +7,7 @@ import {
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 export class ScenarioAnalysisRepository {
-  constructor(private database = db) {}
+  constructor(private database: Database = db) {}
 
   /**
    * Create a new scenario analysis

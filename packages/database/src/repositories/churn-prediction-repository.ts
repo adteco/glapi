@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, Database } from '../db';
 import { 
   churnPredictions,
   ChurnPrediction,
@@ -7,7 +7,7 @@ import {
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 
 export class ChurnPredictionRepository {
-  constructor(private database = db) {}
+  constructor(private database: Database = db) {}
 
   /**
    * Create a new churn prediction

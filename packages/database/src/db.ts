@@ -1,6 +1,11 @@
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { schema } from "./db/schema";
+
+// Explicit type to avoid TS7056 "inferred type exceeds max length"
+// Using 'any' for schema type parameter since the full type is too complex
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Database = NodePgDatabase<any>;
 
 
 if (!process.env.DATABASE_URL) {

@@ -79,15 +79,15 @@ export class MetricsRepository extends BaseRepository {
 
     const result = await db
       .select({
-        revenue: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END), 0)`,
-        cogs: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} = 'COGS' THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`,
-        operatingExpenses: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} = 'EXPENSE' AND ${accounts.accountSubType} NOT IN ('INTEREST_EXPENSE', 'TAX_EXPENSE', 'OTHER_EXPENSE') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`,
-        otherExpenses: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} = 'EXPENSE' AND ${accounts.accountSubType} IN ('INTEREST_EXPENSE', 'TAX_EXPENSE', 'OTHER_EXPENSE') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`,
-        currentAssets: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} = 'ASSET' AND ${accounts.accountSubType} IN ('CASH', 'ACCOUNTS_RECEIVABLE', 'INVENTORY', 'PREPAID', 'OTHER_CURRENT_ASSET') THEN ${glAccountBalances.endingBalanceDebit} - ${glAccountBalances.endingBalanceCredit} ELSE 0 END), 0)`,
-        currentLiabilities: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} = 'LIABILITY' AND ${accounts.accountSubType} IN ('ACCOUNTS_PAYABLE', 'ACCRUED_EXPENSE', 'DEFERRED_REVENUE', 'OTHER_CURRENT_LIABILITY', 'SHORT_TERM_DEBT') THEN ${glAccountBalances.endingBalanceCredit} - ${glAccountBalances.endingBalanceDebit} ELSE 0 END), 0)`,
-        inventory: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountSubType} = 'INVENTORY' THEN ${glAccountBalances.endingBalanceDebit} - ${glAccountBalances.endingBalanceCredit} ELSE 0 END), 0)`,
-        accountsReceivable: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountSubType} = 'ACCOUNTS_RECEIVABLE' THEN ${glAccountBalances.endingBalanceDebit} - ${glAccountBalances.endingBalanceCredit} ELSE 0 END), 0)`,
-        accountsPayable: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountSubType} = 'ACCOUNTS_PAYABLE' THEN ${glAccountBalances.endingBalanceCredit} - ${glAccountBalances.endingBalanceDebit} ELSE 0 END), 0)`,
+        revenue: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END), 0)`,
+        cogs: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} = 'COGS' THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`,
+        operatingExpenses: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} = 'EXPENSE' AND ${accounts.accountSubcategory} NOT IN ('INTEREST_EXPENSE', 'TAX_EXPENSE', 'OTHER_EXPENSE') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`,
+        otherExpenses: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} = 'EXPENSE' AND ${accounts.accountSubcategory} IN ('INTEREST_EXPENSE', 'TAX_EXPENSE', 'OTHER_EXPENSE') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`,
+        currentAssets: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} = 'ASSET' AND ${accounts.accountSubcategory} IN ('CASH', 'ACCOUNTS_RECEIVABLE', 'INVENTORY', 'PREPAID', 'OTHER_CURRENT_ASSET') THEN ${glAccountBalances.endingBalanceDebit} - ${glAccountBalances.endingBalanceCredit} ELSE 0 END), 0)`,
+        currentLiabilities: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} = 'LIABILITY' AND ${accounts.accountSubcategory} IN ('ACCOUNTS_PAYABLE', 'ACCRUED_EXPENSE', 'DEFERRED_REVENUE', 'OTHER_CURRENT_LIABILITY', 'SHORT_TERM_DEBT') THEN ${glAccountBalances.endingBalanceCredit} - ${glAccountBalances.endingBalanceDebit} ELSE 0 END), 0)`,
+        inventory: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountSubcategory} = 'INVENTORY' THEN ${glAccountBalances.endingBalanceDebit} - ${glAccountBalances.endingBalanceCredit} ELSE 0 END), 0)`,
+        accountsReceivable: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountSubcategory} = 'ACCOUNTS_RECEIVABLE' THEN ${glAccountBalances.endingBalanceDebit} - ${glAccountBalances.endingBalanceCredit} ELSE 0 END), 0)`,
+        accountsPayable: sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountSubcategory} = 'ACCOUNTS_PAYABLE' THEN ${glAccountBalances.endingBalanceCredit} - ${glAccountBalances.endingBalanceDebit} ELSE 0 END), 0)`,
       })
       .from(glAccountBalances)
       .innerJoin(accounts, eq(glAccountBalances.accountId, accounts.id))
@@ -144,24 +144,24 @@ export class MetricsRepository extends BaseRepository {
     let metricSql: any;
     switch (metric) {
       case 'revenue':
-        metricSql = sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END), 0)`;
+        metricSql = sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END), 0)`;
         break;
       case 'expenses':
-        metricSql = sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountType} IN ('EXPENSE', 'COGS') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`;
+        metricSql = sql<string>`COALESCE(SUM(CASE WHEN ${accounts.accountCategory} IN ('EXPENSE', 'COGS') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END), 0)`;
         break;
       case 'netIncome':
         metricSql = sql<string>`COALESCE(
-          SUM(CASE WHEN ${accounts.accountType} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) -
-          SUM(CASE WHEN ${accounts.accountType} IN ('EXPENSE', 'COGS') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END)
+          SUM(CASE WHEN ${accounts.accountCategory} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) -
+          SUM(CASE WHEN ${accounts.accountCategory} IN ('EXPENSE', 'COGS') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END)
         , 0)`;
         break;
       case 'margin':
         metricSql = sql<string>`CASE
-          WHEN SUM(CASE WHEN ${accounts.accountType} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) > 0
+          WHEN SUM(CASE WHEN ${accounts.accountCategory} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) > 0
           THEN (
-            SUM(CASE WHEN ${accounts.accountType} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) -
-            SUM(CASE WHEN ${accounts.accountType} IN ('EXPENSE', 'COGS') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END)
-          ) / SUM(CASE WHEN ${accounts.accountType} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) * 100
+            SUM(CASE WHEN ${accounts.accountCategory} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) -
+            SUM(CASE WHEN ${accounts.accountCategory} IN ('EXPENSE', 'COGS') THEN ${glAccountBalances.periodDebitAmount} - ${glAccountBalances.periodCreditAmount} ELSE 0 END)
+          ) / SUM(CASE WHEN ${accounts.accountCategory} = 'REVENUE' THEN ${glAccountBalances.periodCreditAmount} - ${glAccountBalances.periodDebitAmount} ELSE 0 END) * 100
           ELSE 0
         END`;
         break;
