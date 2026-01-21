@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, Database } from '../db';
 import { 
   revenueForecastRuns,
   revenueForecastDetails,
@@ -10,7 +10,7 @@ import {
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 
 export class RevenueForecastingRepository {
-  constructor(private database = db) {}
+  constructor(private database: Database = db) {}
 
   /**
    * Create a new forecast run

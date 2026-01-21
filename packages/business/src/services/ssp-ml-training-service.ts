@@ -167,7 +167,18 @@ export class SSPMLTrainingService {
     );
     
     // Create a map for quick lookup
-    const statsMap = new Map(pricingStats.map(s => [s.itemId, s]));
+    // Type assertion needed due to loose database types
+    interface PricingStats {
+      itemId: string;
+      avgPrice: number;
+      stdDev: number;
+      transactionCount: number;
+      avgDiscount: number;
+      minPrice: number;
+      maxPrice: number;
+    }
+    const typedStats = pricingStats as PricingStats[];
+    const statsMap = new Map(typedStats.map(s => [s.itemId, s]));
 
     // Prepare features and labels
     const features: number[][] = [];

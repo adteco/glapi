@@ -20,6 +20,7 @@ import {
 import type {
   ConnectorConfig,
   ConnectorResponse,
+  ConnectionTestResult,
 } from '../types/connector.types';
 
 import type {
@@ -172,6 +173,7 @@ export class HubSpotConnector extends BaseConnector {
   ) {
     const connectorConfig: ConnectorConfig = {
       id: `hubspot-${context.organizationId ?? 'default'}`,
+      name: 'HubSpot CRM',
       type: 'hubspot',
       baseUrl: HubSpotConnector.BASE_URL,
       credentials: hsConfig.apiKey
@@ -206,9 +208,11 @@ export class HubSpotConnector extends BaseConnector {
         retryableStatusCodes: [408, 429, 500, 502, 503, 504],
       },
       circuitBreaker: {
+        enabled: true,
         failureThreshold: 5,
         successThreshold: 3,
         resetTimeoutMs: 30000,
+        windowSize: 60000,
       },
       defaultTimeoutMs: 30000,
     };
@@ -220,11 +224,8 @@ export class HubSpotConnector extends BaseConnector {
   /**
    * Test connection to HubSpot
    */
-  async testConnection(): Promise<{
-    success: boolean;
-    message: string;
-    details?: Record<string, unknown>;
-  }> {
+  async testConnection(): Promise<ConnectionTestResult> {
+    const startTime = Date.now();
     try {
       // Try to get account info
       const response = await this.get<{
@@ -235,6 +236,7 @@ export class HubSpotConnector extends BaseConnector {
 
       return {
         success: true,
+        latencyMs: Date.now() - startTime,
         message: 'Successfully connected to HubSpot',
         details: {
           portalId: response.data.portalId,
@@ -244,6 +246,7 @@ export class HubSpotConnector extends BaseConnector {
     } catch (error) {
       return {
         success: false,
+        latencyMs: Date.now() - startTime,
         message: `Failed to connect to HubSpot: ${error instanceof Error ? error.message : String(error)}`,
       };
     }

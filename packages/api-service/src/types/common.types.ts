@@ -14,6 +14,7 @@ export type Address = z.infer<typeof addressSchema>;
 export interface ServiceContext {
   organizationId?: string;
   userId?: string;
+  userName?: string;
 }
 
 // Pagination

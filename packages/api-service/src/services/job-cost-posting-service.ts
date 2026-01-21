@@ -223,7 +223,7 @@ export class JobCostPostingService extends BaseService {
         id: randomUUID(),
         businessTransactionId: businessTransaction.id!,
         lineNumber: lineNumber++,
-        lineType: 'JOB_COST',
+        lineType: 'ITEM', // Use ITEM for job cost entries
         description: entry.description || 'Job cost entry',
         quantity: '1',
         unitPrice: entry.amount.toString(),
@@ -238,6 +238,7 @@ export class JobCostPostingService extends BaseService {
           debitAccountId: costAccountId,
           creditAccountId: wipAccountId,
           postingDate: entryDate,
+          costType: transactionPrefix, // Track original type
         },
       } as BusinessTransactionLine);
     }
@@ -270,7 +271,8 @@ export class JobCostPostingService extends BaseService {
   }
 
   private getPostingDate(entry: LaborPostingEntry | ExpensePostingEntry): string {
-    const rawDate = entry.entryDate || entry.expenseDate;
+    // Handle union type by checking for each property
+    const rawDate = 'entryDate' in entry ? entry.entryDate : entry.expenseDate;
     if (!rawDate) {
       throw new ServiceError('Posting date is required', 'JOB_COST_NO_POSTING_DATE', 400);
     }

@@ -14,4 +14,8 @@ const pool = new Pool({
   connectionString: DATABASE_URL,
 });
 
-export const db = drizzle(pool, { schema }); 
+export const db = drizzle(pool, { schema });
+
+// Export Database type for dependency injection in repositories
+// Using typeof db to maintain full type information
+export type Database = typeof db;

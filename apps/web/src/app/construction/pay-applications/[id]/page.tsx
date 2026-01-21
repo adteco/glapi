@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -154,7 +154,7 @@ function getStatusBadgeVariant(status: string): 'default' | 'secondary' | 'destr
   }
 }
 
-export default function PayApplicationDetailPage() {
+function PayApplicationDetailPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -981,5 +981,18 @@ export default function PayApplicationDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Wrap in Suspense for useSearchParams() - required by Next.js 16+
+export default function PayApplicationDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-10">
+        <p>Loading pay application...</p>
+      </div>
+    }>
+      <PayApplicationDetailPageContent />
+    </Suspense>
   );
 }

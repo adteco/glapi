@@ -521,7 +521,7 @@ export class SSPExceptionMonitor {
     }, {} as Record<string, number>);
 
     const topExceptionTypes = Object.entries(typeCount)
-      .map(([type, count]) => ({ type, count }))
+      .map(([type, count]) => ({ type, count: count as number }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
@@ -529,9 +529,10 @@ export class SSPExceptionMonitor {
       .reduce((sum, e) => sum + Number(e.impactedRevenue || 0), 0)
       .toFixed(2);
 
-    const itemsRequiringAttention = [...new Set(exceptions
+    const criticalItemIds = exceptions
       .filter(e => e.severity === ExceptionSeverity.CRITICAL)
-      .map(e => e.itemId))];
+      .map(e => String(e.itemId));
+    const itemsRequiringAttention = Array.from<string>(new Set(criticalItemIds));
 
     return {
       totalExceptions: exceptions.length,
@@ -581,12 +582,16 @@ export class SSPExceptionMonitor {
     ))
     .groupBy(sspExceptions.exceptionType);
 
-    const previousMap = new Map(previousPeriod.map(p => [p.exceptionType, p.count]));
+    const previousMap = new Map<string, number>(
+      previousPeriod.map(p => [String(p.exceptionType), Number(p.count)])
+    );
 
     return currentPeriod.map(current => {
-      const previous = previousMap.get(current.exceptionType) || 0;
-      const changePercentage = previous > 0 
-        ? ((current.count - previous) / previous) * 100 
+      const exceptionType = String(current.exceptionType);
+      const previous = previousMap.get(exceptionType) || 0;
+      const currentCount = Number(current.count);
+      const changePercentage = previous > 0
+        ? ((currentCount - previous) / previous) * 100
         : 100;
 
       let trend: 'increasing' | 'decreasing' | 'stable';
@@ -595,8 +600,8 @@ export class SSPExceptionMonitor {
       else trend = 'stable';
 
       return {
-        exceptionType: current.exceptionType,
-        count: current.count,
+        exceptionType,
+        count: currentCount,
         trend,
         changePercentage
       };

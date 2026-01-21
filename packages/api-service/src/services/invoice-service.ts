@@ -64,7 +64,30 @@ export interface GenerateInvoiceParams {
   invoiceDate?: Date | string;
 }
 
-export interface InvoiceWithLineItems extends Invoice {
+/**
+ * Invoice with line items - explicitly includes base Invoice properties
+ * for TypeScript inference
+ */
+export interface InvoiceWithLineItems {
+  // Base Invoice properties
+  id: string;
+  organizationId: string;
+  invoiceNumber: string;
+  entityId: string;
+  subscriptionId?: string | null;
+  salesOrderId?: string | null;
+  invoiceDate: string;
+  dueDate?: string | null;
+  billingPeriodStart?: string | null;
+  billingPeriodEnd?: string | null;
+  subtotal: string;
+  taxAmount?: string | null;
+  totalAmount: string;
+  status: 'draft' | 'sent' | 'paid' | 'partial' | 'overdue' | 'cancelled' | 'void';
+  metadata?: unknown;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  // Extended properties
   lineItems?: Array<{
     id: string;
     invoiceId: string;
