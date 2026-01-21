@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, Database } from '../db';
 import { 
   contractModifications,
   modificationLineItems,
@@ -14,7 +14,7 @@ import {
 import { eq, and, desc, asc } from 'drizzle-orm';
 
 export class ContractModificationRepository {
-  constructor(private database = db) {}
+  constructor(private database: Database = db) {}
 
   /**
    * Create a new contract modification

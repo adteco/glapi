@@ -360,4 +360,100 @@ export class AccountingPeriodRepository extends BaseRepository {
 
     return results.map(r => r.id);
   }
+
+  /**
+   * Find a period by ID using organization context
+   */
+  async findByIdForOrganization(id: string, organizationId: string) {
+    const subsidiaryIds = await this.getAccessibleSubsidiaryIds(organizationId);
+    if (subsidiaryIds.length === 0) return null;
+    return this.findById(id, subsidiaryIds);
+  }
+
+  /**
+   * Find current period for an organization (first open period by date)
+   */
+  async findCurrentPeriod(organizationId: string) {
+    const subsidiaryIds = await this.getAccessibleSubsidiaryIds(organizationId);
+    if (subsidiaryIds.length === 0) return null;
+
+    const today = new Date().toISOString().split('T')[0];
+    const [result] = await this.db
+      .select()
+      .from(accountingPeriods)
+      .where(
+        and(
+          inArray(accountingPeriods.subsidiaryId, subsidiaryIds),
+          eq(accountingPeriods.status, PERIOD_STATUS.OPEN),
+          lte(accountingPeriods.startDate, today),
+          gte(accountingPeriods.endDate, today)
+        )
+      )
+      .orderBy(desc(accountingPeriods.startDate))
+      .limit(1);
+
+    return result || null;
+  }
+
+  /**
+   * Find previous period relative to a given period
+   */
+  async findPreviousPeriod(currentPeriodId: string, organizationId: string) {
+    const subsidiaryIds = await this.getAccessibleSubsidiaryIds(organizationId);
+    if (subsidiaryIds.length === 0) return null;
+
+    const currentPeriod = await this.findById(currentPeriodId, subsidiaryIds);
+    if (!currentPeriod) return null;
+
+    const [result] = await this.db
+      .select()
+      .from(accountingPeriods)
+      .where(
+        and(
+          inArray(accountingPeriods.subsidiaryId, subsidiaryIds),
+          lte(accountingPeriods.endDate, currentPeriod.startDate)
+        )
+      )
+      .orderBy(desc(accountingPeriods.endDate))
+      .limit(1);
+
+    return result || null;
+  }
+
+  /**
+   * Find periods within a date range
+   */
+  async findByDateRange(organizationId: string, fromDate: string, toDate: string) {
+    const subsidiaryIds = await this.getAccessibleSubsidiaryIds(organizationId);
+    if (subsidiaryIds.length === 0) return [];
+
+    return this.db
+      .select()
+      .from(accountingPeriods)
+      .where(
+        and(
+          inArray(accountingPeriods.subsidiaryId, subsidiaryIds),
+          or(
+            between(accountingPeriods.startDate, fromDate, toDate),
+            between(accountingPeriods.endDate, fromDate, toDate)
+          )
+        )
+      )
+      .orderBy(asc(accountingPeriods.startDate));
+  }
+
+  /**
+   * Find recent periods for an organization
+   */
+  async findRecentPeriods(organizationId: string, count: number = 12) {
+    const subsidiaryIds = await this.getAccessibleSubsidiaryIds(organizationId);
+    if (subsidiaryIds.length === 0) return [];
+
+    return this.db
+      .select()
+      .from(accountingPeriods)
+      .where(inArray(accountingPeriods.subsidiaryId, subsidiaryIds))
+      .orderBy(desc(accountingPeriods.startDate))
+      .limit(count);
+  }
 }

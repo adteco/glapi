@@ -25,7 +25,8 @@ import {
   AccountBalanceRecalculatedEvent,
   GlTransactionLineEvent,
 } from '@glapi/business';
-import { glAccountBalances, eq, and, sql } from '@glapi/database';
+import { glAccountBalances } from '@glapi/database';
+import { eq, and, sql } from 'drizzle-orm';
 
 const PROJECTION_NAME = 'gl-account-balance';
 

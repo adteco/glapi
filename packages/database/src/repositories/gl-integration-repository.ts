@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, Database } from '../db';
 import { 
   glJournalEntries,
   journalEntryBatches,
@@ -9,7 +9,7 @@ import {
 import { eq, and, gte, lte, sql, desc, isNull, or } from 'drizzle-orm';
 
 export class GLIntegrationRepository {
-  constructor(private database = db) {}
+  constructor(private database: Database = db) {}
 
   /**
    * Get journal entries for batch

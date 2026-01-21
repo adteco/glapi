@@ -217,8 +217,11 @@ export class ReportSchedulerService extends BaseService {
       });
     }
 
+    // Extract reportType separately to handle type compatibility
+    const { reportType, ...restInput } = input;
     const updateData: UpdateReportSchedule = {
-      ...input,
+      ...restInput,
+      ...(reportType !== undefined && { reportType: reportType as NewReportSchedule['reportType'] }),
       nextRunAt,
       updatedBy: userId,
     };

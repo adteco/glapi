@@ -20,6 +20,7 @@ import {
 import type {
   ConnectorConfig,
   ConnectorResponse,
+  ConnectionTestResult,
 } from '../types/connector.types';
 
 import type {
@@ -370,6 +371,7 @@ export class GustoConnector extends BaseConnector {
 
     const connectorConfig: ConnectorConfig = {
       id: `gusto-${context.organizationId ?? 'default'}`,
+      name: 'Gusto Payroll',
       type: 'gusto',
       baseUrl,
       credentials: {
@@ -397,9 +399,11 @@ export class GustoConnector extends BaseConnector {
         retryableStatusCodes: [408, 429, 500, 502, 503, 504],
       },
       circuitBreaker: {
+        enabled: true,
         failureThreshold: 5,
         successThreshold: 3,
         resetTimeoutMs: 30000,
+        windowSize: 60000,
       },
       defaultTimeoutMs: 30000,
       defaultHeaders: {
@@ -433,11 +437,8 @@ export class GustoConnector extends BaseConnector {
   /**
    * Test connection to Gusto
    */
-  async testConnection(): Promise<{
-    success: boolean;
-    message: string;
-    details?: Record<string, unknown>;
-  }> {
+  async testConnection(): Promise<ConnectionTestResult> {
+    const startTime = Date.now();
     try {
       const response = await this.get<{ email: string; uuid: string }>(
         '/v1/me'
@@ -445,6 +446,7 @@ export class GustoConnector extends BaseConnector {
 
       return {
         success: true,
+        latencyMs: Date.now() - startTime,
         message: 'Successfully connected to Gusto',
         details: {
           userEmail: response.data.email,
@@ -454,6 +456,7 @@ export class GustoConnector extends BaseConnector {
     } catch (error) {
       return {
         success: false,
+        latencyMs: Date.now() - startTime,
         message: `Failed to connect to Gusto: ${error instanceof Error ? error.message : String(error)}`,
       };
     }

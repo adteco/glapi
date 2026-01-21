@@ -44,6 +44,21 @@ import type {
   ConnectorTypeDefinition,
 } from '../types/connector.types';
 
+// Re-export types for consumers
+export type {
+  ConnectorConfig,
+  ConnectionTestResult,
+  CircuitBreakerConfig,
+  ConnectorCredentials,
+  OAuth2Credentials,
+  ApiKeyCredentials,
+  RateLimitConfig,
+  RetryPolicy,
+  HealthCheckResult,
+  ConnectorMetrics,
+  MonitoringHooks,
+};
+
 // ============================================================================
 // Self-contained types to avoid database dependency
 // ============================================================================
