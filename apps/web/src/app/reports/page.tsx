@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target } from 'lucide-react';
+import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Building2, Wallet, Clock, Receipt, LayoutDashboard, Layers } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReportsPage() {
@@ -14,6 +14,31 @@ export default function ReportsPage() {
   }
 
   const reportCategories = [
+    {
+      title: "Management & Analytics",
+      description: "KPI dashboards, segment analysis, and performance metrics",
+      icon: <LayoutDashboard className="h-8 w-8 text-indigo-600" />,
+      reports: [
+        {
+          name: "Management Dashboard",
+          description: "KPIs, segment performance, and trend analysis with dimension filtering",
+          href: "/reports/management",
+          icon: <LayoutDashboard className="h-5 w-5" />
+        },
+        {
+          name: "Segment Analysis",
+          description: "Performance breakdown by class, department, and location",
+          href: "/reports/management?tab=segments",
+          icon: <Layers className="h-5 w-5" />
+        },
+        {
+          name: "Trend Analysis",
+          description: "Historical performance trends and forecasting",
+          href: "/reports/management?tab=trends",
+          icon: <TrendingUp className="h-5 w-5" />
+        }
+      ]
+    },
     {
       title: "Financial Reports",
       description: "Core financial statements and analysis",
@@ -36,6 +61,37 @@ export default function ReportsPage() {
           description: "Cash inflows and outflows from operations, investing, and financing",
           href: "/reports/financial/cash-flow-statement",
           icon: <Activity className="h-5 w-5" />
+        }
+      ]
+    },
+    {
+      title: "Construction & Projects",
+      description: "Project health, WIP, and job cost analytics",
+      icon: <Building2 className="h-8 w-8 text-amber-600" />,
+      reports: [
+        {
+          name: "Job Cost Summary",
+          description: "Budget vs actual, commitments, and percent complete by project",
+          href: "/reports/construction/job-cost",
+          icon: <TrendingUp className="h-5 w-5" />
+        },
+        {
+          name: "WIP & Budget Analysis",
+          description: "Work-in-progress clearing, commitments, and budget utilization",
+          href: "/reports/construction/wip",
+          icon: <Wallet className="h-5 w-5" />
+        },
+        {
+          name: "Time Entries",
+          description: "Track employee time, approvals, and labor costs by project",
+          href: "/construction/time",
+          icon: <Clock className="h-5 w-5" />
+        },
+        {
+          name: "Expense Entries",
+          description: "Manage expense reports, reimbursements, and billable costs",
+          href: "/construction/expenses",
+          icon: <Receipt className="h-5 w-5" />
         }
       ]
     },
@@ -146,7 +202,13 @@ export default function ReportsPage() {
       {/* Quick Access Section */}
       <div className="mt-12 bg-gray-50 rounded-lg p-6">
         <h3 className="text-xl font-semibold mb-4">Quick Access</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Link href="/reports/management">
+            <Button variant="outline" className="w-full justify-start">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Management Dashboard
+            </Button>
+          </Link>
           <Link href="/reports/financial/balance-sheet">
             <Button variant="outline" className="w-full justify-start">
               <BarChart3 className="mr-2 h-4 w-4" />
@@ -175,15 +237,31 @@ export default function ReportsPage() {
             <h3 className="text-xl font-semibold">Scheduled Reports</h3>
             <p className="text-gray-600">Automate report generation and delivery</p>
           </div>
-          <Button>
-            <Calendar className="mr-2 h-4 w-4" />
-            Schedule Report
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/reports/schedules/monitoring">
+              <Button variant="outline">
+                <Activity className="mr-2 h-4 w-4" />
+                Monitoring
+              </Button>
+            </Link>
+            <Link href="/reports/schedules">
+              <Button>
+                <Calendar className="mr-2 h-4 w-4" />
+                Manage Schedules
+              </Button>
+            </Link>
+          </div>
         </div>
-        <div className="text-center py-8 text-gray-500">
-          <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
-          <p>No scheduled reports configured.</p>
-          <p className="text-sm">Set up automated report generation to receive regular financial updates.</p>
+        <p className="text-center py-4 text-gray-500">
+          <Calendar className="mx-auto h-10 w-10 mb-3 opacity-50" />
+          Create and manage scheduled reports to receive automated financial updates via email or webhook.
+        </p>
+        <div className="flex justify-center">
+          <Link href="/reports/schedules">
+            <Button variant="outline">
+              View All Scheduled Reports
+            </Button>
+          </Link>
         </div>
       </div>
     </div>

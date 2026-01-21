@@ -1,0 +1,382 @@
+---
+title: Developer Quickstart
+description: Get started with the GLAPI SDK in minutes
+---
+
+# Developer Quickstart
+
+This guide will help you get started with the GLAPI SDK and make your first API calls in minutes.
+
+## Prerequisites
+
+- A GLAPI account with API access
+- A Clerk authentication token
+- Node.js 18+ (for TypeScript SDK) or Python 3.9+ (for Python SDK)
+
+## Installation
+
+### TypeScript/JavaScript
+
+```bash
+npm install @glapi/sdk
+# or
+pnpm add @glapi/sdk
+# or
+yarn add @glapi/sdk
+```
+
+### Python
+
+```bash
+pip install glapi
+# or from source:
+pip install git+https://github.com/glapi/glapi.git#subdirectory=packages/sdk-python
+```
+
+## Authentication
+
+GLAPI uses Clerk for authentication. You'll need to obtain a Bearer token from your Clerk session.
+
+### TypeScript
+
+```typescript
+import { GlapiClient } from '@glapi/sdk';
+
+// Option 1: Static token
+const client = new GlapiClient({
+  baseUrl: 'https://api.glapi.io/api',
+  token: 'your-clerk-token',
+});
+
+// Option 2: Dynamic token (React/Next.js with Clerk)
+import { useAuth } from '@clerk/nextjs';
+
+function useGlapiClient() {
+  const { getToken } = useAuth();
+
+  return new GlapiClient({
+    baseUrl: process.env.NEXT_PUBLIC_API_URL,
+    token: async () => {
+      const token = await getToken();
+      return token ?? '';
+    },
+  });
+}
+```
+
+### Python
+
+```python
+import os
+import glapi
+
+configuration = glapi.Configuration(
+    host="https://api.glapi.io/api",
+    access_token=os.environ.get("GLAPI_TOKEN"),
+)
+```
+
+## Your First API Call
+
+Let's list all customers in your organization.
+
+### TypeScript
+
+```typescript
+import { GlapiClient } from '@glapi/sdk';
+
+const client = new GlapiClient({
+  baseUrl: 'https://api.glapi.io/api',
+  token: 'your-token',
+});
+
+// List customers
+const customers = await client.customers.list();
+console.log('Customers:', customers);
+
+// Get a specific customer
+const customer = await client.customers.get('customer-id');
+console.log('Customer:', customer);
+```
+
+### Python
+
+```python
+import glapi
+
+configuration = glapi.Configuration(
+    host="https://api.glapi.io/api",
+    access_token="your-token",
+)
+
+with glapi.ApiClient(configuration) as api_client:
+    customers_api = glapi.CustomersApi(api_client)
+
+    # List customers
+    customers = customers_api.customers_list()
+    print("Customers:", customers)
+
+    # Get a specific customer
+    customer = customers_api.customers_get("customer-id")
+    print("Customer:", customer)
+```
+
+## Creating Records
+
+### Create a Customer
+
+**TypeScript:**
+
+```typescript
+const newCustomer = await client.customers.create({
+  name: 'Acme Corporation',
+  email: 'billing@acme.com',
+  phone: '+1-555-0123',
+  address: {
+    street: '123 Main St',
+    city: 'San Francisco',
+    state: 'CA',
+    zip: '94102',
+    country: 'US',
+  },
+});
+console.log('Created customer:', newCustomer.id);
+```
+
+**Python:**
+
+```python
+customer_data = {
+    "name": "Acme Corporation",
+    "email": "billing@acme.com",
+    "phone": "+1-555-0123",
+    "address": {
+        "street": "123 Main St",
+        "city": "San Francisco",
+        "state": "CA",
+        "zip": "94102",
+        "country": "US",
+    },
+}
+new_customer = customers_api.customers_create(customer_data)
+print(f"Created customer: {new_customer['id']}")
+```
+
+### Create an Invoice
+
+**TypeScript:**
+
+```typescript
+const invoice = await client.invoices.create({
+  customerId: 'customer-123',
+  invoiceNumber: 'INV-001',
+  issueDate: '2026-01-19',
+  dueDate: '2026-02-19',
+  items: [
+    {
+      description: 'Consulting Services - January',
+      quantity: 40,
+      unitPrice: 150.00,
+      amount: 6000.00,
+    },
+    {
+      description: 'Software License',
+      quantity: 1,
+      unitPrice: 500.00,
+      amount: 500.00,
+    },
+  ],
+  subtotal: 6500.00,
+  tax: 520.00,
+  total: 7020.00,
+  currency: 'USD',
+});
+console.log('Invoice created:', invoice.invoiceNumber);
+```
+
+### Create a Business Transaction
+
+**TypeScript:**
+
+```typescript
+const transaction = await client.transactions.create({
+  type: 'JOURNAL_ENTRY',
+  date: '2026-01-19',
+  description: 'Monthly depreciation entry',
+  lines: [
+    {
+      accountId: 'expense-depreciation',
+      debit: 1000.00,
+      credit: 0,
+      description: 'Depreciation expense',
+    },
+    {
+      accountId: 'accumulated-depreciation',
+      debit: 0,
+      credit: 1000.00,
+      description: 'Accumulated depreciation',
+    },
+  ],
+  status: 'POSTED',
+});
+console.log('Transaction posted:', transaction.id);
+```
+
+## Working with Accounting Dimensions
+
+GLAPI supports multiple accounting dimensions for rich financial tracking.
+
+### Subsidiaries, Departments, and Locations
+
+```typescript
+// List organizational units
+const subsidiaries = await client.subsidiaries.list();
+const departments = await client.departments.list();
+const locations = await client.locations.list();
+
+// Create a transaction with dimension tagging
+const entry = await client.transactions.create({
+  type: 'JOURNAL_ENTRY',
+  subsidiaryId: 'sub-001',
+  departmentId: 'dept-sales',
+  locationId: 'loc-hq',
+  // ... rest of transaction
+});
+```
+
+### Classes for Segment Reporting
+
+```typescript
+// Create classification segments
+const projectClass = await client.classes.create({
+  name: 'Project Alpha',
+  code: 'PROJ-ALPHA',
+  isActive: true,
+});
+
+// Tag transactions with classes
+const invoice = await client.invoices.create({
+  classId: projectClass.id,
+  // ... rest of invoice
+});
+```
+
+## Error Handling
+
+### TypeScript
+
+```typescript
+import { ApiError } from '@glapi/sdk';
+
+try {
+  const customer = await client.customers.get('non-existent-id');
+} catch (error) {
+  if (error instanceof ApiError) {
+    switch (error.status) {
+      case 401:
+        console.error('Authentication required');
+        break;
+      case 403:
+        console.error('Permission denied');
+        break;
+      case 404:
+        console.error('Resource not found');
+        break;
+      case 422:
+        console.error('Validation error:', error.body);
+        break;
+      default:
+        console.error(`API Error: ${error.status} - ${error.message}`);
+    }
+  }
+}
+```
+
+### Python
+
+```python
+from glapi.rest import ApiException
+
+try:
+    customer = customers_api.customers_get("non-existent-id")
+except ApiException as e:
+    if e.status == 401:
+        print("Authentication required")
+    elif e.status == 404:
+        print("Customer not found")
+    else:
+        print(f"API Error: {e.status} - {e.reason}")
+```
+
+## Complete Example: Order-to-Cash Flow
+
+Here's a complete example showing an order-to-cash workflow:
+
+```typescript
+import { GlapiClient } from '@glapi/sdk';
+
+async function orderToCashExample() {
+  const client = new GlapiClient({
+    baseUrl: 'https://api.glapi.io/api',
+    token: process.env.GLAPI_TOKEN!,
+  });
+
+  // 1. Create or get customer
+  const customer = await client.customers.create({
+    name: 'New Client Corp',
+    email: 'ap@newclient.com',
+  });
+
+  // 2. Create invoice
+  const invoice = await client.invoices.create({
+    customerId: customer.id,
+    invoiceNumber: `INV-${Date.now()}`,
+    issueDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0],
+    items: [
+      {
+        description: 'Professional Services',
+        quantity: 1,
+        unitPrice: 5000.0,
+        amount: 5000.0,
+      },
+    ],
+    total: 5000.0,
+    currency: 'USD',
+  });
+
+  console.log(`Invoice ${invoice.invoiceNumber} created for $${invoice.total}`);
+
+  // 3. Record payment when received
+  const payment = await client.payments.create({
+    customerId: customer.id,
+    invoiceId: invoice.id,
+    amount: 5000.0,
+    paymentDate: new Date().toISOString().split('T')[0],
+    paymentMethod: 'WIRE',
+    reference: 'WT-123456',
+  });
+
+  console.log(`Payment of $${payment.amount} recorded`);
+
+  return { customer, invoice, payment };
+}
+```
+
+## Next Steps
+
+- **API Reference**: Explore the complete [API documentation](/api-reference)
+- **SDK Reference**: Check out the SDK-specific documentation in each package
+- **Examples**: Browse more examples in the SDK repositories
+- **Support**: Open an issue on GitHub for questions or bug reports
+
+## Resources
+
+| Resource | Link |
+|----------|------|
+| TypeScript SDK | [packages/sdk](https://github.com/glapi/glapi/tree/main/packages/sdk) |
+| Python SDK | [packages/sdk-python](https://github.com/glapi/glapi/tree/main/packages/sdk-python) |
+| OpenAPI Spec | [openapi.json](/api/openapi.json) |
+| GitHub Issues | [Report a bug](https://github.com/glapi/glapi/issues) |

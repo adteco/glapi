@@ -22,7 +22,9 @@ export * from './vendor-items-service';
 // export * from './assemblies-kits-service';
 export * from './warehouse-pricing-service';
 export * from './subscription-service';
+export * from './billing-schedule-service';
 export * from './invoice-service';
+export * from './invoice-posting-service';
 export * from './payment-service';
 export * from './revenue-service';
 export * from './ssp-service';
@@ -31,9 +33,16 @@ export * from './accounting-period-service';
 // Project cost codes and budgets
 export * from './project-cost-code-service';
 export * from './project-budget-service';
+export * from './project-service';
+export * from './project-reporting-service';
+export * from './job-cost-posting-service';
+export * from './wip-reporting-service';
 
 // Time tracking
 export * from './time-entry-service';
+
+// Expense tracking
+export * from './expense-entry-service';
 
 // Schedule of Values and Pay Applications
 export * from './sov-service';
@@ -48,6 +57,7 @@ export * from './role-management-service';
 
 // Audit logging
 export * from './audit-service';
+export * from './change-management-service';
 
 // Order-to-Cash
 export * from './sales-order-service';
@@ -63,3 +73,42 @@ export * from './bank-deposit-service';
 export * from './purchase-order-service';
 export * from './vendor-bill-service';
 export * from './bill-payment-service';
+
+// Consolidation (multi-book accounting)
+export * from './consolidation-service';
+export * from './consolidation-engine';
+export * from './consolidation-reporting-service';
+
+// Metrics and dashboards
+export * from './metrics-service';
+
+// Payment GL Posting
+export * from './payment-posting-service';
+
+// Report Scheduling
+export * from './report-scheduler-service';
+
+// Delivery Connectors
+export * from './delivery-connectors-service';
+
+// External Connector Framework
+export * from './connector-framework';
+
+// Bank Feed Connectors
+export * from './plaid-connector';
+export * from './yodlee-connector';
+export * from './bank-feed-service';
+
+// Payroll Connectors
+export * from './gusto-connector';
+
+// CRM Connectors
+export * from './salesforce-connector';
+export * from './hubspot-connector';
+
+// Data Import/Migration
+export * from './import-service';
+export * from './import-rollback-service';
+
+// Onboarding
+export * from './onboarding-service';

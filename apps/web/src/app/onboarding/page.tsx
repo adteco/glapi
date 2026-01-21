@@ -1,0 +1,1131 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { trpc } from '@/lib/trpc';
+import { CoaSetup, OpeningBalances as OpeningBalancesComponent, HelpButton, HelpCard } from './components';
+import { useOnboardingAnalytics, type OnboardingStepKey } from '@/hooks/use-onboarding-analytics';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+type StepKey = 'welcome' | 'organization' | 'chart_of_accounts' | 'opening_balances' | 'integrations';
+
+interface StepConfig {
+  key: StepKey;
+  name: string;
+  description: string;
+  icon: string;
+  estimatedTime: string;
+}
+
+// =============================================================================
+// Step Indicator Component
+// =============================================================================
+
+function StepIndicator({
+  steps,
+  currentStepIndex,
+  completedSteps,
+}: {
+  steps: StepConfig[];
+  currentStepIndex: number;
+  completedSteps: Set<StepKey>;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-8">
+      {steps.map((step, index) => {
+        const isComplete = completedSteps.has(step.key);
+        const isCurrent = index === currentStepIndex;
+
+        return (
+          <div key={step.key} className="flex items-center">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                  isComplete
+                    ? 'bg-green-500 text-white'
+                    : isCurrent
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {isComplete ? '✓' : index + 1}
+              </div>
+              <span
+                className={`mt-2 text-xs text-center max-w-[80px] ${
+                  isCurrent ? 'font-medium text-foreground' : 'text-muted-foreground'
+                }`}
+              >
+                {step.name}
+              </span>
+            </div>
+            {index < steps.length - 1 && (
+              <div
+                className={`w-12 h-0.5 mx-2 ${
+                  isComplete ? 'bg-green-500' : 'bg-muted'
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// =============================================================================
+// Progress Bar Component
+// =============================================================================
+
+function ProgressBar({ value, max = 100 }: { value: number; max?: number }) {
+  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+
+  return (
+    <div className="w-full bg-muted rounded-full h-2">
+      <div
+        className="bg-primary h-2 rounded-full transition-all duration-300"
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  );
+}
+
+// =============================================================================
+// Checklist Item Component
+// =============================================================================
+
+function ChecklistItem({
+  item,
+  onToggle,
+  disabled,
+}: {
+  item: {
+    id: string;
+    itemKey: string;
+    itemName: string;
+    isRequired: boolean;
+    isCompleted: boolean;
+  };
+  onToggle: (itemId: string, completed: boolean) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center space-x-3 p-3 border rounded-lg ${
+        item.isCompleted ? 'bg-green-50 border-green-200' : 'bg-background'
+      }`}
+    >
+      <Checkbox
+        id={item.id}
+        checked={item.isCompleted}
+        onCheckedChange={(checked) => onToggle(item.id, checked as boolean)}
+        disabled={disabled}
+      />
+      <label
+        htmlFor={item.id}
+        className={`flex-1 text-sm cursor-pointer ${
+          item.isCompleted ? 'line-through text-muted-foreground' : ''
+        }`}
+      >
+        {item.itemName}
+        {item.isRequired && (
+          <span className="text-red-500 ml-1">*</span>
+        )}
+      </label>
+    </div>
+  );
+}
+
+// =============================================================================
+// Welcome Step
+// =============================================================================
+
+function WelcomeStep({
+  onComplete,
+  onSkip,
+  canSkip,
+}: {
+  onComplete: () => void;
+  onSkip: () => void;
+  canSkip: boolean;
+}) {
+  return (
+    <div className="text-center space-y-6">
+      <div className="text-6xl">👋</div>
+      <div>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Welcome to GLAPI</h2>
+          <HelpButton stepKey="welcome" variant="icon" />
+        </div>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Let&apos;s get your accounting system set up. This wizard will guide you through
+          the essential steps to configure your organization.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">🏢 Organization</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Set up your company details, subsidiaries, and departments
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">📊 Chart of Accounts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Configure your account structure for tracking finances
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">🔗 Integrations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Connect with your existing tools and systems
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-center gap-4 pt-4">
+        <Button onClick={onComplete} size="lg">
+          Get Started
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Organization Setup Step
+// =============================================================================
+
+function OrganizationStep({
+  checklistItems,
+  onCompleteItem,
+  onUncompleteItem,
+  onComplete,
+  onSkip,
+  canSkip,
+  canProceed,
+  loading,
+}: {
+  checklistItems: Array<{
+    id: string;
+    itemKey: string;
+    itemName: string;
+    isRequired: boolean;
+    isCompleted: boolean;
+  }>;
+  onCompleteItem: (itemId: string) => void;
+  onUncompleteItem: (itemId: string) => void;
+  onComplete: () => void;
+  onSkip: () => void;
+  canSkip: boolean;
+  canProceed: boolean;
+  loading: boolean;
+}) {
+  const router = useRouter();
+
+  const handleToggle = (itemId: string, completed: boolean) => {
+    if (completed) {
+      onCompleteItem(itemId);
+    } else {
+      onUncompleteItem(itemId);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Organization Setup</h2>
+          <HelpButton stepKey="organization" variant="icon" />
+        </div>
+        <p className="text-muted-foreground">
+          Configure your company structure and settings
+        </p>
+      </div>
+
+      <HelpCard title="What's this for?" variant="info">
+        Set up your organization structure including subsidiaries, departments, and locations.
+        These dimensions help segment your financial data in reports.
+      </HelpCard>
+
+      <div className="space-y-3">
+        {checklistItems.map(item => (
+          <ChecklistItem
+            key={item.id}
+            item={item}
+            onToggle={handleToggle}
+            disabled={loading}
+          />
+        ))}
+      </div>
+
+      <div className="bg-muted/50 rounded-lg p-4">
+        <h4 className="font-medium mb-2">Quick Links</h4>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.push('/settings/organization')}>
+            Organization Settings
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/admin/subsidiaries')}>
+            Manage Subsidiaries
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/admin/departments')}>
+            Manage Departments
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex justify-between pt-4">
+        {canSkip ? (
+          <Button variant="ghost" onClick={onSkip} disabled={loading}>
+            Skip for now
+          </Button>
+        ) : (
+          <div />
+        )}
+        <Button onClick={onComplete} disabled={!canProceed || loading}>
+          {loading ? 'Saving...' : 'Continue'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Chart of Accounts Step
+// =============================================================================
+
+function ChartOfAccountsStep({
+  checklistItems,
+  onCompleteItem,
+  onUncompleteItem,
+  onComplete,
+  onSkip,
+  canSkip,
+  canProceed,
+  loading,
+}: {
+  checklistItems: Array<{
+    id: string;
+    itemKey: string;
+    itemName: string;
+    isRequired: boolean;
+    isCompleted: boolean;
+  }>;
+  onCompleteItem: (itemId: string) => void;
+  onUncompleteItem: (itemId: string) => void;
+  onComplete: () => void;
+  onSkip: () => void;
+  canSkip: boolean;
+  canProceed: boolean;
+  loading: boolean;
+}) {
+  const [showGuidedSetup, setShowGuidedSetup] = useState(false);
+
+  // Check if accounts already exist
+  const { data: existingAccounts } = trpc.accounts.list.useQuery({ limit: 1 });
+  const hasAccounts = (existingAccounts?.total ?? 0) > 0;
+
+  // Auto-complete the "import_coa" checklist item when accounts are created
+  useEffect(() => {
+    if (hasAccounts) {
+      const coaItem = checklistItems.find(item => item.itemKey === 'import_coa');
+      if (coaItem && !coaItem.isCompleted) {
+        onCompleteItem(coaItem.id);
+      }
+    }
+  }, [hasAccounts, checklistItems, onCompleteItem]);
+
+  const handleCoaComplete = (accountCount: number) => {
+    setShowGuidedSetup(false);
+    // The account creation will trigger the useEffect above
+  };
+
+  if (showGuidedSetup) {
+    return (
+      <CoaSetup
+        onComplete={handleCoaComplete}
+        onCancel={() => setShowGuidedSetup(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Chart of Accounts</h2>
+          <HelpButton stepKey="chart_of_accounts" variant="icon" />
+        </div>
+        <p className="text-muted-foreground">
+          Set up your account structure for tracking finances
+        </p>
+      </div>
+
+      {!hasAccounts && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="text-3xl">📊</div>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-1">Get Started Quickly</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Use our guided setup to create your chart of accounts from an industry template,
+                  or import from your existing accounting system.
+                </p>
+                <Button onClick={() => setShowGuidedSetup(true)}>
+                  Launch Guided Setup
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {hasAccounts && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-green-800">
+            <span className="text-lg">✓</span>
+            <span className="font-medium">
+              {existingAccounts?.total ?? 0} accounts configured
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {checklistItems.map(item => (
+          <ChecklistItem
+            key={item.id}
+            item={item}
+            onToggle={(itemId, completed) => {
+              if (completed) {
+                onCompleteItem(itemId);
+              } else {
+                onUncompleteItem(itemId);
+              }
+            }}
+            disabled={loading}
+          />
+        ))}
+      </div>
+
+      <div className="bg-muted/50 rounded-lg p-4">
+        <h4 className="font-medium mb-2">Other Options</h4>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowGuidedSetup(true)}>
+            Use Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/admin/migration', '_blank')}>
+            Import from CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/admin/accounts', '_blank')}>
+            Manual Setup
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex justify-between pt-4">
+        {canSkip ? (
+          <Button variant="ghost" onClick={onSkip} disabled={loading}>
+            Skip for now
+          </Button>
+        ) : (
+          <div />
+        )}
+        <Button onClick={onComplete} disabled={!canProceed || loading}>
+          {loading ? 'Saving...' : 'Continue'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Opening Balances Step
+// =============================================================================
+
+function OpeningBalancesStep({
+  checklistItems,
+  onCompleteItem,
+  onUncompleteItem,
+  onComplete,
+  onSkip,
+  canSkip,
+  canProceed,
+  loading,
+}: {
+  checklistItems: Array<{
+    id: string;
+    itemKey: string;
+    itemName: string;
+    isRequired: boolean;
+    isCompleted: boolean;
+  }>;
+  onCompleteItem: (itemId: string) => void;
+  onUncompleteItem: (itemId: string) => void;
+  onComplete: () => void;
+  onSkip: () => void;
+  canSkip: boolean;
+  canProceed: boolean;
+  loading: boolean;
+}) {
+  const [showGuidedEntry, setShowGuidedEntry] = useState(false);
+
+  const handleBalancesComplete = () => {
+    setShowGuidedEntry(false);
+    // Mark all checklist items as complete
+    checklistItems.forEach(item => {
+      if (!item.isCompleted) {
+        onCompleteItem(item.id);
+      }
+    });
+    onComplete();
+  };
+
+  if (showGuidedEntry) {
+    return (
+      <OpeningBalancesComponent
+        onComplete={handleBalancesComplete}
+        onSkip={() => {
+          setShowGuidedEntry(false);
+          onSkip();
+        }}
+        canSkip={canSkip}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Opening Balances</h2>
+          <HelpButton stepKey="opening_balances" variant="icon" />
+        </div>
+        <p className="text-muted-foreground">
+          Enter your starting account balances as of your go-live date
+        </p>
+      </div>
+
+      <Card className="border-primary/50 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="text-3xl">💰</div>
+            <div className="flex-1">
+              <h3 className="font-semibold mb-1">Guided Balance Entry</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Use our guided tool to enter your opening balances with real-time
+                validation to ensure debits equal credits.
+              </p>
+              <Button onClick={() => setShowGuidedEntry(true)}>
+                Enter Opening Balances
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        {checklistItems.map(item => (
+          <ChecklistItem
+            key={item.id}
+            item={item}
+            onToggle={(itemId, completed) => {
+              if (completed) {
+                onCompleteItem(itemId);
+              } else {
+                onUncompleteItem(itemId);
+              }
+            }}
+            disabled={loading}
+          />
+        ))}
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="font-medium text-blue-800 mb-2">About Opening Balances</h4>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• Opening balances represent your account values at a specific point in time</li>
+          <li>• Typically entered as of the last day of your previous accounting period</li>
+          <li>• Total debits must equal total credits (double-entry principle)</li>
+          <li>• You can skip this step and enter balances later</li>
+        </ul>
+      </div>
+
+      <div className="bg-muted/50 rounded-lg p-4">
+        <h4 className="font-medium mb-2">Alternative Methods</h4>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowGuidedEntry(true)}>
+            Guided Entry
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/admin/migration', '_blank')}>
+            Import from File
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/transactions/journal', '_blank')}>
+            Manual Journal Entry
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex justify-between pt-4">
+        {canSkip ? (
+          <Button variant="ghost" onClick={onSkip} disabled={loading}>
+            Skip for now
+          </Button>
+        ) : (
+          <div />
+        )}
+        <Button onClick={onComplete} disabled={!canProceed || loading}>
+          {loading ? 'Saving...' : 'Continue'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Integrations Step
+// =============================================================================
+
+function IntegrationsStep({
+  checklistItems,
+  onCompleteItem,
+  onUncompleteItem,
+  onComplete,
+  onSkip,
+  canSkip,
+  canProceed,
+  loading,
+}: {
+  checklistItems: Array<{
+    id: string;
+    itemKey: string;
+    itemName: string;
+    isRequired: boolean;
+    isCompleted: boolean;
+  }>;
+  onCompleteItem: (itemId: string) => void;
+  onUncompleteItem: (itemId: string) => void;
+  onComplete: () => void;
+  onSkip: () => void;
+  canSkip: boolean;
+  canProceed: boolean;
+  loading: boolean;
+}) {
+  const router = useRouter();
+
+  const handleToggle = (itemId: string, completed: boolean) => {
+    if (completed) {
+      onCompleteItem(itemId);
+    } else {
+      onUncompleteItem(itemId);
+    }
+  };
+
+  const integrations = [
+    { id: 'bank', name: 'Bank Feeds', icon: '🏦', status: 'available' },
+    { id: 'payroll', name: 'Payroll (Gusto)', icon: '💼', status: 'available' },
+    { id: 'crm', name: 'CRM (Salesforce)', icon: '📊', status: 'available' },
+    { id: 'payment', name: 'Payment Processing', icon: '💳', status: 'coming_soon' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Integrations</h2>
+          <HelpButton stepKey="integrations" variant="icon" />
+        </div>
+        <p className="text-muted-foreground">
+          Connect with your existing tools and services
+        </p>
+      </div>
+
+      <HelpCard title="Integrations are optional" variant="tip">
+        You can skip this step and set up integrations later from Settings.
+        Bank feeds and other connections can be configured at any time.
+      </HelpCard>
+
+      <div className="grid grid-cols-2 gap-4">
+        {integrations.map(integration => (
+          <Card
+            key={integration.id}
+            className={integration.status === 'coming_soon' ? 'opacity-60' : ''}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <span>{integration.icon}</span>
+                  {integration.name}
+                </CardTitle>
+                {integration.status === 'coming_soon' && (
+                  <Badge variant="secondary">Coming Soon</Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {integration.status === 'available' ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/settings/integrations')}
+                >
+                  Configure
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" disabled>
+                  Not Available
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <h4 className="font-medium">Optional Setup</h4>
+        {checklistItems.map(item => (
+          <ChecklistItem
+            key={item.id}
+            item={item}
+            onToggle={handleToggle}
+            disabled={loading}
+          />
+        ))}
+      </div>
+
+      <div className="flex justify-between pt-4">
+        {canSkip ? (
+          <Button variant="ghost" onClick={onSkip} disabled={loading}>
+            Skip for now
+          </Button>
+        ) : (
+          <div />
+        )}
+        <Button onClick={onComplete} disabled={!canProceed || loading}>
+          {loading ? 'Saving...' : 'Complete Setup'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Complete Step
+// =============================================================================
+
+function CompleteStep() {
+  const router = useRouter();
+
+  return (
+    <div className="text-center space-y-6">
+      <div className="text-6xl">🎉</div>
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Setup Complete!</h2>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Your GLAPI account is ready to use. You can always return to complete
+          any skipped steps or modify your settings.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 max-w-xl mx-auto">
+        <Button onClick={() => router.push('/dashboard')} size="lg">
+          Go to Dashboard
+        </Button>
+        <Button variant="outline" onClick={() => router.push('/settings')} size="lg">
+          Review Settings
+        </Button>
+      </div>
+
+      <div className="pt-8">
+        <h4 className="font-medium mb-4">What&apos;s Next?</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+          <Card>
+            <CardContent className="pt-4">
+              <h5 className="font-medium mb-1">Create Transactions</h5>
+              <p className="text-sm text-muted-foreground">
+                Start recording journal entries and invoices
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <h5 className="font-medium mb-1">View Reports</h5>
+              <p className="text-sm text-muted-foreground">
+                Explore financial statements and analytics
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <h5 className="font-medium mb-1">Invite Team</h5>
+              <p className="text-sm text-muted-foreground">
+                Add team members and configure permissions
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Main Onboarding Page
+// =============================================================================
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const utils = trpc.useUtils();
+
+  // Fetch onboarding state
+  const { data: onboardingState, isLoading: stateLoading, refetch } = trpc.onboarding.getOrInitialize.useQuery();
+
+  // Analytics
+  const organizationId = onboardingState?.progress?.organizationId;
+  const analytics = useOnboardingAnalytics(organizationId);
+  const onboardingStartTimeRef = useRef<number | null>(null);
+  const hasTrackedStartRef = useRef(false);
+  const lastTrackedStepRef = useRef<string | null>(null);
+
+  // Mutations
+  const startStepMutation = trpc.onboarding.startStep.useMutation({
+    onSuccess: () => refetch(),
+  });
+  const completeStepMutation = trpc.onboarding.completeStep.useMutation({
+    onSuccess: () => refetch(),
+  });
+  const skipStepMutation = trpc.onboarding.skipStep.useMutation({
+    onSuccess: () => refetch(),
+  });
+  const completeItemMutation = trpc.onboarding.completeChecklistItem.useMutation({
+    onSuccess: () => refetch(),
+  });
+  const uncompleteItemMutation = trpc.onboarding.uncompleteChecklistItem.useMutation({
+    onSuccess: () => refetch(),
+  });
+
+  // Step configuration
+  const stepConfigs: StepConfig[] = [
+    { key: 'welcome', name: 'Welcome', description: 'Get started', icon: '👋', estimatedTime: '2 min' },
+    { key: 'organization', name: 'Organization', description: 'Company setup', icon: '🏢', estimatedTime: '5 min' },
+    { key: 'chart_of_accounts', name: 'Accounts', description: 'Chart of accounts', icon: '📊', estimatedTime: '10 min' },
+    { key: 'opening_balances', name: 'Balances', description: 'Opening balances', icon: '💰', estimatedTime: '15 min' },
+    { key: 'integrations', name: 'Integrations', description: 'Connect tools', icon: '🔗', estimatedTime: '5 min' },
+  ];
+
+  // Derived state
+  const currentStep = onboardingState?.currentStepDetails;
+  const currentStepKey = currentStep?.step.stepKey as StepKey | undefined;
+  const currentStepIndex = stepConfigs.findIndex(s => s.key === currentStepKey);
+  const isComplete = onboardingState?.isComplete ?? false;
+
+  const completedSteps = new Set<StepKey>(
+    onboardingState?.steps
+      .filter(s => s.isComplete)
+      .map(s => s.step.stepKey as StepKey) ?? []
+  );
+
+  const loading = startStepMutation.isPending ||
+    completeStepMutation.isPending ||
+    skipStepMutation.isPending ||
+    completeItemMutation.isPending ||
+    uncompleteItemMutation.isPending;
+
+  // Track onboarding start/resume
+  useEffect(() => {
+    if (stateLoading || !onboardingState || hasTrackedStartRef.current) return;
+
+    onboardingStartTimeRef.current = Date.now();
+    hasTrackedStartRef.current = true;
+
+    const progress = onboardingState.progress;
+    if (progress && progress.completedSteps > 0 && currentStepKey) {
+      // User is resuming onboarding - calculate skipped steps from steps array
+      const skippedStepsCount = onboardingState?.steps?.filter(s =>
+        s.step.status === 'skipped'
+      ).length ?? 0;
+
+      analytics.trackOnboardingResumed(currentStepKey as OnboardingStepKey, {
+        completed_steps: progress.completedSteps,
+        skipped_steps: skippedStepsCount,
+        percent_complete: progress.percentComplete,
+      });
+    } else {
+      // User is starting fresh
+      analytics.trackOnboardingStarted({
+        total_steps: stepConfigs.length,
+      });
+    }
+  }, [stateLoading, onboardingState, currentStepKey, analytics]);
+
+  // Track step views
+  useEffect(() => {
+    if (!currentStepKey || currentStepKey === lastTrackedStepRef.current) return;
+
+    lastTrackedStepRef.current = currentStepKey;
+    analytics.trackStepViewed(
+      currentStepKey as OnboardingStepKey,
+      currentStepIndex,
+      stepConfigs.length,
+      {
+        step_name: stepConfigs[currentStepIndex]?.name,
+        checklist_items_count: currentStep?.checklistItems?.length ?? 0,
+      }
+    );
+  }, [currentStepKey, currentStepIndex, currentStep?.checklistItems?.length, analytics]);
+
+  // Handlers
+  const handleCompleteStep = async (stepKey?: StepKey) => {
+    const key = stepKey ?? currentStepKey;
+    if (!key) return;
+
+    try {
+      const result = await completeStepMutation.mutateAsync({ stepKey: key });
+      if (result.success) {
+        // Track step completion
+        analytics.trackStepCompleted(
+          key as OnboardingStepKey,
+          currentStepIndex,
+          stepConfigs.length,
+          {
+            checklist_items_completed: currentStep?.checklistItems?.filter(i => i.isCompleted).length ?? 0,
+            checklist_items_total: currentStep?.checklistItems?.length ?? 0,
+          }
+        );
+
+        if (result.isOnboardingComplete) {
+          // Track onboarding completion
+          const totalTimeSeconds = onboardingStartTimeRef.current
+            ? Math.round((Date.now() - onboardingStartTimeRef.current) / 1000)
+            : 0;
+          const skippedStepsCount = onboardingState?.steps?.filter(s =>
+            s.step.status === 'skipped'
+          ).length ?? 0;
+          analytics.trackOnboardingCompleted(
+            totalTimeSeconds,
+            onboardingState?.progress?.completedSteps ?? 0,
+            skippedStepsCount
+          );
+          toast.success('Onboarding complete!');
+        } else if (result.nextStep) {
+          // Auto-start next step
+          await startStepMutation.mutateAsync({ stepKey: result.nextStep.stepKey as StepKey });
+        }
+      } else if (result.error) {
+        analytics.trackStepError(key as OnboardingStepKey, 'completion_error', result.error);
+        toast.error(result.error);
+      }
+    } catch (error) {
+      analytics.trackStepError(key as OnboardingStepKey, 'completion_exception', String(error));
+      toast.error('Failed to complete step');
+    }
+  };
+
+  const handleSkipStep = async () => {
+    if (!currentStepKey) return;
+
+    const skipReason = 'Skipped during onboarding';
+
+    try {
+      const result = await skipStepMutation.mutateAsync({
+        stepKey: currentStepKey,
+        reason: skipReason,
+      });
+
+      // Track step skip
+      analytics.trackStepSkipped(currentStepKey as OnboardingStepKey, skipReason, {
+        step_index: currentStepIndex,
+        checklist_items_completed: currentStep?.checklistItems?.filter(i => i.isCompleted).length ?? 0,
+        checklist_items_total: currentStep?.checklistItems?.length ?? 0,
+      });
+
+      if (result.success && result.nextStep) {
+        await startStepMutation.mutateAsync({ stepKey: result.nextStep.stepKey as StepKey });
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('Failed to skip step');
+    }
+  };
+
+  const handleCompleteItem = async (itemId: string) => {
+    try {
+      await completeItemMutation.mutateAsync({ itemId });
+
+      // Track checklist item completion
+      const item = currentStep?.checklistItems?.find(i => i.id === itemId);
+      if (item && currentStepKey) {
+        analytics.trackChecklistItemCompleted(
+          currentStepKey as OnboardingStepKey,
+          item.itemKey,
+          { item_name: item.itemName, is_required: item.isRequired }
+        );
+      }
+    } catch (error) {
+      toast.error('Failed to update checklist item');
+    }
+  };
+
+  const handleUncompleteItem = async (itemId: string) => {
+    try {
+      await uncompleteItemMutation.mutateAsync({ itemId });
+    } catch (error) {
+      toast.error('Failed to update checklist item');
+    }
+  };
+
+  // Loading state
+  if (stateLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading onboarding...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold">Setup Wizard</h1>
+            {!isComplete && onboardingState?.progress && (
+              <Badge variant="outline">
+                {onboardingState.progress.percentComplete}% Complete
+              </Badge>
+            )}
+          </div>
+
+          {!isComplete && (
+            <ProgressBar
+              value={onboardingState?.progress?.percentComplete ?? 0}
+              max={100}
+            />
+          )}
+        </div>
+
+        {/* Step Indicator */}
+        {!isComplete && (
+          <StepIndicator
+            steps={stepConfigs}
+            currentStepIndex={currentStepIndex >= 0 ? currentStepIndex : 0}
+            completedSteps={completedSteps}
+          />
+        )}
+
+        {/* Main Content */}
+        <Card>
+          <CardContent className="p-6">
+            {isComplete ? (
+              <CompleteStep />
+            ) : currentStepKey === 'welcome' ? (
+              <WelcomeStep
+                onComplete={() => handleCompleteStep('welcome')}
+                onSkip={handleSkipStep}
+                canSkip={currentStep?.step.canSkip ?? false}
+              />
+            ) : currentStepKey === 'organization' ? (
+              <OrganizationStep
+                checklistItems={currentStep?.checklistItems ?? []}
+                onCompleteItem={handleCompleteItem}
+                onUncompleteItem={handleUncompleteItem}
+                onComplete={() => handleCompleteStep()}
+                onSkip={handleSkipStep}
+                canSkip={currentStep?.step.canSkip ?? false}
+                canProceed={currentStep?.canProceed ?? false}
+                loading={loading}
+              />
+            ) : currentStepKey === 'chart_of_accounts' ? (
+              <ChartOfAccountsStep
+                checklistItems={currentStep?.checklistItems ?? []}
+                onCompleteItem={handleCompleteItem}
+                onUncompleteItem={handleUncompleteItem}
+                onComplete={() => handleCompleteStep()}
+                onSkip={handleSkipStep}
+                canSkip={currentStep?.step.canSkip ?? false}
+                canProceed={currentStep?.canProceed ?? false}
+                loading={loading}
+              />
+            ) : currentStepKey === 'opening_balances' ? (
+              <OpeningBalancesStep
+                checklistItems={currentStep?.checklistItems ?? []}
+                onCompleteItem={handleCompleteItem}
+                onUncompleteItem={handleUncompleteItem}
+                onComplete={() => handleCompleteStep()}
+                onSkip={handleSkipStep}
+                canSkip={currentStep?.step.canSkip ?? false}
+                canProceed={currentStep?.canProceed ?? false}
+                loading={loading}
+              />
+            ) : currentStepKey === 'integrations' ? (
+              <IntegrationsStep
+                checklistItems={currentStep?.checklistItems ?? []}
+                onCompleteItem={handleCompleteItem}
+                onUncompleteItem={handleUncompleteItem}
+                onComplete={() => handleCompleteStep()}
+                onSkip={handleSkipStep}
+                canSkip={currentStep?.step.canSkip ?? false}
+                canProceed={currentStep?.canProceed ?? false}
+                loading={loading}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Loading step...</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Footer */}
+        {!isComplete && (
+          <div className="mt-6 flex justify-between text-sm text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/dashboard')}
+            >
+              Skip Setup (Complete Later)
+            </Button>
+            <span>
+              Estimated time remaining: {
+                stepConfigs
+                  .slice(currentStepIndex >= 0 ? currentStepIndex : 0)
+                  .filter(s => !completedSteps.has(s.key))
+                  .reduce((acc, s) => acc + parseInt(s.estimatedTime), 0)
+              } min
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -19,6 +19,7 @@ import * as accounts from './accounts';
 import * as entities from './entities';
 import * as addresses from './addresses';
 import * as projects from './projects';
+import * as projectProgress from './project-progress';
 import * as transactionTypes from './transaction-types';
 import * as glTransactions from './gl-transactions';
 import * as accountingPeriods from './accounting-periods';
@@ -45,6 +46,8 @@ import * as itemAuditLog from './item-audit-log';
 // 606 Ledger schemas
 import * as subscriptions from './subscriptions';
 import * as subscriptionItems from './subscription-items';
+import * as subscriptionVersions from './subscription-versions';
+import * as billingSchedulesSchemas from './billing-schedules';
 import * as invoices from './invoices';
 import * as payments from './payments';
 import * as revenueEnums from './revenue-enums';
@@ -73,11 +76,17 @@ import * as glJournalEntrySchemas from './gl-journal-entries';
 // Event sourcing schemas
 import * as eventStoreSchemas from './event-store';
 
+// Approval workflow schemas
+import * as approvalWorkflowSchemas from './approval-workflow';
+
 // Audit logging schemas
 import * as auditLogSchemas from './audit-logs';
 
 // Time tracking schemas
 import * as timeEntriesSchemas from './time-entries';
+
+// Expense tracking schemas
+import * as expenseEntriesSchemas from './expense-entries';
 
 // Schedule of Values and Pay Applications schemas
 import * as scheduleOfValuesSchemas from './schedule-of-values';
@@ -95,6 +104,24 @@ import * as closeManagementSchemas from './close-management';
 // Procure-to-Pay schemas
 import * as purchaseOrdersSchemas from './purchase-orders';
 import * as vendorBillsSchemas from './vendor-bills';
+
+// Consolidation schemas (multi-book accounting)
+import * as consolidationSchemas from './consolidation';
+
+// Metrics and dashboards schemas
+import * as metricsSchemas from './metrics';
+
+// Report scheduling schemas
+import * as reportSchedulesSchemas from './report-schedules';
+
+// Delivery queue schemas
+import * as deliveryQueueSchemas from './delivery-queue';
+
+// Import staging schemas (data migration)
+import * as importStagingSchemas from './import-staging';
+
+// Onboarding schemas
+import * as onboardingSchemas from './onboarding';
 
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
@@ -121,6 +148,7 @@ export const schema = {
   ...entities,
   ...addresses,
   ...projects,
+  ...projectProgress,
   ...testGl,
   // Items system schemas
   ...unitsOfMeasure,
@@ -143,6 +171,8 @@ export const schema = {
   // 606 Ledger schemas
   ...subscriptions,
   ...subscriptionItems,
+  ...subscriptionVersions,
+  ...billingSchedulesSchemas,
   ...invoices,
   ...payments,
   ...revenueEnums,
@@ -167,10 +197,14 @@ export const schema = {
   ...glJournalEntrySchemas,
   // Event sourcing schemas
   ...eventStoreSchemas,
+  // Approval workflow schemas
+  ...approvalWorkflowSchemas,
   // Audit logging schemas
   ...auditLogSchemas,
   // Time tracking schemas
   ...timeEntriesSchemas,
+  // Expense tracking schemas
+  ...expenseEntriesSchemas,
   // Schedule of Values and Pay Applications schemas
   ...scheduleOfValuesSchemas,
   ...payApplicationsSchemas,
@@ -183,11 +217,25 @@ export const schema = {
   // Procure-to-Pay schemas
   ...purchaseOrdersSchemas,
   ...vendorBillsSchemas,
+  // Consolidation schemas (multi-book accounting)
+  ...consolidationSchemas,
+  // Metrics and dashboards schemas
+  ...metricsSchemas,
+  // Report scheduling schemas
+  ...reportSchedulesSchemas,
+  // Delivery queue schemas
+  ...deliveryQueueSchemas,
+  // Import staging schemas (data migration)
+  ...importStagingSchemas,
+  // Onboarding schemas
+  ...onboardingSchemas,
 };
 
 // Re-export specific types from new schemas
 export type { Subscription, NewSubscription, UpdateSubscription } from './subscriptions';
 export type { SubscriptionItem, NewSubscriptionItem, UpdateSubscriptionItem } from './subscription-items';
+export type { SubscriptionVersion, NewSubscriptionVersion, UpdateSubscriptionVersion, SubscriptionSnapshot, SubscriptionItemSnapshot, SubscriptionChangedField } from './subscription-versions';
+export { subscriptionVersions, subscriptionVersionTypeEnum, subscriptionVersionSourceEnum } from './subscription-versions';
 export type { Invoice, NewInvoice, UpdateInvoice } from './invoices';
 export type { Payment, NewPayment, UpdatePayment } from './payments';
 export type { PerformanceObligation, NewPerformanceObligation } from './performance-obligations';
@@ -351,12 +399,28 @@ export type {
   OutboxStatusType,
 } from './event-store';
 
+// Re-export approval workflow schemas
+export {
+  approvalInstances,
+  approvalActions,
+  approvalStatusEnum,
+  workflowApprovalActionTypeEnum,
+} from './approval-workflow';
+export type {
+  ApprovalInstance,
+  NewApprovalInstance,
+  WorkflowApprovalAction,
+  NewApprovalAction,
+} from './approval-workflow';
+
 // Re-export unified audit log schemas
 export {
   unifiedAuditLog,
   auditEvidencePackages,
+  changeRequests,
   auditActionTypeEnum,
   auditSeverityEnum,
+  changeRequestStatusEnum,
   AuditActionType,
   AuditSeverity,
 } from './audit-logs';
@@ -365,6 +429,8 @@ export type {
   NewUnifiedAuditLogRecord,
   AuditEvidencePackageRecord,
   NewAuditEvidencePackageRecord,
+  ChangeRequestRecord,
+  NewChangeRequestRecord,
   AuditActionTypeValue,
   AuditSeverityValue,
 } from './audit-logs';
@@ -399,6 +465,39 @@ export type {
   TimeEntryType,
   ApprovalAction,
 } from './time-entries';
+
+// Re-export expense tracking schemas
+export {
+  expenseEntries,
+  expenseAttachments,
+  expenseEntryApprovals,
+  expenseReports,
+  expenseReportItems,
+  expensePolicies,
+  expenseEntryStatusEnum,
+  expenseCategoryEnum,
+  paymentMethodEnum,
+} from './expense-entries';
+export type {
+  ExpenseEntry,
+  NewExpenseEntry,
+  UpdateExpenseEntry,
+  ExpenseAttachment,
+  NewExpenseAttachment,
+  ExpenseEntryApproval,
+  NewExpenseEntryApproval,
+  ExpenseReport,
+  NewExpenseReport,
+  UpdateExpenseReport,
+  ExpenseReportItem,
+  NewExpenseReportItem,
+  ExpensePolicy,
+  NewExpensePolicy,
+  UpdateExpensePolicy,
+  ExpenseEntryStatus,
+  ExpenseCategory,
+  PaymentMethod,
+} from './expense-entries';
 
 // Re-export Schedule of Values schemas
 export {
@@ -454,7 +553,7 @@ export {
   salesOrderApprovalHistory,
   salesOrderInvoices,
   salesOrderStatusEnum,
-  approvalActionTypeEnum,
+  salesOrderApprovalActionEnum,
   SalesOrderStatus,
   ApprovalActionType,
   VALID_SALES_ORDER_TRANSITIONS,
@@ -616,3 +715,138 @@ export type {
   ThreeWayMatchStatusValue,
   BillApprovalActionTypeValue,
 } from './vendor-bills';
+
+// Re-export Billing Schedule schemas
+export {
+  billingSchedules,
+  billingScheduleLines,
+  billingScheduleStatusEnum,
+  billingScheduleLineStatusEnum,
+} from './billing-schedules';
+export type {
+  BillingSchedule,
+  NewBillingSchedule,
+  UpdateBillingSchedule,
+  BillingScheduleLine,
+  NewBillingScheduleLine,
+  UpdateBillingScheduleLine,
+  BillingScheduleWithLines,
+  BillingScheduleStatus,
+  BillingScheduleLineStatus,
+} from './billing-schedules';
+
+// Re-export Consolidation schemas (multi-book accounting)
+export {
+  consolidationGroups,
+  consolidationGroupMembers,
+  eliminationRules,
+  fxTranslationRules,
+  consolidationExchangeRates,
+  consolidationRuns,
+  consolidationAdjustments,
+  intercompanyAccountMappings,
+  consolidationMethodEnum,
+  eliminationTypeEnum,
+  translationMethodEnum,
+  consolidationRunStatusEnum,
+} from './consolidation';
+
+// Re-export Metrics and dashboard schemas
+export {
+  customMetrics,
+  savedViews,
+  metricSnapshots,
+  dashboardLayouts,
+} from './metrics';
+
+// Re-export Report scheduling schemas
+export {
+  reportSchedules,
+  reportJobExecutions,
+  reportScheduleStatusEnum,
+  reportScheduleFrequencyEnum,
+  reportTypeEnum,
+  jobExecutionStatusEnum,
+  reportOutputFormatEnum,
+} from './report-schedules';
+export type {
+  ReportSchedule,
+  NewReportSchedule,
+  UpdateReportSchedule,
+  ReportJobExecution,
+  NewReportJobExecution,
+  UpdateReportJobExecution,
+  ReportScheduleWithExecutions,
+  ReportScheduleStatus,
+  ReportScheduleFrequency,
+  ReportType,
+  JobExecutionStatus,
+  ReportOutputFormat,
+  ReportFilters,
+  DeliveryConfig,
+} from './report-schedules';
+
+// Re-export Delivery queue schemas
+export {
+  deliveryQueue,
+  deliveryAttempts,
+  deliveryStatusEnum,
+  deliveryTypeEnum,
+} from './delivery-queue';
+export type {
+  DeliveryQueueItem,
+  NewDeliveryQueueItem,
+  UpdateDeliveryQueueItem,
+  DeliveryAttempt,
+  NewDeliveryAttempt,
+  DeliveryQueueConfig,
+  DeliveryResponse,
+  DeliveryStatus,
+  DeliveryType,
+} from './delivery-queue';
+
+// Re-export Import Staging schemas (data migration)
+export {
+  importBatches,
+  importRecords,
+  importFieldMappings,
+  importTemplates,
+  importAuditLogs,
+  importBatchStatusEnum,
+  importRecordStatusEnum,
+  importDataTypeEnum,
+  importSourceSystemEnum,
+} from './import-staging';
+export type {
+  ImportBatchOptions,
+  ImportTemplateOptions,
+  FieldMapping,
+  FieldTransformation,
+  ValidationRule,
+  ValidationError,
+  ValidationWarning,
+  ImportErrorSummary,
+} from './import-staging';
+
+// Re-export Onboarding schemas
+export {
+  organizationOnboarding,
+  onboardingSteps,
+  onboardingChecklistItems,
+  onboardingEvents,
+  onboardingStepStatusEnum,
+  onboardingStatusEnum,
+  DEFAULT_ONBOARDING_STEPS,
+} from './onboarding';
+export type {
+  OrganizationOnboarding,
+  NewOrganizationOnboarding,
+  OnboardingStep,
+  NewOnboardingStep,
+  OnboardingChecklistItem,
+  NewOnboardingChecklistItem,
+  OnboardingEvent,
+  NewOnboardingEvent,
+  OnboardingStepStatus,
+  OnboardingStatus,
+} from './onboarding';

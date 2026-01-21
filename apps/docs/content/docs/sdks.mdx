@@ -1,0 +1,284 @@
+---
+title: SDK & Libraries
+description: Official SDKs and client libraries for integrating with GLAPI
+---
+
+# SDKs & Client Libraries
+
+GLAPI provides official SDKs to help you integrate quickly and maintain type safety.
+
+## TypeScript/JavaScript SDK
+
+The recommended way to integrate with GLAPI from TypeScript or JavaScript applications.
+
+### Installation
+
+<SDKInstall packageName="@glapi/client" peerDeps={["superjson"]} />
+
+### Quick Start
+
+```typescript
+import { createGLAPIClient } from '@glapi/client';
+
+// Initialize the client
+const glapi = createGLAPIClient({
+  apiKey: process.env.GLAPI_API_KEY!,
+  baseUrl: 'https://api.glapi.io',
+});
+
+// List customers (fully type-safe)
+const customers = await glapi.customers.list();
+
+// Create a customer
+const newCustomer = await glapi.customers.create({
+  companyName: 'Acme Corporation',
+  contactEmail: 'billing@acme.com',
+  status: 'active',
+});
+
+// Get a specific customer
+const customer = await glapi.customers.get({ id: newCustomer.id });
+```
+
+### Features
+
+- **Full Type Safety**: TypeScript types for all API operations
+- **Auto-completion**: IDE support for endpoints and parameters
+- **Error Handling**: Typed error responses
+- **Batch Operations**: Efficient bulk request handling
+- **Automatic Retries**: Built-in retry logic with exponential backoff
+
+## tRPC Client (Advanced)
+
+For maximum type safety, use the native tRPC client with the GLAPI router types.
+
+### Installation
+
+<SDKInstall packageName="@trpc/client" peerDeps={["@glapi/trpc", "superjson"]} />
+
+### Setup
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+import superjson from 'superjson';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_API_KEY}`,
+      }),
+      transformer: superjson,
+    }),
+  ],
+});
+```
+
+### Usage
+
+<Tabs items={["Queries", "Mutations", "Subscriptions"]}>
+  <Tab value="Queries">
+```typescript
+// List all customers
+const customers = await client.customers.list.query();
+
+// Get with filters
+const activeCustomers = await client.customers.list.query({
+  status: 'active',
+  limit: 50,
+});
+
+// Get by ID
+const customer = await client.customers.get.query({
+  id: 'cust_123',
+});
+```
+  </Tab>
+  <Tab value="Mutations">
+```typescript
+// Create a customer
+const newCustomer = await client.customers.create.mutate({
+  companyName: 'Acme Corp',
+  contactEmail: 'hello@acme.com',
+});
+
+// Update a customer
+const updated = await client.customers.update.mutate({
+  id: newCustomer.id,
+  data: { status: 'inactive' },
+});
+
+// Delete a customer
+await client.customers.delete.mutate({ id: 'cust_123' });
+```
+  </Tab>
+  <Tab value="Subscriptions">
+```typescript
+// Real-time updates (WebSocket)
+const subscription = client.events.subscribe.subscribe(
+  { types: ['customer.created', 'invoice.paid'] },
+  {
+    onData: (event) => {
+      console.log('Event received:', event);
+    },
+    onError: (err) => {
+      console.error('Subscription error:', err);
+    },
+  }
+);
+
+// Clean up
+subscription.unsubscribe();
+```
+  </Tab>
+</Tabs>
+
+## REST API
+
+For non-TypeScript environments, use the REST API directly.
+
+### Base URL
+
+```
+https://api.glapi.io/api
+```
+
+### Authentication
+
+Include your API key in the Authorization header:
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  https://api.glapi.io/api/customers
+```
+
+### Example Requests
+
+<Tabs items={["cURL", "Python", "Go"]}>
+  <Tab value="cURL">
+```bash
+# List customers
+curl -H "Authorization: Bearer $GLAPI_API_KEY" \
+  https://api.glapi.io/api/customers
+
+# Create a customer
+curl -X POST \
+  -H "Authorization: Bearer $GLAPI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"companyName": "Acme Corp", "contactEmail": "hi@acme.com"}' \
+  https://api.glapi.io/api/customers
+```
+  </Tab>
+  <Tab value="Python">
+```python
+import os
+import requests
+
+API_KEY = os.environ['GLAPI_API_KEY']
+BASE_URL = 'https://api.glapi.io/api'
+
+headers = {
+    'Authorization': f'Bearer {API_KEY}',
+    'Content-Type': 'application/json',
+}
+
+# List customers
+response = requests.get(f'{BASE_URL}/customers', headers=headers)
+customers = response.json()
+
+# Create a customer
+new_customer = requests.post(
+    f'{BASE_URL}/customers',
+    headers=headers,
+    json={
+        'companyName': 'Acme Corp',
+        'contactEmail': 'hi@acme.com',
+    }
+).json()
+```
+  </Tab>
+  <Tab value="Go">
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "net/http"
+    "os"
+)
+
+func main() {
+    apiKey := os.Getenv("GLAPI_API_KEY")
+    baseURL := "https://api.glapi.io/api"
+
+    client := &http.Client{}
+
+    // Create request
+    req, _ := http.NewRequest("GET", baseURL+"/customers", nil)
+    req.Header.Set("Authorization", "Bearer "+apiKey)
+
+    resp, _ := client.Do(req)
+    defer resp.Body.Close()
+
+    // Process response...
+}
+```
+  </Tab>
+</Tabs>
+
+## OpenAPI Specification
+
+Download the full OpenAPI specification for code generation:
+
+- **OpenAPI 3.0**: [/api/openapi.json](/api/openapi.json)
+- **Interactive Docs**: [API Reference](/api-reference)
+
+### Generate Client Code
+
+Use your favorite OpenAPI code generator:
+
+<Tabs items={["openapi-generator", "oapi-codegen (Go)", "openapi-typescript"]}>
+  <Tab value="openapi-generator">
+```bash
+# Generate TypeScript client
+npx @openapitools/openapi-generator-cli generate \
+  -i https://api.glapi.io/api/openapi.json \
+  -g typescript-fetch \
+  -o ./generated/glapi-client
+```
+  </Tab>
+  <Tab value="oapi-codegen (Go)">
+```bash
+# Generate Go client
+oapi-codegen -generate types,client \
+  -package glapi \
+  https://api.glapi.io/api/openapi.json > glapi_client.go
+```
+  </Tab>
+  <Tab value="openapi-typescript">
+```bash
+# Generate TypeScript types only
+npx openapi-typescript https://api.glapi.io/api/openapi.json \
+  -o ./types/glapi.d.ts
+```
+  </Tab>
+</Tabs>
+
+## Package Versions
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| `@glapi/client` | 1.0.0 | Official TypeScript client |
+| `@glapi/trpc` | 1.0.0 | tRPC router types |
+| `@glapi/types` | 1.0.0 | TypeScript type definitions |
+
+## Next Steps
+
+<Cards>
+  <Card title="Authentication" href="/docs/api/authentication" />
+  <Card title="API Endpoints" href="/docs/api/endpoints" />
+  <Card title="Error Handling" href="/docs/api/errors" />
+</Cards>

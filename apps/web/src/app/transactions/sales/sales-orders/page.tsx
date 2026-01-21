@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Eye, Truck, FileText } from 'lucide-react';
+import { Plus, Trash2, Eye, Truck, FileText, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import {
@@ -46,41 +46,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-
-// Define interfaces for the Sales Order data
-interface SalesOrder {
-  id: string;
-  transactionNumber: string;
-  entityId: string;
-  customerName: string;
-  transactionDate: string;
-  dueDate: string;
-  subtotalAmount: number;
-  taxAmount: number;
-  totalAmount: number;
-  status: 'DRAFT' | 'APPROVED' | 'PARTIALLY_FULFILLED' | 'FULFILLED' | 'CLOSED' | 'CANCELLED';
-  shippingAddress: string;
-  billingAddress: string;
-  lines: SalesOrderLine[];
-}
-
-interface SalesOrderLine {
-  id: string;
-  itemId: string;
-  itemName: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  discountPercent: number;
-  lineAmount: number;
-  quantityShipped: number;
-  quantityBilled: number;
-  totalLineAmount: number;
-}
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Form schemas
 const salesOrderLineSchema = z.object({
-  itemId: z.string().min(1, "Item is required"),
+  itemId: z.string().optional(),
   description: z.string().min(1, "Description is required"),
   quantity: z.number().min(0.01, "Quantity must be greater than 0"),
   unitPrice: z.number().min(0, "Unit price must be positive"),
@@ -88,12 +58,13 @@ const salesOrderLineSchema = z.object({
 });
 
 const salesOrderFormSchema = z.object({
+  subsidiaryId: z.string().min(1, "Subsidiary is required"),
   entityId: z.string().min(1, "Customer is required"),
-  transactionDate: z.string().min(1, "Transaction date is required"),
-  dueDate: z.string().min(1, "Due date is required"),
+  orderDate: z.string().min(1, "Order date is required"),
+  requestedDeliveryDate: z.string().optional(),
   memo: z.string().max(1000, "Memo too long").optional(),
-  shippingAddressId: z.string().optional(),
-  billingAddressId: z.string().optional(),
+  shippingMethod: z.string().optional(),
+  paymentTerms: z.string().optional(),
   lines: z.array(salesOrderLineSchema).min(1, "At least one line item is required"),
 });
 
@@ -102,31 +73,113 @@ type SalesOrderFormValues = z.infer<typeof salesOrderFormSchema>;
 export default function SalesOrdersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrder | null>(null);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
   const { orgId } = useAuth();
-  
-  // Mock data for now - replace with TRPC when available
-  const salesOrders: SalesOrder[] = [];
-  const customers = [
-    { id: '1', name: 'Acme Corp', email: 'contact@acme.com' },
-    { id: '2', name: 'Tech Solutions Inc', email: 'info@techsolutions.com' },
-  ];
-  const items = [
-    { id: '1', name: 'Product A', price: 99.99 },
-    { id: '2', name: 'Product B', price: 149.99 },
-    { id: '3', name: 'Service Package', price: 299.99 },
-  ];
+
+  // TRPC queries
+  const { data: salesOrdersData, isLoading, refetch } = trpc.salesOrders.list.useQuery(
+    { page: 1, limit: 50 },
+    { enabled: !!orgId }
+  );
+
+  const { data: customersData } = trpc.customers.list.useQuery(
+    { page: 1, limit: 100 },
+    { enabled: !!orgId }
+  );
+
+  const { data: subsidiariesData } = trpc.subsidiaries.list.useQuery(
+    { page: 1, limit: 100 },
+    { enabled: !!orgId }
+  );
+
+  const { data: selectedOrder, isLoading: isLoadingOrder } = trpc.salesOrders.get.useQuery(
+    { id: selectedOrderId! },
+    { enabled: !!selectedOrderId && isViewDialogOpen }
+  );
+
+  // TRPC mutations
+  const createMutation = trpc.salesOrders.create.useMutation({
+    onSuccess: () => {
+      toast.success('Sales order created successfully');
+      setIsAddDialogOpen(false);
+      form.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Failed to create sales order: ${error.message}`);
+    },
+  });
+
+  const submitMutation = trpc.salesOrders.submit.useMutation({
+    onSuccess: () => {
+      toast.success('Sales order submitted for approval');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Failed to submit: ${error.message}`);
+    },
+  });
+
+  const approveMutation = trpc.salesOrders.approve.useMutation({
+    onSuccess: () => {
+      toast.success('Sales order approved');
+      setIsApproveDialogOpen(false);
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Failed to approve: ${error.message}`);
+    },
+  });
+
+  const rejectMutation = trpc.salesOrders.reject.useMutation({
+    onSuccess: () => {
+      toast.success('Sales order rejected');
+      setIsRejectDialogOpen(false);
+      setRejectReason('');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Failed to reject: ${error.message}`);
+    },
+  });
+
+  const cancelMutation = trpc.salesOrders.cancel.useMutation({
+    onSuccess: () => {
+      toast.success('Sales order cancelled');
+      setIsCancelDialogOpen(false);
+      setCancelReason('');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Failed to cancel: ${error.message}`);
+    },
+  });
+
+  const createInvoiceMutation = trpc.salesOrders.createInvoice.useMutation({
+    onSuccess: () => {
+      toast.success('Invoice created from sales order');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Failed to create invoice: ${error.message}`);
+    },
+  });
 
   const form = useForm<SalesOrderFormValues>({
     resolver: zodResolver(salesOrderFormSchema),
     defaultValues: {
+      subsidiaryId: "",
       entityId: "",
-      transactionDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+      orderDate: new Date().toISOString().split('T')[0],
+      requestedDeliveryDate: "",
       memo: "",
-      shippingAddressId: "",
-      billingAddressId: "",
+      shippingMethod: "",
+      paymentTerms: "",
       lines: [
         { itemId: "", description: "", quantity: 1, unitPrice: 0, discountPercent: 0 },
       ],
@@ -138,57 +191,62 @@ export default function SalesOrdersPage() {
     name: "lines",
   });
 
-  // Handle add sales order
   const handleAddSalesOrder = async (values: SalesOrderFormValues) => {
-    try {
-      // TODO: Implement TRPC mutation
-      toast.success('Sales order created successfully');
-      setIsAddDialogOpen(false);
-      form.reset();
-    } catch (error) {
-      toast.error('Failed to create sales order');
+    createMutation.mutate({
+      subsidiaryId: values.subsidiaryId,
+      entityId: values.entityId,
+      orderDate: new Date(values.orderDate),
+      requestedDeliveryDate: values.requestedDeliveryDate ? new Date(values.requestedDeliveryDate) : undefined,
+      memo: values.memo,
+      shippingMethod: values.shippingMethod,
+      paymentTerms: values.paymentTerms,
+      lines: values.lines.map(line => ({
+        itemId: line.itemId || undefined,
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountPercent: line.discountPercent,
+      })),
+    });
+  };
+
+  const handleSubmitOrder = (orderId: string) => {
+    submitMutation.mutate({ id: orderId });
+  };
+
+  const handleApproveOrder = () => {
+    if (selectedOrderId) {
+      approveMutation.mutate({ id: selectedOrderId });
     }
   };
 
-  // Handle fulfill sales order
-  const handleFulfillSalesOrder = async (salesOrder: SalesOrder) => {
-    try {
-      // TODO: Implement TRPC mutation to create fulfillment
-      toast.success('Fulfillment created for sales order');
-    } catch (error) {
-      toast.error('Failed to create fulfillment');
+  const handleRejectOrder = () => {
+    if (selectedOrderId && rejectReason) {
+      rejectMutation.mutate({ id: selectedOrderId, reason: rejectReason });
     }
   };
 
-  // Handle create invoice
-  const handleCreateInvoice = async (salesOrder: SalesOrder) => {
-    try {
-      // TODO: Implement TRPC mutation to create invoice
-      toast.success('Invoice created for sales order');
-    } catch (error) {
-      toast.error('Failed to create invoice');
+  const handleCancelOrder = () => {
+    if (selectedOrderId && cancelReason) {
+      cancelMutation.mutate({ id: selectedOrderId, reason: cancelReason });
     }
   };
 
-  // Handle delete sales order
-  const handleDeleteSalesOrder = async () => {
-    try {
-      // TODO: Implement TRPC mutation
-      toast.success('Sales order deleted successfully');
-      setIsDeleteDialogOpen(false);
-    } catch (error) {
-      toast.error('Failed to delete sales order');
-    }
+  const handleCreateInvoice = (orderId: string) => {
+    createInvoiceMutation.mutate({ salesOrderId: orderId });
   };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'DRAFT': return 'outline';
+      case 'SUBMITTED': return 'secondary';
       case 'APPROVED': return 'default';
       case 'PARTIALLY_FULFILLED': return 'secondary';
       case 'FULFILLED': return 'default';
       case 'CLOSED': return 'secondary';
       case 'CANCELLED': return 'destructive';
+      case 'REJECTED': return 'destructive';
+      case 'ON_HOLD': return 'secondary';
       default: return 'outline';
     }
   };
@@ -197,94 +255,162 @@ export default function SalesOrdersPage() {
     return <div className="container mx-auto py-10"><p>Please select an organization to view sales orders.</p></div>;
   }
 
+  const salesOrders = salesOrdersData?.data || [];
+  const customers = customersData?.data || [];
+  const subsidiaries = subsidiariesData?.data || [];
+
   return (
     <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Sales Orders</h1>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
+        <Button onClick={() => setIsAddDialogOpen(true)} data-testid="new-sales-order-btn">
           <Plus className="mr-2 h-4 w-4" />
           New Sales Order
         </Button>
       </div>
 
-      <Table>
-        <TableCaption>A list of sales orders.</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Order #</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Order Date</TableHead>
-            <TableHead>Due Date</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {salesOrders.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : (
+        <Table>
+          <TableCaption>A list of sales orders.</TableCaption>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                No sales orders found. Create your first sales order to get started.
-              </TableCell>
+              <TableHead>Order #</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Order Date</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
-          ) : (
-            salesOrders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-medium">{order.transactionNumber}</TableCell>
-                <TableCell>{order.customerName}</TableCell>
-                <TableCell>{new Date(order.transactionDate).toLocaleDateString()}</TableCell>
-                <TableCell>{new Date(order.dueDate).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusBadgeVariant(order.status)}>
-                    {order.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSelectedSalesOrder(order);
-                        setIsViewDialogOpen(true);
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleFulfillSalesOrder(order)}
-                      title="Create Fulfillment"
-                    >
-                      <Truck className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleCreateInvoice(order)}
-                      title="Create Invoice"
-                    >
-                      <FileText className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSelectedSalesOrder(order);
-                        setIsDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+          </TableHeader>
+          <TableBody>
+            {salesOrders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  No sales orders found. Create your first sales order to get started.
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              salesOrders.map((order: any) => (
+                <TableRow key={order.id} data-testid={`sales-order-row-${order.orderNumber}`}>
+                  <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                  <TableCell>{order.customerName || order.entityId}</TableCell>
+                  <TableCell>{new Date(order.orderDate).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    ${parseFloat(order.totalAmount || '0').toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(order.status)} data-testid={`status-${order.orderNumber}`}>
+                      {order.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedOrderId(order.id);
+                          setIsViewDialogOpen(true);
+                        }}
+                        title="View Details"
+                        data-testid={`view-btn-${order.orderNumber}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+
+                      {order.status === 'DRAFT' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleSubmitOrder(order.id)}
+                          title="Submit for Approval"
+                          disabled={submitMutation.isPending}
+                          data-testid={`submit-btn-${order.orderNumber}`}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {order.status === 'SUBMITTED' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedOrderId(order.id);
+                              setIsApproveDialogOpen(true);
+                            }}
+                            title="Approve"
+                            data-testid={`approve-btn-${order.orderNumber}`}
+                          >
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedOrderId(order.id);
+                              setIsRejectDialogOpen(true);
+                            }}
+                            title="Reject"
+                            data-testid={`reject-btn-${order.orderNumber}`}
+                          >
+                            <XCircle className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </>
+                      )}
+
+                      {(order.status === 'APPROVED' || order.status === 'PARTIALLY_FULFILLED') && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCreateInvoice(order.id)}
+                            title="Create Invoice"
+                            disabled={createInvoiceMutation.isPending}
+                            data-testid={`invoice-btn-${order.orderNumber}`}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Create Fulfillment"
+                            data-testid={`fulfill-btn-${order.orderNumber}`}
+                          >
+                            <Truck className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+
+                      {order.status !== 'CANCELLED' && order.status !== 'CLOSED' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedOrderId(order.id);
+                            setIsCancelDialogOpen(true);
+                          }}
+                          title="Cancel Order"
+                          data-testid={`cancel-btn-${order.orderNumber}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
 
       {/* Add Sales Order Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -300,20 +426,20 @@ export default function SalesOrdersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="entityId"
+                  name="subsidiaryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer</FormLabel>
+                      <FormLabel>Subsidiary</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select customer" />
+                          <SelectTrigger data-testid="subsidiary-select">
+                            <SelectValue placeholder="Select subsidiary" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
+                          {subsidiaries.map((sub: any) => (
+                            <SelectItem key={sub.id} value={sub.id}>
+                              {sub.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -324,12 +450,52 @@ export default function SalesOrdersPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="transactionDate"
+                  name="entityId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="customer-select">
+                            <SelectValue placeholder="Select customer" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {customers.map((customer: any) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="orderDate"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Order Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input type="date" {...field} data-testid="order-date-input" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="requestedDeliveryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Requested Delivery Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="delivery-date-input" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -340,32 +506,46 @@ export default function SalesOrdersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="dueDate"
+                  name="paymentTerms"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
+                      <FormLabel>Payment Terms</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment terms" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Net 30">Net 30</SelectItem>
+                          <SelectItem value="Net 15">Net 15</SelectItem>
+                          <SelectItem value="Net 10">Net 10</SelectItem>
+                          <SelectItem value="Due on Receipt">Due on Receipt</SelectItem>
+                          <SelectItem value="2/10 Net 30">2/10 Net 30</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="shippingAddressId"
+                  name="shippingMethod"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Shipping Address</FormLabel>
+                      <FormLabel>Shipping Method</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select shipping address" />
+                            <SelectValue placeholder="Select shipping method" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="1">123 Main St, City, State 12345</SelectItem>
-                          <SelectItem value="2">456 Oak Ave, City, State 67890</SelectItem>
+                          <SelectItem value="UPS Ground">UPS Ground</SelectItem>
+                          <SelectItem value="FedEx Ground">FedEx Ground</SelectItem>
+                          <SelectItem value="USPS Priority">USPS Priority</SelectItem>
+                          <SelectItem value="Local Delivery">Local Delivery</SelectItem>
+                          <SelectItem value="Customer Pickup">Customer Pickup</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -381,7 +561,7 @@ export default function SalesOrdersPage() {
                   <FormItem>
                     <FormLabel>Memo</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Additional notes..." {...field} />
+                      <Textarea placeholder="Additional notes..." {...field} data-testid="memo-input" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -395,13 +575,14 @@ export default function SalesOrdersPage() {
                     type="button"
                     variant="outline"
                     onClick={() => append({ itemId: "", description: "", quantity: 1, unitPrice: 0, discountPercent: 0 })}
+                    data-testid="add-line-btn"
                   >
                     Add Line Item
                   </Button>
                 </div>
 
                 {fields.map((field, index) => (
-                  <div key={field.id} className="border rounded-lg p-4 space-y-4">
+                  <div key={field.id} className="border rounded-lg p-4 space-y-4" data-testid={`line-item-${index}`}>
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Line {index + 1}</span>
                       {fields.length > 1 && (
@@ -415,40 +596,20 @@ export default function SalesOrdersPage() {
                         </Button>
                       )}
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      <FormField
-                        control={form.control}
-                        name={`lines.${index}.itemId`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Item</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select item" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {items.map((item) => (
-                                  <SelectItem key={item.id} value={item.id}>
-                                    {item.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <FormField
                         control={form.control}
                         name={`lines.${index}.description`}
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="md:col-span-2">
                             <FormLabel>Description</FormLabel>
                             <FormControl>
-                              <Input placeholder="Line description..." {...field} />
+                              <Input
+                                placeholder="Item description..."
+                                {...field}
+                                data-testid={`line-description-${index}`}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -467,6 +628,7 @@ export default function SalesOrdersPage() {
                                 min="0"
                                 {...field}
                                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                data-testid={`line-quantity-${index}`}
                               />
                             </FormControl>
                             <FormMessage />
@@ -486,25 +648,7 @@ export default function SalesOrdersPage() {
                                 min="0"
                                 {...field}
                                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`lines.${index}.discountPercent`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Discount %</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                data-testid={`line-price-${index}`}
                               />
                             </FormControl>
                             <FormMessage />
@@ -520,7 +664,8 @@ export default function SalesOrdersPage() {
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={createMutation.isPending} data-testid="create-order-btn">
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Sales Order
                 </Button>
               </DialogFooter>
@@ -535,88 +680,160 @@ export default function SalesOrdersPage() {
           <DialogHeader>
             <DialogTitle>Sales Order Details</DialogTitle>
             <DialogDescription>
-              View sales order {selectedSalesOrder?.transactionNumber}
+              View sales order {selectedOrder?.orderNumber}
             </DialogDescription>
           </DialogHeader>
-          {selectedSalesOrder && (
+          {isLoadingOrder ? (
+            <div className="space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : selectedOrder && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Order Number</label>
-                  <p className="text-sm">{selectedSalesOrder.transactionNumber}</p>
+                  <p className="text-sm">{selectedOrder.orderNumber}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Customer</label>
-                  <p className="text-sm">{selectedSalesOrder.customerName}</p>
+                  <p className="text-sm">{selectedOrder.customerName || selectedOrder.entityId}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Order Date</label>
-                  <p className="text-sm">{new Date(selectedSalesOrder.transactionDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Due Date</label>
-                  <p className="text-sm">{new Date(selectedSalesOrder.dueDate).toLocaleDateString()}</p>
+                  <p className="text-sm">{new Date(selectedOrder.orderDate).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Status</label>
                   <p className="text-sm">
-                    <Badge variant={getStatusBadgeVariant(selectedSalesOrder.status)}>
-                      {selectedSalesOrder.status}
+                    <Badge variant={getStatusBadgeVariant(selectedOrder.status)}>
+                      {selectedOrder.status}
                     </Badge>
                   </p>
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Line Items</label>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Shipped</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedSalesOrder.lines.map((line) => (
-                      <TableRow key={line.id}>
-                        <TableCell>{line.itemName}</TableCell>
-                        <TableCell>{line.quantity}</TableCell>
-                        <TableCell>${line.unitPrice.toFixed(2)}</TableCell>
-                        <TableCell>{line.quantityShipped}</TableCell>
-                        <TableCell className="text-right">${line.totalLineAmount.toFixed(2)}</TableCell>
+              {selectedOrder.lines && selectedOrder.lines.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium">Line Items</label>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedOrder.lines.map((line: any) => (
+                        <TableRow key={line.id}>
+                          <TableCell>{line.description}</TableCell>
+                          <TableCell>{parseFloat(line.quantity)}</TableCell>
+                          <TableCell>${parseFloat(line.unitPrice).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            ${parseFloat(line.lineAmount || '0').toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
                 <span className="text-lg font-semibold">Total Amount</span>
-                <span className="text-lg font-bold">${selectedSalesOrder.totalAmount.toFixed(2)}</span>
+                <span className="text-lg font-bold">
+                  ${parseFloat(selectedOrder.totalAmount || '0').toFixed(2)}
+                </span>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {/* Approve Confirmation Dialog */}
+      <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Sales Order</AlertDialogTitle>
+            <AlertDialogTitle>Approve Sales Order</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete sales order {selectedSalesOrder?.transactionNumber}?
-              This action cannot be undone.
+              Are you sure you want to approve this sales order? This will allow fulfillment and invoicing.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteSalesOrder}
-              className="bg-red-600 hover:bg-red-700"
+              onClick={handleApproveOrder}
+              disabled={approveMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="confirm-approve-btn"
             >
-              Delete
+              {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Approve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject Confirmation Dialog */}
+      <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Sales Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for rejecting this sales order.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Reason for rejection..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              data-testid="reject-reason-input"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRejectReason('')}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRejectOrder}
+              disabled={rejectMutation.isPending || !rejectReason}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-reject-btn"
+            >
+              {rejectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Sales Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for cancelling this sales order. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Reason for cancellation..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              data-testid="cancel-reason-input"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCancelReason('')}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelOrder}
+              disabled={cancelMutation.isPending || !cancelReason}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-cancel-btn"
+            >
+              {cancelMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Cancel Order
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

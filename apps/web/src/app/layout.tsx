@@ -6,6 +6,8 @@ import { dark } from "@clerk/themes";
 import { ConditionalLayout } from "@/components/ConditionalLayout";
 import { Toaster } from 'sonner';
 import { TRPCProvider } from "@/components/providers/trpc-provider";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
+import { ConversationalLedger } from "@/components/chat/conversational-ledger";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,12 +25,15 @@ export default function RootLayout({
     <ClerkProvider appearance={{ baseTheme: dark }}>
       <html lang="en" className="dark" suppressHydrationWarning>
         <body className={`${inter.className} bg-background text-foreground`}>
-          <TRPCProvider>
-            <ConditionalLayout>
-              {children}
-            </ConditionalLayout>
-          </TRPCProvider>
+          <PostHogProvider>
+            <TRPCProvider>
+              <ConditionalLayout>
+                {children}
+              </ConditionalLayout>
+            </TRPCProvider>
+          </PostHogProvider>
           <Toaster richColors closeButton position="top-right" />
+          <ConversationalLedger />
         </body>
       </html>
     </ClerkProvider>

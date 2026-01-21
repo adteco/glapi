@@ -4,14 +4,8 @@ const nextConfig = {
     // Allow builds to succeed even with TypeScript errors
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Allow builds to succeed even with ESLint errors
-    ignoreDuringBuilds: true,
-  },
-  experimental: {
-    instrumentationHook: true,
-    serverComponentsExternalPackages: ['pg', 'pg-cloudflare', '@glapi/database'],
-  },
+  serverExternalPackages: ['pg', 'pg-cloudflare', '@glapi/database'],
+  transpilePackages: ['@glapi/api-service', '@glapi/business', '@glapi/trpc'],
   // Disable React strict mode for API routes
   reactStrictMode: false,
   // Disable image optimization since this is API-only
