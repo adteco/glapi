@@ -629,7 +629,8 @@ export class PaymentPostingService extends BaseService {
         )
       );
 
-    const accountMap = new Map(accountsData.map((a) => [a.id, a]));
+    type AccountLookup = { id: string; accountNumber: string; accountName: string };
+    const accountMap = new Map<string, AccountLookup>(accountsData.map((a) => [a.id, a]));
 
     for (const entry of entries) {
       const account = accountMap.get(entry.accountId);

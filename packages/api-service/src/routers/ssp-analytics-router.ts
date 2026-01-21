@@ -21,6 +21,8 @@ const sspAnalyticsRunConfigSchema = z.object({
   runType: z.enum(['scheduled', 'manual', 'triggered']).optional()
 });
 
+type SSPAnalyticsRunConfig = z.infer<typeof sspAnalyticsRunConfigSchema>;
+
 const exportFormatSchema = z.enum(['csv', 'json', 'excel']);
 
 const scheduleSchema = z.enum(['daily', 'weekly', 'monthly']);
@@ -33,16 +35,17 @@ export const sspAnalyticsRouter = router({
     .input(sspAnalyticsRunConfigSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new SSPAnalyticsService(ctx.db, ctx.user.organizationId);
-      
+      const typedInput = input as SSPAnalyticsRunConfig;
+
       try {
         const result = await service.startCalculationRun({
           organizationId: ctx.user.organizationId,
-          startDate: input.startDate,
-          endDate: input.endDate,
-          calculationMethod: input.calculationMethod,
-          minTransactions: input.minTransactions,
-          confidenceThreshold: input.confidenceThreshold,
-          runType: input.runType
+          startDate: String(typedInput.startDate),
+          endDate: String(typedInput.endDate),
+          calculationMethod: typedInput.calculationMethod as SSPAnalyticsRunConfig['calculationMethod'],
+          minTransactions: typedInput.minTransactions as number | undefined,
+          confidenceThreshold: typedInput.confidenceThreshold as number | undefined,
+          runType: typedInput.runType as 'scheduled' | 'manual' | 'triggered' | undefined
         });
 
         return {
