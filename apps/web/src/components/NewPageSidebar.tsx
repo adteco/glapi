@@ -181,6 +181,14 @@ const NewPageSidebar = () => {
               </li>
               <li>
                 {/* @ts-ignore */}
+                <Link href="/projects/time" className={`${baseSubLinkClass} ${isActive('/projects/time') ? activeLinkClass : inactiveLinkClass}`}>
+                  {/* @ts-ignore */}
+                  <CalendarIcon className="h-4 w-4" />
+                  <span>Time Tracking</span>
+                </Link>
+              </li>
+              <li>
+                {/* @ts-ignore */}
                 <Link href="/transactions/sales/estimates" className={`${baseSubLinkClass} ${isActive('/transactions/sales/estimates') ? activeLinkClass : inactiveLinkClass}`}>
                   {/* @ts-ignore */}
                   <FileBarChartIcon className="h-4 w-4" />
