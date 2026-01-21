@@ -2,7 +2,7 @@
 
 import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider, usePostHog } from 'posthog-js/react';
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 
@@ -95,7 +95,10 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
 
   return (
     <PHProvider client={posthog}>
-      <PostHogPageviewTracker />
+      {/* Wrap PageviewTracker in Suspense because it uses useSearchParams() */}
+      <Suspense fallback={null}>
+        <PostHogPageviewTracker />
+      </Suspense>
       <PostHogUserIdentifier />
       {children}
     </PHProvider>
