@@ -157,6 +157,23 @@ jobs:
       - name: Lint docs
         run: pnpm --filter docs lint
 
+      - name: Validate code snippets
+        run: |
+          echo "### Code Snippet Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          cd apps/docs
+          if npx tsx scripts/validate-snippets.ts 2>&1 | tee /tmp/snippet-validation.log; then
+            echo "All code snippets validated successfully." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Snippet validation issues found:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat /tmp/snippet-validation.log | tail -20 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            # Don't fail the build for snippet errors during transition period
+            echo "::warning::Some code snippets have validation issues"
+          fi
+
       - name: Check for broken internal links
         run: |
           echo "### Link Validation" >> $GITHUB_STEP_SUMMARY
