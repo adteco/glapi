@@ -24,7 +24,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Edit, Plus, Users } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Users, Trash2, Pencil } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 
@@ -69,11 +79,27 @@ export default function ProjectDetailPage() {
   );
   const employees = employeesData?.data || [];
 
+  // Create employee lookup map
+  const employeeMap = new Map(employees.map((e) => [e.id, e.name]));
+
   // Add participant state and mutation
   const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [participantRole, setParticipantRole] = useState('');
   const [isPrimary, setIsPrimary] = useState(false);
+
+  // Edit participant state
+  const [isEditParticipantOpen, setIsEditParticipantOpen] = useState(false);
+  const [editingParticipant, setEditingParticipant] = useState<{
+    id: string;
+    entityId: string | null;
+    participantRole: string;
+    isPrimary: boolean;
+  } | null>(null);
+
+  // Delete participant state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingParticipantId, setDeletingParticipantId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -87,6 +113,22 @@ export default function ProjectDetailPage() {
     },
   });
 
+  const updateParticipantMutation = trpc.projects.updateParticipant.useMutation({
+    onSuccess: () => {
+      utils.projects.listParticipants.invalidate({ projectId: id });
+      setIsEditParticipantOpen(false);
+      setEditingParticipant(null);
+    },
+  });
+
+  const removeParticipantMutation = trpc.projects.removeParticipant.useMutation({
+    onSuccess: () => {
+      utils.projects.listParticipants.invalidate({ projectId: id });
+      setIsDeleteDialogOpen(false);
+      setDeletingParticipantId(null);
+    },
+  });
+
   const handleAddParticipant = () => {
     if (!participantRole.trim() || !selectedEmployeeId) return;
     addParticipantMutation.mutate({
@@ -97,6 +139,42 @@ export default function ProjectDetailPage() {
         isPrimary,
       },
     });
+  };
+
+  const handleEditParticipant = () => {
+    if (!editingParticipant || !editingParticipant.participantRole.trim()) return;
+    updateParticipantMutation.mutate({
+      projectId: id,
+      participantId: editingParticipant.id,
+      data: {
+        entityId: editingParticipant.entityId || undefined,
+        participantRole: editingParticipant.participantRole.trim(),
+        isPrimary: editingParticipant.isPrimary,
+      },
+    });
+  };
+
+  const handleDeleteParticipant = () => {
+    if (!deletingParticipantId) return;
+    removeParticipantMutation.mutate({
+      projectId: id,
+      participantId: deletingParticipantId,
+    });
+  };
+
+  const openEditDialog = (participant: {
+    id: string;
+    entityId: string | null;
+    participantRole: string;
+    isPrimary: boolean;
+  }) => {
+    setEditingParticipant({ ...participant });
+    setIsEditParticipantOpen(true);
+  };
+
+  const openDeleteDialog = (participantId: string) => {
+    setDeletingParticipantId(participantId);
+    setIsDeleteDialogOpen(true);
   };
 
   if (!orgId) {
@@ -301,24 +379,41 @@ export default function ProjectDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Employee</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Primary</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {participants.map((participant) => (
                     <TableRow key={participant.id}>
-                      <TableCell className="font-medium">{participant.participantRole}</TableCell>
+                      <TableCell className="font-medium">
+                        {participant.entityId ? employeeMap.get(participant.entityId) || 'Unknown' : 'Not assigned'}
+                      </TableCell>
+                      <TableCell>{participant.participantRole}</TableCell>
                       <TableCell>
                         <Badge variant={participant.isPrimary ? 'default' : 'outline'}>
                           {participant.isPrimary ? 'Yes' : 'No'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" disabled>
-                          View
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditDialog(participant)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openDeleteDialog(participant.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -387,6 +482,100 @@ export default function ProjectDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Participant Dialog */}
+      <Dialog open={isEditParticipantOpen} onOpenChange={setIsEditParticipantOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Participant</DialogTitle>
+            <DialogDescription>
+              Update this participant's role and details.
+            </DialogDescription>
+          </DialogHeader>
+          {editingParticipant && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="editEmployee">Employee</Label>
+                <Select
+                  value={editingParticipant.entityId || ''}
+                  onValueChange={(value) =>
+                    setEditingParticipant({ ...editingParticipant, entityId: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="editParticipantRole">Role</Label>
+                <Input
+                  id="editParticipantRole"
+                  placeholder="e.g., Project Manager, Developer, Client"
+                  value={editingParticipant.participantRole}
+                  onChange={(e) =>
+                    setEditingParticipant({ ...editingParticipant, participantRole: e.target.value })
+                  }
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="editIsPrimary"
+                  checked={editingParticipant.isPrimary}
+                  onCheckedChange={(checked) =>
+                    setEditingParticipant({ ...editingParticipant, isPrimary: checked === true })
+                  }
+                />
+                <Label htmlFor="editIsPrimary" className="text-sm font-normal">
+                  Primary contact for this role
+                </Label>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditParticipantOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditParticipant}
+              disabled={
+                !editingParticipant?.participantRole.trim() || updateParticipantMutation.isPending
+              }
+            >
+              {updateParticipantMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Participant</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this participant from the project? This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteParticipant}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {removeParticipantMutation.isPending ? 'Removing...' : 'Remove'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
