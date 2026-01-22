@@ -450,7 +450,7 @@ export interface ValidationRule {
   /** Field to validate */
   field: string;
   /** Rule type */
-  type: 'required' | 'format' | 'range' | 'lookup' | 'unique' | 'custom';
+  type: 'required' | 'format' | 'range' | 'lookup' | 'unique' | 'custom' | 'dependency' | 'crossfield';
   /** Rule parameters */
   params?: Record<string, unknown>;
   /** Error message */

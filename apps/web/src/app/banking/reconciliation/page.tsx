@@ -58,34 +58,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Types
-interface BankDeposit {
-  id: string;
-  depositNumber: string;
-  depositDate: string;
-  totalAmount: string;
-  status: 'OPEN' | 'SUBMITTED' | 'RECONCILED' | 'CANCELLED';
-  reconciliationStatus: 'PENDING' | 'MATCHED' | 'EXCEPTION';
-  bankStatementDate?: string;
-  bankStatementRef?: string;
-  bankStatementAmount?: string;
-  paymentsCount?: number;
-}
-
-interface ReconciliationException {
-  id: string;
-  depositId: string;
-  depositNumber?: string;
-  exceptionType: string;
-  description: string;
-  systemAmount: string;
-  bankAmount: string;
-  difference: string;
-  status: 'EXCEPTION' | 'RESOLVED';
-  resolutionNotes?: string;
-  createdAt: string;
-}
+// Use TRPC inferred types to prevent type drift
+type BankDeposit = RouterOutputs['bankDeposits']['list']['data'][number];
+type ReconciliationException = RouterOutputs['bankDeposits']['listExceptions']['data'][number];
 
 // Form schemas
 const reconcileFormSchema = z.object({
@@ -376,7 +353,7 @@ export default function BankReconciliationPage() {
                     <TableRow key={deposit.id}>
                       <TableCell className="font-medium">{deposit.depositNumber}</TableCell>
                       <TableCell>{formatDate(deposit.depositDate)}</TableCell>
-                      <TableCell>{deposit.paymentsCount || 0}</TableCell>
+                      <TableCell>{deposit.paymentCount || 0}</TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(deposit.totalAmount)}
                       </TableCell>
@@ -505,13 +482,13 @@ export default function BankReconciliationPage() {
                 ) : (
                   exceptions.map((exception: ReconciliationException) => (
                     <TableRow key={exception.id}>
-                      <TableCell className="font-medium">{exception.depositNumber || '-'}</TableCell>
+                      <TableCell className="font-medium">{exception.bankDepositId ? exception.bankDepositId.slice(0, 8) : '-'}</TableCell>
                       <TableCell className="capitalize">{exception.exceptionType.replace('_', ' ')}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{exception.description}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(exception.systemAmount)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(exception.bankAmount)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{exception.exceptionDescription}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(exception.systemAmount || '0')}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(exception.bankStatementAmount || '0')}</TableCell>
                       <TableCell className="text-right font-medium text-destructive">
-                        {formatCurrency(exception.difference)}
+                        {formatCurrency(exception.varianceAmount || '0')}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -637,19 +614,19 @@ export default function BankReconciliationPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">System Amount:</span>
-                    <span>{formatCurrency(selectedException.systemAmount)}</span>
+                    <span>{formatCurrency(selectedException.systemAmount || '0')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Bank Amount:</span>
-                    <span>{formatCurrency(selectedException.bankAmount)}</span>
+                    <span>{formatCurrency(selectedException.bankStatementAmount || '0')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Difference:</span>
                     <span className="font-medium text-destructive">
-                      {formatCurrency(selectedException.difference)}
+                      {formatCurrency(selectedException.varianceAmount || '0')}
                     </span>
                   </div>
-                  <p className="text-sm mt-2">{selectedException.description}</p>
+                  <p className="text-sm mt-2">{selectedException.exceptionDescription}</p>
                 </div>
               )}
 

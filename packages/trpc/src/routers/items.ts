@@ -23,7 +23,7 @@ const itemSchema = z.object({
   trackSerialNumbers: z.boolean().default(false),
   isParent: z.boolean().default(false),
   parentItemId: z.string().uuid().optional().nullable(),
-  variantAttributes: z.record(z.string()).optional(),
+  variantAttributes: z.record(z.union([z.string(), z.array(z.string())])).optional(),
   incomeAccountId: z.string().uuid().optional().nullable(),
   expenseAccountId: z.string().uuid().optional().nullable(),
   assetAccountId: z.string().uuid().optional().nullable(),
@@ -71,19 +71,27 @@ export const itemsRouter = router({
       return service.getItem(input.id);
     }),
 
+  // Alias for get (some components use getById)
+  getById: authenticatedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const service = new ItemsService(ctx.serviceContext);
+      return service.getItem(input.id);
+    }),
+
   create: authenticatedProcedure
     .input(itemSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ItemsService(ctx.serviceContext);
       return service.createItem({
         ...input,
-        categoryId: input.categoryId || undefined,
-        parentItemId: input.parentItemId || undefined,
-        incomeAccountId: input.incomeAccountId || undefined,
-        expenseAccountId: input.expenseAccountId || undefined,
-        assetAccountId: input.assetAccountId || undefined,
-        cogsAccountId: input.cogsAccountId || undefined,
-      });
+        categoryId: input.categoryId ?? undefined,
+        parentItemId: input.parentItemId ?? undefined,
+        incomeAccountId: input.incomeAccountId ?? undefined,
+        expenseAccountId: input.expenseAccountId ?? undefined,
+        assetAccountId: input.assetAccountId ?? undefined,
+        cogsAccountId: input.cogsAccountId ?? undefined,
+      } as Parameters<typeof service.createItem>[0]);
     }),
 
   update: authenticatedProcedure
@@ -95,7 +103,17 @@ export const itemsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new ItemsService(ctx.serviceContext);
-      return service.updateItem(input.id, input.data);
+      // Convert null to undefined for service compatibility
+      const sanitizedData = {
+        ...input.data,
+        categoryId: input.data.categoryId ?? undefined,
+        parentItemId: input.data.parentItemId ?? undefined,
+        incomeAccountId: input.data.incomeAccountId ?? undefined,
+        expenseAccountId: input.data.expenseAccountId ?? undefined,
+        assetAccountId: input.data.assetAccountId ?? undefined,
+        cogsAccountId: input.data.cogsAccountId ?? undefined,
+      };
+      return service.updateItem(input.id, sanitizedData as Parameters<typeof service.updateItem>[1]);
     }),
 
   delete: authenticatedProcedure
@@ -112,7 +130,33 @@ export const itemsRouter = router({
       .input(z.object({ itemId: z.string().uuid() }))
       .query(async ({ ctx, input }) => {
         // TODO: Implement when ItemVariantService is available
-        return [];
+        return [] as Array<{
+          id: string;
+          variantCode: string;
+          variantName: string;
+          sku?: string;
+          barcode?: string;
+          isActive: boolean;
+          attributes?: Record<string, string>;
+        }>;
+      }),
+
+    generate: authenticatedProcedure
+      .input(z.object({
+        itemId: z.string().uuid(),
+        attributes: z.record(z.array(z.string())),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // TODO: Implement variant generation
+        return [] as Array<{
+          id: string;
+          variantCode: string;
+          variantName: string;
+          sku?: string;
+          barcode?: string;
+          isActive: boolean;
+          attributes?: Record<string, string>;
+        }>;
       }),
   }),
 
@@ -121,8 +165,8 @@ export const itemsRouter = router({
     list: authenticatedProcedure.query(async ({ ctx }) => {
       const service = new ItemCategoriesService(ctx.serviceContext);
       const result = await service.listCategories({
-        page: 1, 
-        limit: 100
+        page: 1,
+        limit: 1000
       });
       return result.data;
     }),
@@ -147,6 +191,34 @@ export const itemsRouter = router({
           ...input,
           parentCategoryId: input.parentCategoryId || undefined,
         });
+      }),
+
+    update: authenticatedProcedure
+      .input(
+        z.object({
+          id: z.string().uuid(),
+          data: z.object({
+            code: z.string().min(1).optional(),
+            name: z.string().min(1).optional(),
+            parentCategoryId: z.string().uuid().optional().nullable(),
+            isActive: z.boolean().optional(),
+          }),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const service = new ItemCategoriesService(ctx.serviceContext);
+        return service.updateCategory(input.id, {
+          ...input.data,
+          parentCategoryId: input.data.parentCategoryId || undefined,
+        });
+      }),
+
+    delete: authenticatedProcedure
+      .input(z.object({ id: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const service = new ItemCategoriesService(ctx.serviceContext);
+        await service.deleteCategory(input.id);
+        return { success: true };
       }),
   }),
 

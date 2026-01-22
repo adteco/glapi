@@ -50,13 +50,13 @@ export class GlTransactionService extends BaseService {
       await this.eventService.emit({
         eventType,
         eventCategory: EventCategory.TRANSACTION,
-        aggregateId: transaction.id,
+        aggregateId: transaction.id ?? '',
         aggregateType: 'BusinessTransaction',
         data: {
           transactionId: transaction.id,
           transactionNumber: transaction.transactionNumber,
           transactionTypeId: transaction.transactionTypeId,
-          subsidiaryId: transaction.subsidiaryId,
+          subsidiaryId: transaction.subsidiaryId ?? '',
           status: transaction.status,
           totalAmount: transaction.totalAmount,
           currencyCode: transaction.currencyCode,
@@ -65,7 +65,7 @@ export class GlTransactionService extends BaseService {
         },
         publishConfig: {
           topic: 'gl-transactions',
-          partitionKey: transaction.subsidiaryId,
+          partitionKey: transaction.subsidiaryId ?? '',
         },
       });
     } catch (error) {

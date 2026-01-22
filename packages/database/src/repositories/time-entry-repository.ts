@@ -543,9 +543,10 @@ export class TimeEntryRepository extends BaseRepository {
     }
     if (filters.effectiveDate) {
       conditions.push(lte(laborCostRates.effectiveFrom, filters.effectiveDate));
-      conditions.push(
-        or(isNull(laborCostRates.effectiveTo), gte(laborCostRates.effectiveTo, filters.effectiveDate))
-      );
+      const effectiveToCondition = or(isNull(laborCostRates.effectiveTo), gte(laborCostRates.effectiveTo, filters.effectiveDate));
+      if (effectiveToCondition) {
+        conditions.push(effectiveToCondition);
+      }
     }
     if (filters.isActive !== undefined) {
       conditions.push(eq(laborCostRates.isActive, filters.isActive));

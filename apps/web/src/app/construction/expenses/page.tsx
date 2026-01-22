@@ -324,7 +324,7 @@ export default function ExpenseEntriesPage() {
     },
   });
 
-  const entries = (entriesData?.data as ExpenseEntry[] | undefined) || [];
+  const entries = (entriesData?.entries as ExpenseEntry[] | undefined) || [];
   const pendingApprovals = (pendingApprovalsData?.entries || []) as ExpenseEntry[];
   const projects = (projectsData?.data || []) as Array<{ id: string; name: string; projectCode: string }>;
   const costCodes = (costCodesData?.data || []) as Array<{ id: string; costCode: string; name: string }>;

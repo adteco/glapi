@@ -69,28 +69,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Types
-interface TimeEntry {
-  id: string;
-  organizationId: string;
-  employeeId: string;
-  projectId: string | null;
-  costCodeId: string | null;
-  entryDate: string;
-  hours: string;
-  entryType: string;
-  isBillable: boolean;
-  laborCost: string | null;
-  totalCost: string | null;
-  description: string | null;
-  status: string;
-  submittedAt: Date | null;
-  approvedAt: Date | null;
-  rejectedAt: Date | null;
-  rejectionReason: string | null;
-  createdAt: Date;
-}
+// Use TRPC inferred types to prevent type drift
+type TimeEntry = RouterOutputs['timeEntries']['list']['data'][number];
 
 // Form schema for creating time entry
 const createTimeEntrySchema = z.object({
@@ -124,7 +106,7 @@ function getStatusBadgeVariant(status: string): 'default' | 'secondary' | 'destr
 }
 
 // Format helpers
-function formatDate(date: string | Date | null): string {
+function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '-';
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString('en-US', {

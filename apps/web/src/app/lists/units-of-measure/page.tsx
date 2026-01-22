@@ -39,6 +39,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Plus, Edit2, Trash2, Ruler } from 'lucide-react';
 import { SeedUnitsOfMeasureButton } from '@/components/SeedUnitsOfMeasureButton';
+import type { RouterOutputs } from '@glapi/trpc';
 
 const unitFormSchema = z.object({
   code: z.string().min(1, 'Code is required').max(10),
@@ -51,13 +52,11 @@ const unitFormSchema = z.object({
 
 type UnitFormValues = z.infer<typeof unitFormSchema>;
 
-interface UnitOfMeasure {
-  id: string;
-  code: string;
-  name: string;
-  abbreviation: string;
-  baseConversionFactor: number;
-  decimalPlaces: number;
+// Use TRPC inferred types to prevent type drift
+type UnitOfMeasure = RouterOutputs['unitsOfMeasure']['list']['data'][number];
+
+// Local interface kept for backwards compatibility
+interface _UnitOfMeasureLocal {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

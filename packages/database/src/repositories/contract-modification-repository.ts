@@ -198,7 +198,7 @@ export class ContractModificationRepository {
       .where(
         and(
           eq(contractModifications.organizationId, organizationId),
-          eq(contractModifications.status, 'pending')
+          eq(contractModifications.status, 'pending_approval')
         )
       )
       .orderBy(asc(contractModifications.effectiveDate));

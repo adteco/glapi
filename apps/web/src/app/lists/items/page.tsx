@@ -18,38 +18,11 @@ import {
 import { Plus, Edit, Trash2, Search, Filter, Copy, Package } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Define interfaces for the Item data
-interface Item {
-  id: string;
-  organizationId: string;
-  itemCode: string;
-  name: string;
-  description?: string | null;
-  itemType: 'INVENTORY_ITEM' | 'NON_INVENTORY_ITEM' | 'SERVICE' | 'CHARGE' | 'DISCOUNT' | 'TAX' | 'ASSEMBLY' | 'KIT';
-  isParent: boolean;
-  parentItemId?: string | null;
-  categoryId?: string | null;
-  defaultPrice?: number | null;
-  defaultCost?: number | null;
-  isTaxable: boolean;
-  isActive: boolean;
-  isPurchasable: boolean;
-  isSaleable: boolean;
-  trackQuantity: boolean;
-  trackLotNumbers: boolean;
-  trackSerialNumbers: boolean;
-  sku?: string | null;
-  upc?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ItemCategory {
-  id: string;
-  code: string;
-  name: string;
-}
+// Use TRPC inferred types to prevent type drift
+type Item = RouterOutputs['items']['list'][number];
+type ItemCategory = RouterOutputs['items']['categories']['list'][number];
 
 export default function ItemsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,10 +42,7 @@ export default function ItemsPage() {
     enabled: !!orgId,
   });
 
-  const { data: categoriesData, isLoading: categoriesLoading } = trpc.items.categories.list.useQuery({
-    page: 1,
-    limit: 100,
-  }, {
+  const { data: categoriesData, isLoading: categoriesLoading } = trpc.items.categories.list.useQuery(undefined, {
     enabled: !!orgId,
   });
 
@@ -87,7 +57,7 @@ export default function ItemsPage() {
   });
 
   const items = itemsData || [];
-  const categories = categoriesData?.data || [];
+  const categories = categoriesData || [];
   const isLoading = itemsLoading || categoriesLoading;
 
   const totalPages = Math.ceil(items.length / 20);

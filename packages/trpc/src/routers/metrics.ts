@@ -85,8 +85,14 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      return service.getDashboard(input);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      return service.getDashboard({
+        periodId: input.periodId,
+        timeRange: input.timeRange as { from: string; to: string } | undefined,
+        filters: input.filters,
+        compareWithPrevious: input.compareWithPrevious,
+        metrics: input.metrics,
+      });
     }),
 
   /**
@@ -101,7 +107,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       return service.getKpiCards(input.periodId, input.metricIds, input.filters);
     }),
 
@@ -123,8 +129,14 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      return service.getSegmentPerformance(input);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      return service.getSegmentPerformance({
+        periodId: input.periodId,
+        dimensionType: input.dimensionType,
+        metric: input.metric,
+        filters: input.filters,
+        topN: input.topN,
+      });
     }),
 
   /**
@@ -140,7 +152,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       return service.getDimensionBreakdown(
         input.periodId,
         input.dimensionType,
@@ -167,8 +179,14 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      return service.getTrend(input);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      return service.getTrend({
+        metricId: input.metricId,
+        periodIds: input.periodIds,
+        timeRange: input.timeRange as { from: string; to: string } | undefined,
+        granularity: input.granularity,
+        filters: input.filters,
+      });
     }),
 
   /**
@@ -183,7 +201,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       return service.getMultipleTrends(input.metricIds, input.periodIds, input.filters);
     }),
 
@@ -204,8 +222,13 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      return service.compareMetrics(input);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      return service.compareMetrics({
+        metricIds: input.metricIds,
+        currentPeriodId: input.currentPeriodId,
+        comparePeriodId: input.comparePeriodId,
+        filters: input.filters,
+      });
     }),
 
   // ==========================================
@@ -226,7 +249,7 @@ export const metricsRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       return service.listMetricDefinitions(input?.category);
     }),
 
@@ -256,8 +279,18 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      return service.createCustomMetric(input);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      return service.createCustomMetric({
+        name: input.name,
+        description: input.description,
+        category: input.category,
+        formula: input.formula,
+        unit: input.unit,
+        aggregation: input.aggregation,
+        isPercentage: input.isPercentage,
+        precision: input.precision,
+        thresholds: input.thresholds as { direction: 'higher_is_better' | 'lower_is_better' | 'target'; good?: number; warning?: number; critical?: number; target?: number } | undefined,
+      });
     }),
 
   /**
@@ -289,9 +322,12 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      const { id, ...updateData } = input;
-      return service.updateCustomMetric(id, updateData);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const { id, thresholds, ...updateData } = input;
+      return service.updateCustomMetric(id, {
+        ...updateData,
+        thresholds: thresholds as { direction: 'higher_is_better' | 'lower_is_better' | 'target'; good?: number; warning?: number; critical?: number; target?: number } | undefined,
+      });
     }),
 
   /**
@@ -300,7 +336,7 @@ export const metricsRouter = router({
   deleteCustomMetric: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       await service.deleteCustomMetric(input.id);
       return { success: true };
     }),
@@ -321,7 +357,7 @@ export const metricsRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       return service.listSavedViews(input?.viewType);
     }),
 
@@ -331,7 +367,7 @@ export const metricsRouter = router({
   getSavedView: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       const view = await service.getSavedView(input.id);
       if (!view) {
         throw new TRPCError({
@@ -357,8 +393,25 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      return service.createSavedView(input, ctx.user.id);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      return service.createSavedView({
+        name: input.name,
+        description: input.description,
+        viewType: input.viewType,
+        configuration: {
+          filters: input.configuration.filters ?? {},
+          timeRange: input.configuration.timeRange as { from: string; to: string } | undefined,
+          periodFilter: input.configuration.periodFilter,
+          granularity: input.configuration.granularity,
+          metrics: input.configuration.metrics,
+          chartTypes: input.configuration.chartTypes,
+          comparePeriod: input.configuration.comparePeriod,
+          showTrend: input.configuration.showTrend,
+          layout: input.configuration.layout as Array<{ id: string; type: 'kpi' | 'chart' | 'table' | 'breakdown'; width: number; height: number; config?: Record<string, any> }> | undefined,
+        },
+        isDefault: input.isDefault,
+        isShared: input.isShared,
+      }, ctx.user!.id);
     }),
 
   /**
@@ -376,9 +429,22 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
-      const { id, ...updateData } = input;
-      return service.updateSavedView(id, updateData);
+      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const { id, configuration, ...updateData } = input;
+      return service.updateSavedView(id, {
+        ...updateData,
+        configuration: configuration ? {
+          filters: configuration.filters ?? {},
+          timeRange: configuration.timeRange as { from: string; to: string } | undefined,
+          periodFilter: configuration.periodFilter,
+          granularity: configuration.granularity,
+          metrics: configuration.metrics,
+          chartTypes: configuration.chartTypes,
+          comparePeriod: configuration.comparePeriod,
+          showTrend: configuration.showTrend,
+          layout: configuration.layout as Array<{ id: string; type: 'kpi' | 'chart' | 'table' | 'breakdown'; width: number; height: number; config?: Record<string, any> }> | undefined,
+        } : undefined,
+      });
     }),
 
   /**
@@ -387,7 +453,7 @@ export const metricsRouter = router({
   deleteSavedView: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.user.orgId });
+      const service = new MetricsService({ organizationId: ctx.organizationId });
       await service.deleteSavedView(input.id);
       return { success: true };
     }),

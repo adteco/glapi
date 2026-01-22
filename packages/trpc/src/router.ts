@@ -1,3 +1,4 @@
+import { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import { router } from './trpc';
 import { customersRouter } from './routers/customers';
 import { organizationsRouter } from './routers/organizations';
@@ -94,3 +95,22 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
+/**
+ * TRPC Type Inference Utilities
+ *
+ * Use these to get compile-time type safety in components.
+ * ALWAYS use these instead of defining duplicate interfaces.
+ *
+ * @example
+ * // Get the output type of customers.list
+ * type CustomerList = RouterOutputs['customers']['list'];
+ *
+ * // Get a single customer from the list
+ * type Customer = RouterOutputs['customers']['list'][number];
+ *
+ * // Get the input type for create mutation
+ * type CreateCustomerInput = RouterInputs['customers']['create'];
+ */
+export type RouterOutputs = inferRouterOutputs<AppRouter>;
+export type RouterInputs = inferRouterInputs<AppRouter>;

@@ -20,7 +20,18 @@ export const changeManagementRouter = router({
     .input(createSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ChangeManagementService(ctx.serviceContext);
-      return service.createChangeRequest(input);
+      return service.createChangeRequest({
+        title: input.title,
+        description: input.description,
+        requestType: input.requestType,
+        subsystem: input.subsystem,
+        riskLevel: input.riskLevel,
+        linkedResourceType: input.linkedResourceType,
+        linkedResourceId: input.linkedResourceId,
+        changeWindowStart: input.changeWindowStart,
+        changeWindowEnd: input.changeWindowEnd,
+        metadata: input.metadata,
+      });
     }),
 
   list: authenticatedProcedure

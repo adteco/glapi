@@ -41,6 +41,16 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
+    // API Tests - TRPC endpoint testing (no browser needed)
+    {
+      name: 'api-tests',
+      testMatch: /tests\/api\/.*\.spec\.ts/,
+      use: {
+        // API tests don't need a browser
+        headless: true,
+      },
+    },
+
     // Setup project - runs auth.setup.ts to authenticate
     {
       name: 'setup',
@@ -55,6 +65,7 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
+      testIgnore: /tests\/api\//,
     },
 
     {
@@ -64,6 +75,7 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
+      testIgnore: /tests\/api\//,
     },
 
     {
@@ -73,6 +85,7 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
+      testIgnore: /tests\/api\//,
     },
 
     // Authenticated tests - Mobile viewports
@@ -83,6 +96,7 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
+      testIgnore: /tests\/api\//,
     },
     {
       name: 'Mobile Safari',
@@ -91,6 +105,7 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
+      testIgnore: /tests\/api\//,
     },
 
     // Unauthenticated tests (for landing pages, public routes)

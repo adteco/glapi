@@ -1,3 +1,3 @@
-export * from './src/db';
-export * from './src/db/schema';
-export * from './src/repositories';
+// Type re-export stub for external packages
+// This file is used by TypeScript to resolve types from @glapi/database
+export * from './src/index';

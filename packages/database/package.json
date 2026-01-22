@@ -3,17 +3,23 @@
   "version": "0.0.0",
   "private": true,
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./index.ts",
+  "typesVersions": {
+    "*": {
+      ".": ["./src/index.ts"],
+      "schema": ["./src/db/schema/index.ts"]
+    }
+  },
   "exports": {
     ".": {
+      "types": "./index.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./schema": {
+      "types": "./schema.ts",
       "import": "./dist/db/schema/index.js",
-      "require": "./dist/db/schema/index.js",
-      "types": "./dist/db/schema/index.d.ts"
+      "require": "./dist/db/schema/index.js"
     }
   },
   "scripts": {

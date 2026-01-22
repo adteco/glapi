@@ -779,6 +779,7 @@ export class BankDepositService extends BaseService {
     const periodCheck = await this.periodService.checkPostingAllowed({
       subsidiaryId: deposit.subsidiaryId,
       postingDate: deposit.depositDate,
+      isAdjustment: false,
     });
     if (!periodCheck.canPost) {
       errors.push(`Cannot post: ${periodCheck.reason}`);

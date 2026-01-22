@@ -47,7 +47,7 @@ function NewItemPageContent() {
   const duplicateId = searchParams.get('duplicate');
 
   // tRPC queries
-  const { data: itemToDuplicate } = trpc.items.getById.useQuery(duplicateId!, {
+  const { data: itemToDuplicate } = trpc.items.getById.useQuery({ id: duplicateId! }, {
     enabled: !!duplicateId && !!orgId,
   });
 

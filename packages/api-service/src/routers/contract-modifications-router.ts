@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { ContractModificationService } from '../services/contract-modification-service';
 import { TRPCError } from '@trpc/server';
-import { ModificationType, ModificationMethod, ModificationStatus } from '@glapi/database/schema';
+import { ModificationType, ModificationMethod, ModificationStatus, type ModificationTypeValue } from '@glapi/database/schema';
 
 // Input schemas
 const modificationChangesSchema = z.object({
@@ -37,9 +37,12 @@ const modificationChangesSchema = z.object({
   }).optional()
 });
 
+// Create a const array for Zod enum to preserve literal types
+const modificationTypeValues = Object.values(ModificationType) as [ModificationTypeValue, ...ModificationTypeValue[]];
+
 const modificationRequestSchema = z.object({
   subscriptionId: z.string(),
-  modificationType: z.enum(Object.values(ModificationType) as [string, ...string[]]),
+  modificationType: z.enum(modificationTypeValues),
   effectiveDate: z.date(),
   changes: modificationChangesSchema,
   reason: z.string().optional(),

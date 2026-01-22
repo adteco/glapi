@@ -800,7 +800,7 @@ export class PayApplicationService extends BaseService {
             certifiedDate: payApp.certifiedDate instanceof Date
               ? payApp.certifiedDate.toISOString()
               : payApp.certifiedDate || '',
-            certificationNumber: payApp.certificationNumber,
+            certificationNumber: payApp.certificationNumber ?? undefined,
           }
         : undefined,
     };
@@ -862,7 +862,7 @@ export class PayApplicationService extends BaseService {
       status: created.status,
       projectId: created.projectId,
       projectName: '',
-      payApplicationId: created.payApplicationId,
+      payApplicationId: created.payApplicationId ?? undefined,
       totalRetainageHeld: parseFloat(created.totalRetainageHeld || '0'),
       releaseAmount: parseFloat(created.releaseAmount || '0'),
       retainageRemaining: parseFloat(created.retainageRemaining || '0'),
@@ -935,7 +935,7 @@ export class PayApplicationService extends BaseService {
       status: release.status,
       projectId: release.projectId,
       projectName: '',
-      payApplicationId: release.payApplicationId,
+      payApplicationId: release.payApplicationId ?? undefined,
       totalRetainageHeld: parseFloat(release.totalRetainageHeld || '0'),
       releaseAmount: parseFloat(release.releaseAmount || '0'),
       retainageRemaining: parseFloat(release.retainageRemaining || '0'),

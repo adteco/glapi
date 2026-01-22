@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server';
 
 const handler = async (req: NextRequest) => {
   // Get the organization context from headers (set by middleware)
-  const context = getServiceContext();
+  const context = await getServiceContext();
   
   // Create a user object compatible with the API service types
   const user = {

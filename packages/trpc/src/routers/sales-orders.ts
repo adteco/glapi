@@ -5,7 +5,7 @@ import { TRPCError } from '@trpc/server';
 import {
   SalesOrderStatus,
   ApprovalActionType,
-} from '@glapi/database/schema';
+} from '@glapi/database';
 
 // ============================================================================
 // Zod Schemas
@@ -198,7 +198,51 @@ export const salesOrdersRouter = router({
       const service = new SalesOrderService(ctx.serviceContext);
 
       try {
-        return await service.createSalesOrder(input);
+        return await service.createSalesOrder({
+          subsidiaryId: input.subsidiaryId,
+          entityId: input.entityId,
+          orderDate: input.orderDate,
+          externalReference: input.externalReference,
+          billingAddressId: input.billingAddressId,
+          shippingAddressId: input.shippingAddressId,
+          requestedDeliveryDate: input.requestedDeliveryDate,
+          promisedDeliveryDate: input.promisedDeliveryDate,
+          expirationDate: input.expirationDate,
+          currencyCode: input.currencyCode,
+          exchangeRate: input.exchangeRate,
+          discountAmount: input.discountAmount,
+          discountPercent: input.discountPercent,
+          shippingAmount: input.shippingAmount,
+          paymentTerms: input.paymentTerms,
+          shippingMethod: input.shippingMethod,
+          memo: input.memo,
+          internalNotes: input.internalNotes,
+          metadata: input.metadata,
+          requiresApproval: input.requiresApproval,
+          approvalThreshold: input.approvalThreshold,
+          lines: input.lines.map((line) => ({
+            itemId: line.itemId,
+            description: line.description,
+            sku: line.sku,
+            quantity: line.quantity,
+            unitOfMeasure: line.unitOfMeasure,
+            unitPrice: line.unitPrice,
+            discountAmount: line.discountAmount,
+            discountPercent: line.discountPercent,
+            taxAmount: line.taxAmount,
+            taxCode: line.taxCode,
+            requestedDeliveryDate: line.requestedDeliveryDate,
+            promisedDeliveryDate: line.promisedDeliveryDate,
+            departmentId: line.departmentId,
+            locationId: line.locationId,
+            classId: line.classId,
+            projectId: line.projectId,
+            revenueAccountId: line.revenueAccountId,
+            deferredRevenueAccountId: line.deferredRevenueAccountId,
+            memo: line.memo,
+            metadata: line.metadata,
+          })),
+        });
       } catch (error: any) {
         if (error.code === 'VALIDATION_ERROR') {
           throw new TRPCError({
@@ -477,7 +521,14 @@ export const salesOrdersRouter = router({
       const service = new SalesOrderService(ctx.serviceContext);
 
       try {
-        return await service.createInvoiceFromOrder(input);
+        return await service.createInvoiceFromOrder({
+          salesOrderId: input.salesOrderId,
+          lineIds: input.lineIds,
+          quantities: input.quantities,
+          invoiceDate: input.invoiceDate,
+          dueDate: input.dueDate,
+          memo: input.memo,
+        });
       } catch (error: any) {
         if (error.code === 'NOT_FOUND') {
           throw new TRPCError({ code: 'NOT_FOUND', message: error.message });
@@ -517,8 +568,8 @@ export const salesOrdersRouter = router({
       const service = new SalesOrderService({});
       const transitions: Array<{ status: string; valid: boolean }> = [];
 
-      for (const targetStatus of Object.values(SalesOrderStatus)) {
-        const result = service.validateStatusTransition(input.status, targetStatus);
+      for (const targetStatus of Object.values(SalesOrderStatus) as string[]) {
+        const result = service.validateStatusTransition(input.status, targetStatus as any);
         if (result.valid) {
           transitions.push({ status: targetStatus, valid: true });
         }

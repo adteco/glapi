@@ -48,7 +48,7 @@ export class FinancialStatementsService extends BaseService {
       organizationId
     );
 
-    return result;
+    return result as IncomeStatement;
   }
 
   /**
@@ -81,7 +81,7 @@ export class FinancialStatementsService extends BaseService {
       organizationId
     );
 
-    return result;
+    return result as BalanceSheet;
   }
 
   /**
