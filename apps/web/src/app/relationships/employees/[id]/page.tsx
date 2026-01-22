@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Edit, Mail, Phone, Building } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
+import type { RouterOutputs } from '@glapi/trpc';
+
+type Employee = NonNullable<RouterOutputs['employees']['get']>;
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -103,7 +106,7 @@ export default function EmployeeDetailPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold">{employee.firstName} {employee.lastName}</h1>
+          <h1 className="text-3xl font-bold">{employee.name}</h1>
           <Badge className={getStatusBadgeColor(employee.status)}>
             {employee.status}
           </Badge>
@@ -124,19 +127,19 @@ export default function EmployeeDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <dt className="text-sm font-medium text-gray-500">Full Name</dt>
-                <dd className="mt-1 text-sm text-gray-900">{employee.firstName} {employee.lastName}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{employee.name}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Employee Code</dt>
-                <dd className="mt-1 text-sm text-gray-900">{employee.employeeCode || 'N/A'}</dd>
+                <dt className="text-sm font-medium text-gray-500">Employee ID</dt>
+                <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.employee_id as string || 'N/A'}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Job Title</dt>
-                <dd className="mt-1 text-sm text-gray-900">{employee.title || 'N/A'}</dd>
+                <dt className="text-sm font-medium text-gray-500">Position</dt>
+                <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.position as string || 'N/A'}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">Department</dt>
-                <dd className="mt-1 text-sm text-gray-900">{employee.departmentId || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.department as string || 'N/A'}</dd>
               </div>
             </div>
 

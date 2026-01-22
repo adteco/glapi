@@ -105,7 +105,7 @@ export default function ContactsPage() {
 
   const contacts = contactsData?.data || [];
   const companies = [
-    ...(customersData?.data || []),
+    ...(customersData || []),
     ...(vendorsData?.data || [])
   ];
 
@@ -145,7 +145,6 @@ export default function ContactsPage() {
         last_name: formData.metadata.last_name || undefined,
         title: formData.metadata.title || undefined,
         company: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
-        department: formData.metadata.department || undefined,
         contact_type: 'Individual',
         preferred_communication: formData.metadata.preferred_communication || undefined,
       },
@@ -154,7 +153,7 @@ export default function ContactsPage() {
 
   const handleUpdate = async () => {
     if (!selectedContact) return;
-    
+
     updateContactMutation.mutate({
       id: selectedContact.id,
       data: {
@@ -162,14 +161,12 @@ export default function ContactsPage() {
         legalName: formData.displayName || undefined,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
-        notes: formData.notes || undefined,
         isActive: true,
         metadata: {
           first_name: formData.metadata.first_name || undefined,
           last_name: formData.metadata.last_name || undefined,
           title: formData.metadata.title || undefined,
           company: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
-          department: formData.metadata.department || undefined,
           contact_type: 'Individual',
           preferred_communication: formData.metadata.preferred_communication || undefined,
         },
@@ -189,16 +186,16 @@ export default function ContactsPage() {
       displayName: contact.displayName || '',
       email: contact.email || '',
       phone: contact.phone || '',
-      parentEntityId: contact.metadata?.company || contact.parentEntityId || '',
-      notes: contact.notes || '',
+      parentEntityId: (contact.metadata as Record<string, string | undefined>)?.company || contact.parentEntityId || '',
+      notes: '',  // notes field removed from Contact type
       metadata: {
-        first_name: contact.metadata?.first_name || '',
-        last_name: contact.metadata?.last_name || '',
-        title: contact.metadata?.title || '',
-        department: contact.metadata?.department || '',
-        mobilePhone: contact.metadata?.mobilePhone || '',
-        workPhone: contact.metadata?.workPhone || '',
-        preferred_communication: contact.metadata?.preferred_communication || 'email',
+        first_name: (contact.metadata as Record<string, string | undefined>)?.first_name || '',
+        last_name: (contact.metadata as Record<string, string | undefined>)?.last_name || '',
+        title: (contact.metadata as Record<string, string | undefined>)?.title || '',
+        department: '',
+        mobilePhone: '',
+        workPhone: '',
+        preferred_communication: (contact.metadata as Record<string, string | undefined>)?.preferred_communication || 'email',
       }
     });
     setIsEditOpen(true);
@@ -226,10 +223,12 @@ export default function ContactsPage() {
   };
 
   const getCompanyName = (contact: Contact) => {
-    const companyId = contact.metadata?.company || contact.parentEntityId;
+    const companyId = (contact.metadata as Record<string, string | undefined>)?.company || contact.parentEntityId;
     if (!companyId) return 'Independent';
     const company = companies.find(c => c.id === companyId);
-    return company?.name || 'Unknown';
+    if (!company) return 'Unknown';
+    // Handle both customer (companyName) and vendor (name) types
+    return 'companyName' in company ? company.companyName : company.name;
   };
 
   const getContactMethodIcon = (method: string) => {
@@ -286,9 +285,9 @@ export default function ContactsPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">No Company (Independent)</SelectItem>
-                          {companies.map((company) => (
-                            <SelectItem key={company.id} value={company.id}>
-                              {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : ''}
+                          {companies.filter(c => c.id).map((company) => (
+                            <SelectItem key={company.id} value={company.id!}>
+                              {'companyName' in company ? company.companyName : company.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -510,9 +509,9 @@ export default function ContactsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Company (Independent)</SelectItem>
-                    {companies.map((company) => (
-                      <SelectItem key={company.id} value={company.id}>
-                        {company.name} {company.entityTypes ? `(${company.entityTypes.join(', ')})` : ''}
+                    {companies.filter(c => c.id).map((company) => (
+                      <SelectItem key={company.id} value={company.id!}>
+                        {'companyName' in company ? company.companyName : company.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

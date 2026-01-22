@@ -1,5 +1,5 @@
 import { BaseService } from './base-service';
-import { ServiceError } from '../types';
+import { ServiceError, PaginationParams, PaginatedResult } from '../types';
 import { ConsolidationRepository } from '@glapi/database';
 
 // ==========================================
@@ -211,20 +211,7 @@ export interface CreateIntercompanyMappingInput {
   eliminationCreditAccountId?: string;
 }
 
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-  orderBy?: string;
-  orderDirection?: 'asc' | 'desc';
-}
-
-export interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+// Note: Using PaginationParams and PaginatedResult from common.types
 
 // ==========================================
 // Consolidation Service

@@ -53,8 +53,8 @@ export const bankDepositsRouter = router({
           status: input.status,
           reconciliationStatus: input.reconciliationStatus,
           subsidiaryId: input.subsidiaryId,
-          dateFrom: input.dateFrom,
-          dateTo: input.dateTo,
+          depositDateFrom: input.dateFrom,
+          depositDateTo: input.dateTo,
         }
       );
     }),
@@ -142,7 +142,12 @@ export const bankDepositsRouter = router({
     const service = new BankDepositService(ctx.serviceContext);
 
     try {
-      return await service.reconcileDeposit(input);
+      return await service.reconcileDeposit({
+        depositId: input.depositId,
+        bankStatementDate: input.bankStatementDate,
+        bankStatementRef: input.bankStatementRef,
+        bankStatementAmount: input.bankStatementAmount,
+      });
     } catch (error: any) {
       if (error.code === 'NOT_FOUND') {
         throw new TRPCError({
@@ -203,7 +208,10 @@ export const bankDepositsRouter = router({
     const service = new BankDepositService(ctx.serviceContext);
 
     try {
-      return await service.resolveException(input);
+      return await service.resolveException({
+        exceptionId: input.exceptionId,
+        resolutionNotes: input.resolutionNotes,
+      });
     } catch (error: any) {
       if (error.code === 'NOT_FOUND') {
         throw new TRPCError({
@@ -250,14 +258,14 @@ export const bankDepositsRouter = router({
 
       return {
         // Deposit counts by status
-        openDeposits: summary.openCount,
-        submittedDeposits: summary.submittedCount,
-        reconciledDeposits: summary.reconciledCount,
+        openDeposits: summary.openDeposits,
+        submittedDeposits: summary.submittedDeposits,
+        pendingReconciliation: summary.pendingReconciliation,
 
         // Amounts
-        openAmount: summary.openAmount,
-        submittedAmount: summary.submittedAmount,
-        reconciledAmount: summary.reconciledAmount,
+        totalOpenAmount: summary.totalOpenAmount,
+        totalSubmittedAmount: summary.totalSubmittedAmount,
+        totalPendingAmount: summary.totalPendingAmount,
 
         // Pending work
         pendingReconciliationCount: pendingDeposits.length,
@@ -270,11 +278,11 @@ export const bankDepositsRouter = router({
         openExceptionsCount: exceptions.total,
 
         // Totals
-        totalDeposits: summary.openCount + summary.submittedCount + summary.reconciledCount,
+        totalDeposits: summary.openDeposits + summary.submittedDeposits + summary.pendingReconciliation,
         totalAmount:
-          parseFloat(summary.openAmount || '0') +
-          parseFloat(summary.submittedAmount || '0') +
-          parseFloat(summary.reconciledAmount || '0'),
+          parseFloat(summary.totalOpenAmount || '0') +
+          parseFloat(summary.totalSubmittedAmount || '0') +
+          parseFloat(summary.totalPendingAmount || '0'),
       };
     }),
 });

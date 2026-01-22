@@ -109,7 +109,7 @@ export const wipReportingRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new WipReportingService({ organizationId: ctx.organizationId });
-      return service.refreshViews(input?.triggeredBy ?? `user:${ctx.userId}`);
+      return service.refreshViews(input?.triggeredBy ?? `user:${ctx.user!.id}`);
     }),
 
   /**

@@ -194,7 +194,26 @@ export const expenseEntriesRouter = router({
    */
   create: authenticatedProcedure.input(createExpenseEntrySchema).mutation(async ({ ctx, input }) => {
     const service = new ExpenseEntryService(ctx.serviceContext);
-    return service.create(input);
+    return service.create({
+      expenseDate: input.expenseDate,
+      category: input.category,
+      description: input.description,
+      amount: input.amount,
+      currencyCode: input.currencyCode,
+      paymentMethod: input.paymentMethod,
+      projectId: input.projectId,
+      costCodeId: input.costCodeId,
+      merchantName: input.merchantName,
+      taxAmount: input.taxAmount,
+      isTaxDeductible: input.isTaxDeductible,
+      requiresReimbursement: input.requiresReimbursement,
+      isBillable: input.isBillable,
+      billingMarkup: input.billingMarkup,
+      internalNotes: input.internalNotes,
+      externalId: input.externalId,
+      externalSource: input.externalSource,
+      metadata: input.metadata,
+    });
   }),
 
   /**
@@ -235,7 +254,10 @@ export const expenseEntriesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new ExpenseEntryService(ctx.serviceContext);
-      return service.submit(input);
+      return service.submit({
+        expenseEntryIds: input.expenseEntryIds,
+        comments: input.comments,
+      });
     }),
 
   /**
@@ -250,7 +272,10 @@ export const expenseEntriesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new ExpenseEntryService(ctx.serviceContext);
-      return service.approve(input);
+      return service.approve({
+        expenseEntryIds: input.expenseEntryIds,
+        comments: input.comments,
+      });
     }),
 
   /**
@@ -265,7 +290,10 @@ export const expenseEntriesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new ExpenseEntryService(ctx.serviceContext);
-      return service.reject(input);
+      return service.reject({
+        expenseEntryIds: input.expenseEntryIds,
+        reason: input.reason,
+      });
     }),
 
   /**
@@ -308,7 +336,15 @@ export const expenseEntriesRouter = router({
    */
   createReport: authenticatedProcedure.input(createExpenseReportSchema).mutation(async ({ ctx, input }) => {
     const service = new ExpenseEntryService(ctx.serviceContext);
-    return service.createReport(input);
+    return service.createReport({
+      title: input.title,
+      description: input.description,
+      businessPurpose: input.businessPurpose,
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+      projectId: input.projectId,
+      expenseEntryIds: input.expenseEntryIds,
+    });
   }),
 
   /**

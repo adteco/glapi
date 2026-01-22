@@ -75,7 +75,16 @@ export const deliveryQueueRouter = router({
       const service = new DeliveryConnectorsService(ctx.serviceContext);
 
       try {
-        return await service.queueDelivery(input);
+        return await service.queueDelivery({
+          reportScheduleId: input.reportScheduleId,
+          jobExecutionId: input.jobExecutionId,
+          deliveryType: input.deliveryType,
+          deliveryConfig: { ...input.deliveryConfig, type: input.deliveryConfig.type },
+          reportType: input.reportType,
+          outputFormat: input.outputFormat,
+          outputLocation: input.outputLocation,
+          outputSizeBytes: input.outputSizeBytes,
+        });
       } catch (error: any) {
         handleServiceError(error);
       }
@@ -99,7 +108,20 @@ export const deliveryQueueRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const service = new DeliveryConnectorsService(ctx.serviceContext);
-      return service.queueMultipleDeliveries(input.base, input.deliveryConfigs);
+      return service.queueMultipleDeliveries(
+        {
+          reportScheduleId: input.base.reportScheduleId,
+          jobExecutionId: input.base.jobExecutionId,
+          reportType: input.base.reportType,
+          outputFormat: input.base.outputFormat,
+          outputLocation: input.base.outputLocation,
+          outputSizeBytes: input.base.outputSizeBytes,
+        },
+        input.deliveryConfigs.map((dc) => ({
+          type: dc.type,
+          config: { ...dc.config, type: dc.config.type },
+        }))
+      );
     }),
 
   // Get a delivery by ID
@@ -252,7 +274,7 @@ export const deliveryQueueRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const service = new DeliveryConnectorsService(ctx.serviceContext);
-      const errors = service.validateDeliveryConfig(input.type, input.config);
+      const errors = service.validateDeliveryConfig(input.type, { ...input.config, type: input.config.type });
 
       return {
         valid: errors.length === 0,

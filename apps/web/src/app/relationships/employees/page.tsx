@@ -15,21 +15,10 @@ import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import type { RouterOutputs } from '@glapi/trpc';
 
-
-interface Employee {
-  id: string;
-  employeeCode?: string | null;
-  firstName: string;
-  lastName: string;
-  email?: string | null;
-  phone?: string | null;
-  title?: string | null;
-  departmentId?: string | null;
-  status: 'active' | 'inactive' | 'terminated';
-  createdAt: string;
-  updatedAt: string;
-}
+// Use TRPC inferred types to prevent type drift
+type Employee = RouterOutputs['employees']['list']['data'][number];
 
 export default function EmployeesPage() {
   const { orgId } = useAuth();
@@ -77,91 +66,87 @@ export default function EmployeesPage() {
     },
   });
 
-  const employees = (employeesData?.data || []).map(employee => ({
-    ...employee,
-    id: employee.id || '',
-    createdAt: employee.createdAt?.toString() || new Date().toISOString(),
-    updatedAt: employee.updatedAt?.toString() || new Date().toISOString(),
-  }));
+  const employees = employeesData?.data || [];
+
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    employeeCode: '',
+    name: '',
     email: '',
     phone: '',
-    title: '',
-    departmentId: '',
-    status: 'active' as 'active' | 'inactive' | 'terminated',
+    employeeId: '',      // maps to metadata.employee_id
+    department: '',      // maps to metadata.department
+    position: '',        // maps to metadata.position
+    status: 'active',    // maps to metadata.status
   });
 
 
 
   const handleCreate = async () => {
-    if (!formData.firstName) {
-      toast.error('First name is required');
+    if (!formData.name) {
+      toast.error('Name is required');
       return;
     }
 
     createEmployeeMutation.mutate({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      employeeCode: formData.employeeCode || undefined,
+      name: formData.name,
       email: formData.email || undefined,
       phone: formData.phone || undefined,
-      title: formData.title || undefined,
-      departmentId: formData.departmentId || undefined,
-      status: formData.status,
+      metadata: {
+        employee_id: formData.employeeId || undefined,
+        department: formData.department || undefined,
+        position: formData.position || undefined,
+        status: formData.status || 'active',
+      },
     });
   };
 
   const handleUpdate = async () => {
     if (!selectedEmployee) return;
-    
+
     updateEmployeeMutation.mutate({
       id: selectedEmployee.id,
       data: {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        employeeCode: formData.employeeCode || undefined,
+        name: formData.name || undefined,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
-        title: formData.title || undefined,
-        departmentId: formData.departmentId || undefined,
-        status: formData.status,
+        metadata: {
+          employee_id: formData.employeeId || undefined,
+          department: formData.department || undefined,
+          position: formData.position || undefined,
+          status: formData.status || 'active',
+        },
       },
     });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this employee?')) return;
-    
-    deleteEmployeeMutation.mutate(id);
+
+    deleteEmployeeMutation.mutate({ id });
   };
 
   const openEditDialog = (employee: Employee) => {
     setSelectedEmployee(employee);
+    const metadata = employee.metadata as Record<string, string | number | undefined> | undefined;
     setFormData({
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      employeeCode: employee.employeeCode || '',
+      name: employee.name || '',
       email: employee.email || '',
       phone: employee.phone || '',
-      title: employee.title || '',
-      departmentId: employee.departmentId || '',
-      status: employee.status,
+      employeeId: (metadata?.employee_id as string) || '',
+      department: (metadata?.department as string) || '',
+      position: (metadata?.position as string) || '',
+      status: (metadata?.status as string) || 'active',
     });
     setIsEditOpen(true);
   };
 
   const resetForm = () => {
     setFormData({
-      firstName: '',
-      lastName: '',
-      employeeCode: '',
+      name: '',
       email: '',
       phone: '',
-      title: '',
-      departmentId: '',
+      employeeId: '',
+      department: '',
+      position: '',
       status: 'active',
     });
     setSelectedEmployee(null);
@@ -203,28 +188,20 @@ export default function EmployeesPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name*</Label>
+                      <Label htmlFor="name">Name*</Label>
                       <Input
-                        id="firstName"
-                        value={formData.firstName}
-                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
+                      <Label htmlFor="employeeId">Employee ID</Label>
                       <Input
-                        id="lastName"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="employeeCode">Employee Code</Label>
-                      <Input
-                        id="employeeCode"
-                        value={formData.employeeCode}
-                        onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
+                        id="employeeId"
+                        value={formData.employeeId}
+                        onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -245,28 +222,28 @@ export default function EmployeesPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="title">Job Title</Label>
+                      <Label htmlFor="position">Position</Label>
                       <Input
-                        id="title"
-                        value={formData.title}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        id="position"
+                        value={formData.position}
+                        onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="departmentId">Department ID</Label>
+                      <Label htmlFor="department">Department</Label>
                       <Input
-                        id="departmentId"
-                        value={formData.departmentId}
-                        onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
+                        id="department"
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="status">Status</Label>
                       <Select
                         value={formData.status}
-                        onValueChange={(value) => setFormData({ 
-                          ...formData, 
-                          status: value as 'active' | 'inactive' | 'terminated'
+                        onValueChange={(value) => setFormData({
+                          ...formData,
+                          status: value
                         })}
                       >
                         <SelectTrigger>
@@ -306,14 +283,17 @@ export default function EmployeesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {employees.map((employee) => (
+              {employees.map((employee) => {
+                const metadata = employee.metadata as Record<string, string | number | undefined> | undefined;
+                const status = (metadata?.status as string) || (employee.isActive ? 'active' : 'inactive');
+                return (
                 <TableRow key={employee.id}>
                   <TableCell className="font-medium">
-                    {employee.firstName} {employee.lastName}
+                    {employee.name}
                   </TableCell>
-                  <TableCell>{employee.employeeCode || '-'}</TableCell>
-                  <TableCell>{employee.title || '-'}</TableCell>
-                  <TableCell>{employee.departmentId || '-'}</TableCell>
+                  <TableCell>{(metadata?.employee_id as string) || '-'}</TableCell>
+                  <TableCell>{(metadata?.position as string) || '-'}</TableCell>
+                  <TableCell>{(metadata?.department as string) || '-'}</TableCell>
                   <TableCell>{employee.email || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">
@@ -321,14 +301,14 @@ export default function EmployeesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={employee.status === 'active' ? 'default' : 'secondary'}>
-                      {employee.status}
+                    <Badge variant={status === 'active' ? 'default' : 'secondary'}>
+                      {status}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         onClick={() => router.push(`/relationships/employees/${employee.id}`)}
                         title="View details"
@@ -336,8 +316,8 @@ export default function EmployeesPage() {
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">View</span>
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         onClick={() => openEditDialog(employee)}
                         title="Edit employee"
@@ -345,8 +325,8 @@ export default function EmployeesPage() {
                         <Pencil className="h-4 w-4" />
                         <span className="sr-only">Edit</span>
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(employee.id)}
                         title="Delete employee"
@@ -358,7 +338,8 @@ export default function EmployeesPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
           
@@ -379,28 +360,20 @@ export default function EmployeesPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-firstName">First Name*</Label>
+                <Label htmlFor="edit-name">Name*</Label>
                 <Input
-                  id="edit-firstName"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-lastName">Last Name</Label>
+                <Label htmlFor="edit-employeeId">Employee ID</Label>
                 <Input
-                  id="edit-lastName"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-employeeCode">Employee Code</Label>
-                <Input
-                  id="edit-employeeCode"
-                  value={formData.employeeCode}
-                  onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
+                  id="edit-employeeId"
+                  value={formData.employeeId}
+                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -421,28 +394,28 @@ export default function EmployeesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-title">Job Title</Label>
+                <Label htmlFor="edit-position">Position</Label>
                 <Input
-                  id="edit-title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  id="edit-position"
+                  value={formData.position}
+                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-departmentId">Department ID</Label>
+                <Label htmlFor="edit-department">Department</Label>
                 <Input
-                  id="edit-departmentId"
-                  value={formData.departmentId}
-                  onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
+                  id="edit-department"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-status">Status</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => setFormData({ 
-                    ...formData, 
-                    status: value as 'active' | 'inactive' | 'terminated'
+                  onValueChange={(value) => setFormData({
+                    ...formData,
+                    status: value
                   })}
                 >
                   <SelectTrigger>

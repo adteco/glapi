@@ -126,6 +126,8 @@ import * as onboardingSchemas from './onboarding';
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
+// Note: The schema object combines all table definitions for drizzle.
+// TypeScript declaration serialization is handled via explicit type exports.
 export const schema = {
   ...organizations,
   ...users,
@@ -259,16 +261,22 @@ export { invoices } from './invoices';
 export { payments } from './payments';
 
 // Re-export contract modification schemas
-export { 
-  contractModifications, 
-  modificationMethodEnum as ModificationMethod,
-  modificationTypeEnum as ModificationType,
-  modificationStatusEnum as ModificationStatus
+export {
+  contractModifications,
+  modificationMethodEnum,
+  modificationTypeEnum,
+  modificationStatusEnum,
+  ModificationMethod,
+  ModificationType,
+  ModificationStatus
 } from './contract-modifications';
-export type { 
+export type {
   ContractModification,
   NewContractModification,
-  UpdateContractModification
+  UpdateContractModification,
+  ModificationMethodValue,
+  ModificationTypeValue,
+  ModificationStatusValue
 } from './contract-modifications';
 export { modificationLineItems } from './modification-line-items';
 export type { 

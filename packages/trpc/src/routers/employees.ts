@@ -55,6 +55,14 @@ export const employeesRouter = router({
       return await service.findById(input.id, ctx.user.organizationId);
     }),
 
+  // Alias for getById (some components use get)
+  get: authenticatedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const service = new EmployeeService();
+      return await service.findById(input.id, ctx.user.organizationId);
+    }),
+
   create: authenticatedProcedure
     .input(employeeSchema)
     .mutation(async ({ ctx, input }) => {

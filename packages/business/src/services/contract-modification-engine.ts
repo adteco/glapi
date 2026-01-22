@@ -1,6 +1,6 @@
 import { Database } from '@glapi/database';
-import { 
-  contractModifications, 
+import {
+  contractModifications,
   modificationLineItems,
   catchUpAdjustments,
   subscriptions,
@@ -14,7 +14,9 @@ import {
   ModificationStatus,
   NewContractModification,
   NewModificationLineItem,
-  NewCatchUpAdjustment
+  NewCatchUpAdjustment,
+  type ModificationMethodValue,
+  type ModificationTypeValue,
 } from '@glapi/database/schema';
 import { eq, and, gte, lte, sql, inArray } from 'drizzle-orm';
 import { RevenueCalculationEngine } from './revenue-calculation-engine';
@@ -22,7 +24,7 @@ import { createId } from '@paralleldrive/cuid2';
 
 export interface ModificationRequest {
   subscriptionId: string;
-  modificationType: typeof ModificationType[keyof typeof ModificationType];
+  modificationType: ModificationTypeValue;
   effectiveDate: Date;
   changes: ModificationChanges;
   reason?: string;
@@ -63,7 +65,7 @@ export interface ModificationChanges {
 }
 
 export interface ModificationImpact {
-  method: typeof ModificationMethod[keyof typeof ModificationMethod];
+  method: ModificationMethodValue;
   financialImpact: {
     originalValue: number;
     modifiedValue: number;
