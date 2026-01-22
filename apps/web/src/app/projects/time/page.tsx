@@ -70,36 +70,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Types
-interface TimeEntry {
-  id: string;
-  employeeId: string;
-  employeeName?: string;
-  projectId: string | null;
-  projectName?: string;
-  entryDate: string;
-  hours: string;
-  entryType: string;
-  isBillable: boolean;
-  laborCost: string | null;
-  description: string | null;
-  status: string;
-  submittedAt: Date | null;
-  approvedAt: Date | null;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  status: string;
-}
-
-interface Employee {
-  id: string;
-  firstName: string;
-  lastName: string;
-}
+// Use TRPC inferred types to prevent type drift
+type TimeEntry = RouterOutputs['timeEntries']['list']['data'][number];
+type Project = RouterOutputs['projects']['list']['data'][number];
 
 // Form schema
 const timeEntryFormSchema = z.object({
@@ -153,7 +128,7 @@ export default function ProjectTimePage() {
   );
 
   const { data: projectsData } = trpc.projects.list.useQuery(
-    { page: 1, pageSize: 100 },
+    { page: 1, limit: 100 },
     { enabled: !!orgId }
   );
 
@@ -231,7 +206,7 @@ export default function ProjectTimePage() {
   });
 
   // Data extraction
-  const entries = entriesData?.entries || [];
+  const entries = entriesData?.data || [];
   const projects = projectsData?.data || [];
 
   // Calculate weekly totals
@@ -483,7 +458,7 @@ export default function ProjectTimePage() {
                   </TableCell>
                   <TableCell>{formatDate(entry.entryDate)}</TableCell>
                   <TableCell className="font-medium">
-                    {entry.projectName || 'No Project'}
+                    {entry.projectId ? projects.find(p => p.id === entry.projectId)?.name || 'Unknown' : 'No Project'}
                   </TableCell>
                   <TableCell className="capitalize">
                     {entry.entryType.toLowerCase().replace('_', ' ')}

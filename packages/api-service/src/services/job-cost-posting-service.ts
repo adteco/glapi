@@ -229,6 +229,8 @@ export class JobCostPostingService extends BaseService {
         unitPrice: entry.amount.toString(),
         lineAmount: entry.amount.toString(),
         totalLineAmount: entry.amount.toString(),
+        taxAmount: '0',
+        discountAmount: '0',
         accountId: costAccountId,
         projectId: resolvedProjectId,
         activityCodeId: null,
@@ -240,7 +242,7 @@ export class JobCostPostingService extends BaseService {
           postingDate: entryDate,
           costType: transactionPrefix, // Track original type
         },
-      } as BusinessTransactionLine);
+      } as unknown as BusinessTransactionLine);
     }
 
     const postingRules: GlPostingRule[] = [

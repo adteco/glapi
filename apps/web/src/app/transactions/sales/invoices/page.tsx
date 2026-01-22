@@ -47,42 +47,12 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Type definitions
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  entityId: string;
-  customerName?: string;
-  invoiceDate: string | Date;
-  dueDate: string | Date | null;
-  subtotal: number | string;
-  taxAmount: number | string;
-  totalAmount: number | string;
-  paidAmount?: number | string;
-  balanceDue?: number | string;
-  status: string;
-  metadata?: Record<string, unknown>;
-}
-
-interface InvoiceLineItem {
-  id: string;
-  itemId: string | null;
-  itemName?: string;
-  description: string;
-  quantity: number | string;
-  unitPrice: number | string;
-  amount: number | string;
-}
-
-interface SalesOrder {
-  id: string;
-  orderNumber: string;
-  entityId: string;
-  customerName?: string;
-  status: string;
-  totalAmount: number | string;
-}
+// Use TRPC inferred types to prevent type drift
+type Invoice = RouterOutputs['invoices']['list']['data'][number];
+type InvoiceLineItem = RouterOutputs['invoices']['get']['lineItems'][number];
+type SalesOrder = RouterOutputs['salesOrders']['list']['data'][number];
 
 // Form schemas
 const invoiceLineSchema = z.object({

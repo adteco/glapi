@@ -145,7 +145,11 @@ export const scheduleOfValuesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new SovService(ctx.serviceContext);
-      return service.update(input.id, input.data);
+      // Convert null to undefined for service compatibility
+      return service.update(input.id, {
+        ...input.data,
+        retainageCapAmount: input.data.retainageCapAmount ?? undefined,
+      });
     }),
 
   /**
@@ -223,7 +227,11 @@ export const scheduleOfValuesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new SovService(ctx.serviceContext);
-      return service.updateLine(input.lineId, input.data);
+      // Convert null to undefined for service compatibility
+      return service.updateLine(input.lineId, {
+        ...input.data,
+        notes: input.data.notes ?? undefined,
+      });
     }),
 
   /**

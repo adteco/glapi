@@ -2,14 +2,25 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc';
-import superjson from 'superjson';
-import { useAuth, useOrganization } from '@clerk/nextjs';
+import { useAuth } from '@clerk/nextjs';
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const { getToken, orgId, userId } = useAuth();
-  const { organization } = useOrganization();
+
+  // Store refs to avoid recreating client on every render
+  const getTokenRef = useRef(getToken);
+  const orgIdRef = useRef(orgId);
+  const userIdRef = useRef(userId);
+
+  // Update refs when values change
+  useEffect(() => {
+    getTokenRef.current = getToken;
+    orgIdRef.current = orgId;
+    userIdRef.current = userId;
+  }, [getToken, orgId, userId]);
+
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -22,30 +33,28 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   // Invalidate all queries when organization changes
   useEffect(() => {
     if (orgId) {
-      // Clear all cached data when organization changes
       queryClient.invalidateQueries();
-      queryClient.refetchQueries();
     }
   }, [orgId, queryClient]);
-  
-  const trpcClient = useMemo(() =>
+
+  // Create client once, use refs for dynamic values in headers
+  const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
         httpBatchLink({
-          url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3021'}/api/trpc`,
+          url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031'}/api/trpc`,
           async headers() {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             return {
               authorization: token ? `Bearer ${token}` : '',
-              'x-organization-id': orgId || '',
-              'x-user-id': userId || '',
+              'x-organization-id': orgIdRef.current || '',
+              'x-user-id': userIdRef.current || '',
             };
           },
-          // @ts-ignore - superjson type issue with tRPC
-          transformer: superjson,
         }),
       ],
-    }), [orgId, userId, getToken]);
+    })
+  );
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>

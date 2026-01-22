@@ -256,8 +256,8 @@ export default function SalesOrdersPage() {
   }
 
   const salesOrders = salesOrdersData?.data || [];
-  const customers = customersData?.data || [];
-  const subsidiaries = subsidiariesData?.data || [];
+  const customers = customersData || [];
+  const subsidiaries = subsidiariesData || [];
 
   return (
     <div className="container mx-auto py-10">

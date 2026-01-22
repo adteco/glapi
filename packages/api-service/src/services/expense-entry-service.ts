@@ -24,6 +24,7 @@ import type {
   UpdateExpenseReport,
   ExpenseEntryStatus,
   ExpenseCategory,
+  PaymentMethod,
 } from '@glapi/database';
 
 // ============================================================================
@@ -41,7 +42,7 @@ export interface ExpenseEntryCreateInput {
   currencyCode?: string;
   taxAmount?: string;
   isTaxDeductible?: boolean;
-  paymentMethod?: string;
+  paymentMethod?: PaymentMethod;
   requiresReimbursement?: boolean;
   isBillable?: boolean;
   billingMarkup?: string;
@@ -62,7 +63,7 @@ export interface ExpenseEntryUpdateInput {
   currencyCode?: string;
   taxAmount?: string | null;
   isTaxDeductible?: boolean;
-  paymentMethod?: string;
+  paymentMethod?: PaymentMethod;
   requiresReimbursement?: boolean;
   isBillable?: boolean;
   billingMarkup?: string | null;

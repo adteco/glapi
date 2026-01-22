@@ -38,32 +38,22 @@ import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Define interfaces
-interface Warehouse {
+// Use TRPC inferred types to prevent type drift
+type Warehouse = RouterOutputs['warehouses']['list']['data'][number];
+type Location = RouterOutputs['locations']['list'][number];
+
+// Local interface kept for backward compatibility with form state
+interface WarehouseLocal {
   id: string;
   organizationId: string;
-  warehouseId: string;
+  warehouseId?: string;
   name: string;
   locationId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  location?: {
-    id: string;
-    name: string;
-    addressLine1?: string;
-    city?: string;
-    stateProvince?: string;
-  };
-}
-
-interface Location {
-  id: string;
-  name: string;
-  addressLine1?: string;
-  city?: string;
-  stateProvince?: string;
 }
 
 // Form schema
@@ -129,7 +119,7 @@ export default function WarehousesPage() {
   });
 
   const warehouses = warehousesData?.data || [];
-  const locations = locationsData?.data || [];
+  const locations = locationsData || [];
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseFormSchema),
@@ -215,7 +205,9 @@ export default function WarehousesPage() {
   };
 
   // Format location for display
-  const formatLocation = (location?: Warehouse['location']) => {
+  const formatLocation = (locationId?: string) => {
+    if (!locationId) return '-';
+    const location = locations.find((loc: Location) => loc.id === locationId);
     if (!location) return '-';
     const parts = [
       location.name,
@@ -294,8 +286,8 @@ export default function WarehousesPage() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="no-location">No location</SelectItem>
-                          {locations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
+                          {locations.filter((location: Location) => location.id).map((location: Location) => (
+                            <SelectItem key={location.id} value={location.id!}>
                               {location.name}
                             </SelectItem>
                           ))}
@@ -406,8 +398,8 @@ export default function WarehousesPage() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="no-location">No location</SelectItem>
-                        {locations.map((location) => (
-                          <SelectItem key={location.id} value={location.id}>
+                        {locations.filter((location: Location) => location.id).map((location: Location) => (
+                          <SelectItem key={location.id} value={location.id!}>
                             {location.name}
                           </SelectItem>
                         ))}
@@ -487,7 +479,7 @@ export default function WarehousesPage() {
               <TableRow key={warehouse.id}>
                 <TableCell className="font-medium">{warehouse.warehouseId}</TableCell>
                 <TableCell>{warehouse.name}</TableCell>
-                <TableCell className="max-w-xs truncate">{formatLocation(warehouse.location)}</TableCell>
+                <TableCell className="max-w-xs truncate">{formatLocation(warehouse.locationId)}</TableCell>
                 <TableCell>
                   <Badge variant={warehouse.isActive ? 'default' : 'secondary'}>
                     {warehouse.isActive ? 'Active' : 'Inactive'}

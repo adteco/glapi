@@ -35,25 +35,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, parseISO, isValid } from 'date-fns';
+import type { RouterOutputs } from '@glapi/trpc';
+
+// Use TRPC inferred types to prevent type drift
+type TimeEntryFromAPI = RouterOutputs['timeEntries']['list']['data'][number];
+type TimeEntry = TimeEntryFromAPI;
 
 type TimeEntryStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'CANCELLED';
 type TimeEntryType = 'REGULAR' | 'OVERTIME' | 'DOUBLE_TIME' | 'PTO' | 'SICK' | 'HOLIDAY' | 'OTHER';
-
-interface TimeEntry {
-  id: string;
-  employeeId: string;
-  projectId?: string | null;
-  costCodeId?: string | null;
-  entryDate: string;
-  hours: string;
-  entryType: TimeEntryType;
-  isBillable: boolean;
-  description?: string | null;
-  status: TimeEntryStatus;
-  laborCost?: string | null;
-  totalCost?: string | null;
-  createdAt: Date;
-}
 
 const STATUS_COLORS: Record<TimeEntryStatus, string> = {
   DRAFT: 'secondary',

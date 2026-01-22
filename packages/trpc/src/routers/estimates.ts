@@ -309,7 +309,7 @@ export const estimatesRouter = router({
         .offset(offset);
 
       return {
-        data: estimatesRaw.map(e => ({
+        data: estimatesRaw.map((e: typeof estimatesRaw[number]) => ({
           ...e,
           customerName: e.entityName || 'Unknown',
         })),
@@ -948,7 +948,7 @@ export const estimatesRouter = router({
       }).returning();
 
       // Copy lines
-      const salesOrderLines = estimateLines.map((line, index) => ({
+      const salesOrderLines = estimateLines.map((line: typeof estimateLines[number], index: number) => ({
         businessTransactionId: salesOrder.id,
         lineNumber: index + 1,
         lineType: line.lineType,

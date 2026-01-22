@@ -32,8 +32,8 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
   });
 
   const companies = [
-    ...(customersData?.data || []),
-    ...(vendorsData?.data || [])
+    ...(customersData || []),
+    ...(vendorsData || [])
   ];
 
   const [formData, setFormData] = useState({

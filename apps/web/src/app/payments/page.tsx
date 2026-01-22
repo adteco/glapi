@@ -54,31 +54,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Type definitions
-interface Payment {
-  id: string;
-  invoiceId: string;
+// Use TRPC inferred types to prevent type drift
+type Payment = RouterOutputs['payments']['list']['data'][number];
+type Invoice = RouterOutputs['invoices']['list']['data'][number];
+
+// Extended types for UI display (some fields may be missing in actual API response)
+type PaymentDisplay = Payment & {
   invoiceNumber?: string;
   customerName?: string;
-  paymentDate: string | Date;
-  amount: string | number;
-  paymentMethod?: string;
-  transactionReference?: string;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
-  metadata?: Record<string, unknown>;
-}
+};
 
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  entityId: string;
+type InvoiceDisplay = Invoice & {
+  balanceDue?: string;
   customerName?: string;
-  totalAmount: number | string;
-  paidAmount?: number | string;
-  balanceDue?: number | string;
-  status: string;
-}
+};
 
 // Form schemas
 const paymentFormSchema = z.object({
@@ -192,9 +183,11 @@ export default function PaymentsPage() {
   const statistics = statisticsData;
 
   // Filter invoices that have balance due (for payment selection)
+  // Note: balanceDue may not be in the type - use totalAmount as fallback
   const unpaidInvoices = invoices.filter((inv: Invoice) => {
-    const balanceDue = Number(inv.balanceDue || 0);
-    return balanceDue > 0 && inv.status !== 'VOID' && inv.status !== 'CANCELLED';
+    const invDisplay = inv as InvoiceDisplay;
+    const balanceDue = Number(invDisplay.balanceDue || inv.totalAmount || 0);
+    return balanceDue > 0 && inv.status !== 'void' && inv.status !== 'cancelled';
   });
 
   // Handlers
@@ -265,7 +258,8 @@ export default function PaymentsPage() {
     createForm.setValue('invoiceId', invoiceId);
     const invoice = unpaidInvoices.find((inv: Invoice) => inv.id === invoiceId);
     if (invoice) {
-      const balanceDue = Number(invoice.balanceDue || invoice.totalAmount || 0);
+      const invDisplay = invoice as InvoiceDisplay;
+      const balanceDue = Number(invDisplay.balanceDue || invoice.totalAmount || 0);
       createForm.setValue('amount', balanceDue.toFixed(2));
     }
   };
@@ -392,13 +386,15 @@ export default function PaymentsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              payments.map((payment: Payment) => (
+              payments.map((payment: Payment) => {
+                const paymentDisplay = payment as PaymentDisplay;
+                return (
                 <TableRow key={payment.id}>
                   <TableCell>{formatDate(payment.paymentDate)}</TableCell>
                   <TableCell className="font-medium">
-                    {payment.invoiceNumber || '-'}
+                    {paymentDisplay.invoiceNumber || payment.invoiceId?.slice(0, 8) || '-'}
                   </TableCell>
-                  <TableCell>{payment.customerName || '-'}</TableCell>
+                  <TableCell>{paymentDisplay.customerName || '-'}</TableCell>
                   <TableCell className="capitalize">
                     {payment.paymentMethod?.replace('_', ' ') || '-'}
                   </TableCell>
@@ -432,7 +428,8 @@ export default function PaymentsPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+              );
+              })
             )}
           </TableBody>
         </Table>
@@ -468,11 +465,14 @@ export default function PaymentsPage() {
                         {unpaidInvoices.length === 0 ? (
                           <SelectItem value="" disabled>No unpaid invoices</SelectItem>
                         ) : (
-                          unpaidInvoices.map((invoice: Invoice) => (
+                          unpaidInvoices.map((invoice: Invoice) => {
+                            const invDisplay = invoice as InvoiceDisplay;
+                            return (
                             <SelectItem key={invoice.id} value={invoice.id}>
-                              {invoice.invoiceNumber} - {invoice.customerName || 'Unknown'} ({formatCurrency(invoice.balanceDue || invoice.totalAmount)} due)
+                              {invoice.invoiceNumber} - {invDisplay.customerName || 'Unknown'} ({formatCurrency(invDisplay.balanceDue || invoice.totalAmount)} due)
                             </SelectItem>
-                          ))
+                            );
+                          })
                         )}
                       </SelectContent>
                     </Select>
@@ -577,7 +577,9 @@ export default function PaymentsPage() {
           <DialogHeader>
             <DialogTitle>Payment Details</DialogTitle>
           </DialogHeader>
-          {selectedPayment && (
+          {selectedPayment && (() => {
+            const paymentDisplay = selectedPayment as PaymentDisplay;
+            return (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -590,11 +592,11 @@ export default function PaymentsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Invoice</p>
-                  <p className="font-medium">{selectedPayment.invoiceNumber || '-'}</p>
+                  <p className="font-medium">{paymentDisplay.invoiceNumber || selectedPayment.invoiceId?.slice(0, 8) || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Customer</p>
-                  <p className="font-medium">{selectedPayment.customerName || '-'}</p>
+                  <p className="font-medium">{paymentDisplay.customerName || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Amount</p>
@@ -612,7 +614,8 @@ export default function PaymentsPage() {
                 )}
               </div>
             </div>
-          )}
+            );
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewOpen(false)}>
               Close

@@ -32,20 +32,10 @@ import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Define interfaces
-interface PriceList {
-  id: string;
-  organizationId: string;
-  name: string;
-  code: string;
-  description?: string;
-  currencyCode: string;
-  isDefault: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+// Use TRPC inferred types to prevent type drift
+type PriceList = RouterOutputs['priceLists']['list']['data'][number];
 
 // Form schema
 const priceListFormSchema = z.object({

@@ -13,8 +13,7 @@ import {
 import { PlaidConnector, PlaidConnectorConfig } from './plaid-connector';
 import { YodleeConnector, YodleeConnectorConfig } from './yodlee-connector';
 
-// Re-export types for convenience
-export type { ConnectorServiceContext as ServiceContext };
+// Note: Use ServiceContext from common.types, ConnectorServiceContext is internal
 
 import type {
   BankFeedProvider,

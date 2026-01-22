@@ -10,8 +10,14 @@ if (!process.env.DATABASE_URL) {
 const DATABASE_URL = process.env.DATABASE_URL;
 console.log('DATABASE_URL', DATABASE_URL);
 
+// Configure SSL for RDS connections
+const sslConfig = DATABASE_URL.includes('rds.amazonaws.com') || DATABASE_URL.includes('sslmode=require')
+  ? { rejectUnauthorized: false }
+  : undefined;
+
 const pool = new Pool({
   connectionString: DATABASE_URL,
+  ssl: sslConfig,
 });
 
 export const db = drizzle(pool, { schema });

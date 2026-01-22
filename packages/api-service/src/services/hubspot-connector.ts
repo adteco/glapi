@@ -1108,28 +1108,28 @@ export class HubSpotConnector extends BaseConnector {
     switch (activityType) {
       case 'task':
         subject = props.hs_task_subject || '';
-        description = props.hs_task_body;
+        description = props.hs_task_body || '';
         status = this.mapTaskStatus(props.hs_task_status);
         priority = this.mapTaskPriority(props.hs_task_priority);
         break;
       case 'call':
         subject = props.hs_call_title || 'Call';
-        description = props.hs_call_body;
+        description = props.hs_call_body || '';
         duration = props.hs_call_duration
           ? Math.ceil(parseInt(props.hs_call_duration, 10) / 60000)
           : undefined;
         break;
       case 'meeting':
         subject = props.hs_meeting_title || 'Meeting';
-        description = props.hs_meeting_body;
+        description = props.hs_meeting_body || '';
         break;
       case 'email':
         subject = props.hs_email_subject || 'Email';
-        description = props.hs_email_text;
+        description = props.hs_email_text || '';
         break;
       case 'note':
         subject = 'Note';
-        description = props.hs_note_body;
+        description = props.hs_note_body || '';
         break;
     }
 

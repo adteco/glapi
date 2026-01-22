@@ -100,7 +100,30 @@ export const reportSchedulesRouter = router({
       const service = new ReportSchedulerService(ctx.serviceContext);
 
       try {
-        return await service.createSchedule(input);
+        return await service.createSchedule({
+          name: input.name,
+          description: input.description,
+          reportType: input.reportType,
+          outputFormat: input.outputFormat,
+          filters: input.filters,
+          frequency: input.frequency,
+          cronExpression: input.cronExpression,
+          timezone: input.timezone,
+          dayOfWeek: input.dayOfWeek,
+          dayOfMonth: input.dayOfMonth,
+          monthOfYear: input.monthOfYear,
+          timeOfDay: input.timeOfDay,
+          maxRetries: input.maxRetries,
+          retryDelaySeconds: input.retryDelaySeconds,
+          runUntil: input.runUntil,
+          maxRuns: input.maxRuns,
+          notifyOnSuccess: input.notifyOnSuccess,
+          notifyOnFailure: input.notifyOnFailure,
+          notificationEmails: input.notificationEmails,
+          deliveryConfig: input.deliveryConfig,
+          tags: input.tags,
+          metadata: input.metadata,
+        });
       } catch (error: any) {
         handleServiceError(error);
       }
