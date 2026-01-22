@@ -17,6 +17,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ArrowLeft, Edit, Plus, Users } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
@@ -55,8 +62,16 @@ export default function ProjectDetailPage() {
     }
   );
 
+  // Fetch employees for participant selection
+  const { data: employeesData } = trpc.employees.list.useQuery(
+    { page: 1, limit: 100 },
+    { enabled: !!orgId }
+  );
+  const employees = employeesData?.data || [];
+
   // Add participant state and mutation
   const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [participantRole, setParticipantRole] = useState('');
   const [isPrimary, setIsPrimary] = useState(false);
 
@@ -66,16 +81,18 @@ export default function ProjectDetailPage() {
     onSuccess: () => {
       utils.projects.listParticipants.invalidate({ projectId: id });
       setIsAddParticipantOpen(false);
+      setSelectedEmployeeId('');
       setParticipantRole('');
       setIsPrimary(false);
     },
   });
 
   const handleAddParticipant = () => {
-    if (!participantRole.trim()) return;
+    if (!participantRole.trim() || !selectedEmployeeId) return;
     addParticipantMutation.mutate({
       projectId: id,
       data: {
+        entityId: selectedEmployeeId,
         participantRole: participantRole.trim(),
         isPrimary,
       },
@@ -323,6 +340,21 @@ export default function ProjectDetailPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label htmlFor="employee">Employee</Label>
+              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="participantRole">Role</Label>
               <Input
                 id="participantRole"
@@ -348,7 +380,7 @@ export default function ProjectDetailPage() {
             </Button>
             <Button
               onClick={handleAddParticipant}
-              disabled={!participantRole.trim() || addParticipantMutation.isPending}
+              disabled={!participantRole.trim() || !selectedEmployeeId || addParticipantMutation.isPending}
             >
               {addParticipantMutation.isPending ? 'Adding...' : 'Add Participant'}
             </Button>
