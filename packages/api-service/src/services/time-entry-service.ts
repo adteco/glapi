@@ -308,21 +308,28 @@ export class TimeEntryService extends BaseService {
         organizationId
       );
       if (!hasAccess) {
-        // Auto-create the assignment instead of blocking
-        // Note: createdBy is null because userId is a Clerk ID, not a database user UUID
-        await this.repository.createAssignment({
-          organizationId,
-          employeeId,
-          projectId: input.projectId,
-          role: null,
-          defaultCostCodeId: null,
-          budgetedHours: null,
-          startDate: null,
-          endDate: null,
-          canApproveTime: false,
-          metadata: null,
-          createdBy: null,
-        });
+        // Try to auto-create the assignment instead of blocking
+        // This may fail if employeeId is from entities table but not in users table
+        // (employee_project_assignments.employee_id references users.id)
+        try {
+          await this.repository.createAssignment({
+            organizationId,
+            employeeId,
+            projectId: input.projectId,
+            role: null,
+            defaultCostCodeId: null,
+            budgetedHours: null,
+            startDate: null,
+            endDate: null,
+            canApproveTime: false,
+            metadata: null,
+            createdBy: null,
+          });
+        } catch (assignmentError) {
+          // Log but don't block - the employee may be from entities table
+          // which doesn't have a corresponding user record
+          console.warn('Could not auto-create project assignment:', assignmentError);
+        }
       }
     }
 
