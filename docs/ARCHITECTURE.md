@@ -86,19 +86,87 @@ export const entityRouter = router({
   list: protectedProcedure
     .input(listSchema)
     .query(({ ctx, input }) => ctx.service.list(input)),
-    
+
   get: protectedProcedure
     .input(getSchema)
     .query(({ ctx, input }) => ctx.service.get(input)),
-    
+
   create: protectedProcedure
     .input(createSchema)
     .mutation(({ ctx, input }) => ctx.service.create(input)),
-    
+
   update: protectedProcedure
     .input(updateSchema)
     .mutation(({ ctx, input }) => ctx.service.update(input))
 });
+```
+
+#### 🚨 CRITICAL: TRPC Type Inference (Prevent Type Drift)
+
+**ALWAYS use TRPC inferred types in components. NEVER define duplicate interfaces that mirror TRPC outputs.**
+
+Type drift occurs when components define their own interfaces that duplicate what TRPC already provides. This creates maintenance burden and runtime errors when API shapes change without components updating.
+
+```typescript
+// ❌ BAD - Separate interface that can drift from API
+interface Customer {
+  id: string;
+  companyName: string;
+  contactEmail?: string;
+  status: 'active' | 'inactive';
+}
+
+const { data } = trpc.customers.list.useQuery({});
+const customers = data as Customer[]; // Manual typing = DRIFT RISK
+
+// ✅ GOOD - Use TRPC inferred types (single source of truth)
+import type { RouterOutputs } from '@glapi/trpc';
+
+// For single item from a list
+type Customer = RouterOutputs['customers']['list'][number];
+
+// For the full list response
+type CustomerList = RouterOutputs['customers']['list'];
+
+// For a single get response
+type CustomerDetails = RouterOutputs['customers']['get'];
+
+// For mutation inputs
+import type { RouterInputs } from '@glapi/trpc';
+type CreateCustomerInput = RouterInputs['customers']['create'];
+
+const { data: customers } = trpc.customers.list.useQuery({});
+// TypeScript now knows the exact shape - compile-time errors if API changes!
+```
+
+**Benefits of this pattern:**
+1. **Compile-time safety**: TypeScript errors if API changes and component uses outdated field
+2. **Single source of truth**: Types defined once in TRPC router, derived everywhere
+3. **No maintenance**: Interface updates automatically when router schema changes
+4. **Contract testing**: TypeScript IS the contract test between API and UI
+
+**Where to export types from:**
+```typescript
+// packages/trpc/src/index.ts
+export type { RouterOutputs, RouterInputs } from './trpc';
+
+// Usage in components
+import type { RouterOutputs, RouterInputs } from '@glapi/trpc';
+```
+
+**Form Data Types:**
+When forms need different shapes than API responses (e.g., optional fields, transformed values), create form-specific types that derive from router types:
+
+```typescript
+import type { RouterOutputs, RouterInputs } from '@glapi/trpc';
+
+// Base type from TRPC
+type Customer = RouterOutputs['customers']['get'];
+
+// Form-specific type (extend/modify as needed)
+type CustomerFormData = Omit<RouterInputs['customers']['create'], 'organizationId'> & {
+  // Add form-specific fields if needed
+};
 ```
 
 #### REST API Exposure (Next.js)
