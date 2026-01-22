@@ -309,6 +309,7 @@ export class TimeEntryService extends BaseService {
       );
       if (!hasAccess) {
         // Auto-create the assignment instead of blocking
+        // Note: createdBy is null because userId is a Clerk ID, not a database user UUID
         await this.repository.createAssignment({
           organizationId,
           employeeId,
@@ -320,7 +321,7 @@ export class TimeEntryService extends BaseService {
           endDate: null,
           canApproveTime: false,
           metadata: null,
-          createdBy: userId,
+          createdBy: null,
         });
       }
     }
