@@ -1,10 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Edit, Plus, Users } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
@@ -42,6 +54,33 @@ export default function ProjectDetailPage() {
       retry: 1,
     }
   );
+
+  // Add participant state and mutation
+  const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
+  const [participantRole, setParticipantRole] = useState('');
+  const [isPrimary, setIsPrimary] = useState(false);
+
+  const utils = trpc.useUtils();
+
+  const addParticipantMutation = trpc.projects.addParticipant.useMutation({
+    onSuccess: () => {
+      utils.projects.listParticipants.invalidate({ projectId: id });
+      setIsAddParticipantOpen(false);
+      setParticipantRole('');
+      setIsPrimary(false);
+    },
+  });
+
+  const handleAddParticipant = () => {
+    if (!participantRole.trim()) return;
+    addParticipantMutation.mutate({
+      projectId: id,
+      data: {
+        participantRole: participantRole.trim(),
+        isPrimary,
+      },
+    });
+  };
 
   if (!orgId) {
     return (
@@ -230,7 +269,7 @@ export default function ProjectDetailPage() {
                 </CardTitle>
                 <CardDescription>Team members and stakeholders assigned to this project</CardDescription>
               </div>
-              <Button size="sm" variant="outline" disabled>
+              <Button size="sm" variant="outline" onClick={() => setIsAddParticipantOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Participant
               </Button>
@@ -272,6 +311,50 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add Participant Dialog */}
+      <Dialog open={isAddParticipantOpen} onOpenChange={setIsAddParticipantOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Participant</DialogTitle>
+            <DialogDescription>
+              Add a team member or stakeholder to this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="participantRole">Role</Label>
+              <Input
+                id="participantRole"
+                placeholder="e.g., Project Manager, Developer, Client"
+                value={participantRole}
+                onChange={(e) => setParticipantRole(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isPrimary"
+                checked={isPrimary}
+                onCheckedChange={(checked) => setIsPrimary(checked === true)}
+              />
+              <Label htmlFor="isPrimary" className="text-sm font-normal">
+                Primary contact for this role
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddParticipantOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddParticipant}
+              disabled={!participantRole.trim() || addParticipantMutation.isPending}
+            >
+              {addParticipantMutation.isPending ? 'Adding...' : 'Add Participant'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
