@@ -54,31 +54,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Type definitions
-interface Payment {
-  id: string;
-  invoiceId: string;
-  invoiceNumber?: string;
-  customerName?: string;
-  paymentDate: string | Date;
-  amount: string | number;
-  paymentMethod?: string;
-  transactionReference?: string;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
-  metadata?: Record<string, unknown>;
-}
-
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  entityId: string;
-  customerName?: string;
-  totalAmount: number | string;
-  paidAmount?: number | string;
-  balanceDue?: number | string;
-  status: string;
-}
+// Use TRPC inferred types to prevent type drift
+type Payment = RouterOutputs['payments']['list']['data'][number];
+type Invoice = RouterOutputs['invoices']['list']['data'][number];
 
 // Form schemas
 const paymentFormSchema = z.object({

@@ -15,28 +15,15 @@ import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import type { RouterOutputs } from '@glapi/trpc';
 
-interface Address {
-  street?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  country?: string | null;
-}
+// Use TRPC inferred types to prevent type drift
+type Customer = RouterOutputs['customers']['list'][number];
 
-interface Client {
-  id: string;
-  companyName: string;
-  customerId?: string | null;
-  contactEmail?: string | null;
-  contactPhone?: string | null;
-  parentCustomerId?: string | null;
-  status: string;
-  billingAddress?: Address | null;
-  createdAt: string;
-  updatedAt: string;
-}
+// Client uses Customer directly - dates are handled as Date objects
+type Client = Customer;
 
+// Form-specific type for local state (not API shape)
 interface FormData {
   name: string;
   displayName: string;
