@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { PermissionService } from '@glapi/api-service';
+import { OrganizationRepository } from '@glapi/database';
 import type { ResourceType, Action, AccessLevel } from '@glapi/api-service';
 
 export interface OrganizationContext {
@@ -16,63 +17,68 @@ export class AuthenticationError extends Error {
   }
 }
 
+// Cache for Clerk org ID to database org ID mapping
+const orgIdCache = new Map<string, string>();
+
+/**
+ * Resolve a Clerk org ID (org_xxxxx) to a database organization UUID
+ */
+async function resolveOrganizationId(clerkOrgId: string): Promise<string | null> {
+  // Check cache first
+  if (orgIdCache.has(clerkOrgId)) {
+    return orgIdCache.get(clerkOrgId)!;
+  }
+
+  // If it's already a UUID format, return as-is
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidPattern.test(clerkOrgId)) {
+    return clerkOrgId;
+  }
+
+  // Look up by Clerk org ID
+  const orgRepo = new OrganizationRepository();
+  const org = await orgRepo.findByClerkId(clerkOrgId);
+
+  if (org) {
+    orgIdCache.set(clerkOrgId, org.id);
+    return org.id;
+  }
+
+  return null;
+}
+
 export async function getServiceContext(): Promise<OrganizationContext> {
   const headersList = await headers();
 
-  const organizationId = headersList.get('x-organization-id');
+  const rawOrganizationId = headersList.get('x-organization-id');
   const userId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
 
-  // TEMPORARY: For testing, use provided headers or fall back to development
-  console.log('Auth context - orgId:', organizationId, 'userId:', userId);
+  console.log('Auth context - rawOrgId:', rawOrganizationId, 'userId:', userId);
 
-  if (organizationId && userId) {
-    return {
-      organizationId,
-      userId,
-      clerkOrganizationId: organizationId,
-      apiKeyName: apiKeyName || undefined
-    };
+  if (rawOrganizationId && userId) {
+    // Resolve Clerk org ID to database UUID
+    const organizationId = await resolveOrganizationId(rawOrganizationId);
+
+    if (organizationId) {
+      return {
+        organizationId,
+        userId,
+        clerkOrganizationId: rawOrganizationId,
+        apiKeyName: apiKeyName || undefined
+      };
+    }
+
+    console.warn(`Could not resolve organization ID: ${rawOrganizationId}`);
   }
 
   // Fallback for development - use valid UUID matching the test API key's org
-  console.log('No org/user in headers - using development context');
+  console.log('No org/user in headers or unresolved org - using development context');
   return {
     organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Adteco dev org UUID
-    userId: 'user_development',
-    clerkOrganizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2'
+    userId: userId || 'user_development',
+    clerkOrganizationId: rawOrganizationId || 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2'
   };
-  
-  /*
-  if (!organizationId || !userId) {
-    // Only allow fallback in development
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Organization context not found in request - using development fallback with UUID');
-      
-      return {
-        organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Development fallback UUID
-        userId: 'user_development',
-        clerkOrganizationId: 'org_development'
-      };
-    }
-    
-    // In production, throw an error
-    const missing = [];
-    if (!organizationId) missing.push('x-organization-id');
-    if (!userId) missing.push('x-user-id');
-    
-    throw new AuthenticationError(
-      `Missing required authentication headers: ${missing.join(', ')}`
-    );
-  }
-  
-  return {
-    organizationId,
-    userId,
-    clerkOrganizationId: organizationId,
-    apiKeyName: apiKeyName || undefined
-  };
-  */
 }
 
 // For routes that might be partially public (like health checks)
