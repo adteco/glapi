@@ -10,6 +10,7 @@ export * from './location-repository';
 export * from './class-repository';
 export * from './account-repository';
 export * from './entity-repository';
+export * from './user-repository';
 
 // Export GL repositories
 export * from './gl-transaction-repository';

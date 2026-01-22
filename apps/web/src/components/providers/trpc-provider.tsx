@@ -5,6 +5,7 @@ import { httpBatchLink } from '@trpc/client';
 import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@clerk/nextjs';
+import superjson from 'superjson';
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const { getToken, orgId, userId } = useAuth();
@@ -43,6 +44,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       links: [
         httpBatchLink({
           url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031'}/api/trpc`,
+          transformer: superjson,
           async headers() {
             const token = await getTokenRef.current();
             return {

@@ -19,6 +19,7 @@
     "api:mock": "prism mock docs/api-specs/*.openapi.yaml",
     "api:validate": "prism validate docs/api-specs/*.openapi.yaml",
     "api:generate-sdk": "pnpm --filter @glapi/sdk generate",
+    "playwright:profile": "node scripts/playwright-launch-profile.mjs",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
     "test:playwright:headed": "playwright test --headed",
