@@ -85,12 +85,12 @@ export const contractModificationsRouter = router({
       try {
         const result = await service.createModification(
           {
-            subscriptionId: input.request.subscriptionId,
-            modificationType: input.request.modificationType,
-            effectiveDate: input.request.effectiveDate,
+            subscriptionId: input.request.subscriptionId as string,
+            modificationType: input.request.modificationType as ModificationTypeValue,
+            effectiveDate: input.request.effectiveDate as Date,
             changes: input.request.changes as any,
-            reason: input.request.reason,
-            notes: input.request.notes,
+            reason: input.request.reason as string | undefined,
+            notes: input.request.notes as string | undefined,
             requestedBy: ctx.user.id
           },
           {
@@ -121,12 +121,12 @@ export const contractModificationsRouter = router({
       
       try {
         const result = await service.previewModification({
-          subscriptionId: input.subscriptionId,
-          modificationType: input.modificationType,
-          effectiveDate: input.effectiveDate,
+          subscriptionId: input.subscriptionId as string,
+          modificationType: input.modificationType as ModificationTypeValue,
+          effectiveDate: input.effectiveDate as Date,
           changes: input.changes as any,
-          reason: input.reason,
-          notes: input.notes,
+          reason: input.reason as string | undefined,
+          notes: input.notes as string | undefined,
           requestedBy: ctx.user.id
         });
 
