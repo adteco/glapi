@@ -29,7 +29,6 @@ const eliminationTypeSchema = z.enum([
 ]);
 
 const createGroupSchema = z.object({
-  organizationId: z.string(),
   name: z.string().min(1).max(200),
   code: z.string().min(1).max(50),
   description: z.string().max(1000).optional(),
@@ -94,7 +93,6 @@ const createEliminationRuleSchema = z.object({
 const updateEliminationRuleSchema = createEliminationRuleSchema.partial().omit({ groupId: true });
 
 const upsertExchangeRateSchema = z.object({
-  organizationId: z.string(),
   fromCurrencyId: z.string().uuid(),
   toCurrencyId: z.string().uuid(),
   periodId: z.string().uuid(),
@@ -105,7 +103,6 @@ const upsertExchangeRateSchema = z.object({
 });
 
 const createIntercompanyMappingSchema = z.object({
-  organizationId: z.string(),
   name: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   sourceAccountId: z.string().uuid(),
@@ -114,9 +111,7 @@ const createIntercompanyMappingSchema = z.object({
   eliminationCreditAccountId: z.string().uuid().optional(),
 });
 
-const updateIntercompanyMappingSchema = createIntercompanyMappingSchema
-  .partial()
-  .omit({ organizationId: true });
+const updateIntercompanyMappingSchema = createIntercompanyMappingSchema.partial();
 
 // ==========================================
 // Router
@@ -169,7 +164,17 @@ export const consolidationRouter = router({
     .input(createGroupSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService({ organizationId: ctx.organizationId });
-      return service.createConsolidationGroup(input);
+      return service.createConsolidationGroup({
+        organizationId: ctx.organizationId,
+        name: input.name,
+        code: input.code,
+        description: input.description,
+        parentSubsidiaryId: input.parentSubsidiaryId,
+        consolidationCurrencyId: input.consolidationCurrencyId,
+        translationMethod: input.translationMethod,
+        effectiveDate: input.effectiveDate,
+        endDate: input.endDate,
+      });
     }),
 
   /**
@@ -184,7 +189,12 @@ export const consolidationRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService({ organizationId: ctx.organizationId });
-      return service.updateConsolidationGroup(input.id, input.data);
+      // Convert null to undefined for service compatibility
+      return service.updateConsolidationGroup(input.id, {
+        ...input.data,
+        description: input.data.description ?? undefined,
+        endDate: input.data.endDate ?? undefined,
+      });
     }),
 
   /**
@@ -229,7 +239,17 @@ export const consolidationRouter = router({
     .input(addMemberSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService({ organizationId: ctx.organizationId });
-      return service.addGroupMember(input);
+      return service.addGroupMember({
+        groupId: input.groupId,
+        subsidiaryId: input.subsidiaryId,
+        ownershipPercent: input.ownershipPercent,
+        votingPercent: input.votingPercent,
+        consolidationMethod: input.consolidationMethod,
+        minorityInterestAccountId: input.minorityInterestAccountId,
+        effectiveDate: input.effectiveDate,
+        endDate: input.endDate,
+        sequenceNumber: input.sequenceNumber,
+      });
     }),
 
   /**
@@ -244,7 +264,12 @@ export const consolidationRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService({ organizationId: ctx.organizationId });
-      return service.updateGroupMember(input.id, input.data);
+      // Convert null to undefined for service compatibility
+      return service.updateGroupMember(input.id, {
+        ...input.data,
+        minorityInterestAccountId: input.data.minorityInterestAccountId ?? undefined,
+        endDate: input.data.endDate ?? undefined,
+      });
     }),
 
   /**
@@ -290,7 +315,24 @@ export const consolidationRouter = router({
     .input(createEliminationRuleSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService({ organizationId: ctx.organizationId });
-      return service.createEliminationRule(input);
+      return service.createEliminationRule({
+        groupId: input.groupId,
+        name: input.name,
+        description: input.description,
+        eliminationType: input.eliminationType,
+        sequenceNumber: input.sequenceNumber,
+        sourceSubsidiaryId: input.sourceSubsidiaryId,
+        sourceAccountId: input.sourceAccountId,
+        sourceAccountPattern: input.sourceAccountPattern,
+        targetSubsidiaryId: input.targetSubsidiaryId,
+        targetAccountId: input.targetAccountId,
+        targetAccountPattern: input.targetAccountPattern,
+        eliminationDebitAccountId: input.eliminationDebitAccountId,
+        eliminationCreditAccountId: input.eliminationCreditAccountId,
+        isAutomatic: input.isAutomatic,
+        effectiveDate: input.effectiveDate,
+        endDate: input.endDate,
+      });
     }),
 
   /**
@@ -340,7 +382,16 @@ export const consolidationRouter = router({
     .input(upsertExchangeRateSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService({ organizationId: ctx.organizationId });
-      return service.upsertExchangeRate(input);
+      return service.upsertExchangeRate({
+        organizationId: ctx.organizationId,
+        fromCurrencyId: input.fromCurrencyId,
+        toCurrencyId: input.toCurrencyId,
+        periodId: input.periodId,
+        rateType: input.rateType,
+        rate: input.rate,
+        rateDate: input.rateDate,
+        source: input.source,
+      });
     }),
 
   // ==========================================
@@ -362,7 +413,15 @@ export const consolidationRouter = router({
     .input(createIntercompanyMappingSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService({ organizationId: ctx.organizationId });
-      return service.createIntercompanyMapping(input);
+      return service.createIntercompanyMapping({
+        organizationId: ctx.organizationId,
+        name: input.name,
+        description: input.description,
+        sourceAccountId: input.sourceAccountId,
+        targetAccountId: input.targetAccountId,
+        eliminationDebitAccountId: input.eliminationDebitAccountId,
+        eliminationCreditAccountId: input.eliminationCreditAccountId,
+      });
     }),
 
   /**
@@ -428,7 +487,12 @@ export const consolidationRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const engine = new ConsolidationEngine({ organizationId: ctx.organizationId });
-      return engine.runConsolidation(input);
+      return engine.runConsolidation({
+        groupId: input.groupId,
+        periodId: input.periodId,
+        runType: input.runType,
+        description: input.description,
+      });
     }),
 
   /**
@@ -499,7 +563,13 @@ export const consolidationRouter = router({
       const service = new ConsolidationReportingService({
         organizationId: ctx.organizationId,
       });
-      return service.getConsolidatedBalanceSheet(input);
+      return service.getConsolidatedBalanceSheet({
+        groupId: input.groupId,
+        periodId: input.periodId,
+        runId: input.runId,
+        includeBreakdown: input.includeBreakdown,
+        bookFilter: input.bookFilter,
+      });
     }),
 
   /**
@@ -519,7 +589,13 @@ export const consolidationRouter = router({
       const service = new ConsolidationReportingService({
         organizationId: ctx.organizationId,
       });
-      return service.getConsolidatedIncomeStatement(input);
+      return service.getConsolidatedIncomeStatement({
+        groupId: input.groupId,
+        periodId: input.periodId,
+        runId: input.runId,
+        includeBreakdown: input.includeBreakdown,
+        bookFilter: input.bookFilter,
+      });
     }),
 
   /**
@@ -539,7 +615,13 @@ export const consolidationRouter = router({
       const service = new ConsolidationReportingService({
         organizationId: ctx.organizationId,
       });
-      return service.getConsolidatedTrialBalance(input);
+      return service.getConsolidatedTrialBalance({
+        groupId: input.groupId,
+        periodId: input.periodId,
+        runId: input.runId,
+        includeBreakdown: input.includeBreakdown,
+        bookFilter: input.bookFilter,
+      });
     }),
 
   /**
@@ -594,6 +676,10 @@ export const consolidationRouter = router({
       const service = new ConsolidationReportingService({
         organizationId: ctx.organizationId,
       });
-      return service.exportConsolidationData(input, input.format);
+      return service.exportConsolidationData({
+        groupId: input.groupId,
+        periodId: input.periodId,
+        runId: input.runId,
+      }, input.format);
     }),
 });

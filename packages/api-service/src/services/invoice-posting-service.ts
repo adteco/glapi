@@ -509,8 +509,8 @@ export class InvoicePostingService extends BaseService {
     periodId: string,
     memo?: string
   ): PostingContext {
-    // Convert invoice to business transaction format
-    const businessTransaction: BusinessTransaction = {
+    // Convert invoice to business transaction format (partial for posting context)
+    const businessTransaction = {
       id: `invoice-${invoice.id}`,
       transactionNumber: invoice.invoiceNumber,
       transactionTypeId: 'INVOICE', // Would be looked up in production
@@ -527,10 +527,11 @@ export class InvoicePostingService extends BaseService {
       baseTotalAmount: invoice.totalAmount,
       memo: memo || `Invoice ${invoice.invoiceNumber}`,
       status: 'APPROVED',
-    };
+      versionNumber: 1,
+    } as BusinessTransaction;
 
-    // Convert invoice lines to business transaction lines
-    const businessTransactionLines: BusinessTransactionLine[] = (invoice.lineItems || []).map(
+    // Convert invoice lines to business transaction lines (partial for posting context)
+    const businessTransactionLines = (invoice.lineItems || []).map(
       (line, index) => ({
         id: line.id,
         businessTransactionId: `invoice-${invoice.id}`,
@@ -541,8 +542,10 @@ export class InvoicePostingService extends BaseService {
         unitPrice: line.unitPrice,
         lineAmount: line.amount,
         totalLineAmount: line.amount,
+        taxAmount: '0',
+        discountAmount: '0',
       })
-    );
+    ) as BusinessTransactionLine[];
 
     // Build posting rules for invoice
     const postingRules: GlPostingRule[] = this.buildInvoicePostingRules(invoice, policy);

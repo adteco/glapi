@@ -27,6 +27,10 @@ import {
   CloseStatusSummary,
   GenerateTasksFromTemplatesInput,
   BulkUpdateTaskStatusInput,
+  CloseTaskStatus,
+  CloseTaskPriority,
+  VarianceAlertSeverity,
+  TieoutStatus,
 } from '../types/close-management.types';
 import { PaginationParams, PaginatedResult, ServiceError } from '../types';
 import { CloseManagementRepository } from '@glapi/database';
@@ -57,6 +61,197 @@ export class CloseManagementService extends BaseService {
   }
 
   // ============================================================================
+  // Type Transformers
+  // ============================================================================
+
+  /**
+   * Transform database task template to service type
+   */
+  private transformTaskTemplate(dbTemplate: any): CloseTaskTemplate {
+    return {
+      id: dbTemplate.id,
+      organizationId: dbTemplate.subsidiaryId,
+      templateName: dbTemplate.taskName,
+      description: dbTemplate.description,
+      category: dbTemplate.category,
+      defaultPriority: dbTemplate.priority as CloseTaskPriority,
+      estimatedDurationMinutes: dbTemplate.estimatedMinutes,
+      dependsOnTemplateId: dbTemplate.dependsOnTemplateId,
+      requiredRole: dbTemplate.requiredRole,
+      instructions: dbTemplate.instructions,
+      automationConfig: dbTemplate.automationConfig,
+      isActive: dbTemplate.isActive,
+      sortOrder: dbTemplate.sortOrder,
+      createdAt: dbTemplate.createdAt,
+      updatedAt: dbTemplate.updatedAt ?? new Date(),
+    };
+  }
+
+  /**
+   * Transform database checklist to service type
+   */
+  private transformChecklist(dbChecklist: any): CloseChecklist {
+    return {
+      id: dbChecklist.id,
+      organizationId: dbChecklist.subsidiaryId,
+      accountingPeriodId: dbChecklist.accountingPeriodId,
+      checklistName: dbChecklist.checklistName,
+      description: dbChecklist.notes,
+      status: dbChecklist.status as CloseTaskStatus,
+      startedAt: dbChecklist.startedAt,
+      completedAt: dbChecklist.completedAt,
+      dueDate: dbChecklist.targetCloseDate,
+      assignedTo: dbChecklist.ownerId,
+      createdBy: dbChecklist.createdBy,
+      createdAt: dbChecklist.createdAt,
+      updatedAt: dbChecklist.updatedAt ?? new Date(),
+    };
+  }
+
+  /**
+   * Transform database task to service type
+   */
+  private transformTask(dbTask: any): CloseTask {
+    return {
+      id: dbTask.id,
+      checklistId: dbTask.checklistId,
+      templateId: dbTask.templateId,
+      taskName: dbTask.taskName,
+      description: dbTask.description,
+      category: dbTask.category,
+      status: dbTask.status as CloseTaskStatus,
+      priority: dbTask.priority as CloseTaskPriority,
+      assignedTo: dbTask.assigneeId,
+      dueDate: dbTask.dueDate,
+      startedAt: dbTask.startedAt,
+      completedAt: dbTask.completedAt,
+      completedBy: dbTask.completedBy,
+      reviewedBy: dbTask.reviewedBy,
+      reviewedAt: dbTask.reviewedAt,
+      blockedReason: dbTask.blockedReason,
+      notes: dbTask.workNotes,
+      attachments: dbTask.attachmentUrls,
+      sortOrder: dbTask.sortOrder,
+      createdAt: dbTask.createdAt,
+      updatedAt: dbTask.updatedAt ?? new Date(),
+    };
+  }
+
+  /**
+   * Transform database variance threshold to service type
+   */
+  private transformVarianceThreshold(dbThreshold: any): VarianceThreshold {
+    return {
+      id: dbThreshold.id,
+      organizationId: dbThreshold.subsidiaryId,
+      thresholdName: dbThreshold.name,
+      description: dbThreshold.description,
+      metricType: dbThreshold.compareAgainst ?? 'BUDGET',
+      accountId: dbThreshold.accountId,
+      departmentId: null,
+      absoluteThreshold: dbThreshold.absoluteThreshold,
+      percentageThreshold: dbThreshold.percentageThreshold,
+      comparisonType: dbThreshold.compareAgainst ?? 'BUDGET',
+      severity: dbThreshold.severity as VarianceAlertSeverity,
+      isActive: dbThreshold.isActive,
+      createdAt: dbThreshold.createdAt,
+      updatedAt: dbThreshold.updatedAt ?? new Date(),
+    };
+  }
+
+  /**
+   * Transform database variance alert to service type
+   */
+  private transformVarianceAlert(dbAlert: any): VarianceAlert {
+    return {
+      id: dbAlert.id,
+      thresholdId: dbAlert.thresholdId ?? '',
+      accountingPeriodId: dbAlert.accountingPeriodId,
+      alertMessage: dbAlert.alertMessage,
+      metricName: dbAlert.alertType ?? 'VARIANCE',
+      expectedValue: dbAlert.comparisonValue,
+      actualValue: dbAlert.currentValue,
+      varianceAmount: dbAlert.varianceAmount,
+      variancePercentage: dbAlert.variancePercent,
+      severity: dbAlert.severity as VarianceAlertSeverity,
+      isAcknowledged: dbAlert.isAcknowledged ?? false,
+      acknowledgedBy: dbAlert.acknowledgedBy,
+      acknowledgedAt: dbAlert.acknowledgedAt,
+      acknowledgedNote: dbAlert.acknowledgedNote,
+      isResolved: dbAlert.isResolved ?? false,
+      resolvedBy: dbAlert.resolvedBy,
+      resolvedAt: dbAlert.resolvedAt,
+      resolutionNote: dbAlert.resolutionNote,
+      createdAt: dbAlert.createdAt,
+    };
+  }
+
+  /**
+   * Transform database tieout template to service type
+   */
+  private transformTieoutTemplate(dbTemplate: any): TieoutTemplate {
+    return {
+      id: dbTemplate.id,
+      organizationId: dbTemplate.subsidiaryId,
+      templateName: dbTemplate.templateName,
+      description: dbTemplate.description,
+      sourceSystem: dbTemplate.sourceType,
+      sourceQuery: dbTemplate.sourceConfig?.query ?? null,
+      targetSystem: dbTemplate.targetType,
+      targetQuery: dbTemplate.targetConfig?.query ?? null,
+      reconciliationRules: dbTemplate.reconciliationRules,
+      toleranceAmount: dbTemplate.toleranceAmount,
+      tolerancePercentage: dbTemplate.tolerancePercent,
+      isActive: dbTemplate.isActive,
+      createdAt: dbTemplate.createdAt,
+      updatedAt: dbTemplate.updatedAt ?? new Date(),
+    };
+  }
+
+  /**
+   * Transform database tieout instance to service type
+   */
+  private transformTieoutInstance(dbTieout: any): TieoutInstance {
+    return {
+      id: dbTieout.id,
+      templateId: dbTieout.templateId,
+      accountingPeriodId: dbTieout.accountingPeriodId,
+      status: dbTieout.status as TieoutStatus,
+      sourceValue: dbTieout.sourceValue,
+      targetValue: dbTieout.targetValue,
+      varianceAmount: dbTieout.varianceAmount,
+      executedAt: dbTieout.executedAt,
+      executedBy: dbTieout.executedBy,
+      approvedAt: dbTieout.approvedAt,
+      approvedBy: dbTieout.approvedBy,
+      notes: dbTieout.workNotes,
+      supportingDocuments: dbTieout.attachmentUrls,
+      createdAt: dbTieout.createdAt,
+      updatedAt: dbTieout.updatedAt ?? new Date(),
+    };
+  }
+
+  /**
+   * Transform database notification to service type
+   */
+  private transformNotification(dbNotification: any): CloseNotification {
+    return {
+      id: dbNotification.id,
+      organizationId: dbNotification.organizationId ?? '',
+      accountingPeriodId: dbNotification.accountingPeriodId,
+      userId: dbNotification.userId,
+      notificationType: dbNotification.notificationType,
+      title: dbNotification.title,
+      message: dbNotification.message,
+      referenceType: dbNotification.referenceType,
+      referenceId: dbNotification.referenceId,
+      isRead: dbNotification.isRead,
+      readAt: dbNotification.readAt,
+      createdAt: dbNotification.createdAt,
+    };
+  }
+
+  // ============================================================================
   // Task Templates
   // ============================================================================
 
@@ -79,7 +274,7 @@ export class CloseManagementService extends BaseService {
     );
 
     return {
-      data: result.data as CloseTaskTemplate[],
+      data: result.data.map((t) => this.transformTaskTemplate(t)),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -94,7 +289,8 @@ export class CloseManagementService extends BaseService {
       return null;
     }
 
-    return this.repository.findTemplateById(id, subsidiaryIds) as Promise<CloseTaskTemplate | null>;
+    const template = await this.repository.findTemplateById(id, subsidiaryIds);
+    return template ? this.transformTaskTemplate(template) : null;
   }
 
   async createTaskTemplate(data: CreateCloseTaskTemplateInput): Promise<CloseTaskTemplate> {
@@ -110,7 +306,7 @@ export class CloseManagementService extends BaseService {
 
     const taskCode = this.generateTaskCode('TPL');
 
-    return this.repository.createTemplate({
+    const created = await this.repository.createTemplate({
       subsidiaryId: data.organizationId,
       taskCode,
       taskName: data.templateName,
@@ -122,7 +318,9 @@ export class CloseManagementService extends BaseService {
       automationConfig: data.automationConfig ?? null,
       isActive: data.isActive,
       sortOrder: data.sortOrder,
-    }) as Promise<CloseTaskTemplate>;
+    });
+
+    return this.transformTaskTemplate(created);
   }
 
   async updateTaskTemplate(id: string, data: UpdateCloseTaskTemplateInput): Promise<CloseTaskTemplate> {
@@ -148,7 +346,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Task template not found', 'TEMPLATE_NOT_FOUND', 404);
     }
 
-    return updated as CloseTaskTemplate;
+    return this.transformTaskTemplate(updated);
   }
 
   async deleteTaskTemplate(id: string): Promise<void> {
@@ -184,7 +382,7 @@ export class CloseManagementService extends BaseService {
     );
 
     return {
-      data: result.data as CloseChecklist[],
+      data: result.data.map((c) => this.transformChecklist(c)),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -199,7 +397,8 @@ export class CloseManagementService extends BaseService {
       return null;
     }
 
-    return this.repository.findChecklistById(id, subsidiaryIds) as Promise<CloseChecklist | null>;
+    const checklist = await this.repository.findChecklistById(id, subsidiaryIds);
+    return checklist ? this.transformChecklist(checklist) : null;
   }
 
   async getChecklistByPeriod(periodId: string): Promise<CloseChecklist | null> {
@@ -209,7 +408,8 @@ export class CloseManagementService extends BaseService {
       return null;
     }
 
-    return this.repository.findChecklistByPeriod(periodId, subsidiaryIds) as Promise<CloseChecklist | null>;
+    const checklist = await this.repository.findChecklistByPeriod(periodId, subsidiaryIds);
+    return checklist ? this.transformChecklist(checklist) : null;
   }
 
   async createChecklist(data: CreateCloseChecklistInput): Promise<CloseChecklist> {
@@ -234,7 +434,7 @@ export class CloseManagementService extends BaseService {
       );
     }
 
-    return this.repository.createChecklist({
+    const created = await this.repository.createChecklist({
       subsidiaryId: data.organizationId,
       accountingPeriodId: data.accountingPeriodId,
       checklistName: data.checklistName,
@@ -242,7 +442,9 @@ export class CloseManagementService extends BaseService {
       targetCloseDate: data.dueDate ? new Date(data.dueDate) : null,
       ownerId: data.assignedTo ?? null,
       createdBy: userId,
-    }) as Promise<CloseChecklist>;
+    });
+
+    return this.transformChecklist(created);
   }
 
   async updateChecklist(id: string, data: UpdateCloseChecklistInput): Promise<CloseChecklist> {
@@ -264,7 +466,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Checklist not found', 'CHECKLIST_NOT_FOUND', 404);
     }
 
-    return updated as CloseChecklist;
+    return this.transformChecklist(updated);
   }
 
   // ============================================================================
@@ -272,24 +474,27 @@ export class CloseManagementService extends BaseService {
   // ============================================================================
 
   async listTasksByChecklist(checklistId: string): Promise<CloseTask[]> {
-    return this.repository.findTasksByChecklist(checklistId) as Promise<CloseTask[]>;
+    const tasks = await this.repository.findTasksByChecklist(checklistId);
+    return tasks.map((t) => this.transformTask(t));
   }
 
   async getTaskById(id: string): Promise<CloseTask | null> {
-    return this.repository.findTaskById(id) as Promise<CloseTask | null>;
+    const task = await this.repository.findTaskById(id);
+    return task ? this.transformTask(task) : null;
   }
 
   async getTasksByAssignee(
     assigneeId: string,
     filters: { status?: string | string[]; limit?: number } = {}
   ): Promise<CloseTask[]> {
-    return this.repository.findTasksByAssignee(assigneeId, filters) as Promise<CloseTask[]>;
+    const tasks = await this.repository.findTasksByAssignee(assigneeId, filters);
+    return tasks.map((t) => this.transformTask(t));
   }
 
   async createTask(data: CreateCloseTaskInput): Promise<CloseTask> {
     const taskCode = this.generateTaskCode('TSK');
 
-    return this.repository.createTask({
+    const created = await this.repository.createTask({
       checklistId: data.checklistId,
       templateId: data.templateId ?? null,
       taskCode,
@@ -300,7 +505,9 @@ export class CloseManagementService extends BaseService {
       assigneeId: data.assignedTo ?? null,
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
       sortOrder: data.sortOrder,
-    }) as Promise<CloseTask>;
+    });
+
+    return this.transformTask(created);
   }
 
   async updateTask(id: string, data: UpdateCloseTaskInput): Promise<CloseTask> {
@@ -325,7 +532,7 @@ export class CloseManagementService extends BaseService {
     // Update checklist progress after task update
     await this.repository.updateChecklistProgress(updated.checklistId);
 
-    return updated as CloseTask;
+    return this.transformTask(updated);
   }
 
   async updateTaskStatus(id: string, status: string): Promise<CloseTask> {
@@ -340,7 +547,7 @@ export class CloseManagementService extends BaseService {
     // Update checklist progress after status change
     await this.repository.updateChecklistProgress(updated.checklistId);
 
-    return updated as CloseTask;
+    return this.transformTask(updated);
   }
 
   async deleteTask(id: string): Promise<void> {
@@ -408,7 +615,7 @@ export class CloseManagementService extends BaseService {
     // Update checklist progress
     await this.repository.updateChecklistProgress(input.checklistId);
 
-    return created as CloseTask[];
+    return created.map((t) => this.transformTask(t));
   }
 
   /**
@@ -422,7 +629,7 @@ export class CloseManagementService extends BaseService {
     for (const taskId of input.taskIds) {
       const updated = await this.repository.updateTaskStatus(taskId, input.status, userId);
       if (updated) {
-        updatedTasks.push(updated as CloseTask);
+        updatedTasks.push(this.transformTask(updated));
         checklistIds.add(updated.checklistId);
       }
     }
@@ -448,7 +655,8 @@ export class CloseManagementService extends BaseService {
       return [];
     }
 
-    return this.repository.findAllThresholds(subsidiaryIds, filters) as Promise<VarianceThreshold[]>;
+    const thresholds = await this.repository.findAllThresholds(subsidiaryIds, filters);
+    return thresholds.map((t) => this.transformVarianceThreshold(t));
   }
 
   async getVarianceThresholdById(id: string): Promise<VarianceThreshold | null> {
@@ -458,7 +666,8 @@ export class CloseManagementService extends BaseService {
       return null;
     }
 
-    return this.repository.findThresholdById(id, subsidiaryIds) as Promise<VarianceThreshold | null>;
+    const threshold = await this.repository.findThresholdById(id, subsidiaryIds);
+    return threshold ? this.transformVarianceThreshold(threshold) : null;
   }
 
   async createVarianceThreshold(data: CreateVarianceThresholdInput): Promise<VarianceThreshold> {
@@ -472,7 +681,7 @@ export class CloseManagementService extends BaseService {
       );
     }
 
-    return this.repository.createThreshold({
+    const created = await this.repository.createThreshold({
       subsidiaryId: data.organizationId,
       name: data.thresholdName,
       description: data.description ?? null,
@@ -482,7 +691,9 @@ export class CloseManagementService extends BaseService {
       compareAgainst: data.comparisonType,
       severity: data.severity,
       isActive: data.isActive,
-    }) as Promise<VarianceThreshold>;
+    });
+
+    return this.transformVarianceThreshold(created);
   }
 
   async updateVarianceThreshold(id: string, data: UpdateVarianceThresholdInput): Promise<VarianceThreshold> {
@@ -507,7 +718,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Variance threshold not found', 'THRESHOLD_NOT_FOUND', 404);
     }
 
-    return updated as VarianceThreshold;
+    return this.transformVarianceThreshold(updated);
   }
 
   async deleteVarianceThreshold(id: string): Promise<void> {
@@ -528,19 +739,22 @@ export class CloseManagementService extends BaseService {
     periodId: string,
     filters: { status?: string | string[]; severity?: string } = {}
   ): Promise<VarianceAlert[]> {
-    return this.repository.findAlertsByPeriod(periodId, filters) as Promise<VarianceAlert[]>;
+    const alerts = await this.repository.findAlertsByPeriod(periodId, filters);
+    return alerts.map((a) => this.transformVarianceAlert(a));
   }
 
   async listAlertsByChecklist(checklistId: string): Promise<VarianceAlert[]> {
-    return this.repository.findAlertsByChecklist(checklistId) as Promise<VarianceAlert[]>;
+    const alerts = await this.repository.findAlertsByChecklist(checklistId);
+    return alerts.map((a) => this.transformVarianceAlert(a));
   }
 
   async getAlertById(id: string): Promise<VarianceAlert | null> {
-    return this.repository.findAlertById(id) as Promise<VarianceAlert | null>;
+    const alert = await this.repository.findAlertById(id);
+    return alert ? this.transformVarianceAlert(alert) : null;
   }
 
   async createVarianceAlert(data: CreateVarianceAlertInput): Promise<VarianceAlert> {
-    return this.repository.createAlert({
+    const created = await this.repository.createAlert({
       thresholdId: data.thresholdId,
       accountingPeriodId: data.accountingPeriodId,
       accountId: data.thresholdId, // Using thresholdId as placeholder - would need proper accountId
@@ -551,7 +765,9 @@ export class CloseManagementService extends BaseService {
       variancePercent: data.variancePercentage ?? null,
       severity: data.severity,
       alertMessage: data.alertMessage,
-    }) as Promise<VarianceAlert>;
+    });
+
+    return this.transformVarianceAlert(created);
   }
 
   async acknowledgeAlert(id: string, input: AcknowledgeVarianceAlertInput): Promise<VarianceAlert> {
@@ -563,7 +779,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Variance alert not found', 'ALERT_NOT_FOUND', 404);
     }
 
-    return alert as VarianceAlert;
+    return this.transformVarianceAlert(alert);
   }
 
   async resolveAlert(id: string, input: ResolveVarianceAlertInput): Promise<VarianceAlert> {
@@ -575,7 +791,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Variance alert not found', 'ALERT_NOT_FOUND', 404);
     }
 
-    return alert as VarianceAlert;
+    return this.transformVarianceAlert(alert);
   }
 
   // ============================================================================
@@ -589,7 +805,8 @@ export class CloseManagementService extends BaseService {
       return [];
     }
 
-    return this.repository.findAllTieoutTemplates(subsidiaryIds, filters) as Promise<TieoutTemplate[]>;
+    const templates = await this.repository.findAllTieoutTemplates(subsidiaryIds, filters);
+    return templates.map((t) => this.transformTieoutTemplate(t));
   }
 
   async getTieoutTemplateById(id: string): Promise<TieoutTemplate | null> {
@@ -599,7 +816,8 @@ export class CloseManagementService extends BaseService {
       return null;
     }
 
-    return this.repository.findTieoutTemplateById(id, subsidiaryIds) as Promise<TieoutTemplate | null>;
+    const template = await this.repository.findTieoutTemplateById(id, subsidiaryIds);
+    return template ? this.transformTieoutTemplate(template) : null;
   }
 
   async createTieoutTemplate(data: CreateTieoutTemplateInput): Promise<TieoutTemplate> {
@@ -615,7 +833,7 @@ export class CloseManagementService extends BaseService {
 
     const templateCode = this.generateTaskCode('TIE');
 
-    return this.repository.createTieoutTemplate({
+    const created = await this.repository.createTieoutTemplate({
       subsidiaryId: data.organizationId,
       templateCode,
       templateName: data.templateName,
@@ -627,7 +845,9 @@ export class CloseManagementService extends BaseService {
       toleranceAmount: data.toleranceAmount ?? null,
       tolerancePercent: data.tolerancePercentage ?? null,
       isActive: data.isActive,
-    }) as Promise<TieoutTemplate>;
+    });
+
+    return this.transformTieoutTemplate(created);
   }
 
   async updateTieoutTemplate(id: string, data: UpdateTieoutTemplateInput): Promise<TieoutTemplate> {
@@ -653,7 +873,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Tieout template not found', 'TEMPLATE_NOT_FOUND', 404);
     }
 
-    return updated as TieoutTemplate;
+    return this.transformTieoutTemplate(updated);
   }
 
   // ============================================================================
@@ -664,15 +884,18 @@ export class CloseManagementService extends BaseService {
     periodId: string,
     filters: { status?: string | string[] } = {}
   ): Promise<TieoutInstance[]> {
-    return this.repository.findTieoutsByPeriod(periodId, filters) as Promise<TieoutInstance[]>;
+    const tieouts = await this.repository.findTieoutsByPeriod(periodId, filters);
+    return tieouts.map((t) => this.transformTieoutInstance(t));
   }
 
   async listTieoutsByChecklist(checklistId: string): Promise<TieoutInstance[]> {
-    return this.repository.findTieoutsByChecklist(checklistId) as Promise<TieoutInstance[]>;
+    const tieouts = await this.repository.findTieoutsByChecklist(checklistId);
+    return tieouts.map((t) => this.transformTieoutInstance(t));
   }
 
   async getTieoutById(id: string): Promise<TieoutInstance | null> {
-    return this.repository.findTieoutById(id) as Promise<TieoutInstance | null>;
+    const tieout = await this.repository.findTieoutById(id);
+    return tieout ? this.transformTieoutInstance(tieout) : null;
   }
 
   async createTieoutInstance(data: CreateTieoutInstanceInput): Promise<TieoutInstance> {
@@ -681,11 +904,13 @@ export class CloseManagementService extends BaseService {
     const template = await this.repository.findTieoutTemplateById(data.templateId, subsidiaryIds);
     const tieoutName = template?.templateName ?? `Tieout-${this.generateTaskCode('TOT')}`;
 
-    return this.repository.createTieout({
+    const created = await this.repository.createTieout({
       templateId: data.templateId,
       accountingPeriodId: data.accountingPeriodId,
       tieoutName,
-    }) as Promise<TieoutInstance>;
+    });
+
+    return this.transformTieoutInstance(created);
   }
 
   async updateTieoutInstance(id: string, data: UpdateTieoutInstanceInput): Promise<TieoutInstance> {
@@ -702,7 +927,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Tieout instance not found', 'TIEOUT_NOT_FOUND', 404);
     }
 
-    return updated as TieoutInstance;
+    return this.transformTieoutInstance(updated);
   }
 
   async approveTieout(id: string): Promise<TieoutInstance> {
@@ -714,7 +939,7 @@ export class CloseManagementService extends BaseService {
       throw new ServiceError('Tieout instance not found', 'TIEOUT_NOT_FOUND', 404);
     }
 
-    return approved as TieoutInstance;
+    return this.transformTieoutInstance(approved);
   }
 
   // ============================================================================
@@ -725,17 +950,20 @@ export class CloseManagementService extends BaseService {
     options: { isRead?: boolean; limit?: number } = {}
   ): Promise<CloseNotification[]> {
     const userId = this.requireUserContext();
-    return this.repository.findNotificationsByUser(userId, options) as Promise<CloseNotification[]>;
+    const notifications = await this.repository.findNotificationsByUser(userId, options);
+    return notifications.map((n) => this.transformNotification(n));
   }
 
   async createNotification(data: CreateCloseNotificationInput): Promise<CloseNotification> {
-    return this.repository.createNotification({
+    const created = await this.repository.createNotification({
       userId: data.userId,
       notificationType: data.notificationType,
       title: data.title,
       message: data.message,
       severity: 'INFO',
-    }) as Promise<CloseNotification>;
+    });
+
+    return this.transformNotification(created);
   }
 
   async markNotificationRead(id: string): Promise<void> {

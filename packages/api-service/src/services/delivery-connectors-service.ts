@@ -519,7 +519,7 @@ export class DeliveryConnectorsService extends BaseService {
     }
 
     const queueItem: NewDeliveryQueueItem = {
-      organizationId: this.context.organizationId,
+      organizationId: this.context.organizationId ?? '',
       reportScheduleId: data.reportScheduleId,
       jobExecutionId: data.jobExecutionId,
       deliveryType: data.deliveryType,
@@ -559,7 +559,7 @@ export class DeliveryConnectorsService extends BaseService {
       if (validationErrors.length > 0) continue;
 
       queueItems.push({
-        organizationId: this.context.organizationId,
+        organizationId: this.context.organizationId ?? '',
         reportScheduleId: base.reportScheduleId,
         jobExecutionId: base.jobExecutionId,
         deliveryType: type,
@@ -633,7 +633,7 @@ export class DeliveryConnectorsService extends BaseService {
 
     // Update queue item status
     if (result.success) {
-      await deliveryQueueRepository.markAsDelivered(item.id, result.response ?? {});
+      await deliveryQueueRepository.markAsDelivered(item.id, result.response ?? { deliveredAt: new Date().toISOString() });
     } else {
       await this.recordFailure(processingItem, result.error!);
     }

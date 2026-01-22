@@ -272,7 +272,17 @@ export class ProjectCostCodeService extends BaseService {
       }
     }
 
-    const updated = await this.costCodeRepository.update(id, projectIds, input);
+    // Convert null to undefined for repository compatibility
+    const { description, activityCodeId, parentCostCodeId, metadata, ...restInput } = input;
+    const sanitizedInput = {
+      ...restInput,
+      description: description ?? undefined,
+      activityCodeId: activityCodeId ?? undefined,
+      parentCostCodeId: parentCostCodeId ?? undefined,
+      metadata: metadata ?? undefined,
+    };
+
+    const updated = await this.costCodeRepository.update(id, projectIds, sanitizedInput);
     if (!updated) {
       throw new ServiceError(`Failed to update cost code`, 'UPDATE_FAILED', 500);
     }

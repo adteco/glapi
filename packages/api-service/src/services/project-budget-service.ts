@@ -216,7 +216,17 @@ export class ProjectBudgetService extends BaseService {
       );
     }
 
-    const updated = await this.budgetRepository.updateVersion(id, projectIds, input);
+    // Convert null to undefined for repository compatibility
+    const sanitizedInput = {
+      ...input,
+      description: input.description ?? undefined,
+      notes: input.notes ?? undefined,
+      effectiveDate: input.effectiveDate ?? undefined,
+      expirationDate: input.expirationDate ?? undefined,
+      metadata: input.metadata ?? undefined,
+    };
+
+    const updated = await this.budgetRepository.updateVersion(id, projectIds, sanitizedInput);
     if (!updated) {
       throw new ServiceError('Failed to update budget version', 'UPDATE_FAILED', 500);
     }
@@ -486,7 +496,24 @@ export class ProjectBudgetService extends BaseService {
       );
     }
 
-    const updated = await this.budgetRepository.updateLine(lineId, input);
+    // Convert null to undefined for repository compatibility
+    const sanitizedInput = {
+      originalBudgetAmount: input.originalBudgetAmount,
+      revisedBudgetAmount: input.revisedBudgetAmount,
+      approvedChanges: input.approvedChanges,
+      pendingChanges: input.pendingChanges,
+      forecastAmount: input.forecastAmount,
+      estimateToComplete: input.estimateToComplete,
+      budgetUnits: input.budgetUnits ?? undefined,
+      actualUnits: input.actualUnits ?? undefined,
+      description: input.description ?? undefined,
+      unitOfMeasure: input.unitOfMeasure ?? undefined,
+      unitRate: input.unitRate ?? undefined,
+      notes: input.notes ?? undefined,
+      metadata: input.metadata ?? undefined,
+    };
+
+    const updated = await this.budgetRepository.updateLine(lineId, sanitizedInput);
     if (!updated) {
       throw new ServiceError('Failed to update budget line', 'UPDATE_FAILED', 500);
     }
