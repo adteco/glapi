@@ -41,10 +41,16 @@ interface FormData {
   };
 }
 
+// Transformed customer with string dates for display
+type TransformedCustomer = Omit<Customer, 'createdAt' | 'updatedAt'> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
 interface CustomerFormProps {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
-  customers: Customer[];
+  customers: TransformedCustomer[];
   currentCustomerId?: string;
 }
 
@@ -140,9 +146,9 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ formData, setFormData, cust
         <SelectContent>
           <SelectItem value="none">None</SelectItem>
           {customers
-            .filter(c => c.id !== currentCustomerId) // Don't show current customer as its own parent
+            .filter(c => c.id && c.id !== currentCustomerId) // Don't show current customer as its own parent
             .map(customer => (
-              <SelectItem key={customer.id} value={customer.id}>
+              <SelectItem key={customer.id} value={customer.id!}>
                 {customer.companyName} {customer.customerId ? `(${customer.customerId})` : ''}
               </SelectItem>
             ))
@@ -251,15 +257,14 @@ export default function CustomersPage() {
   });
 
   // TRPC queries and mutations
-  const { data: customersData, isLoading, refetch } = trpc.customers.list.useQuery({}, {
+  const { data: customersData, isLoading, error: queryError, refetch } = trpc.customers.list.useQuery({}, {
     enabled: !!orgId,
-    onError: (error) => {
-      console.error('[CustomersPage] Query error:', error);
-    },
-    onSuccess: (data) => {
-      console.log('[CustomersPage] Query success:', data);
-    }
   });
+
+  // Log errors if they occur
+  if (queryError) {
+    console.error('[CustomersPage] Query error:', queryError);
+  }
   
   const createCustomerMutation = trpc.customers.create.useMutation({
     onSuccess: () => {
@@ -313,7 +318,7 @@ export default function CustomersPage() {
       customerId: formData.code || undefined,
       contactEmail: formData.email || undefined,
       contactPhone: formData.phone || undefined,
-      status: formData.status,
+      status: formData.status as 'active' | 'inactive' | 'archived',
       parentCustomerId: formData.parentCustomerId && formData.parentCustomerId !== 'none' ? formData.parentCustomerId : undefined,
       billingAddress: formData.address.street || formData.address.city ? {
         street: formData.address.street || undefined,
@@ -329,17 +334,13 @@ export default function CustomersPage() {
     if (!selectedCustomer) return;
     
     updateCustomerMutation.mutate({
-      id: selectedCustomer.id,
+      id: selectedCustomer.id!,
       data: {
         companyName: formData.name,
         customerId: formData.code || undefined,
         contactEmail: formData.email || undefined,
         contactPhone: formData.phone || undefined,
-        website: formData.website || undefined,
-        taxId: formData.taxId || undefined,
-        description: formData.description || undefined,
-        notes: formData.notes || undefined,
-        status: formData.status,
+        status: formData.status as 'active' | 'inactive' | 'archived',
         parentCustomerId: formData.parentCustomerId && formData.parentCustomerId !== 'none' ? formData.parentCustomerId : undefined,
         billingAddress: formData.address.street || formData.address.city ? {
           street: formData.address.street || undefined,

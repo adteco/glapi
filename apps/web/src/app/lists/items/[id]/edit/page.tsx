@@ -45,7 +45,7 @@ export default function EditItemPage() {
   const itemId = params.id as string;
 
   // tRPC queries
-  const { data: item, isLoading, error } = trpc.items.getById.useQuery(itemId, {
+  const { data: item, isLoading, error } = trpc.items.getById.useQuery({ id: itemId }, {
     enabled: !!orgId && !!itemId,
   });
 

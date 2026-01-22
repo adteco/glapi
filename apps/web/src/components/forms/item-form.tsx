@@ -81,17 +81,11 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
   const previousOrgIdRef = useRef<string | null>(null);
 
   // tRPC queries
-  const { data: categoriesData } = trpc.items.categories.list.useQuery({
-    page: 1,
-    limit: 100,
-  }, {
+  const { data: categoriesData } = trpc.items.categories.list.useQuery(undefined, {
     enabled: !!orgId,
   });
 
-  const { data: unitsOfMeasureData } = trpc.unitsOfMeasure.list.useQuery({
-    page: 1,
-    limit: 100,
-  }, {
+  const { data: unitsOfMeasureData } = trpc.unitsOfMeasure.list.useQuery({}, {
     enabled: !!orgId,
   });
 
@@ -99,7 +93,7 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
     enabled: !!orgId,
   });
 
-  const categories = categoriesData?.data || [];
+  const categories = categoriesData || [];
   const unitsOfMeasure = unitsOfMeasureData?.data || [];
   const accounts = accountsData?.data || [];
 
@@ -265,7 +259,7 @@ export function ItemForm({ initialData, onSubmit, onCancel, isSubmitting }: Item
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories.map(category => (
+                            {categories.map((category: { id: string; name: string }) => (
                               <SelectItem key={category.id} value={category.id}>
                                 {category.name}
                               </SelectItem>

@@ -107,7 +107,8 @@ export const contractModifications = pgTable('contract_modifications', {
   customerNotificationDate: timestamp('customer_notification_date', { withTimezone: true }),
   
   // Parent modification for multi-step modifications
-  parentModificationId: text('parent_modification_id').references(() => contractModifications.id),
+  // Note: Self-reference constraint defined separately to avoid TypeScript circular inference
+  parentModificationId: text('parent_modification_id'),
   
   // Audit
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -286,3 +287,8 @@ export const ModificationStatus = {
 export type ContractModification = typeof contractModifications.$inferSelect;
 export type NewContractModification = typeof contractModifications.$inferInsert;
 export type UpdateContractModification = Partial<NewContractModification>;
+
+// Enum value type exports
+export type ModificationMethodValue = typeof ModificationMethod[keyof typeof ModificationMethod];
+export type ModificationTypeValue = typeof ModificationType[keyof typeof ModificationType];
+export type ModificationStatusValue = typeof ModificationStatus[keyof typeof ModificationStatus];

@@ -35,7 +35,13 @@ import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import type { RouterOutputs } from '@glapi/trpc';
 
+// Use TRPC inferred types to prevent type drift
+type ItemCategoryTree = NonNullable<RouterOutputs['items']['categories']['tree']>[number];
+type ItemCategoryFlat = RouterOutputs['items']['categories']['list'][number];
+
+// Extended interface for UI display (combines both types)
 interface ItemCategory {
   id: string;
   organizationId: string;
@@ -45,8 +51,8 @@ interface ItemCategory {
   level: number;
   path: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
   children?: ItemCategory[];
 }
 
@@ -71,10 +77,7 @@ export default function ItemCategoriesPage() {
     enabled: !!orgId,
   });
   
-  const { data: flatCategoriesData } = trpc.items.categories.list.useQuery({
-    page: 1,
-    limit: 1000,
-  }, {
+  const { data: flatCategoriesData } = trpc.items.categories.list.useQuery(undefined, {
     enabled: !!orgId,
   });
 
@@ -113,7 +116,7 @@ export default function ItemCategoriesPage() {
   });
 
   const categories = categoriesData || [];
-  const flatCategories = flatCategoriesData?.data || [];
+  const flatCategories = flatCategoriesData || [];
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
@@ -162,7 +165,7 @@ export default function ItemCategoriesPage() {
       return;
     }
 
-    deleteCategoryMutation.mutate(category.id);
+    deleteCategoryMutation.mutate({ id: category.id });
   };
 
   const openEditDialog = (category: ItemCategory) => {
@@ -430,10 +433,10 @@ export default function ItemCategoriesPage() {
                       </FormControl>
                       <SelectContent>
                         {flatCategories
-                          .filter(cat => cat.id !== selectedCategory?.id)
-                          .map(category => (
+                          .filter((cat: ItemCategoryFlat) => cat.id !== selectedCategory?.id)
+                          .map((category: ItemCategoryFlat) => (
                             <SelectItem key={category.id} value={category.id}>
-                              {category.path ? category.path.replace(/\//g, ' → ') : category.name}
+                              {category.path ? category.path.replace(/\//g, ' -> ') : category.name}
                             </SelectItem>
                           ))}
                       </SelectContent>

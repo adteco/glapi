@@ -111,9 +111,7 @@ export class SubscriptionRepository extends BaseRepository {
 
     if (options.search) {
       conditions.push(
-        or(
-          ilike(subscriptions.subscriptionNumber, `%${options.search}%`)
-        )
+        ilike(subscriptions.subscriptionNumber, `%${options.search}%`)
       );
     }
 

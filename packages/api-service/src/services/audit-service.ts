@@ -1021,7 +1021,7 @@ export class AuditService extends BaseService {
       .select()
       .from(approvalActions)
       .where(inArray(approvalActions.approvalInstanceId, instanceIds))
-      .orderBy(asc(approvalActions.actionAt));
+      .orderBy(asc(approvalActions.createdAt));
 
     const groupedActions = actions.reduce<Map<string, WorkflowApprovalAction[]>>(
       (map, action) => {

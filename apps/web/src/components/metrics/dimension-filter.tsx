@@ -123,7 +123,7 @@ export function DimensionFilter({ value, onChange, className }: DimensionFilterP
           <DimensionSection
             title="Subsidiaries"
             icon={<Building2 className="h-4 w-4" />}
-            items={(subsidiaries?.data ?? []).map((s: any) => ({
+            items={(subsidiaries ?? []).map((s: any) => ({
               id: s.id,
               name: s.name,
               code: s.code,
@@ -136,7 +136,7 @@ export function DimensionFilter({ value, onChange, className }: DimensionFilterP
           <DimensionSection
             title="Classes"
             icon={<Tag className="h-4 w-4" />}
-            items={(classes?.data ?? []).map((c: any) => ({
+            items={(classes ?? []).map((c: any) => ({
               id: c.id,
               name: c.name,
               code: c.code,
@@ -149,7 +149,7 @@ export function DimensionFilter({ value, onChange, className }: DimensionFilterP
           <DimensionSection
             title="Departments"
             icon={<Briefcase className="h-4 w-4" />}
-            items={(departments?.data ?? []).map((d: any) => ({
+            items={(departments ?? []).map((d: any) => ({
               id: d.id,
               name: d.name,
               code: d.code,
@@ -162,7 +162,7 @@ export function DimensionFilter({ value, onChange, className }: DimensionFilterP
           <DimensionSection
             title="Locations"
             icon={<MapPin className="h-4 w-4" />}
-            items={(locations?.data ?? []).map((l: any) => ({
+            items={(locations ?? []).map((l: any) => ({
               id: l.id,
               name: l.name,
               code: l.code,

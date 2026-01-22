@@ -40,15 +40,15 @@ export default function ItemVariantsPage() {
   const itemId = params.id as string;
 
   // tRPC queries and mutations
-  const { data: parentItem, isLoading } = trpc.items.getById.useQuery(itemId, {
+  const { data: parentItem, isLoading } = trpc.items.getById.useQuery({ id: itemId }, {
     enabled: !!orgId && !!itemId,
   });
 
-  const { data: variants = [] } = trpc.items.getVariants.useQuery(itemId, {
+  const { data: variants = [] } = trpc.items.variants.list.useQuery({ itemId }, {
     enabled: !!orgId && !!itemId,
   });
 
-  const generateVariantsMutation = trpc.items.generateVariants.useMutation({
+  const generateVariantsMutation = trpc.items.variants.generate.useMutation({
     onSuccess: (newVariants) => {
       toast.success(`Successfully generated ${newVariants.length} variants`);
       // Data will be refetched automatically
@@ -72,7 +72,9 @@ export default function ItemVariantsPage() {
     if (parentItem?.variantAttributes) {
       const attrs: VariantAttribute[] = [];
       for (const [name, values] of Object.entries(parentItem.variantAttributes)) {
-        attrs.push({ name, values: values as string[] });
+        // Handle both string and string[] formats
+        const valueArray = Array.isArray(values) ? values : [values];
+        attrs.push({ name, values: valueArray });
       }
       setAttributes(attrs);
     }
@@ -386,14 +388,14 @@ export default function ItemVariantsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {variants.map((variant) => (
+                {variants.map((variant: { id: string; variantCode: string; variantName: string; sku?: string; isActive: boolean; attributes?: Record<string, string> }) => (
                   <TableRow key={variant.id}>
-                    <TableCell className="font-medium">{variant.itemCode}</TableCell>
-                    <TableCell>{variant.name}</TableCell>
+                    <TableCell className="font-medium">{variant.variantCode}</TableCell>
+                    <TableCell>{variant.variantName}</TableCell>
                     <TableCell>
-                      {variant.variantAttributes && (
+                      {variant.attributes && (
                         <div className="flex gap-1">
-                          {Object.entries(variant.variantAttributes).map(([key, value]) => (
+                          {Object.entries(variant.attributes).map(([key, value]) => (
                             <Badge key={key} variant="outline">
                               {key}: {String(value)}
                             </Badge>
