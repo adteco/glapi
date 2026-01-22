@@ -1,6 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
 const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/lists(.*)', '/admin(.*)', '/relationships(.*)'])
+
+// Static file extensions that should never go through auth
+const isStaticFile = (pathname: string) => {
+  return /\.(?:css|js|map|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)$/i.test(pathname)
+}
 
 // Satellite domain configuration for cross-domain auth
 // See: https://clerk.com/docs/guides/dashboard/dns-domains/satellite-domains
@@ -8,6 +14,13 @@ const isSatellite = process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true'
 
 export default clerkMiddleware(
   async (auth, req) => {
+    const { pathname } = req.nextUrl
+
+    // Explicitly skip static files - belt and suspenders with matcher
+    if (pathname.startsWith('/_next') || isStaticFile(pathname)) {
+      return NextResponse.next()
+    }
+
     if (isProtectedRoute(req)) await auth.protect()
   },
   isSatellite
