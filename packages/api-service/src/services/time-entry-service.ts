@@ -300,6 +300,7 @@ export class TimeEntryService extends BaseService {
     }
 
     // Verify employee has access to project if projectId is specified
+    // Auto-create assignment if it doesn't exist (better UX for initial setup)
     if (input.projectId) {
       const hasAccess = await this.repository.isEmployeeAssignedToProject(
         employeeId,
@@ -307,11 +308,20 @@ export class TimeEntryService extends BaseService {
         organizationId
       );
       if (!hasAccess) {
-        throw new ServiceError(
-          'Employee is not assigned to this project',
-          'EMPLOYEE_NOT_ASSIGNED',
-          403
-        );
+        // Auto-create the assignment instead of blocking
+        await this.repository.createAssignment({
+          organizationId,
+          employeeId,
+          projectId: input.projectId,
+          role: null,
+          defaultCostCodeId: null,
+          budgetedHours: null,
+          startDate: null,
+          endDate: null,
+          canApproveTime: false,
+          metadata: null,
+          createdBy: userId,
+        });
       }
     }
 

@@ -41,7 +41,6 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   // Create client once, use refs for dynamic values in headers
   const [trpcClient] = useState(() =>
     trpc.createClient({
-      transformer: superjson,
       links: [
         httpBatchLink({
           url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031'}/api/trpc`,

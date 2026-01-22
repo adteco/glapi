@@ -75,9 +75,11 @@ import type { RouterOutputs } from '@glapi/trpc';
 // Use TRPC inferred types to prevent type drift
 type TimeEntry = RouterOutputs['timeEntries']['list']['data'][number];
 type Project = RouterOutputs['projects']['list']['data'][number];
+type Employee = RouterOutputs['employees']['list']['data'][number];
 
 // Form schema
 const timeEntryFormSchema = z.object({
+  employeeId: z.string().min(1, 'Employee is required'),
   projectId: z.string().min(1, 'Project is required'),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
   hours: z.coerce.number().positive('Hours must be positive').max(24, 'Max 24 hours'),
@@ -128,6 +130,11 @@ export default function ProjectTimePage() {
   );
 
   const { data: projectsData } = trpc.projects.list.useQuery(
+    { page: 1, limit: 100 },
+    { enabled: !!orgId }
+  );
+
+  const { data: employeesData } = trpc.employees.list.useQuery(
     { page: 1, limit: 100 },
     { enabled: !!orgId }
   );
@@ -192,6 +199,7 @@ export default function ProjectTimePage() {
   const createForm = useForm<TimeEntryFormValues>({
     resolver: zodResolver(timeEntryFormSchema),
     defaultValues: {
+      employeeId: '',
       projectId: '',
       entryDate: new Date().toISOString().split('T')[0],
       hours: 0,
@@ -208,6 +216,7 @@ export default function ProjectTimePage() {
   // Data extraction
   const entries = entriesData?.data || [];
   const projects = projectsData?.data || [];
+  const employees = employeesData?.data || [];
 
   // Calculate weekly totals
   const weeklyTotalHours = summaryData?.reduce(
@@ -222,6 +231,7 @@ export default function ProjectTimePage() {
   // Handlers
   const handleCreateEntry = (data: TimeEntryFormValues) => {
     createMutation.mutate({
+      employeeId: data.employeeId,
       projectId: data.projectId,
       entryDate: data.entryDate,
       hours: String(data.hours),
@@ -524,6 +534,31 @@ export default function ProjectTimePage() {
           </DialogHeader>
           <Form {...createForm}>
             <form onSubmit={createForm.handleSubmit(handleCreateEntry)} className="space-y-4">
+              <FormField
+                control={createForm.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employee *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an employee" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {employees.map((employee: Employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={createForm.control}
                 name="projectId"
