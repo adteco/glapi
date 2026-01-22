@@ -8,15 +8,24 @@ if (!process.env.DATABASE_URL) {
 }
 
 const DATABASE_URL = process.env.DATABASE_URL;
-console.log('DATABASE_URL', DATABASE_URL);
+
+// Remove sslmode from URL to avoid conflict with programmatic ssl config
+const cleanUrl = DATABASE_URL.replace(/[?&]sslmode=[^&]+/g, (match, offset) => {
+  // If it was the first param (starts with ?), check if there are more params
+  if (match.startsWith('?')) {
+    return DATABASE_URL.includes('&', offset) ? '?' : '';
+  }
+  return '';
+});
 
 // Configure SSL for RDS connections
-const sslConfig = DATABASE_URL.includes('rds.amazonaws.com') || DATABASE_URL.includes('sslmode=require')
-  ? { rejectUnauthorized: false }
-  : undefined;
+const needsSsl = DATABASE_URL.includes('rds.amazonaws.com') || DATABASE_URL.includes('sslmode=require');
+const sslConfig = needsSsl ? { rejectUnauthorized: false } : undefined;
+
+console.log('DB connection:', needsSsl ? 'SSL enabled (rejectUnauthorized: false)' : 'No SSL');
 
 const pool = new Pool({
-  connectionString: DATABASE_URL,
+  connectionString: cleanUrl,
   ssl: sslConfig,
 });
 
