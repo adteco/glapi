@@ -2,11 +2,14 @@
 
 import SignInButton from './SignInButton';
 import SignUpButton from './SignUpButton';
+import { Button } from '@/components/ui/button';
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@clerk/nextjs';
 
 export function Header() {
   const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || 'https://docs.glapi.net';
+  const { isSignedIn, isLoaded } = useAuth();
 
   return (
     <nav className="relative z-10 flex items-center justify-between p-6 lg:px-8 bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900">
@@ -14,7 +17,7 @@ export function Header() {
         <ShieldCheck className="h-8 w-8 text-sky-400" />
         <Link href="/" className="text-xl font-bold text-white">GLAPI</Link>
       </div>
-      
+
       <div className="hidden md:flex items-center space-x-8">
         <Link href="/product" className="text-gray-300 hover:text-white transition-colors">
           Product
@@ -22,10 +25,10 @@ export function Header() {
         <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors">
           Pricing
         </Link>
-        <a 
-          href={docsUrl} 
+        <a
+          href={docsUrl}
           className="text-gray-300 hover:text-white transition-colors"
-          target="_blank" 
+          target="_blank"
           rel="noopener noreferrer"
         >
           Docs
@@ -36,8 +39,18 @@ export function Header() {
       </div>
 
       <div className="flex items-center space-x-4">
-        <SignInButton />
-        <SignUpButton />
+        {isLoaded && isSignedIn ? (
+          <Link href="/dashboard">
+            <Button className="bg-sky-500 hover:bg-sky-600 text-white">
+              Dashboard
+            </Button>
+          </Link>
+        ) : (
+          <>
+            <SignInButton />
+            <SignUpButton />
+          </>
+        )}
       </div>
     </nav>
   );
