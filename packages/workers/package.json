@@ -14,7 +14,7 @@
     "start:balance-projection": "node dist/cli.js balance-projection",
     "start:outbox-processor": "node dist/cli.js outbox-processor",
     "type-check": "tsc --noEmit",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@glapi/business": "workspace:*",
