@@ -35,12 +35,12 @@ export async function getServiceContext(): Promise<OrganizationContext> {
     };
   }
 
-  // Fallback for development
+  // Fallback for development - use valid UUID matching the test API key's org
   console.log('No org/user in headers - using development context');
   return {
-    organizationId: 'org_development',
+    organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Adteco dev org UUID
     userId: 'user_development',
-    clerkOrganizationId: 'org_development'
+    clerkOrganizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2'
   };
   
   /*
@@ -109,7 +109,7 @@ export async function checkPermission(
   action: Action,
   subsidiaryId?: string
 ): Promise<boolean> {
-  const context = getServiceContext();
+  const context = await getServiceContext();
   const permissionService = new PermissionService({
     organizationId: context.organizationId,
     userId: context.userId,
@@ -131,7 +131,7 @@ export async function requirePermission(
   action: Action,
   subsidiaryId?: string
 ): Promise<void> {
-  const context = getServiceContext();
+  const context = await getServiceContext();
   const permissionService = new PermissionService({
     organizationId: context.organizationId,
     userId: context.userId,
@@ -150,7 +150,7 @@ export async function checkSubsidiaryAccess(
   subsidiaryId: string,
   requiredLevel: AccessLevel
 ): Promise<boolean> {
-  const context = getServiceContext();
+  const context = await getServiceContext();
   const permissionService = new PermissionService({
     organizationId: context.organizationId,
     userId: context.userId,
@@ -170,7 +170,7 @@ export async function requireSubsidiaryAccess(
   subsidiaryId: string,
   requiredLevel: AccessLevel
 ): Promise<void> {
-  const context = getServiceContext();
+  const context = await getServiceContext();
   const permissionService = new PermissionService({
     organizationId: context.organizationId,
     userId: context.userId,
@@ -184,7 +184,7 @@ export async function requireSubsidiaryAccess(
  * @returns true if user is admin, false otherwise
  */
 export async function isAdmin(): Promise<boolean> {
-  const context = getServiceContext();
+  const context = await getServiceContext();
   const permissionService = new PermissionService({
     organizationId: context.organizationId,
     userId: context.userId,
@@ -199,7 +199,7 @@ export async function isAdmin(): Promise<boolean> {
  * @throws ServiceError with code 'ADMIN_REQUIRED' if user is not admin
  */
 export async function requireAdmin(): Promise<void> {
-  const context = getServiceContext();
+  const context = await getServiceContext();
   const permissionService = new PermissionService({
     organizationId: context.organizationId,
     userId: context.userId,

@@ -18,7 +18,8 @@ const VALID_API_KEYS: Record<string, {
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3002',
-  'http://localhost:3020',  // Web app on port 3020
+  'http://localhost:3020',
+  'http://localhost:3030',  // Web app on port 3030
   'http://localhost:8787',  // MCP server
   'https://web.glapi.net',
   'https://www.glapi.net',
@@ -29,61 +30,72 @@ const allowedOrigins = [
 export function middleware(request: NextRequest): NextResponse | Response {
   // Handle CORS
   const origin = request.headers.get('origin');
-  const response = NextResponse.next();
-  
-  // Set CORS headers
+
+  // Build modified request headers that will be passed to route handlers
+  const requestHeaders = new Headers(request.headers);
+
+  // Handle preflight requests first
+  if (request.method === 'OPTIONS') {
+    const preflightResponse = new Response(null, { status: 200 });
+    if (!origin || allowedOrigins.includes(origin)) {
+      preflightResponse.headers.set('Access-Control-Allow-Origin', origin || '*');
+      preflightResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+      preflightResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      preflightResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id, x-clerk-organization-id, x-clerk-user-id');
+    }
+    return preflightResponse;
+  }
+
+  // Only apply auth to API routes
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const apiKey = request.headers.get('x-api-key');
+
+    // Check API key authentication
+    if (apiKey) {
+      if (VALID_API_KEYS[apiKey]) {
+        const keyData = VALID_API_KEYS[apiKey];
+
+        // Add organization context to request headers for API routes to use
+        requestHeaders.set('x-organization-id', keyData.organizationId);
+        requestHeaders.set('x-user-id', 'api-key-user');
+        requestHeaders.set('x-api-key-name', keyData.name);
+      } else {
+        return new Response(JSON.stringify({ error: 'Invalid API key' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } else {
+      // If no API key, check for x-organization-id header from client
+      const clientOrgId = request.headers.get('x-organization-id') || request.headers.get('x-clerk-organization-id');
+      const clientUserId = request.headers.get('x-user-id') || request.headers.get('x-clerk-user-id');
+
+      if (clientOrgId) {
+        // Normalize header names for route handlers
+        requestHeaders.set('x-organization-id', clientOrgId);
+        if (clientUserId) {
+          requestHeaders.set('x-user-id', clientUserId);
+        }
+      }
+      // No fallback - if no org ID is provided, the request should fail at the route handler level
+    }
+  }
+
+  // Create response with modified request headers that get passed to route handlers
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  // Set CORS headers on response
   if (!origin || allowedOrigins.includes(origin)) {
     response.headers.set('Access-Control-Allow-Origin', origin || '*');
     response.headers.set('Access-Control-Allow-Credentials', 'true');
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id, x-clerk-organization-id, x-clerk-user-id');
   }
-  
-  // Handle preflight requests
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: response.headers });
-  }
-  
-  // Only apply auth to API routes
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    const apiKey = request.headers.get('x-api-key');
-    
-    // Check API key authentication
-    if (apiKey) {
-      if (VALID_API_KEYS[apiKey]) {
-        const keyData = VALID_API_KEYS[apiKey];
-        
-        // Add organization context to headers for API routes to use
-        response.headers.set('x-organization-id', keyData.organizationId);
-        response.headers.set('x-user-id', 'api-key-user');
-        response.headers.set('x-api-key-name', keyData.name);
-        
-        return response;
-      } else {
-        return new Response(JSON.stringify({ error: 'Invalid API key' }), {
-          status: 401,
-          headers: {
-            'Content-Type': 'application/json',
-            ...Object.fromEntries(response.headers.entries())
-          }
-        });
-      }
-    }
-    
-    // If no API key, check for x-organization-id header from client
-    const clientOrgId = request.headers.get('x-organization-id') || request.headers.get('x-clerk-organization-id');
-    const clientUserId = request.headers.get('x-user-id') || request.headers.get('x-clerk-user-id');
-    
-    if (clientOrgId) {
-      // Pass through the client's organization ID
-      response.headers.set('x-organization-id', clientOrgId);
-      if (clientUserId) {
-        response.headers.set('x-user-id', clientUserId);
-      }
-    }
-    // No fallback - if no org ID is provided, the request should fail at the route handler level
-  }
-  
+
   return response;
 }
 
