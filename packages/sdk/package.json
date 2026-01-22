@@ -19,7 +19,7 @@
   "scripts": {
     "generate": "openapi --input ../../apps/docs/public/api/openapi.json --output ./src/generated --client axios --useOptions --useUnionTypes",
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src",
     "type-check": "tsc --noEmit",
     "prepublishOnly": "pnpm build"
   },
