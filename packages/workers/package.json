@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/cli.ts",
+    "dev:workers": "dotenv -e .env.local -- tsx watch src/cli.ts all",
     "start": "node dist/cli.js",
     "start:balance-projection": "node dist/cli.js balance-projection",
     "start:outbox-processor": "node dist/cli.js outbox-processor",
@@ -20,10 +20,12 @@
     "@glapi/business": "workspace:*",
     "@glapi/database": "workspace:*",
     "commander": "^12.0.0",
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
+    "dotenv-cli": "^11.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }

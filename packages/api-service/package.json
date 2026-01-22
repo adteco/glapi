@@ -17,7 +17,7 @@
     "@glapi/business": "workspace:*",
     "@glapi/database": "workspace:*",
     "@paralleldrive/cuid2": "^2.2.2",
-    "@trpc/server": "^11.5.1",
+    "@trpc/server": "^11.4.3",
     "decimal.js": "^10.4.3",
     "drizzle-orm": "^0.44.2",
     "uuid": "^9.0.1",
