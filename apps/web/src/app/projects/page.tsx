@@ -13,24 +13,13 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
+import type { RouterOutputs } from '@glapi/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled' | 'archived';
-
-interface Project {
-  id: string;
-  projectCode: string;
-  name: string;
-  status: ProjectStatus;
-  startDate?: string | null;
-  endDate?: string | null;
-  jobNumber?: string | null;
-  projectType?: string | null;
-  description?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+// Use TRPC inferred types to prevent type drift
+type Project = RouterOutputs['projects']['list']['data'][number];
+type ProjectStatus = Project['status'];
 
 interface FormData {
   projectCode: string;

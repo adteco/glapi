@@ -34,37 +34,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import type { RouterOutputs } from '@glapi/trpc';
 
-// Type definitions
-interface Customer {
-  id: string;
-  companyName: string;
-  contactEmail?: string;
-  contactPhone?: string;
-}
-
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  entityId: string;
-  invoiceDate: string | Date;
-  dueDate: string | Date | null;
-  totalAmount: number | string;
-  paidAmount?: number | string;
-  balanceDue?: number | string;
-  status: string;
-}
-
-interface Payment {
-  id: string;
-  invoiceId: string;
-  invoiceNumber?: string;
-  paymentDate: string | Date;
-  amount: string | number;
-  paymentMethod?: string;
-  transactionReference?: string;
-  status: string;
-}
+// Use TRPC inferred types to prevent type drift
+type Customer = RouterOutputs['customers']['list'][number];
+type Invoice = RouterOutputs['invoices']['list']['data'][number];
+type Payment = RouterOutputs['payments']['list']['data'][number];
 
 interface StatementLine {
   date: Date;
