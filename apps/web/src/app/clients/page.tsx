@@ -143,9 +143,9 @@ const ClientForm: React.FC<ClientFormProps> = ({ formData, setFormData, clients,
         <SelectContent>
           <SelectItem value="none">None</SelectItem>
           {clients
-            .filter(c => c.id !== currentClientId)
+            .filter(c => c.id && c.id !== currentClientId)
             .map(client => (
-              <SelectItem key={client.id} value={client.id}>
+              <SelectItem key={client.id} value={client.id!}>
                 {client.companyName} {client.customerId ? `(${client.customerId})` : ''}
               </SelectItem>
             ))
@@ -291,12 +291,8 @@ export default function ClientsPage() {
     },
   });
 
-  const clients = (clientsData || []).map(client => ({
-    ...client,
-    id: client.id || '',
-    createdAt: client.createdAt?.toString() || new Date().toISOString(),
-    updatedAt: client.updatedAt?.toString() || new Date().toISOString(),
-  }));
+  // Use clients directly - formatDate handles Date | string | undefined
+  const clients = clientsData || [];
 
   const handleCreate = async () => {
     if (!formData.name) {
@@ -322,7 +318,7 @@ export default function ClientsPage() {
   };
 
   const handleUpdate = async () => {
-    if (!selectedClient) return;
+    if (!selectedClient || !selectedClient.id) return;
 
     updateClientMutation.mutate({
       id: selectedClient.id,
@@ -400,8 +396,9 @@ export default function ClientsPage() {
     setSelectedClient(null);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString();
   };
 
   if (isLoading) {
@@ -463,7 +460,7 @@ export default function ClientsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clients.map((client) => (
+              {clients.filter(c => c.id).map((client) => (
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">
                     {client.companyName}
@@ -488,7 +485,7 @@ export default function ClientsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => router.push(`/clients/${client.id}`)}
+                        onClick={() => router.push(`/clients/${client.id!}`)}
                         title="View details"
                       >
                         <Eye className="h-4 w-4" />
@@ -506,7 +503,7 @@ export default function ClientsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(client.id)}
+                        onClick={() => handleDelete(client.id!)}
                         title="Delete client"
                         className="text-destructive hover:text-destructive"
                       >
