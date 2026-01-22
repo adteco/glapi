@@ -128,7 +128,7 @@ export default function ProjectTimePage() {
   );
 
   const { data: projectsData } = trpc.projects.list.useQuery(
-    { page: 1, pageSize: 100 },
+    { page: 1, limit: 100 },
     { enabled: !!orgId }
   );
 
@@ -206,7 +206,7 @@ export default function ProjectTimePage() {
   });
 
   // Data extraction
-  const entries = entriesData?.entries || [];
+  const entries = entriesData?.data || [];
   const projects = projectsData?.data || [];
 
   // Calculate weekly totals
@@ -458,7 +458,7 @@ export default function ProjectTimePage() {
                   </TableCell>
                   <TableCell>{formatDate(entry.entryDate)}</TableCell>
                   <TableCell className="font-medium">
-                    {entry.projectName || 'No Project'}
+                    {entry.projectId ? projects.find(p => p.id === entry.projectId)?.name || 'Unknown' : 'No Project'}
                   </TableCell>
                   <TableCell className="capitalize">
                     {entry.entryType.toLowerCase().replace('_', ' ')}

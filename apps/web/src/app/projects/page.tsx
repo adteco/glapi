@@ -21,10 +21,13 @@ import { toast } from 'sonner';
 type Project = RouterOutputs['projects']['list']['data'][number];
 type ProjectStatus = Project['status'];
 
+// Input status type for mutations (must match TRPC input schema)
+type ProjectStatusInput = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled' | 'archived';
+
 interface FormData {
   projectCode: string;
   name: string;
-  status: ProjectStatus;
+  status: ProjectStatusInput;
   startDate: string;
   endDate: string;
   jobNumber: string;
@@ -37,7 +40,7 @@ interface ProjectFormProps {
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
 }
 
-const statusOptions: { value: ProjectStatus; label: string }[] = [
+const statusOptions: { value: ProjectStatusInput; label: string }[] = [
   { value: 'planning', label: 'Planning' },
   { value: 'active', label: 'Active' },
   { value: 'on_hold', label: 'On Hold' },
@@ -72,7 +75,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ formData, setFormData }) => (
         <Label htmlFor="status">Status</Label>
         <Select
           value={formData.status}
-          onValueChange={(value: ProjectStatus) => setFormData(prev => ({ ...prev, status: value }))}
+          onValueChange={(value: ProjectStatusInput) => setFormData(prev => ({ ...prev, status: value }))}
         >
           <SelectTrigger>
             <SelectValue />
@@ -246,7 +249,7 @@ export default function ProjectsPage() {
     setFormData({
       projectCode: project.projectCode || '',
       name: project.name || '',
-      status: project.status || 'planning',
+      status: (project.status || 'planning') as ProjectStatusInput,
       startDate: project.startDate || '',
       endDate: project.endDate || '',
       jobNumber: project.jobNumber || '',

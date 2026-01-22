@@ -482,13 +482,13 @@ export default function BankReconciliationPage() {
                 ) : (
                   exceptions.map((exception: ReconciliationException) => (
                     <TableRow key={exception.id}>
-                      <TableCell className="font-medium">{exception.depositNumber || '-'}</TableCell>
+                      <TableCell className="font-medium">{exception.bankDepositId ? exception.bankDepositId.slice(0, 8) : '-'}</TableCell>
                       <TableCell className="capitalize">{exception.exceptionType.replace('_', ' ')}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{exception.exceptionDescription}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(exception.systemAmount)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(exception.bankStatementAmount)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(exception.systemAmount || '0')}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(exception.bankStatementAmount || '0')}</TableCell>
                       <TableCell className="text-right font-medium text-destructive">
-                        {formatCurrency(exception.varianceAmount)}
+                        {formatCurrency(exception.varianceAmount || '0')}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -614,16 +614,16 @@ export default function BankReconciliationPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">System Amount:</span>
-                    <span>{formatCurrency(selectedException.systemAmount)}</span>
+                    <span>{formatCurrency(selectedException.systemAmount || '0')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Bank Amount:</span>
-                    <span>{formatCurrency(selectedException.bankStatementAmount)}</span>
+                    <span>{formatCurrency(selectedException.bankStatementAmount || '0')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Difference:</span>
                     <span className="font-medium text-destructive">
-                      {formatCurrency(selectedException.varianceAmount)}
+                      {formatCurrency(selectedException.varianceAmount || '0')}
                     </span>
                   </div>
                   <p className="text-sm mt-2">{selectedException.exceptionDescription}</p>
