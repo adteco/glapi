@@ -32,6 +32,7 @@
     "apps/*"
   ],
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@pact-foundation/pact": "^15.0.1",
     "@playwright/test": "^1.40.0",
     "@stoplight/prism-cli": "^5.14.2",
@@ -44,11 +45,12 @@
     "openapi-typescript-codegen": "^0.29.0",
     "prettier": "^3.2.4",
     "turbo": "^1.13.3",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.53.1"
   },
   "packageManager": "pnpm@10.6.4",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   }
 }
