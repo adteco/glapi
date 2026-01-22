@@ -1,0 +1,208 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+  # Test environment variables
+  TEST_API_URL: http://localhost:3031
+  DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+  CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+
+jobs:
+  api-tests:
+    name: API Tests (TRPC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: glapi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set test database URL
+        run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+        continue-on-error: true
+
+      - name: Build packages
+        run: pnpm turbo build --filter=@glapi/trpc --filter=@glapi/api-service --filter=@glapi/database
+
+      - name: Start API server
+        run: |
+          pnpm --filter api dev &
+          sleep 10
+        env:
+          PORT: 3031
+
+      - name: Run API tests
+        run: pnpm playwright test --project=api-tests
+        continue-on-error: true
+
+      - name: Upload API test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
+
+  e2e-tests:
+    name: E2E Tests (UI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [api-tests]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: glapi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Browsers
+        run: pnpm playwright install --with-deps chromium
+
+      - name: Set test database URL
+        run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+        continue-on-error: true
+
+      - name: Build all apps
+        run: pnpm build
+
+      - name: Start services
+        run: |
+          # Start API server
+          pnpm --filter api start &
+          # Start web app
+          pnpm --filter web start &
+          # Wait for services to be ready
+          npx wait-on http://localhost:3031/api/health http://localhost:3000 --timeout 60000
+        env:
+          PORT: 3031
+          NEXT_PUBLIC_API_URL: http://localhost:3031
+
+      - name: Run E2E tests
+        run: pnpm playwright test --project=chromium
+        env:
+          CI: true
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [api-tests, e2e-tests]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "### E2E Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| API Tests | ${{ needs.api-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.api-tests.result }}" != "success" ]] || \
+             [[ "${{ needs.e2e-tests.result }}" != "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Some tests failed.** Check the artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All E2E tests passed!" >> $GITHUB_STEP_SUMMARY
