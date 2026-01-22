@@ -210,20 +210,26 @@ export class CustomerRepository extends BaseRepository {
     }
     
     // Insert the new customer entity
+    const insertValues: any = {
+      organizationId: data.organizationId,
+      name: data.companyName,
+      code: data.customerId || null,
+      email: data.contactEmail || null,
+      phone: data.contactPhone || null,
+      status: data.status || 'active',
+      entityTypes: ['Customer'],
+      parentEntityId: data.parentCustomerId || null,
+      isActive: true,
+    };
+
+    // Only include addressId if it's not null (avoid empty string FK violation)
+    if (addressId) {
+      insertValues.addressId = addressId;
+    }
+
     const [result] = await this.db
       .insert(entities)
-      .values({
-        organizationId: data.organizationId,
-        name: data.companyName,
-        code: data.customerId,
-        email: data.contactEmail,
-        phone: data.contactPhone,
-        status: data.status || 'active',
-        entityTypes: ['Customer'],
-        addressId: addressId,
-        parentEntityId: data.parentCustomerId,
-        isActive: true,
-      })
+      .values(insertValues)
       .returning();
     
     // Return in the expected format

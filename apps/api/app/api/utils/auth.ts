@@ -36,12 +36,16 @@ async function resolveOrganizationId(clerkOrgId: string): Promise<string | null>
   }
 
   // Look up by Clerk org ID
-  const orgRepo = new OrganizationRepository();
-  const org = await orgRepo.findByClerkId(clerkOrgId);
+  try {
+    const orgRepo = new OrganizationRepository();
+    const org = await orgRepo.findByClerkId(clerkOrgId);
 
-  if (org) {
-    orgIdCache.set(clerkOrgId, org.id);
-    return org.id;
+    if (org) {
+      orgIdCache.set(clerkOrgId, org.id);
+      return org.id;
+    }
+  } catch (error) {
+    console.error('Failed to resolve organization ID:', error);
   }
 
   return null;
