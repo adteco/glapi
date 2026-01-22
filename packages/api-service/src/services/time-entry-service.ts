@@ -136,7 +136,7 @@ export class TimeEntryService extends BaseService {
    * Calculate labor costs based on rate hierarchy
    */
   private async calculateLaborCosts(
-    employeeId: string,
+    employeeId: string | null,
     projectId: string | null | undefined,
     costCodeId: string | null | undefined,
     entryDate: string,
@@ -144,6 +144,17 @@ export class TimeEntryService extends BaseService {
     entryType: string
   ): Promise<{ laborRate: string; laborCost: string; burdenRate: string; burdenCost: string; totalCost: string }> {
     const organizationId = this.requireOrganizationContext();
+
+    // If no employeeId, return zero costs
+    if (!employeeId) {
+      return {
+        laborRate: '0',
+        laborCost: '0',
+        burdenRate: '0',
+        burdenCost: '0',
+        totalCost: '0',
+      };
+    }
 
     const rate = await this.repository.findApplicableLaborRate(
       organizationId,
@@ -255,16 +266,40 @@ export class TimeEntryService extends BaseService {
   }
 
   /**
+   * Check if a string is a valid UUID format
+   */
+  private isValidUUID(str: string): boolean {
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidPattern.test(str);
+  }
+
+  /**
    * Create a new time entry
    */
   async create(input: CreateTimeEntryInput): Promise<TimeEntry> {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
 
-    // Default employee to current user if not specified
-    const employeeId = input.employeeId || userId;
+    // Determine employee ID - use input.employeeId if provided and valid UUID,
+    // otherwise check if userId is a valid UUID (Clerk user IDs like user_xxx are not)
+    let employeeId: string | null = null;
+    if (input.employeeId && this.isValidUUID(input.employeeId)) {
+      employeeId = input.employeeId;
+    } else if (this.isValidUUID(userId)) {
+      // Only use userId as employeeId if it's a valid UUID
+      employeeId = userId;
+    }
 
-    // Verify employee has access to project if specified
+    // Employee ID is required for time entries - if we couldn't resolve one, throw an error
+    if (!employeeId) {
+      throw new ServiceError(
+        'An employee record is required to log time. Please create an employee record for this user or provide an employeeId.',
+        'EMPLOYEE_REQUIRED',
+        400
+      );
+    }
+
+    // Verify employee has access to project if projectId is specified
     if (input.projectId) {
       const hasAccess = await this.repository.isEmployeeAssignedToProject(
         employeeId,
