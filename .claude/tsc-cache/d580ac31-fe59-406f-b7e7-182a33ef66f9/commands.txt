@@ -1,0 +1,2 @@
+packages/workers:build:cd /Users/fredpope/Development/glapi/packages/workers && npm run build
+packages/workers:tsc:cd /Users/fredpope/Development/glapi/packages/workers && npx tsc --noEmit
