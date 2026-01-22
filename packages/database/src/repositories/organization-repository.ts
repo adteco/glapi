@@ -12,7 +12,20 @@ export class OrganizationRepository extends BaseRepository {
       .from(organizations)
       .where(eq(organizations.stytchOrgId, stytchOrgId))
       .limit(1);
-    
+
+    return result || null;
+  }
+
+  /**
+   * Find an organization by Clerk organization ID
+   */
+  async findByClerkId(clerkOrgId: string) {
+    const [result] = await this.db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.clerkOrgId, clerkOrgId))
+      .limit(1);
+
     return result || null;
   }
   
