@@ -362,7 +362,8 @@ export class TimeEntryService extends BaseService {
       externalId: input.externalId || null,
       externalSource: input.externalSource || null,
       metadata: input.metadata || null,
-      createdBy: userId,
+      // Note: createdBy is null because userId is a Clerk ID, not a database user UUID
+      createdBy: null,
     });
 
     return this.transformEntry(created);
@@ -725,7 +726,8 @@ export class TimeEntryService extends BaseService {
       priority: input.priority ?? 0,
       description: input.description || null,
       metadata: input.metadata || null,
-      createdBy: userId,
+      // Note: createdBy is null because userId is a Clerk ID, not a database user UUID
+      createdBy: null,
     });
 
     return this.transformLaborRate(created);
@@ -784,7 +786,8 @@ export class TimeEntryService extends BaseService {
       endDate: input.endDate || null,
       canApproveTime: input.canApproveTime ?? false,
       metadata: input.metadata || null,
-      createdBy: userId,
+      // Note: createdBy is null because userId is a Clerk ID, not a database user UUID
+      createdBy: null,
     });
 
     return this.transformAssignment(created);
@@ -1090,12 +1093,13 @@ export class TimeEntryService extends BaseService {
         totalHours: totalHours.toFixed(2),
         totalCost: totalCost.toFixed(4),
         status: 'POSTED',
-        submittedBy: userId,
+        // Note: submittedBy, approvedBy, createdBy are null because userId is a Clerk ID
+        submittedBy: null,
         submittedAt: new Date(),
-        approvedBy: userId,
+        approvedBy: null,
         approvedAt: new Date(),
         postedAt: new Date(),
-        createdBy: userId,
+        createdBy: null,
       });
 
       // Group entries by project for assignment updates
