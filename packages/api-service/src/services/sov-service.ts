@@ -40,9 +40,9 @@ interface ChangeOrderSummary {
   description: string;
   status: string;
   amount: string;
-  effectiveDate?: string;
-  requestedDate?: Date;
-  approvedDate?: Date;
+  effectiveDate?: string | null;
+  requestedDate?: Date | null;
+  approvedDate?: Date | null;
 }
 
 export class SovService extends BaseService {
@@ -518,9 +518,9 @@ export class SovService extends BaseService {
       description: created.description,
       status: created.status,
       amount: created.amount,
-      effectiveDate: created.effectiveDate,
-      requestedDate: created.requestedDate,
-      approvedDate: created.approvedDate,
+      effectiveDate: created.effectiveDate ?? undefined,
+      requestedDate: created.requestedDate ?? undefined,
+      approvedDate: created.approvedDate ?? undefined,
     };
   }
 
@@ -554,9 +554,9 @@ export class SovService extends BaseService {
       description: updated.description,
       status: updated.status,
       amount: updated.amount,
-      effectiveDate: updated.effectiveDate,
-      requestedDate: updated.requestedDate,
-      approvedDate: updated.approvedDate,
+      effectiveDate: updated.effectiveDate ?? undefined,
+      requestedDate: updated.requestedDate ?? undefined,
+      approvedDate: updated.approvedDate ?? undefined,
     };
   }
 
@@ -580,9 +580,9 @@ export class SovService extends BaseService {
       description: co.description,
       status: co.status,
       amount: co.amount,
-      effectiveDate: co.effectiveDate,
-      requestedDate: co.requestedDate,
-      approvedDate: co.approvedDate,
+      effectiveDate: co.effectiveDate ?? undefined,
+      requestedDate: co.requestedDate ?? undefined,
+      approvedDate: co.approvedDate ?? undefined,
     }));
   }
 

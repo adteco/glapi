@@ -984,7 +984,9 @@ export class CustomerPaymentService extends BaseService {
 
     return {
       ...this.mapPaymentToDetails(result.payment),
-      entity: result.entity || undefined,
+      entity: result.entity
+        ? { ...result.entity, email: result.entity.email ?? undefined }
+        : undefined,
       applications: applications.map((a) => ({
         id: a.application.id,
         customerPaymentId: a.application.customerPaymentId,
@@ -1077,7 +1079,9 @@ export class CustomerPaymentService extends BaseService {
 
     const data = results.map((r) => ({
       ...this.mapPaymentToDetails(r.payment),
-      entity: r.entity || undefined,
+      entity: r.entity
+        ? { ...r.entity, email: r.entity.email ?? undefined }
+        : undefined,
     }));
 
     return this.createPaginatedResult(data, Number(count), page, limit);
