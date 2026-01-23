@@ -259,8 +259,8 @@ export const priceListsRouter = router({
         overtimeMultiplier: input.overtimeMultiplier,
         doubleTimeMultiplier: input.doubleTimeMultiplier,
         priority: input.priority,
-        effectiveDate: input.effectiveDate.toISOString(),
-        expirationDate: input.expirationDate?.toISOString() || null,
+        effectiveDate: input.effectiveDate,
+        expirationDate: input.expirationDate || null,
         description: input.description,
       });
     }),
@@ -298,8 +298,8 @@ export const priceListsRouter = router({
       if (input.data.overtimeMultiplier !== undefined) updateData.overtimeMultiplier = input.data.overtimeMultiplier;
       if (input.data.doubleTimeMultiplier !== undefined) updateData.doubleTimeMultiplier = input.data.doubleTimeMultiplier;
       if (input.data.priority !== undefined) updateData.priority = input.data.priority;
-      if (input.data.effectiveDate !== undefined) updateData.effectiveDate = input.data.effectiveDate.toISOString();
-      if (input.data.expirationDate !== undefined) updateData.expirationDate = input.data.expirationDate?.toISOString() || null;
+      if (input.data.effectiveDate !== undefined) updateData.effectiveDate = input.data.effectiveDate;
+      if (input.data.expirationDate !== undefined) updateData.expirationDate = input.data.expirationDate || null;
       if (input.data.description !== undefined) updateData.description = input.data.description;
 
       return await service.updateLaborRate(input.id, updateData);
@@ -330,7 +330,7 @@ export const priceListsRouter = router({
         laborRole: input.laborRole,
         projectId: input.projectId,
         costCodeId: input.costCodeId,
-        date: input.date.toISOString(),
+        date: input.date,
       });
     }),
 

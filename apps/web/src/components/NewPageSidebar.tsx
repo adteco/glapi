@@ -41,7 +41,10 @@ import {
   MessageCircle as MessageCircleIcon,
   HardHat as HardHatIcon,
   ClipboardList as ClipboardListIcon,
-  Receipt as ReceiptIcon
+  Receipt as ReceiptIcon,
+  Clock as ClockIcon,
+  CreditCard as CreditCardIcon,
+  Zap as ZapIcon
 } from 'lucide-react';
 
 const NewPageSidebar = () => {
@@ -311,10 +314,34 @@ const NewPageSidebar = () => {
                         <span>Subsidiaries</span>
                       </Link>
                     </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/payment-terms" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/payment-terms') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <ClockIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Payment Terms</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/payment-methods" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/payment-methods') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <CreditCardIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Payment Methods</span>
+                      </Link>
+                    </li>
+                    <li>
+                      {/* @ts-ignore */}
+                      <Link href="/lists/charge-types" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/charge-types') ? activeLinkClass : inactiveLinkClass}`}>
+                        {/* @ts-ignore */}
+                        <ZapIcon className={`h-3 w-3 opacity-75`} />
+                        <span>Charge Types</span>
+                      </Link>
+                    </li>
                   </ul>
                 )}
               </div>
-              
+
               {/* Relationships Section */}
               <div>
                 <button 
