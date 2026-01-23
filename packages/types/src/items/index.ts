@@ -385,9 +385,9 @@ export interface PriceListLaborRateWithRelations extends PriceListLaborRate {
 }
 
 /**
- * Schema for filtering labor rates
+ * Schema for filtering price list labor rates
  */
-export const laborRateFiltersSchema = z.object({
+export const priceListLaborRateFiltersSchema = z.object({
   priceListId: z.string().uuid(),
   employeeId: z.string().uuid().optional(),
   laborRole: z.string().optional(),
@@ -396,7 +396,7 @@ export const laborRateFiltersSchema = z.object({
   activeOnly: z.boolean().default(true),
 });
 
-export type LaborRateFilters = z.infer<typeof laborRateFiltersSchema>;
+export type PriceListLaborRateFilters = z.infer<typeof priceListLaborRateFiltersSchema>;
 
 /**
  * Schema for billing rate calculation requests

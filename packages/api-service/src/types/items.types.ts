@@ -104,13 +104,13 @@ export {
   // Price List Labor Rates (Rate Cards)
   createPriceListLaborRateSchema,
   updatePriceListLaborRateSchema,
-  laborRateFiltersSchema,
+  priceListLaborRateFiltersSchema,
   billingRateCalculationSchema,
   type CreatePriceListLaborRateInput,
   type UpdatePriceListLaborRateInput,
   type PriceListLaborRate,
   type PriceListLaborRateWithRelations,
-  type LaborRateFilters,
+  type PriceListLaborRateFilters,
   type BillingRateCalculationInput,
   type CalculatedBillingRate,
 } from '@glapi/types';
