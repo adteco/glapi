@@ -423,7 +423,7 @@ export class GlPostingEngine extends BaseService {
       timestamp: entry.timestamp.toISOString(),
     };
 
-    // eslint-disable-next-line no-console
+     
     console[logLevel]('[GL_POSTING_AUDIT]', JSON.stringify(logData));
 
     // TODO: Persist to database

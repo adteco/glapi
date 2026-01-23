@@ -729,7 +729,7 @@ export class SalesforceConnector extends BaseConnector {
     let accountsSynced = 0;
     let opportunitiesSynced = 0;
     let activitiesSynced = 0;
-    let productsSynced = 0;
+    const productsSynced = 0;
 
     // Build WHERE clause for incremental sync
     let whereClause: string | undefined;

@@ -21,7 +21,7 @@ export default function ApiReferencePage() {
         el.id = 'api-reference';
         containerRef.current.appendChild(el);
 
-        // @ts-ignore
+        // @ts-expect-error - Scalar ApiReference has incorrect types
         ApiReference(el, {
           spec: {
             url: '/api/openapi.json',

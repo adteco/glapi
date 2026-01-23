@@ -134,7 +134,7 @@ export class SSPService extends BaseService {
       )
       .orderBy(
         // Priority: standalone_sale > competitor_pricing > cost_plus_margin > market_assessment
-        // @ts-ignore - SQL template compatibility
+        // @ts-expect-error - SQL template compatibility
         sql`
           CASE ${sspEvidence.evidenceType}
             WHEN 'standalone_sale' THEN 1
@@ -237,7 +237,7 @@ export class SSPService extends BaseService {
     ];
     
     if (itemIds && itemIds.length > 0) {
-      // @ts-ignore - SQL template compatibility
+      // @ts-expect-error - SQL template compatibility
       conditions.push(sql`${sspEvidence.itemId} = ANY(${itemIds})`);
     }
     

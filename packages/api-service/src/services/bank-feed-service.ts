@@ -471,7 +471,7 @@ export class BankFeedService extends ConnectorBaseService {
     connection: BankConnection,
     syncResult: BankFeedSyncResult
   ): Promise<BankFeedSyncResult> {
-    let duplicatesSkipped = 0;
+    const duplicatesSkipped = 0;
     const organizationId = this.requireOrganizationContext();
 
     // This would process the raw sync result and store transactions
