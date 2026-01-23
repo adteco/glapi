@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { createDepartmentSchema, type CreateDepartmentInput } from "@glapi/types";
 
 // Define interfaces
 interface Department {
@@ -60,15 +60,13 @@ interface Subsidiary {
   code?: string;
 }
 
-// Form schema
-const departmentFormSchema = z.object({
-  name: z.string().min(1, "Name is required").max(255),
-  code: z.string().max(50).optional().or(z.literal('')),
-  description: z.string().max(1000).optional().or(z.literal('')),
-  subsidiaryId: z.string().min(1, "Subsidiary is required"),
+// Form schema - use centralized schema from @glapi/types, omitting organizationId which is added at submit time
+const departmentFormSchema = createDepartmentSchema.omit({
+  organizationId: true,
+  isActive: true,
 });
 
-type DepartmentFormValues = z.infer<typeof departmentFormSchema>;
+type DepartmentFormValues = typeof departmentFormSchema._input;
 
 export default function DepartmentsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -97,7 +95,7 @@ export default function DepartmentsPage() {
   });
 
   const form = useForm<DepartmentFormValues>({
-    // resolver: zodResolver(departmentFormSchema),
+    resolver: zodResolver(departmentFormSchema),
     defaultValues: {
       name: "",
       code: "",

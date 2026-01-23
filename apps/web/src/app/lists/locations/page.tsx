@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { createLocationSchema } from "@glapi/types";
 
 // Define interfaces
 interface Location {
@@ -66,21 +66,13 @@ interface Subsidiary {
   code?: string;
 }
 
-// Form schema
-const locationFormSchema = z.object({
-  name: z.string().min(1, "Name is required").max(255),
-  code: z.string().max(50).optional().or(z.literal('')),
-  description: z.string().max(1000).optional().or(z.literal('')),
-  subsidiaryId: z.string().min(1, "Subsidiary is required"),
-  addressLine1: z.string().max(255).optional().or(z.literal('')),
-  addressLine2: z.string().max(255).optional().or(z.literal('')),
-  city: z.string().max(100).optional().or(z.literal('')),
-  stateProvince: z.string().max(100).optional().or(z.literal('')),
-  postalCode: z.string().max(20).optional().or(z.literal('')),
-  countryCode: z.string().length(2).optional().or(z.literal('')),
+// Form schema - use centralized schema from @glapi/types
+const locationFormSchema = createLocationSchema.omit({
+  organizationId: true,
+  isActive: true,
 });
 
-type LocationFormValues = z.infer<typeof locationFormSchema>;
+type LocationFormValues = typeof locationFormSchema._input;
 
 export default function LocationsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -111,7 +103,7 @@ export default function LocationsPage() {
   const subsidiaries = subsidiariesData || [];
 
   const form = useForm<LocationFormValues>({
-    // resolver: zodResolver(locationFormSchema),
+    resolver: zodResolver(locationFormSchema),
     defaultValues: {
       name: "",
       code: "",

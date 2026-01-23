@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
-  organizations,
+  schema,
   entities,
   items,
   kitComponents,
@@ -9,9 +9,13 @@ import {
   performanceObligations,
   revenueSchedules,
   invoices,
-  invoiceLineItems,
-  payments
+  payments,
+  projects,
+  timeEntries,
 } from '@glapi/database';
+
+// Access schema-only tables via schema object
+const { organizations, users, projectCostCodes } = schema;
 
 export interface KitComponent {
   componentItemId: string;
@@ -36,6 +40,67 @@ export class TestDataGenerator {
       .returning();
     
     return organization;
+  }
+
+  async createEmployee(organizationId: string, name?: string): Promise<any> {
+    const timestamp = Date.now();
+    const [employee] = await this.db
+      .insert(users)
+      .values({
+        id: uuidv4(),
+        stytchUserId: `stytch_test_${timestamp}`,
+        email: `employee-${timestamp}@test.com`,
+        firstName: name || 'Test',
+        lastName: 'Employee',
+        organizationId,
+        role: 'user',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+
+    return employee;
+  }
+
+  async createProject(organizationId: string, name?: string): Promise<any> {
+    const timestamp = Date.now();
+    const [project] = await this.db
+      .insert(projects)
+      .values({
+        id: uuidv4(),
+        organizationId,
+        projectCode: `PROJ-${timestamp}`,
+        name: name || `Test Project ${timestamp}`,
+        status: 'active',
+        startDate: new Date().toISOString().split('T')[0],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+
+    return project;
+  }
+
+  async createCostCode(organizationId: string, projectId: string, name?: string): Promise<any> {
+    const timestamp = Date.now();
+    const [costCode] = await this.db
+      .insert(projectCostCodes)
+      .values({
+        id: uuidv4(),
+        projectId,
+        costCode: `CC-${timestamp}`,
+        name: name || `Test Cost Code ${timestamp}`,
+        costType: 'LABOR',
+        description: 'Test cost code for integration tests',
+        isActive: true,
+        isBillable: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+
+    return costCode;
   }
 
   async createCustomer(organizationId: string, name?: string): Promise<any> {

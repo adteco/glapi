@@ -585,7 +585,7 @@ export class RetryHandler {
     onRetry?: (attempt: RetryAttempt) => void
   ): Promise<T> {
     let lastError: Error | undefined;
-    let attempts: RetryAttempt[] = [];
+    const attempts: RetryAttempt[] = [];
 
     for (let attempt = 1; attempt <= this.policy.maxAttempts; attempt++) {
       try {
