@@ -30,6 +30,7 @@ describe('Bank Deposits tRPC API (Reconciliation System)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Get reference to mock service
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     mockService = require('@glapi/api-service').__mockService;
   });
 

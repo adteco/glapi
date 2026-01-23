@@ -1,12 +1,13 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import * as schema from '@glapi/database';
+import { schema, timeEntries, eq } from '@glapi/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class TestDatabase {
-  private client: postgres.Sql;
-  public db: ReturnType<typeof drizzle>;
+  // Exposed for tests that need raw SQL access
+  public client!: postgres.Sql;
+  public db!: ReturnType<typeof drizzle>;
   private testDbName: string;
   private isSetup = false;
 
@@ -106,5 +107,40 @@ export class TestDatabase {
     if (seedData) {
       // Implement seeding logic based on provided data
     }
+  }
+
+  /**
+   * Clear all time entries from the database
+   */
+  async clearTimeEntries(): Promise<void> {
+    // First clear related tables
+    await this.client`TRUNCATE TABLE time_entry_approvals CASCADE`;
+    await this.client`TRUNCATE TABLE time_entries CASCADE`;
+  }
+
+  /**
+   * Get a time entry by ID directly from the database
+   */
+  async getTimeEntryById(id: string): Promise<any> {
+    const [entry] = await this.db
+      .select()
+      .from(timeEntries)
+      .where(eq(timeEntries.id, id));
+    return entry;
+  }
+
+  /**
+   * Clear users (employees) from the database
+   */
+  async clearUsers(): Promise<void> {
+    await this.client`TRUNCATE TABLE users CASCADE`;
+  }
+
+  /**
+   * Clear projects and related cost codes
+   */
+  async clearProjects(): Promise<void> {
+    await this.client`TRUNCATE TABLE project_cost_codes CASCADE`;
+    await this.client`TRUNCATE TABLE projects CASCADE`;
   }
 }

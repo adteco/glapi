@@ -314,7 +314,6 @@ export class RevenueService extends BaseService {
     ];
     
     if (scheduleIds && scheduleIds.length > 0) {
-      // @ts-ignore - SQL template compatibility
       conditions.push(sql`${revenueSchedules.id} = ANY(${scheduleIds})`);
     }
     

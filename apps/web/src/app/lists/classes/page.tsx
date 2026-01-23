@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { createClassSchema } from "@glapi/types";
 
 // Define interfaces
 interface Class {
@@ -60,13 +60,17 @@ interface Subsidiary {
   code?: string;
 }
 
-// Form schema
-const classFormSchema = z.object({
-  name: z.string().min(1, "Name is required").max(255),
-  code: z.string().max(50).optional().or(z.literal('')),
+// Form schema - use centralized schema from @glapi/types
+const classFormSchema = createClassSchema.omit({
+  organizationId: true,
+  subsidiaryId: true,
+  isActive: true,
+}).pick({
+  name: true,
+  code: true,
 });
 
-type ClassFormValues = z.infer<typeof classFormSchema>;
+type ClassFormValues = typeof classFormSchema._input;
 
 export default function ClassesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -92,7 +96,7 @@ export default function ClassesPage() {
   });
 
   const form = useForm<ClassFormValues>({
-    // resolver: zodResolver(classFormSchema),
+    resolver: zodResolver(classFormSchema),
     defaultValues: {
       name: "",
       code: "",

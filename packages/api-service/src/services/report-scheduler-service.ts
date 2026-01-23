@@ -648,7 +648,7 @@ export class ReportSchedulerService extends BaseService {
     }
 
     // Validate each field has valid characters
-    const validPattern = /^[\d,\-\*\/]+$/;
+    const validPattern = /^[\d,*/-]+$/;
     for (const part of parts) {
       if (!validPattern.test(part)) {
         throw new ServiceError(

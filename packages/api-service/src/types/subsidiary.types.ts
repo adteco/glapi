@@ -1,33 +1,22 @@
-import { z } from 'zod';
+/**
+ * Subsidiary types - re-exported from @glapi/types for backward compatibility
+ *
+ * This file re-exports subsidiary types from the centralized @glapi/types package.
+ * New code should import directly from '@glapi/types' when possible.
+ */
 
-export const subsidiarySchema = z.object({
-  id: z.string().uuid().optional(),
-  organizationId: z.string().min(1, 'Organization ID is required'),
-  name: z.string().min(1, 'Name is required'),
-  code: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  parentId: z.string().uuid().optional().nullable(),
-  isActive: z.boolean().default(true),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-});
+// Re-export subsidiary types from centralized package
+export {
+  subsidiarySchema,
+  type Subsidiary,
+  createSubsidiarySchema,
+  type CreateSubsidiaryInput,
+  updateSubsidiarySchema,
+  type UpdateSubsidiaryInput,
+} from '@glapi/types';
 
-export type Subsidiary = z.infer<typeof subsidiarySchema>;
-export type CreateSubsidiaryInput = Omit<Subsidiary, 'id' | 'createdAt' | 'updatedAt'>;
+// Legacy aliases for backward compatibility
+import { createSubsidiarySchema, updateSubsidiarySchema } from '@glapi/types';
 
-// Schema for creating a new subsidiary
-export const NewSubsidiarySchema = subsidiarySchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type UpdateSubsidiaryInput = Partial<Omit<Subsidiary, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>>;
-
-// Schema for updating a subsidiary
-export const UpdateSubsidiarySchema = subsidiarySchema.omit({
-  id: true,
-  organizationId: true,
-  createdAt: true,
-  updatedAt: true,
-}).partial();
+export const NewSubsidiarySchema = createSubsidiarySchema;
+export const UpdateSubsidiarySchema = updateSubsidiarySchema;

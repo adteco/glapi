@@ -21,6 +21,7 @@ glapi/
 │   ├── api-service/  # tRPC routers and service layer
 │   ├── business/     # Core business logic and domain services
 │   ├── database/     # Drizzle ORM schemas and repositories
+│   ├── types/        # Centralized Zod schemas and TypeScript types
 │   └── mcp-server/   # MCP server for tool integrations
 └── docs/            # Architecture and task documentation
 ```
@@ -199,7 +200,168 @@ export async function POST(request: Request) {
 }
 ```
 
-### 6. Service Layer Architecture
+### 6. Centralized Types Package (@glapi/types)
+
+The `@glapi/types` package provides a single source of truth for all Zod schemas and TypeScript types used across the monorepo. This ensures type consistency between API validation, form validation, and database operations.
+
+#### Package Structure
+```
+packages/types/
+├── src/
+│   ├── index.ts           # Main export file
+│   ├── common/
+│   │   └── index.ts       # Shared utilities and base schemas
+│   ├── accounting/
+│   │   └── index.ts       # Department, Location, Class, Subsidiary, Account
+│   ├── entities/
+│   │   └── index.ts       # Customer, Vendor, Employee, Contact, Entity
+│   ├── contracts/
+│   │   └── index.ts       # Contract, Subscription, Performance Obligation
+│   ├── revenue/
+│   │   └── index.ts       # Revenue schedules, calculations
+│   └── integration/
+│       └── index.ts       # Integration types, reporting
+└── __tests__/             # Unit tests for all schemas
+```
+
+#### Schema Derivation Pattern
+
+Each domain entity follows a consistent three-tier schema pattern:
+
+```typescript
+// 1. Base Schema - All fields including system fields
+export const customerSchema = z.object({
+  id: uuidSchema,
+  organizationId: z.string(),
+  companyName: z.string().min(1),
+  contactEmail: z.string().email().optional(),
+  status: EntityStatusEnum,
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+// 2. Create Schema - Omit system-generated fields
+export const createCustomerSchema = customerSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// 3. Update Schema - All fields optional, omit immutable fields
+export const updateCustomerSchema = createCustomerSchema
+  .omit({ organizationId: true })
+  .partial();
+
+// Type exports derived from schemas
+export type Customer = z.infer<typeof customerSchema>;
+export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
+export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>;
+```
+
+#### Common Utilities
+
+The `common` module provides reusable schema building blocks:
+
+```typescript
+// UUID validation
+export const uuidSchema = z.string().uuid();
+export const optionalUuidSchema = emptyStringToUndefined(uuidSchema.optional());
+
+// Date handling
+export const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const dateRangeSchema = z.object({
+  startDate: dateStringSchema.optional(),
+  endDate: dateStringSchema.optional(),
+});
+
+// Currency/Decimal with precision
+export const decimalStringSchema = z.string().regex(/^\d+(\.\d{1,2})?$/);
+export const currencyStringSchema = z.string().regex(/^-?\d+(\.\d{1,2})?$/);
+
+// Pagination
+export const paginationInputSchema = z.object({
+  page: z.number().positive().default(1),
+  limit: z.number().positive().max(100).default(50),
+});
+
+// Empty string transformers (for form handling)
+export function emptyStringToUndefined<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((val) => (val === '' ? undefined : val), schema);
+}
+```
+
+#### Usage in Applications
+
+**In tRPC Routers (API validation):**
+```typescript
+import { createCustomerSchema, updateCustomerSchema } from '@glapi/types';
+
+export const customerRouter = router({
+  create: protectedProcedure
+    .input(createCustomerSchema)
+    .mutation(({ ctx, input }) => ctx.service.create(input)),
+
+  update: protectedProcedure
+    .input(z.object({ id: uuidSchema, data: updateCustomerSchema }))
+    .mutation(({ ctx, input }) => ctx.service.update(input.id, input.data)),
+});
+```
+
+**In React Forms (frontend validation):**
+```typescript
+import { updateCustomerSchema, EntityStatusEnum } from '@glapi/types';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+// Extend/modify schema for form-specific needs
+const customerFormSchema = updateCustomerSchema.extend({
+  status: EntityStatusEnum,
+}).required({
+  companyName: true,
+  status: true,
+});
+
+type CustomerFormValues = z.infer<typeof customerFormSchema>;
+
+function EditCustomerForm() {
+  const form = useForm<CustomerFormValues>({
+    resolver: zodResolver(customerFormSchema),
+  });
+  // ...
+}
+```
+
+#### Testing
+
+All schemas include comprehensive unit tests covering:
+- Valid input acceptance
+- Invalid input rejection
+- Default value application
+- Optional field handling
+- Edge cases (empty strings, null values)
+
+Run tests with:
+```bash
+pnpm --filter @glapi/types test
+```
+
+#### Type Relationships
+
+```
+@glapi/types (Zod schemas + inferred types)
+      │
+      ├── @glapi/database (Drizzle schemas should align)
+      │
+      ├── @glapi/api-service (tRPC input validation)
+      │
+      └── apps/web (form validation, UI types)
+              │
+              └── RouterOutputs/RouterInputs (tRPC inferred types for API responses)
+```
+
+**Key Principle**: Use `@glapi/types` for input validation schemas. Use `RouterOutputs`/`RouterInputs` for API response types in components. This ensures type safety at both validation and API consumption layers.
+
+### 7. Service Layer Architecture
 
 #### Repository Pattern
 ```typescript
@@ -229,7 +391,7 @@ export abstract class BaseService<T> {
 }
 ```
 
-### 7. Revenue Recognition Architecture (606Ledger Integration)
+### 8. Revenue Recognition Architecture (606Ledger Integration)
 
 #### ASC 606 Five-Step Process
 1. **Identify the Contract**: Subscription/Contract entity
@@ -245,7 +407,7 @@ export abstract class BaseService<T> {
 - **Revenue Scheduler**: Generates recognition schedules
 - **Reporting Engine**: ARR, MRR, deferred revenue reports
 
-### 8. Testing Strategy
+### 9. Testing Strategy
 
 #### Test Pyramid
 ```
@@ -264,7 +426,7 @@ export abstract class BaseService<T> {
 - Critical business logic requires unit tests
 - Revenue calculations require reconciliation tests
 
-### 9. Security Architecture
+### 10. Security Architecture
 
 #### Authentication & Authorization
 - **Authentication**: Clerk JWT tokens
@@ -278,7 +440,7 @@ export abstract class BaseService<T> {
 - PII data masking in logs
 - Audit trail for all mutations
 
-### 10. Deployment Architecture
+### 11. Deployment Architecture
 
 #### Infrastructure
 ```yaml
@@ -304,7 +466,7 @@ Monitoring:
 5. **Merge**: Auto-deploy to staging
 6. **Release**: Manual promotion to production
 
-### 11. Performance Targets
+### 12. Performance Targets
 
 #### API Performance
 - p50 latency: < 100ms
@@ -317,7 +479,7 @@ Monitoring:
 - Connection pooling: 20-100 connections
 - Read replicas for reporting
 
-### 12. Development Workflow
+### 13. Development Workflow
 
 #### Branch Strategy
 ```
@@ -334,7 +496,7 @@ main (production)
 - Each task = one feature branch
 - TDD approach required
 
-### 13. API Versioning
+### 14. API Versioning
 
 #### Version Strategy
 - URL versioning: `/api/v1/`, `/api/v2/`
@@ -342,7 +504,7 @@ main (production)
 - Deprecation notices 3 months in advance
 - Migration guides for breaking changes
 
-### 14. Monitoring & Observability
+### 15. Monitoring & Observability
 
 #### Key Metrics
 ```typescript
@@ -359,7 +521,7 @@ main (production)
 - Queue processing times
 ```
 
-### 15. Migration Strategy
+### 16. Migration Strategy
 
 #### Legacy System Migration
 1. **Parallel Run**: New system alongside legacy
@@ -424,5 +586,5 @@ main (production)
 
 ---
 
-*Last Updated: January 2025*
-*Version: 1.0.0*
+*Last Updated: January 2026*
+*Version: 1.1.0*
