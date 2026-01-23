@@ -7,7 +7,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, DollarSign, Edit, Trash, Package } from 'lucide-react';
+import { Plus, DollarSign, Edit, Trash, Package, Users } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import {
   Dialog,
@@ -516,6 +516,14 @@ export default function PriceListsPage() {
                       title="Manage Items"
                     >
                       <Package className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push(`/lists/price-lists/${priceList.id}/labor-rates`)}
+                      title="Manage Labor Rates"
+                    >
+                      <Users className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"

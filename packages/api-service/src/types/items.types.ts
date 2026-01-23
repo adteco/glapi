@@ -100,4 +100,17 @@ export {
   type CreateAssemblyKitComponentInput,
   type UpdateAssemblyKitComponentInput,
   type AssemblyKitComponent,
+
+  // Price List Labor Rates (Rate Cards)
+  createPriceListLaborRateSchema,
+  updatePriceListLaborRateSchema,
+  laborRateFiltersSchema,
+  billingRateCalculationSchema,
+  type CreatePriceListLaborRateInput,
+  type UpdatePriceListLaborRateInput,
+  type PriceListLaborRate,
+  type PriceListLaborRateWithRelations,
+  type LaborRateFilters,
+  type BillingRateCalculationInput,
+  type CalculatedBillingRate,
 } from '@glapi/types';
