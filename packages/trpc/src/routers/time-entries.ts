@@ -22,10 +22,16 @@ const TimeEntryTypeEnum = z.enum([
   'OTHER',
 ]);
 
+// Helper to convert empty strings to undefined for optional UUID fields
+const optionalUuid = z.preprocess(
+  (val) => (val === '' ? undefined : val),
+  z.string().uuid().optional()
+);
+
 const createTimeEntrySchema = z.object({
-  employeeId: z.string().uuid().optional(),
-  projectId: z.string().uuid().optional(),
-  costCodeId: z.string().uuid().optional(),
+  employeeId: optionalUuid,
+  projectId: optionalUuid,
+  costCodeId: optionalUuid,
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Entry date must be YYYY-MM-DD format'),
   hours: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Hours must be a positive number'),
   entryType: TimeEntryTypeEnum.default('REGULAR'),
@@ -37,9 +43,15 @@ const createTimeEntrySchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+// Helper for nullable optional UUID (can be null, undefined, or valid UUID - empty string becomes null)
+const nullableOptionalUuid = z.preprocess(
+  (val) => (val === '' ? null : val),
+  z.string().uuid().nullable().optional()
+);
+
 const updateTimeEntrySchema = z.object({
-  projectId: z.string().uuid().nullable().optional(),
-  costCodeId: z.string().uuid().nullable().optional(),
+  projectId: nullableOptionalUuid,
+  costCodeId: nullableOptionalUuid,
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   hours: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
   entryType: TimeEntryTypeEnum.optional(),
