@@ -2,9 +2,9 @@ import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { UserRepository, OrganizationRepository } from '@glapi/database';
+import { AuthEntityRepository, OrganizationRepository } from '@glapi/database';
 
-const userRepository = new UserRepository();
+const authEntityRepository = new AuthEntityRepository();
 const organizationRepository = new OrganizationRepository();
 
 export async function POST(req: Request) {
@@ -86,30 +86,31 @@ export async function POST(req: Request) {
 
         // If no organization found, try to find a default one or skip
         if (!organizationId) {
-          console.log(`User ${id} has no organization, skipping database user creation`);
-          // We'll create the user when they join an organization
+          console.log(`User ${id} has no organization, skipping database entity creation`);
+          // We'll create the entity when they join an organization
           return NextResponse.json({ received: true, skipped: 'no_organization' });
         }
 
-        // Check if user already exists
-        const existingUser = await userRepository.findByClerkId(id);
-        if (existingUser) {
-          console.log(`User ${id} already exists in database`);
-          return NextResponse.json({ received: true, existing: true });
+        // Check if entity already exists with this Clerk ID
+        const existingEntity = await authEntityRepository.findByClerkId(id);
+        if (existingEntity) {
+          console.log(`Entity ${existingEntity.id} already exists for Clerk user ${id}`);
+          return NextResponse.json({ received: true, existing: true, entityId: existingEntity.id });
         }
 
-        // Create the user
-        const user = await userRepository.create({
+        // Create an Employee entity with auth capabilities
+        const fullName = [first_name, last_name].filter(Boolean).join(' ') || primaryEmail;
+        const entity = await authEntityRepository.createUserEntity({
           clerkUserId: id,
           email: primaryEmail,
-          firstName: first_name || null,
-          lastName: last_name || null,
+          name: fullName,
+          displayName: fullName !== primaryEmail ? fullName : null,
           organizationId,
           role: 'user',
         });
 
-        console.log(`Created database user ${user.id} for Clerk user ${id}`);
-        return NextResponse.json({ received: true, userId: user.id });
+        console.log(`Created entity ${entity.id} (Employee) for Clerk user ${id}`);
+        return NextResponse.json({ received: true, entityId: entity.id });
       }
 
       case 'user.updated': {
@@ -117,12 +118,13 @@ export async function POST(req: Request) {
         const primaryEmail = email_addresses.find((e) => e.id === evt.data.primary_email_address_id)?.email_address;
 
         if (primaryEmail) {
-          await userRepository.updateByClerkId(id, {
+          const fullName = [first_name, last_name].filter(Boolean).join(' ') || primaryEmail;
+          await authEntityRepository.updateByClerkId(id, {
             email: primaryEmail,
-            firstName: first_name || null,
-            lastName: last_name || null,
+            name: fullName,
+            displayName: fullName !== primaryEmail ? fullName : null,
           });
-          console.log(`Updated database user for Clerk user ${id}`);
+          console.log(`Updated entity for Clerk user ${id}`);
         }
 
         return NextResponse.json({ received: true });
@@ -131,22 +133,23 @@ export async function POST(req: Request) {
       case 'user.deleted': {
         const { id } = evt.data;
         if (id) {
-          const deleted = await userRepository.deleteByClerkId(id);
-          console.log(`Deleted database user for Clerk user ${id}: ${deleted}`);
+          // Soft delete (deactivate) the entity rather than hard delete
+          const deactivated = await authEntityRepository.deactivateByClerkId(id);
+          console.log(`Deactivated entity for Clerk user ${id}: ${deactivated ? 'success' : 'not found'}`);
         }
         return NextResponse.json({ received: true });
       }
 
       case 'organizationMembership.created': {
-        // When a user joins an organization, create their database user record
+        // When a user joins an organization, create their entity record
         const { organization, public_user_data } = evt.data;
         const clerkUserId = public_user_data.user_id;
 
-        // Check if user already exists
-        const existingUser = await userRepository.findByClerkId(clerkUserId);
-        if (existingUser) {
-          console.log(`User ${clerkUserId} already exists in database`);
-          return NextResponse.json({ received: true, existing: true });
+        // Check if entity already exists with this Clerk ID
+        const existingEntity = await authEntityRepository.findByClerkId(clerkUserId);
+        if (existingEntity) {
+          console.log(`Entity ${existingEntity.id} already exists for Clerk user ${clerkUserId}`);
+          return NextResponse.json({ received: true, existing: true, entityId: existingEntity.id });
         }
 
         // Look up the database organization
@@ -156,18 +159,20 @@ export async function POST(req: Request) {
           return NextResponse.json({ received: true, skipped: 'org_not_found' });
         }
 
-        // Create the user
-        const user = await userRepository.create({
+        // Create an Employee entity with auth capabilities
+        const email = public_user_data.identifier || `${clerkUserId}@placeholder.local`;
+        const fullName = [public_user_data.first_name, public_user_data.last_name].filter(Boolean).join(' ') || email;
+        const entity = await authEntityRepository.createUserEntity({
           clerkUserId,
-          email: public_user_data.identifier || `${clerkUserId}@placeholder.local`,
-          firstName: public_user_data.first_name || null,
-          lastName: public_user_data.last_name || null,
+          email,
+          name: fullName,
+          displayName: fullName !== email ? fullName : null,
           organizationId: org.id,
           role: 'user',
         });
 
-        console.log(`Created database user ${user.id} for Clerk user ${clerkUserId} in org ${org.id}`);
-        return NextResponse.json({ received: true, userId: user.id });
+        console.log(`Created entity ${entity.id} (Employee) for Clerk user ${clerkUserId} in org ${org.id}`);
+        return NextResponse.json({ received: true, entityId: entity.id });
       }
 
       default:

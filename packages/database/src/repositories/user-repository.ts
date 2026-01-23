@@ -20,6 +20,20 @@ export interface UpdateUserInput {
   lastLogin?: Date;
 }
 
+/**
+ * @deprecated Use AuthEntityRepository instead.
+ *
+ * UserRepository is deprecated as part of the users table consolidation into entities.
+ * All authenticated users are now represented as Employee entities with a clerkUserId.
+ *
+ * Migration guide:
+ * - findByClerkId → authEntityRepository.findByClerkId
+ * - create → authEntityRepository.createUserEntity
+ * - updateByClerkId → authEntityRepository.updateByClerkId
+ * - deleteByClerkId → authEntityRepository.deactivateByClerkId (soft delete)
+ *
+ * This repository will be removed in a future release.
+ */
 export class UserRepository extends BaseRepository {
   /**
    * Find a user by their Clerk user ID

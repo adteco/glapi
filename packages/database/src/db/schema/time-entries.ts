@@ -26,7 +26,7 @@ import {
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
-import { users } from './users';
+import { entities } from './entities';
 import { projects, projectCostCodes } from './projects';
 
 // ============================================================================
@@ -88,8 +88,8 @@ export const timeEntries = pgTable('time_entries', {
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
 
-  // Employee reference
-  employeeId: uuid('employee_id').notNull().references(() => users.id),
+  // Employee reference (references entities table for business employees)
+  employeeId: uuid('employee_id').notNull().references(() => entities.id),
 
   // Project/Cost code allocation
   projectId: uuid('project_id').references(() => projects.id),
@@ -118,13 +118,13 @@ export const timeEntries = pgTable('time_entries', {
   // Status and workflow
   status: timeEntryStatusEnum('status').default('DRAFT').notNull(),
 
-  // Workflow timestamps
+  // Workflow timestamps - references entities (authenticated users are entities with clerkUserId)
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
-  submittedBy: uuid('submitted_by').references(() => users.id),
+  submittedBy: uuid('submitted_by').references(() => entities.id),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
-  approvedBy: uuid('approved_by').references(() => users.id),
+  approvedBy: uuid('approved_by').references(() => entities.id),
   rejectedAt: timestamp('rejected_at', { withTimezone: true }),
-  rejectedBy: uuid('rejected_by').references(() => users.id),
+  rejectedBy: uuid('rejected_by').references(() => entities.id),
   rejectionReason: text('rejection_reason'),
   postedAt: timestamp('posted_at', { withTimezone: true }),
 
@@ -140,7 +140,7 @@ export const timeEntries = pgTable('time_entries', {
   metadata: jsonb('metadata'),
 
   // Audit fields
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -167,7 +167,7 @@ export const laborCostRates = pgTable('labor_cost_rates', {
   subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
 
   // Rate can be employee-specific, role-based, or project-specific
-  employeeId: uuid('employee_id').references(() => users.id),
+  employeeId: uuid('employee_id').references(() => entities.id),
   projectId: uuid('project_id').references(() => projects.id),
   costCodeId: uuid('cost_code_id').references(() => projectCostCodes.id),
 
@@ -201,7 +201,7 @@ export const laborCostRates = pgTable('labor_cost_rates', {
   metadata: jsonb('metadata'),
 
   // Audit fields
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -222,7 +222,7 @@ export const employeeProjectAssignments = pgTable('employee_project_assignments'
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 
-  employeeId: uuid('employee_id').notNull().references(() => users.id),
+  employeeId: uuid('employee_id').notNull().references(() => entities.id),
   projectId: uuid('project_id').notNull().references(() => projects.id),
 
   // Assignment details
@@ -245,7 +245,7 @@ export const employeeProjectAssignments = pgTable('employee_project_assignments'
   metadata: jsonb('metadata'),
 
   // Audit fields
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -271,7 +271,7 @@ export const timeEntryApprovals = pgTable('time_entry_approvals', {
   newStatus: timeEntryStatusEnum('new_status').notNull(),
 
   // Who performed the action
-  performedBy: uuid('performed_by').notNull().references(() => users.id),
+  performedBy: uuid('performed_by').notNull().references(() => entities.id),
   performedAt: timestamp('performed_at', { withTimezone: true }).defaultNow().notNull(),
 
   // Comments/notes
@@ -311,11 +311,11 @@ export const timeEntryBatches = pgTable('time_entry_batches', {
   // Status
   status: timeEntryStatusEnum('status').default('DRAFT').notNull(),
 
-  // Workflow timestamps
+  // Workflow timestamps - references entities (authenticated users are entities with clerkUserId)
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
-  submittedBy: uuid('submitted_by').references(() => users.id),
+  submittedBy: uuid('submitted_by').references(() => entities.id),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
-  approvedBy: uuid('approved_by').references(() => users.id),
+  approvedBy: uuid('approved_by').references(() => entities.id),
   postedAt: timestamp('posted_at', { withTimezone: true }),
 
   // GL posting reference
@@ -325,7 +325,7 @@ export const timeEntryBatches = pgTable('time_entry_batches', {
   metadata: jsonb('metadata'),
 
   // Audit fields
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -347,9 +347,9 @@ export const timeEntriesRelations = relations(timeEntries, ({ one, many }) => ({
     fields: [timeEntries.subsidiaryId],
     references: [subsidiaries.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [timeEntries.employeeId],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'timeEntryEmployee',
   }),
   project: one(projects, {
@@ -360,9 +360,9 @@ export const timeEntriesRelations = relations(timeEntries, ({ one, many }) => ({
     fields: [timeEntries.costCodeId],
     references: [projectCostCodes.id],
   }),
-  approver: one(users, {
+  approver: one(entities, {
     fields: [timeEntries.approvedBy],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'timeEntryApprover',
   }),
   approvalHistory: many(timeEntryApprovals),
@@ -373,9 +373,9 @@ export const laborCostRatesRelations = relations(laborCostRates, ({ one }) => ({
     fields: [laborCostRates.organizationId],
     references: [organizations.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [laborCostRates.employeeId],
-    references: [users.id],
+    references: [entities.id],
   }),
   project: one(projects, {
     fields: [laborCostRates.projectId],
@@ -392,9 +392,9 @@ export const employeeProjectAssignmentsRelations = relations(employeeProjectAssi
     fields: [employeeProjectAssignments.organizationId],
     references: [organizations.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [employeeProjectAssignments.employeeId],
-    references: [users.id],
+    references: [entities.id],
   }),
   project: one(projects, {
     fields: [employeeProjectAssignments.projectId],
@@ -411,9 +411,9 @@ export const timeEntryApprovalsRelations = relations(timeEntryApprovals, ({ one 
     fields: [timeEntryApprovals.timeEntryId],
     references: [timeEntries.id],
   }),
-  performer: one(users, {
+  performer: one(entities, {
     fields: [timeEntryApprovals.performedBy],
-    references: [users.id],
+    references: [entities.id],
   }),
 }));
 
@@ -422,14 +422,14 @@ export const timeEntryBatchesRelations = relations(timeEntryBatches, ({ one }) =
     fields: [timeEntryBatches.organizationId],
     references: [organizations.id],
   }),
-  submitter: one(users, {
+  submitter: one(entities, {
     fields: [timeEntryBatches.submittedBy],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'batchSubmitter',
   }),
-  approver: one(users, {
+  approver: one(entities, {
     fields: [timeEntryBatches.approvedBy],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'batchApprover',
   }),
 }));

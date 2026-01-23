@@ -123,6 +123,9 @@ import * as importStagingSchemas from './import-staging';
 // Onboarding schemas
 import * as onboardingSchemas from './onboarding';
 
+// Project Tasks schemas
+import * as projectTasksSchemas from './project-tasks';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -231,6 +234,8 @@ export const schema = {
   ...importStagingSchemas,
   // Onboarding schemas
   ...onboardingSchemas,
+  // Project Tasks schemas
+  ...projectTasksSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -859,3 +864,37 @@ export type {
   OnboardingStepStatus,
   OnboardingStatus,
 } from './onboarding';
+
+// Re-export Project Tasks schemas
+export {
+  projectMilestones,
+  projectTaskTemplates,
+  projectTasks,
+  projectTemplates,
+  projectTemplateTasks,
+  projectTaskStatusEnum,
+  projectTaskPriorityEnum,
+  projectMilestoneStatusEnum,
+  PROJECT_TASK_STATUS,
+  PROJECT_TASK_PRIORITY,
+  PROJECT_MILESTONE_STATUS,
+} from './project-tasks';
+export type {
+  ProjectMilestone,
+  NewProjectMilestone,
+  UpdateProjectMilestone,
+  ProjectTaskTemplate,
+  NewProjectTaskTemplate,
+  UpdateProjectTaskTemplate,
+  ProjectTask,
+  NewProjectTask,
+  UpdateProjectTask,
+  ProjectTemplate,
+  NewProjectTemplate,
+  UpdateProjectTemplate,
+  ProjectTemplateTask,
+  NewProjectTemplateTask,
+  ProjectTaskStatus,
+  ProjectTaskPriority,
+  ProjectMilestoneStatus,
+} from './project-tasks';

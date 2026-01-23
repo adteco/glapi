@@ -46,67 +46,76 @@ export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => 
   }),
 }));
 
-export const userRoles = pgTable('user_roles', {
-  userId: uuid('user_id').notNull().references(() => users.id),
+// Entity roles - assign roles to entities (authenticated users are entities with clerkUserId)
+export const entityRoles = pgTable('entity_roles', {
+  entityId: uuid('entity_id').notNull().references(() => entities.id),
   roleId: uuid('role_id').notNull().references(() => roles.id),
   subsidiaryId: uuid('subsidiary_id'), // Optional: null means global role
-  grantedBy: uuid('granted_by').references(() => users.id),
+  grantedBy: uuid('granted_by').references(() => entities.id),
   grantedDate: timestamp('granted_date', { withTimezone: true }).defaultNow().notNull(),
   expiresDate: timestamp('expires_date', { withTimezone: true }),
 }, (table) => ({
-  primaryKey: primaryKey(table.userId, table.roleId, table.subsidiaryId),
+  primaryKey: primaryKey(table.entityId, table.roleId, table.subsidiaryId),
 }));
 
-export const userRolesRelations = relations(userRoles, ({ one }) => ({
-  user: one(users, {
-    fields: [userRoles.userId],
-    references: [users.id],
-    relationName: 'user',
+export const entityRolesRelations = relations(entityRoles, ({ one }) => ({
+  entity: one(entities, {
+    fields: [entityRoles.entityId],
+    references: [entities.id],
+    relationName: 'entity',
   }),
   role: one(roles, {
-    fields: [userRoles.roleId],
+    fields: [entityRoles.roleId],
     references: [roles.id],
   }),
   subsidiary: one(subsidiaries, {
-    fields: [userRoles.subsidiaryId],
+    fields: [entityRoles.subsidiaryId],
     references: [subsidiaries.id],
   }),
-  grantedByUser: one(users, {
-    fields: [userRoles.grantedBy],
-    references: [users.id],
+  grantedByEntity: one(entities, {
+    fields: [entityRoles.grantedBy],
+    references: [entities.id],
     relationName: 'grantedBy',
   }),
 }));
 
-export const userSubsidiaryAccess = pgTable('user_subsidiary_access', {
-  userId: uuid('user_id').notNull().references(() => users.id),
+// Entity subsidiary access - control which subsidiaries an entity can access
+export const entitySubsidiaryAccess = pgTable('entity_subsidiary_access', {
+  entityId: uuid('entity_id').notNull().references(() => entities.id),
   subsidiaryId: uuid('subsidiary_id').notNull().references(() => subsidiaries.id),
   accessLevel: text('access_level').default('read').notNull(), // 'read', 'write', 'admin'
-  grantedBy: uuid('granted_by').references(() => users.id),
+  grantedBy: uuid('granted_by').references(() => entities.id),
   grantedDate: timestamp('granted_date', { withTimezone: true }).defaultNow().notNull(),
   expiresDate: timestamp('expires_date', { withTimezone: true }),
 }, (table) => ({
-  primaryKey: primaryKey(table.userId, table.subsidiaryId),
+  primaryKey: primaryKey(table.entityId, table.subsidiaryId),
 }));
 
-export const userSubsidiaryAccessRelations = relations(userSubsidiaryAccess, ({ one }) => ({
-  user: one(users, {
-    fields: [userSubsidiaryAccess.userId],
-    references: [users.id],
-    relationName: 'user',
+export const entitySubsidiaryAccessRelations = relations(entitySubsidiaryAccess, ({ one }) => ({
+  entity: one(entities, {
+    fields: [entitySubsidiaryAccess.entityId],
+    references: [entities.id],
+    relationName: 'entity',
   }),
   subsidiary: one(subsidiaries, {
-    fields: [userSubsidiaryAccess.subsidiaryId],
+    fields: [entitySubsidiaryAccess.subsidiaryId],
     references: [subsidiaries.id],
   }),
-  grantedByUser: one(users, {
-    fields: [userSubsidiaryAccess.grantedBy],
-    references: [users.id],
+  grantedByEntity: one(entities, {
+    fields: [entitySubsidiaryAccess.grantedBy],
+    references: [entities.id],
     relationName: 'grantedBy',
   }),
 }));
 
+// Legacy aliases for backward compatibility during transition
+// TODO: Remove these after all code has been updated to use entity* versions
+export const userRoles = entityRoles;
+export const userRolesRelations = entityRolesRelations;
+export const userSubsidiaryAccess = entitySubsidiaryAccess;
+export const userSubsidiaryAccessRelations = entitySubsidiaryAccessRelations;
+
 // Import references
 import { primaryKey } from 'drizzle-orm/pg-core';
-import { users } from './users';
+import { entities } from './entities';
 import { subsidiaries } from './subsidiaries';
