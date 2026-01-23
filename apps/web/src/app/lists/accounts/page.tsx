@@ -49,7 +49,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { z } from "zod";
+import { newAccountSchema, AccountCategoryEnum } from "@glapi/types";
 
 // Define an interface for the Account data matching TRPC return type
 interface Account {
@@ -71,14 +72,17 @@ interface Account {
   updatedAt: Date;
 }
 
-// Form schema
-const accountFormSchema = z.object({
-  accountNumber: z.string().min(1, "Account number is required").max(20, "Account number too long"),
-  accountName: z.string().min(1, "Account name is required").max(255),
-  accountCategory: z.enum(['Asset', 'Liability', 'Equity', 'Revenue', 'COGS', 'Expense']),
-  description: z.string().max(1000).optional(),
-  isActive: z.boolean().optional(),
+// Form schema - use centralized schema from @glapi/types
+const accountFormSchema = newAccountSchema.extend({
   parentAccountNumber: z.string().optional(),
+}).omit({
+  normalBalance: true,
+  financialStatementLine: true,
+  isControlAccount: true,
+  rollupAccountId: true,
+  gaapClassification: true,
+  cashFlowCategory: true,
+  accountSubcategory: true,
 });
 
 type AccountFormValues = z.infer<typeof accountFormSchema>;
@@ -166,8 +170,7 @@ export default function AccountsPage() {
   const accounts = accountsData?.data || [];
 
   const form = useForm<AccountFormValues>({
-    // Temporarily remove zodResolver to fix build issue
-    // resolver: zodResolver(accountFormSchema),
+    resolver: zodResolver(accountFormSchema),
     defaultValues: {
       accountNumber: "",
       accountName: "",
@@ -194,7 +197,11 @@ export default function AccountsPage() {
 
   // Handle add account
   const handleAddAccount = async (values: AccountFormValues) => {
-    createAccountMutation.mutate(values);
+    // Transform null values to undefined for the mutation
+    createAccountMutation.mutate({
+      ...values,
+      description: values.description ?? undefined,
+    });
   };
 
   // Handle edit account
@@ -202,7 +209,10 @@ export default function AccountsPage() {
     if (!selectedAccount) return;
     updateAccountMutation.mutate({
       id: selectedAccount.id,
-      data: values,
+      data: {
+        ...values,
+        description: values.description ?? undefined,
+      },
     });
   };
 

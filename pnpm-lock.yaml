@@ -259,6 +259,9 @@ importers:
       '@glapi/trpc':
         specifier: workspace:*
         version: link:../../packages/trpc
+      '@glapi/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.57.0(react@19.2.3))
