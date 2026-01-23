@@ -1,106 +1,39 @@
+/**
+ * Sales Order types - partially re-exported from @glapi/types for backward compatibility
+ *
+ * This file re-exports sales order types from the centralized @glapi/types package.
+ * Types that depend on database-specific enums (SalesOrderStatusValue, ApprovalActionTypeValue)
+ * are defined locally to maintain type safety with the database layer.
+ *
+ * New code should import directly from '@glapi/types' when possible, except for
+ * filter and result types that need strict database enum types.
+ */
+
 import type {
   SalesOrderStatusValue,
   ApprovalActionTypeValue,
 } from '@glapi/database/schema';
 
-// ============================================================================
 // Re-export schema types
-// ============================================================================
-
 export type { SalesOrderStatusValue, ApprovalActionTypeValue };
 
+// Re-export generic types from centralized package
+export {
+  // Sales Order Input Types
+  type CreateSalesOrderInput,
+  type CreateSalesOrderLineInput,
+  type UpdateSalesOrderInput,
+  type UpdateSalesOrderLineInput,
+  type CreateInvoiceFromOrderInput,
+
+  // State Machine Types
+  type SalesOrderEvent,
+  type SalesOrderStateMachineContext,
+} from '@glapi/types';
+
 // ============================================================================
-// Input Types
+// Types that depend on database-specific enums (defined locally)
 // ============================================================================
-
-/**
- * Input for creating a new sales order
- */
-export interface CreateSalesOrderInput {
-  subsidiaryId: string;
-  entityId: string;
-  orderDate: string | Date;
-  externalReference?: string;
-  billingAddressId?: string;
-  shippingAddressId?: string;
-  requestedDeliveryDate?: string | Date;
-  promisedDeliveryDate?: string | Date;
-  expirationDate?: string | Date;
-  currencyCode?: string;
-  exchangeRate?: number | string;
-  discountAmount?: number | string;
-  discountPercent?: number | string;
-  shippingAmount?: number | string;
-  paymentTerms?: string;
-  shippingMethod?: string;
-  memo?: string;
-  internalNotes?: string;
-  metadata?: Record<string, unknown>;
-  requiresApproval?: boolean;
-  approvalThreshold?: number | string;
-  lines: CreateSalesOrderLineInput[];
-}
-
-/**
- * Input for creating a sales order line
- */
-export interface CreateSalesOrderLineInput {
-  itemId?: string;
-  description: string;
-  sku?: string;
-  quantity: number | string;
-  unitOfMeasure?: string;
-  unitPrice: number | string;
-  discountAmount?: number | string;
-  discountPercent?: number | string;
-  taxAmount?: number | string;
-  taxCode?: string;
-  requestedDeliveryDate?: string | Date;
-  promisedDeliveryDate?: string | Date;
-  departmentId?: string;
-  locationId?: string;
-  classId?: string;
-  projectId?: string;
-  revenueAccountId?: string;
-  deferredRevenueAccountId?: string;
-  memo?: string;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Input for updating a sales order (draft only)
- */
-export interface UpdateSalesOrderInput {
-  entityId?: string;
-  orderDate?: string | Date;
-  externalReference?: string;
-  billingAddressId?: string;
-  shippingAddressId?: string;
-  requestedDeliveryDate?: string | Date;
-  promisedDeliveryDate?: string | Date;
-  expirationDate?: string | Date;
-  currencyCode?: string;
-  exchangeRate?: number | string;
-  discountAmount?: number | string;
-  discountPercent?: number | string;
-  shippingAmount?: number | string;
-  paymentTerms?: string;
-  shippingMethod?: string;
-  memo?: string;
-  internalNotes?: string;
-  metadata?: Record<string, unknown>;
-  requiresApproval?: boolean;
-  approvalThreshold?: number | string;
-  lines?: UpdateSalesOrderLineInput[];
-}
-
-/**
- * Input for updating a sales order line
- */
-export interface UpdateSalesOrderLineInput extends Partial<CreateSalesOrderLineInput> {
-  id?: string; // If provided, updates existing line; otherwise creates new
-  _delete?: boolean; // If true, deletes the line
-}
 
 /**
  * Input for approval actions
@@ -110,18 +43,6 @@ export interface ApprovalActionInput {
   comments?: string;
   reason?: string;
   delegateTo?: string; // For DELEGATE action
-}
-
-/**
- * Input for creating invoice from sales order
- */
-export interface CreateInvoiceFromOrderInput {
-  salesOrderId: string;
-  lineIds?: string[]; // Specific lines to invoice; if empty, invoice all remaining
-  quantities?: Record<string, number | string>; // Override quantities per line ID
-  invoiceDate?: string | Date;
-  dueDate?: string | Date;
-  memo?: string;
 }
 
 /**
@@ -139,10 +60,6 @@ export interface SalesOrderFilters {
   requiresApproval?: boolean;
   pendingApproval?: boolean;
 }
-
-// ============================================================================
-// Output Types
-// ============================================================================
 
 /**
  * Sales order with all details
@@ -305,36 +222,4 @@ export interface CreateInvoiceFromOrderResult {
     remainingAmount: string;
   };
   linesInvoiced: number;
-}
-
-// ============================================================================
-// State Machine Types
-// ============================================================================
-
-/**
- * State machine event types
- */
-export type SalesOrderEvent =
-  | { type: 'SUBMIT' }
-  | { type: 'APPROVE'; approverId: string }
-  | { type: 'REJECT'; reason: string }
-  | { type: 'FULFILL'; amount: number }
-  | { type: 'INVOICE'; amount: number }
-  | { type: 'CLOSE' }
-  | { type: 'CANCEL'; reason: string }
-  | { type: 'HOLD' }
-  | { type: 'RELEASE' }
-  | { type: 'REVISE' };
-
-/**
- * State machine context
- */
-export interface SalesOrderStateMachineContext {
-  orderId: string;
-  currentStatus: SalesOrderStatusValue;
-  totalAmount: number;
-  fulfilledAmount: number;
-  invoicedAmount: number;
-  requiresApproval: boolean;
-  approvalThreshold?: number;
 }
