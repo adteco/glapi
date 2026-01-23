@@ -274,17 +274,17 @@ export class RoleManagementService extends BaseService {
   // ============ User Role Assignment ============
 
   /**
-   * Get roles assigned to a user
+   * Get roles assigned to an entity (user)
    */
-  async getUserRoles(targetUserId: string): Promise<UserRole[]> {
+  async getUserRoles(targetEntityId: string): Promise<UserRole[]> {
     await this.permissionService.requirePermission(ResourceTypes.USER, Actions.READ);
-    return permissionRepository.findUserRoles(targetUserId);
+    return permissionRepository.findEntityRoles(targetEntityId);
   }
 
   /**
    * Assign a role to a user
    */
-  async assignRoleToUser(data: AssignRoleInput): Promise<void> {
+  async assignRoleToEntity(data: AssignRoleInput): Promise<void> {
     await this.permissionService.requirePermission(ResourceTypes.USER, Actions.MANAGE);
     const grantedBy = this.requireUserContext();
 
@@ -294,7 +294,7 @@ export class RoleManagementService extends BaseService {
       throw new ServiceError(`Role not found: ${data.roleId}`, 'ROLE_NOT_FOUND', 404);
     }
 
-    await permissionRepository.assignRoleToUser(
+    await permissionRepository.assignRoleToEntity(
       data.userId,
       data.roleId,
       grantedBy,
@@ -321,11 +321,11 @@ export class RoleManagementService extends BaseService {
   /**
    * Revoke a role from a user
    */
-  async revokeRoleFromUser(userId: string, roleId: string, subsidiaryId?: string): Promise<void> {
+  async revokeRoleFromEntity(userId: string, roleId: string, subsidiaryId?: string): Promise<void> {
     await this.permissionService.requirePermission(ResourceTypes.USER, Actions.MANAGE);
     const revokedBy = this.requireUserContext();
 
-    await permissionRepository.revokeRoleFromUser(userId, roleId, subsidiaryId);
+    await permissionRepository.revokeRoleFromEntity(userId, roleId, subsidiaryId);
 
     // Audit log
     await auditLogRepository.logRoleAssignment(
@@ -355,7 +355,7 @@ export class RoleManagementService extends BaseService {
     expiresDate: Date | null;
   }>> {
     await this.permissionService.requirePermission(ResourceTypes.USER, Actions.READ);
-    const access = await permissionRepository.findUserSubsidiaryAccess(targetUserId);
+    const access = await permissionRepository.findEntitySubsidiaryAccess(targetUserId);
 
     return access.map((a) => ({
       subsidiaryId: a.subsidiaryId,
@@ -373,7 +373,7 @@ export class RoleManagementService extends BaseService {
     const grantedBy = this.requireUserContext();
 
     // Get existing access to determine if this is grant or update
-    const existingAccess = await permissionRepository.findUserSubsidiaryAccess(data.userId);
+    const existingAccess = await permissionRepository.findEntitySubsidiaryAccess(data.userId);
     const existing = existingAccess.find((a) => a.subsidiaryId === data.subsidiaryId);
 
     await permissionRepository.grantSubsidiaryAccess(
@@ -406,7 +406,7 @@ export class RoleManagementService extends BaseService {
     const revokedBy = this.requireUserContext();
 
     // Get existing access for audit
-    const existingAccess = await permissionRepository.findUserSubsidiaryAccess(userId);
+    const existingAccess = await permissionRepository.findEntitySubsidiaryAccess(userId);
     const existing = existingAccess.find((a) => a.subsidiaryId === subsidiaryId);
 
     await permissionRepository.revokeSubsidiaryAccess(userId, subsidiaryId);

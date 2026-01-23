@@ -44,7 +44,13 @@ export const entities = pgTable('entities', {
   // Status
   status: text('status').default('active').notNull(), // active, inactive, archived
   isActive: boolean('is_active').default(true).notNull(),
-  
+
+  // Auth fields (for entities that can log in - typically Employee entities)
+  clerkUserId: text('clerk_user_id').unique(), // Clerk external user ID
+  role: text('role').default('user'), // user, admin, owner, etc.
+  lastLogin: timestamp('last_login', { withTimezone: true }),
+  settings: jsonb('settings'), // User-specific settings (UI preferences, etc.)
+
   // Timestamps
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -56,6 +62,8 @@ export const entities = pgTable('entities', {
   parentEntityIdx: index('entities_parent_idx').on(table.parentEntityId),
   emailIdx: index('entities_email_idx').on(table.email),
   statusIdx: index('entities_status_idx').on(table.status, table.isActive),
+  // Auth index for Clerk user ID lookups
+  clerkUserIdIdx: index('entities_clerk_user_id_idx').on(table.clerkUserId),
 }));
 
 // Relations

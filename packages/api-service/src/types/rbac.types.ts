@@ -129,8 +129,8 @@ export interface Permission {
   createdDate: Date;
 }
 
-export interface UserRole {
-  userId: string;
+export interface EntityRole {
+  entityId: string;
   roleId: string;
   subsidiaryId: string | null;
   grantedBy: string | null;
@@ -139,19 +139,25 @@ export interface UserRole {
   role?: Role;
 }
 
+// Legacy alias for backward compatibility
+export type UserRole = EntityRole;
+
 export interface RoleWithPermissions extends Role {
   permissions: Permission[];
 }
 
-export interface UserPermissionSummary {
-  userId: string;
-  roles: UserRole[];
+export interface EntityPermissionSummary {
+  entityId: string;
+  roles: EntityRole[];
   permissions: Permission[];
   subsidiaryAccess: {
     subsidiaryId: string;
     accessLevel: AccessLevel;
   }[];
 }
+
+// Legacy alias for backward compatibility
+export type UserPermissionSummary = EntityPermissionSummary;
 
 // ============ Zod Schemas for Validation ============
 
