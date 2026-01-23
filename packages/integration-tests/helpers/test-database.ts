@@ -5,7 +5,8 @@ import { schema, timeEntries, eq } from '@glapi/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class TestDatabase {
-  private client!: postgres.Sql;
+  // Exposed for tests that need raw SQL access
+  public client!: postgres.Sql;
   public db!: ReturnType<typeof drizzle>;
   private testDbName: string;
   private isSetup = false;
