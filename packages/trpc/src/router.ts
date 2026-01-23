@@ -45,6 +45,7 @@ import { deliveryQueueRouter } from './routers/delivery-queue';
 import { importsRouter } from './routers/imports';
 import { onboardingRouter } from './routers/onboarding';
 import { estimatesRouter } from './routers/estimates';
+import { accountingListsRouter } from './routers/accounting-lists';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -92,6 +93,7 @@ export const appRouter = router({
   imports: importsRouter,
   onboarding: onboardingRouter,
   estimates: estimatesRouter,
+  accountingLists: accountingListsRouter,
 });
 
 export type AppRouter = typeof appRouter;
