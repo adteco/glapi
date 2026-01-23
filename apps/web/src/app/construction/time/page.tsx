@@ -145,6 +145,8 @@ function getWeekRange(date: Date): { start: string; end: string } {
 
 export default function TimeEntriesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -256,6 +258,19 @@ export default function TimeEntriesPage() {
     },
   });
 
+  const updateMutation = trpc.timeEntries.update.useMutation({
+    onSuccess: () => {
+      toast.success('Time entry updated');
+      setIsEditDialogOpen(false);
+      setEditingEntry(null);
+      editForm.reset();
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update time entry');
+    },
+  });
+
   const entries = (entriesData?.data as TimeEntry[] | undefined) || [];
   const pendingApprovals = (pendingApprovalsData?.data || []) as TimeEntry[];
   const projects = (projectsData?.data || []) as Array<{ id: string; name: string; projectCode: string }>;
@@ -292,6 +307,19 @@ export default function TimeEntriesPage() {
     },
   });
 
+  const editForm = useForm<CreateTimeEntryFormValues>({
+    resolver: zodResolver(createTimeEntrySchema),
+    defaultValues: {
+      projectId: '',
+      costCodeId: '',
+      entryDate: '',
+      hours: 0,
+      entryType: 'REGULAR',
+      description: '',
+      isBillable: true,
+    },
+  });
+
   const handleCreate = async (values: CreateTimeEntryFormValues) => {
     createMutation.mutate({
       projectId: values.projectId || undefined,
@@ -302,6 +330,41 @@ export default function TimeEntriesPage() {
       description: values.description || undefined,
       isBillable: values.isBillable,
     });
+  };
+
+  const handleEdit = (entry: TimeEntry) => {
+    setEditingEntry(entry);
+    editForm.reset({
+      projectId: entry.projectId || '',
+      costCodeId: entry.costCodeId || '',
+      entryDate: entry.entryDate,
+      hours: parseFloat(entry.hours),
+      entryType: entry.entryType,
+      description: entry.description || '',
+      isBillable: entry.isBillable,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async (values: CreateTimeEntryFormValues) => {
+    if (!editingEntry) return;
+    updateMutation.mutate({
+      id: editingEntry.id,
+      data: {
+        projectId: values.projectId || null,
+        costCodeId: values.costCodeId || null,
+        entryDate: values.entryDate,
+        hours: values.hours.toString(),
+        entryType: values.entryType,
+        description: values.description || null,
+        isBillable: values.isBillable,
+      },
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Are you sure you want to delete this time entry?')) return;
+    deleteMutation.mutate({ id });
   };
 
   const handleSubmit = () => {
@@ -538,6 +601,7 @@ export default function TimeEntriesPage() {
                 <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -571,6 +635,18 @@ export default function TimeEntriesPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">{formatCurrency(entry.totalCost)}</TableCell>
+                  <TableCell>
+                    {entry.status === 'DRAFT' && (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(entry)}>
+                          Edit
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(entry.id)}>
+                          Delete
+                        </Button>
+                      </div>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -894,6 +970,183 @@ export default function TimeEntriesPage() {
                 </Button>
                 <Button type="submit" disabled={createMutation.isPending}>
                   {createMutation.isPending ? 'Creating...' : 'Create Entry'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Time Entry Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open);
+        if (!open) {
+          setEditingEntry(null);
+          editForm.reset();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Time Entry</DialogTitle>
+            <DialogDescription>
+              Update your time entry details.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="entryDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="hours"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hours</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.25" min="0" max="24" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="entryType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="REGULAR">Regular</SelectItem>
+                          <SelectItem value="OVERTIME">Overtime</SelectItem>
+                          <SelectItem value="DOUBLE_TIME">Double Time</SelectItem>
+                          <SelectItem value="PTO">PTO</SelectItem>
+                          <SelectItem value="SICK">Sick</SelectItem>
+                          <SelectItem value="HOLIDAY">Holiday</SelectItem>
+                          <SelectItem value="OTHER">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="projectId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">No Project</SelectItem>
+                        {projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.projectCode} - {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="costCodeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cost Code (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select cost code" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">No Cost Code</SelectItem>
+                        {costCodes.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.id}>
+                            {cc.costCode} - {cc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="What did you work on?"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="isBillable"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Billable</FormLabel>
+                      <FormDescription>Mark this time as billable to the client</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </DialogFooter>
             </form>

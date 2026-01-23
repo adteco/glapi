@@ -310,6 +310,132 @@ export interface CalculatedPrice {
 }
 
 // ============================================================================
+// Price List Labor Rates (Rate Cards)
+// ============================================================================
+
+/**
+ * Schema for creating labor rates in a price list
+ */
+export const createPriceListLaborRateSchema = z.object({
+  priceListId: z.string().uuid(),
+  // Rate targeting (all optional - more specific = higher priority)
+  employeeId: z.string().uuid().optional().nullable(),
+  laborRole: z.string().max(100).optional().nullable(),
+  projectId: z.string().uuid().optional().nullable(),
+  costCodeId: z.string().uuid().optional().nullable(),
+  // Rate details
+  laborRate: z.number().nonnegative(),
+  burdenRate: z.number().nonnegative().default(0),
+  billingRate: z.number().nonnegative(),
+  // Multipliers
+  overtimeMultiplier: z.number().positive().default(1.5),
+  doubleTimeMultiplier: z.number().positive().default(2.0),
+  // Selection
+  priority: z.number().int().nonnegative().default(0),
+  effectiveDate: z.string().transform((str) => new Date(str)),
+  expirationDate: z
+    .string()
+    .transform((str) => new Date(str))
+    .optional()
+    .nullable(),
+  description: z.string().max(500).optional().nullable(),
+});
+
+export const updatePriceListLaborRateSchema = createPriceListLaborRateSchema.partial().omit({ priceListId: true });
+
+export type CreatePriceListLaborRateInput = z.infer<typeof createPriceListLaborRateSchema>;
+export type UpdatePriceListLaborRateInput = z.infer<typeof updatePriceListLaborRateSchema>;
+
+export interface PriceListLaborRate {
+  id: string;
+  priceListId: string;
+  employeeId: string | null;
+  laborRole: string | null;
+  projectId: string | null;
+  costCodeId: string | null;
+  laborRate: number;
+  burdenRate: number;
+  billingRate: number;
+  overtimeMultiplier: number;
+  doubleTimeMultiplier: number;
+  priority: number;
+  effectiveDate: string;
+  expirationDate: string | null;
+  description: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PriceListLaborRateWithRelations extends PriceListLaborRate {
+  employee?: {
+    id: string;
+    displayName: string;
+    email?: string;
+  };
+  project?: {
+    id: string;
+    name: string;
+    projectCode: string;
+  };
+  costCode?: {
+    id: string;
+    costCode: string;
+    name: string;
+  };
+}
+
+/**
+ * Schema for filtering price list labor rates
+ */
+export const priceListLaborRateFiltersSchema = z.object({
+  priceListId: z.string().uuid(),
+  employeeId: z.string().uuid().optional(),
+  laborRole: z.string().optional(),
+  projectId: z.string().uuid().optional(),
+  costCodeId: z.string().uuid().optional(),
+  activeOnly: z.boolean().default(true),
+});
+
+export type PriceListLaborRateFilters = z.infer<typeof priceListLaborRateFiltersSchema>;
+
+/**
+ * Schema for billing rate calculation requests
+ */
+export const billingRateCalculationSchema = z.object({
+  customerId: z.string().uuid().optional(),
+  employeeId: z.string().uuid().optional(),
+  laborRole: z.string().optional(),
+  projectId: z.string().uuid().optional(),
+  costCodeId: z.string().uuid().optional(),
+  date: z
+    .string()
+    .transform((str) => new Date(str))
+    .default(() => new Date().toISOString()),
+});
+
+export type BillingRateCalculationInput = z.infer<typeof billingRateCalculationSchema>;
+
+export interface CalculatedBillingRate {
+  laborRate: number;
+  burdenRate: number;
+  billingRate: number;
+  overtimeMultiplier: number;
+  doubleTimeMultiplier: number;
+  priceListId: string;
+  priceListName: string;
+  laborRateId: string;
+  effectiveDate: Date;
+  expirationDate: Date | null;
+  // Match info for debugging/audit
+  matchedOn: {
+    employee: boolean;
+    laborRole: boolean;
+    project: boolean;
+    costCode: boolean;
+  };
+}
+
+// ============================================================================
 // Vendor Items
 // ============================================================================
 

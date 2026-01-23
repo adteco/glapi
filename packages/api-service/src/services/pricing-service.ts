@@ -1,5 +1,5 @@
 import { BaseService } from './base-service';
-import { 
+import {
   PriceList,
   ItemPricing,
   ItemPricingWithItem,
@@ -16,11 +16,22 @@ import {
   updateItemPricingSchema,
   assignCustomerPriceListSchema,
   priceCalculationSchema,
+  // Labor Rate types
+  PriceListLaborRate,
+  PriceListLaborRateWithRelations,
+  CreatePriceListLaborRateInput,
+  UpdatePriceListLaborRateInput,
+  PriceListLaborRateFilters,
+  BillingRateCalculationInput,
+  CalculatedBillingRate,
+  createPriceListLaborRateSchema,
+  updatePriceListLaborRateSchema,
+  billingRateCalculationSchema,
   ServiceError,
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { 
+import {
   PricingRepository,
   ItemsRepository,
   EntityRepository
@@ -569,5 +580,325 @@ export class PricingService extends BaseService {
     }));
     
     await pricingRepository.createManyItemPrices(newPrices);
+  }
+
+  // ============================================================================
+  // Price List Labor Rates Methods (Rate Cards)
+  // ============================================================================
+
+  /**
+   * Transform database labor rate to service layer type
+   */
+  private transformLaborRate(dbRecord: any): PriceListLaborRateWithRelations {
+    return {
+      id: dbRecord.id,
+      priceListId: dbRecord.priceListId,
+      employeeId: dbRecord.employeeId,
+      laborRole: dbRecord.laborRole,
+      projectId: dbRecord.projectId,
+      costCodeId: dbRecord.costCodeId,
+      laborRate: parseFloat(dbRecord.laborRate),
+      burdenRate: parseFloat(dbRecord.burdenRate),
+      billingRate: parseFloat(dbRecord.billingRate),
+      overtimeMultiplier: parseFloat(dbRecord.overtimeMultiplier),
+      doubleTimeMultiplier: parseFloat(dbRecord.doubleTimeMultiplier),
+      priority: dbRecord.priority,
+      effectiveDate: dbRecord.effectiveDate,
+      expirationDate: dbRecord.expirationDate,
+      description: dbRecord.description,
+      createdAt: dbRecord.createdAt,
+      updatedAt: dbRecord.updatedAt,
+      employee: dbRecord.employee?.id ? {
+        id: dbRecord.employee.id,
+        displayName: dbRecord.employee.displayName,
+        email: dbRecord.employee.email,
+      } : undefined,
+      project: dbRecord.project?.id ? {
+        id: dbRecord.project.id,
+        name: dbRecord.project.name,
+        projectCode: dbRecord.project.projectCode,
+      } : undefined,
+      costCode: dbRecord.costCode?.id ? {
+        id: dbRecord.costCode.id,
+        costCode: dbRecord.costCode.costCode,
+        name: dbRecord.costCode.name,
+      } : undefined,
+    };
+  }
+
+  /**
+   * List labor rates for a price list
+   */
+  async listPriceListLaborRates(
+    priceListId: string,
+    filters: Partial<PriceListLaborRateFilters> = {},
+    params: PaginationParams = {}
+  ): Promise<PaginatedResult<PriceListLaborRateWithRelations>> {
+    const organizationId = this.requireOrganizationContext();
+    const { page, limit } = this.getPaginationParams(params);
+
+    // Validate price list belongs to organization
+    const priceList = await pricingRepository.findPriceListById(priceListId, organizationId);
+    if (!priceList) {
+      throw new ServiceError('Price list not found', 'PRICE_LIST_NOT_FOUND', 404);
+    }
+
+    const laborRates = await pricingRepository.findPriceListLaborRates(priceListId, {
+      ...filters,
+      activeOnly: filters.activeOnly ?? false,
+    });
+
+    // Manual pagination
+    const startIdx = (page - 1) * limit;
+    const endIdx = startIdx + limit;
+    const paginatedData = laborRates.slice(startIdx, endIdx);
+
+    return this.createPaginatedResult(
+      paginatedData.map(lr => this.transformLaborRate(lr)),
+      laborRates.length,
+      page,
+      limit
+    );
+  }
+
+  /**
+   * Get a single labor rate by ID
+   */
+  async getLaborRate(id: string): Promise<PriceListLaborRateWithRelations> {
+    const organizationId = this.requireOrganizationContext();
+
+    const laborRate = await pricingRepository.findLaborRateById(id);
+    if (!laborRate) {
+      throw new ServiceError('Labor rate not found', 'LABOR_RATE_NOT_FOUND', 404);
+    }
+
+    // Verify the price list belongs to the organization
+    const priceList = await pricingRepository.findPriceListById(laborRate.priceListId, organizationId);
+    if (!priceList) {
+      throw new ServiceError('Labor rate not found', 'LABOR_RATE_NOT_FOUND', 404);
+    }
+
+    return this.transformLaborRate(laborRate);
+  }
+
+  /**
+   * Create a labor rate
+   */
+  async createLaborRate(input: CreatePriceListLaborRateInput): Promise<PriceListLaborRateWithRelations> {
+    const organizationId = this.requireOrganizationContext();
+
+    // Validate input
+    const validatedInput = createPriceListLaborRateSchema.parse(input);
+
+    // Validate price list
+    const priceList = await pricingRepository.findPriceListById(validatedInput.priceListId, organizationId);
+    if (!priceList) {
+      throw new ServiceError('Price list not found', 'PRICE_LIST_NOT_FOUND', 404);
+    }
+
+    // Validate employee if provided
+    if (validatedInput.employeeId) {
+      const employee = await entityRepository.findById(validatedInput.employeeId, organizationId);
+      if (!employee || !employee.entityTypes.includes('Employee')) {
+        throw new ServiceError('Employee not found', 'EMPLOYEE_NOT_FOUND', 404);
+      }
+    }
+
+    const created = await pricingRepository.createPriceListLaborRate({
+      priceListId: validatedInput.priceListId,
+      employeeId: validatedInput.employeeId || null,
+      laborRole: validatedInput.laborRole || null,
+      projectId: validatedInput.projectId || null,
+      costCodeId: validatedInput.costCodeId || null,
+      laborRate: validatedInput.laborRate.toString(),
+      burdenRate: validatedInput.burdenRate.toString(),
+      billingRate: validatedInput.billingRate.toString(),
+      overtimeMultiplier: validatedInput.overtimeMultiplier.toString(),
+      doubleTimeMultiplier: validatedInput.doubleTimeMultiplier.toString(),
+      priority: validatedInput.priority,
+      effectiveDate: validatedInput.effectiveDate.toISOString().split('T')[0],
+      expirationDate: validatedInput.expirationDate
+        ? validatedInput.expirationDate.toISOString().split('T')[0]
+        : null,
+      description: validatedInput.description || null,
+    });
+
+    // Fetch the full record with relations
+    const fullRecord = await pricingRepository.findLaborRateById(created.id);
+    return this.transformLaborRate(fullRecord);
+  }
+
+  /**
+   * Update a labor rate
+   */
+  async updateLaborRate(
+    id: string,
+    input: UpdatePriceListLaborRateInput
+  ): Promise<PriceListLaborRateWithRelations> {
+    const organizationId = this.requireOrganizationContext();
+
+    // Validate input
+    const validatedInput = updatePriceListLaborRateSchema.parse(input);
+
+    // Check if labor rate exists
+    const existing = await pricingRepository.findLaborRateById(id);
+    if (!existing) {
+      throw new ServiceError('Labor rate not found', 'LABOR_RATE_NOT_FOUND', 404);
+    }
+
+    // Verify the price list belongs to the organization
+    const priceList = await pricingRepository.findPriceListById(existing.priceListId, organizationId);
+    if (!priceList) {
+      throw new ServiceError('Labor rate not found', 'LABOR_RATE_NOT_FOUND', 404);
+    }
+
+    // Validate employee if being updated
+    if (validatedInput.employeeId) {
+      const employee = await entityRepository.findById(validatedInput.employeeId, organizationId);
+      if (!employee || !employee.entityTypes.includes('Employee')) {
+        throw new ServiceError('Employee not found', 'EMPLOYEE_NOT_FOUND', 404);
+      }
+    }
+
+    const updateData: Record<string, any> = {};
+
+    if (validatedInput.employeeId !== undefined) {
+      updateData.employeeId = validatedInput.employeeId || null;
+    }
+    if (validatedInput.laborRole !== undefined) {
+      updateData.laborRole = validatedInput.laborRole || null;
+    }
+    if (validatedInput.projectId !== undefined) {
+      updateData.projectId = validatedInput.projectId || null;
+    }
+    if (validatedInput.costCodeId !== undefined) {
+      updateData.costCodeId = validatedInput.costCodeId || null;
+    }
+    if (validatedInput.laborRate !== undefined) {
+      updateData.laborRate = validatedInput.laborRate.toString();
+    }
+    if (validatedInput.burdenRate !== undefined) {
+      updateData.burdenRate = validatedInput.burdenRate.toString();
+    }
+    if (validatedInput.billingRate !== undefined) {
+      updateData.billingRate = validatedInput.billingRate.toString();
+    }
+    if (validatedInput.overtimeMultiplier !== undefined) {
+      updateData.overtimeMultiplier = validatedInput.overtimeMultiplier.toString();
+    }
+    if (validatedInput.doubleTimeMultiplier !== undefined) {
+      updateData.doubleTimeMultiplier = validatedInput.doubleTimeMultiplier.toString();
+    }
+    if (validatedInput.priority !== undefined) {
+      updateData.priority = validatedInput.priority;
+    }
+    if (validatedInput.effectiveDate !== undefined) {
+      updateData.effectiveDate = validatedInput.effectiveDate.toISOString().split('T')[0];
+    }
+    if (validatedInput.expirationDate !== undefined) {
+      updateData.expirationDate = validatedInput.expirationDate
+        ? validatedInput.expirationDate.toISOString().split('T')[0]
+        : null;
+    }
+    if (validatedInput.description !== undefined) {
+      updateData.description = validatedInput.description || null;
+    }
+
+    await pricingRepository.updatePriceListLaborRate(id, updateData);
+
+    // Fetch the full record with relations
+    const fullRecord = await pricingRepository.findLaborRateById(id);
+    return this.transformLaborRate(fullRecord);
+  }
+
+  /**
+   * Delete a labor rate
+   */
+  async deleteLaborRate(id: string): Promise<void> {
+    const organizationId = this.requireOrganizationContext();
+
+    // Check if labor rate exists
+    const existing = await pricingRepository.findLaborRateById(id);
+    if (!existing) {
+      throw new ServiceError('Labor rate not found', 'LABOR_RATE_NOT_FOUND', 404);
+    }
+
+    // Verify the price list belongs to the organization
+    const priceList = await pricingRepository.findPriceListById(existing.priceListId, organizationId);
+    if (!priceList) {
+      throw new ServiceError('Labor rate not found', 'LABOR_RATE_NOT_FOUND', 404);
+    }
+
+    await pricingRepository.deletePriceListLaborRate(id);
+  }
+
+  /**
+   * Calculate the billing rate for a given set of parameters
+   */
+  async calculateBillingRate(input: BillingRateCalculationInput): Promise<CalculatedBillingRate | null> {
+    const organizationId = this.requireOrganizationContext();
+
+    // Validate input
+    const validatedInput = billingRateCalculationSchema.parse(input);
+
+    const rate = await pricingRepository.calculateBillingRate({
+      customerId: validatedInput.customerId,
+      employeeId: validatedInput.employeeId,
+      laborRole: validatedInput.laborRole,
+      projectId: validatedInput.projectId,
+      costCodeId: validatedInput.costCodeId,
+      date: validatedInput.date,
+      organizationId,
+    });
+
+    return rate;
+  }
+
+  /**
+   * Get the full rate card for a price list (both item pricing and labor rates)
+   */
+  async getFullRateCard(
+    priceListId: string,
+    params: PaginationParams = {}
+  ): Promise<{
+    priceList: PriceList;
+    itemPricing: PaginatedResult<ItemPricingWithItem>;
+    laborRates: PaginatedResult<PriceListLaborRateWithRelations>;
+  }> {
+    const organizationId = this.requireOrganizationContext();
+
+    // Validate price list belongs to organization
+    const priceList = await pricingRepository.findPriceListById(priceListId, organizationId);
+    if (!priceList) {
+      throw new ServiceError('Price list not found', 'PRICE_LIST_NOT_FOUND', 404);
+    }
+
+    // Fetch both item pricing and labor rates
+    const [itemPricing, laborRates] = await Promise.all([
+      this.getPriceListItems(priceListId, params),
+      this.listPriceListLaborRates(priceListId, { activeOnly: false }, params),
+    ]);
+
+    return {
+      priceList: this.transformPriceList(priceList),
+      itemPricing,
+      laborRates,
+    };
+  }
+
+  /**
+   * Copy labor rates from one price list to another
+   */
+  async copyLaborRates(sourcePriceListId: string, targetPriceListId: string): Promise<void> {
+    const organizationId = this.requireOrganizationContext();
+
+    try {
+      await pricingRepository.copyLaborRates(sourcePriceListId, targetPriceListId, organizationId);
+    } catch (error: any) {
+      if (error.message.includes('not found')) {
+        throw new ServiceError('Price list not found', 'PRICE_LIST_NOT_FOUND', 404);
+      }
+      throw new ServiceError('Failed to copy labor rates', 'COPY_FAILED', 500);
+    }
   }
 }

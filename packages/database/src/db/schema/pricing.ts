@@ -1,8 +1,9 @@
-import { pgTable, text, uuid, decimal, boolean, timestamp, uniqueIndex, index, date } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, decimal, boolean, timestamp, uniqueIndex, index, date, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { items } from './items';
 import { entities } from './entities';
+import { projects, projectCostCodes } from './projects';
 
 // Price Lists
 export const priceLists = pgTable('price_lists', {
@@ -69,6 +70,7 @@ export const priceListsRelations = relations(priceLists, ({ one, many }) => ({
   }),
   itemPricing: many(itemPricing),
   customerAssignments: many(customerPriceLists),
+  laborRates: many(priceListLaborRates),
 }));
 
 export const itemPricingRelations = relations(itemPricing, ({ one }) => ({
@@ -93,9 +95,65 @@ export const customerPriceListsRelations = relations(customerPriceLists, ({ one 
   }),
 }));
 
+// Price List Labor Rates - for hourly/labor billing
+export const priceListLaborRates = pgTable('price_list_labor_rates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  priceListId: uuid('price_list_id').notNull().references(() => priceLists.id),
+
+  // Rate targeting (all optional - more specific = higher priority)
+  employeeId: uuid('employee_id').references(() => entities.id),
+  laborRole: text('labor_role'),  // e.g., "Senior Developer", "Project Manager"
+  projectId: uuid('project_id').references(() => projects.id),
+  costCodeId: uuid('cost_code_id').references(() => projectCostCodes.id),
+
+  // Rate details
+  laborRate: decimal('labor_rate', { precision: 15, scale: 4 }).notNull(),
+  burdenRate: decimal('burden_rate', { precision: 15, scale: 4 }).default('0').notNull(),
+  billingRate: decimal('billing_rate', { precision: 15, scale: 4 }).notNull(),
+
+  // Multipliers for overtime
+  overtimeMultiplier: decimal('overtime_multiplier', { precision: 4, scale: 2 }).default('1.5').notNull(),
+  doubleTimeMultiplier: decimal('double_time_multiplier', { precision: 4, scale: 2 }).default('2.0').notNull(),
+
+  // Selection priority and date range
+  priority: integer('priority').default(0).notNull(),
+  effectiveDate: date('effective_date').notNull(),
+  expirationDate: date('expiration_date'),
+  description: text('description'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  lookupIdx: index('idx_pllr_lookup').on(table.priceListId, table.effectiveDate),
+  roleIdx: index('idx_pllr_role').on(table.priceListId, table.laborRole),
+  employeeIdx: index('idx_pllr_employee').on(table.employeeId),
+  projectIdx: index('idx_pllr_project').on(table.projectId),
+}));
+
+export const priceListLaborRatesRelations = relations(priceListLaborRates, ({ one }) => ({
+  priceList: one(priceLists, {
+    fields: [priceListLaborRates.priceListId],
+    references: [priceLists.id],
+  }),
+  employee: one(entities, {
+    fields: [priceListLaborRates.employeeId],
+    references: [entities.id],
+  }),
+  project: one(projects, {
+    fields: [priceListLaborRates.projectId],
+    references: [projects.id],
+  }),
+  costCode: one(projectCostCodes, {
+    fields: [priceListLaborRates.costCodeId],
+    references: [projectCostCodes.id],
+  }),
+}));
+
 export type PriceList = typeof priceLists.$inferSelect;
 export type NewPriceList = typeof priceLists.$inferInsert;
 export type ItemPricing = typeof itemPricing.$inferSelect;
 export type NewItemPricing = typeof itemPricing.$inferInsert;
 export type CustomerPriceList = typeof customerPriceLists.$inferSelect;
 export type NewCustomerPriceList = typeof customerPriceLists.$inferInsert;
+export type PriceListLaborRate = typeof priceListLaborRates.$inferSelect;
+export type NewPriceListLaborRate = typeof priceListLaborRates.$inferInsert;
