@@ -13,5 +13,6 @@
 export * from './common';
 export * from './entities';
 export * from './accounting';
+export * from './items';
 export * from './time-tracking';
 export * from './transactions';
