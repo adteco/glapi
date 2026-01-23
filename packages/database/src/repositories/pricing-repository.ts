@@ -23,7 +23,7 @@ export interface CalculatedPrice {
   expirationDate: Date | null;
 }
 
-export interface LaborRateFilters {
+export interface PriceListLaborRateFilters {
   employeeId?: string;
   laborRole?: string;
   projectId?: string;
@@ -552,7 +552,7 @@ export class PricingRepository extends BaseRepository {
   /**
    * Find all labor rates for a price list
    */
-  async findPriceListLaborRates(priceListId: string, filters: LaborRateFilters = {}) {
+  async findPriceListLaborRates(priceListId: string, filters: PriceListLaborRateFilters = {}) {
     const conditions = [eq(priceListLaborRates.priceListId, priceListId)];
     const today = new Date().toISOString().split('T')[0];
 

@@ -126,6 +126,9 @@ import * as onboardingSchemas from './onboarding';
 // Project Tasks schemas
 import * as projectTasksSchemas from './project-tasks';
 
+// Accounting Lists schemas
+import * as accountingListsSchemas from './accounting-lists';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -236,6 +239,8 @@ export const schema = {
   ...onboardingSchemas,
   // Project Tasks schemas
   ...projectTasksSchemas,
+  // Accounting Lists schemas
+  ...accountingListsSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -898,3 +903,35 @@ export type {
   ProjectTaskPriority,
   ProjectMilestoneStatus,
 } from './project-tasks';
+
+// Re-export Accounting Lists schemas
+export {
+  accountingLists,
+  paymentTermsDetails,
+  paymentMethodsDetails,
+  chargeTypesDetails,
+  customerAccountingLists,
+  accountingListTypeEnum,
+  dueDateTypeEnum,
+  accountingPaymentMethodTypeEnum,
+  chargeCategoryEnum,
+} from './accounting-lists';
+export type {
+  AccountingList,
+  NewAccountingList,
+  PaymentTermsDetail,
+  NewPaymentTermsDetail,
+  PaymentMethodsDetail,
+  NewPaymentMethodsDetail,
+  ChargeTypesDetail,
+  NewChargeTypesDetail,
+  CustomerAccountingList,
+  NewCustomerAccountingList,
+  AccountingListType,
+  DueDateType,
+  PaymentMethodType,
+  ChargeCategory,
+  PaymentTermsWithDetails,
+  PaymentMethodWithDetails,
+  ChargeTypeWithDetails,
+} from './accounting-lists';
