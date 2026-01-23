@@ -28,7 +28,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { createSubsidiarySchema } from "@glapi/types";
+import { z } from "zod";
 
 // Define interfaces
 interface Subsidiary {
@@ -42,11 +43,15 @@ interface Subsidiary {
   updatedAt: string;
 }
 
-// Form schema
-const subsidiaryFormSchema = z.object({
-  name: z.string().min(1, "Name is required").max(255),
-  code: z.string().max(50).optional().or(z.literal('')),
-  description: z.string().max(1000).optional().or(z.literal('')),
+// Form schema - use centralized schema from @glapi/types
+// Transform nullable strings to handle form inputs that don't accept null
+const subsidiaryFormSchema = createSubsidiarySchema.omit({
+  organizationId: true,
+  parentId: true,
+  isActive: true,
+}).extend({
+  code: z.string().optional(),
+  description: z.string().optional(),
 });
 
 type SubsidiaryFormValues = z.infer<typeof subsidiaryFormSchema>;
@@ -75,7 +80,7 @@ export default function SubsidiariesPage() {
   const subsidiaries = subsidiariesData || [];
 
   const form = useForm<SubsidiaryFormValues>({
-    // resolver: zodResolver(subsidiaryFormSchema),
+    resolver: zodResolver(subsidiaryFormSchema),
     defaultValues: {
       name: "",
       code: "",

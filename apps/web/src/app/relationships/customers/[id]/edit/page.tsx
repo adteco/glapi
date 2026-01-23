@@ -14,7 +14,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { z } from 'zod';
 import {
   Form,
   FormControl,
@@ -24,23 +24,17 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { updateCustomerSchema, EntityStatusEnum } from "@glapi/types";
 
-const customerSchema = z.object({
-  companyName: z.string().min(1, 'Company name is required'),
-  customerId: z.string().optional(),
-  contactEmail: z.string().email().optional().or(z.literal('')),
-  contactPhone: z.string().optional(),
-  status: z.enum(['active', 'inactive', 'archived']),
-  billingAddress: z.object({
-    street: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    postalCode: z.string().optional(),
-    country: z.string().optional(),
-  }).optional(),
+// Form schema for customer edit - extend updateCustomerSchema with status enum
+const customerFormSchema = updateCustomerSchema.extend({
+  status: EntityStatusEnum,
+}).required({
+  companyName: true,
+  status: true,
 });
 
-type CustomerFormValues = z.infer<typeof customerSchema>;
+type CustomerFormValues = z.infer<typeof customerFormSchema>;
 
 export default function EditCustomerPage() {
   const params = useParams();
@@ -50,7 +44,7 @@ export default function EditCustomerPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerSchema),
+    resolver: zodResolver(customerFormSchema),
     defaultValues: {
       companyName: '',
       customerId: '',
@@ -97,11 +91,11 @@ export default function EditCustomerPage() {
         contactPhone: customer.contactPhone || '',
         status: customer.status as 'active' | 'inactive' | 'archived',
         billingAddress: {
-          street: customer.billingAddress?.street || customer.billingAddress?.line1 || '',
+          street: customer.billingAddress?.street || '',
           city: customer.billingAddress?.city || '',
-          state: customer.billingAddress?.state || customer.billingAddress?.stateProvince || '',
+          state: customer.billingAddress?.state || '',
           postalCode: customer.billingAddress?.postalCode || '',
-          country: customer.billingAddress?.country || customer.billingAddress?.countryCode || '',
+          country: customer.billingAddress?.country || '',
         },
       });
     }
