@@ -769,6 +769,31 @@ importers:
 
   packages/tsconfig: {}
 
+  packages/types:
+    dependencies:
+      zod:
+        specifier: ^3.25.51
+        version: 3.25.51
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.16
+        version: 20.17.57
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.50.1
+        version: 8.53.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.50.1
+        version: 8.53.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.39.2
+        version: 9.39.2(jiti@2.6.1)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.17.57)(@vitest/ui@1.6.1)(lightningcss@1.30.1)
+
   packages/workers:
     dependencies:
       '@glapi/business':
