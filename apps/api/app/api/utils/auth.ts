@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { PermissionService } from '@glapi/api-service';
-import { OrganizationRepository } from '@glapi/database';
+import { OrganizationRepository, AuthEntityRepository } from '@glapi/database';
 import type { ResourceType, Action, AccessLevel } from '@glapi/api-service';
 
 export interface OrganizationContext {
@@ -19,6 +19,9 @@ export class AuthenticationError extends Error {
 
 // Cache for Clerk org ID to database org ID mapping
 const orgIdCache = new Map<string, string>();
+
+// Cache for Clerk user ID to entity ID mapping
+const entityIdCache = new Map<string, string>();
 
 /**
  * Resolve a Clerk org ID (org_xxxxx) to a database organization UUID
@@ -51,23 +54,60 @@ async function resolveOrganizationId(clerkOrgId: string): Promise<string | null>
   return null;
 }
 
+/**
+ * Resolve a Clerk user ID (user_xxxxx) to a database entity UUID
+ * This supports the consolidated auth model where entities serve as authenticated users
+ */
+async function resolveEntityId(clerkUserId: string): Promise<string | null> {
+  // Check cache first
+  if (entityIdCache.has(clerkUserId)) {
+    return entityIdCache.get(clerkUserId)!;
+  }
+
+  // If it's already a UUID format, return as-is
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidPattern.test(clerkUserId)) {
+    return clerkUserId;
+  }
+
+  // Look up by Clerk user ID
+  try {
+    const authEntityRepo = new AuthEntityRepository();
+    const entity = await authEntityRepo.findByClerkId(clerkUserId);
+
+    if (entity) {
+      entityIdCache.set(clerkUserId, entity.id);
+      return entity.id;
+    }
+  } catch (error) {
+    console.error('Failed to resolve entity ID from Clerk user ID:', error);
+  }
+
+  return null;
+}
+
 export async function getServiceContext(): Promise<OrganizationContext> {
   const headersList = await headers();
 
   const rawOrganizationId = headersList.get('x-organization-id');
-  const userId = headersList.get('x-user-id');
+  const rawUserId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
 
-  console.log('Auth context - rawOrgId:', rawOrganizationId, 'userId:', userId);
+  console.log('Auth context - rawOrgId:', rawOrganizationId, 'rawUserId:', rawUserId);
 
-  if (rawOrganizationId && userId) {
+  if (rawOrganizationId && rawUserId) {
     // Resolve Clerk org ID to database UUID
     const organizationId = await resolveOrganizationId(rawOrganizationId);
+
+    // Resolve Clerk user ID to entity UUID
+    // This supports the consolidated auth model where entities (Employee) serve as users
+    const entityId = await resolveEntityId(rawUserId);
 
     if (organizationId) {
       return {
         organizationId,
-        userId,
+        // Use entity ID if resolved, otherwise fall back to raw user ID
+        userId: entityId || rawUserId,
         clerkOrganizationId: rawOrganizationId,
         apiKeyName: apiKeyName || undefined
       };
@@ -80,7 +120,7 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   console.log('No org/user in headers or unresolved org - using development context');
   return {
     organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Adteco dev org UUID
-    userId: userId || 'user_development',
+    userId: rawUserId || 'user_development',
     clerkOrganizationId: rawOrganizationId || 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2'
   };
 }
