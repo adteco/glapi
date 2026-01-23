@@ -26,6 +26,7 @@ import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { users } from './users';
+import { entities } from './entities';
 import { projects, projectCostCodes } from './projects';
 import { approvalActionEnum } from './time-entries';
 
@@ -97,8 +98,8 @@ export const expenseEntries = pgTable('expense_entries', {
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
 
-  // Employee reference
-  employeeId: uuid('employee_id').notNull().references(() => users.id),
+  // Employee reference (references entities table for business employees)
+  employeeId: uuid('employee_id').notNull().references(() => entities.id),
 
   // Project/Cost code allocation
   projectId: uuid('project_id').references(() => projects.id),
@@ -255,7 +256,7 @@ export const expenseEntryApprovals = pgTable('expense_entry_approvals', {
 export const expenseReports = pgTable('expense_reports', {
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
-  employeeId: uuid('employee_id').notNull().references(() => users.id),
+  employeeId: uuid('employee_id').notNull().references(() => entities.id),
 
   // Report details
   reportNumber: text('report_number').notNull(),
@@ -396,9 +397,9 @@ export const expenseEntriesRelations = relations(expenseEntries, ({ one, many })
     fields: [expenseEntries.subsidiaryId],
     references: [subsidiaries.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [expenseEntries.employeeId],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'expenseEntryEmployee',
   }),
   project: one(projects, {
@@ -449,9 +450,9 @@ export const expenseReportsRelations = relations(expenseReports, ({ one, many })
     fields: [expenseReports.organizationId],
     references: [organizations.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [expenseReports.employeeId],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'reportEmployee',
   }),
   project: one(projects, {
