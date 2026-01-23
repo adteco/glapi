@@ -76,6 +76,8 @@ export default function TimeEntriesPage() {
   const { orgId } = useAuth();
   const router = useRouter();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'my-time' | 'approvals'>('my-time');
@@ -88,6 +90,16 @@ export default function TimeEntriesPage() {
     projectId: '',
     costCodeId: '',
     entryDate: format(new Date(), 'yyyy-MM-dd'),
+    hours: '',
+    entryType: 'REGULAR' as TimeEntryType,
+    description: '',
+    isBillable: true,
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    projectId: '',
+    costCodeId: '',
+    entryDate: '',
     hours: '',
     entryType: 'REGULAR' as TimeEntryType,
     description: '',
@@ -177,6 +189,18 @@ export default function TimeEntriesPage() {
     },
   });
 
+  const updateMutation = trpc.timeEntries.update.useMutation({
+    onSuccess: () => {
+      toast.success('Time entry updated');
+      setIsEditOpen(false);
+      setEditingEntry(null);
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update time entry');
+    },
+  });
+
   const entries = entriesData?.data || [];
   const pendingList = pendingApprovals?.data || [];
 
@@ -226,6 +250,41 @@ export default function TimeEntriesPage() {
   const handleDelete = (id: string) => {
     if (!confirm('Are you sure you want to delete this time entry?')) return;
     deleteMutation.mutate({ id });
+  };
+
+  const handleEdit = (entry: TimeEntry) => {
+    setEditingEntry(entry);
+    setEditFormData({
+      projectId: entry.projectId || '',
+      costCodeId: entry.costCodeId || '',
+      entryDate: entry.entryDate,
+      hours: entry.hours,
+      entryType: entry.entryType,
+      description: entry.description || '',
+      isBillable: entry.isBillable,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingEntry) return;
+    if (!editFormData.hours || !editFormData.entryDate) {
+      toast.error('Hours and date are required');
+      return;
+    }
+
+    updateMutation.mutate({
+      id: editingEntry.id,
+      data: {
+        projectId: editFormData.projectId || null,
+        costCodeId: editFormData.costCodeId || null,
+        entryDate: editFormData.entryDate,
+        hours: editFormData.hours,
+        entryType: editFormData.entryType,
+        description: editFormData.description || null,
+        isBillable: editFormData.isBillable,
+      },
+    });
   };
 
   const toggleEntrySelection = (id: string) => {
@@ -443,6 +502,107 @@ export default function TimeEntriesPage() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+
+                  {/* Edit Dialog */}
+                  <Dialog open={isEditOpen} onOpenChange={(open) => {
+                    setIsEditOpen(open);
+                    if (!open) setEditingEntry(null);
+                  }}>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Edit Time Entry</DialogTitle>
+                        <DialogDescription>Update your time entry details</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="editEntryDate">Date*</Label>
+                            <Input
+                              id="editEntryDate"
+                              type="date"
+                              value={editFormData.entryDate}
+                              onChange={(e) => setEditFormData({ ...editFormData, entryDate: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="editHours">Hours*</Label>
+                            <Input
+                              id="editHours"
+                              type="number"
+                              step="0.25"
+                              min="0"
+                              max="24"
+                              value={editFormData.hours}
+                              onChange={(e) => setEditFormData({ ...editFormData, hours: e.target.value })}
+                              placeholder="8.00"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="editEntryType">Entry Type</Label>
+                            <Select
+                              value={editFormData.entryType}
+                              onValueChange={(v) => setEditFormData({ ...editFormData, entryType: v as TimeEntryType })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(ENTRY_TYPE_LABELS).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="editIsBillable">Billable</Label>
+                            <Select
+                              value={editFormData.isBillable ? 'true' : 'false'}
+                              onValueChange={(v) => setEditFormData({ ...editFormData, isBillable: v === 'true' })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">Yes</SelectItem>
+                                <SelectItem value="false">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="editProjectId">Project ID (optional)</Label>
+                          <Input
+                            id="editProjectId"
+                            value={editFormData.projectId}
+                            onChange={(e) => setEditFormData({ ...editFormData, projectId: e.target.value })}
+                            placeholder="Enter project UUID"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="editDescription">Description</Label>
+                          <Textarea
+                            id="editDescription"
+                            value={editFormData.description}
+                            onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                            placeholder="What did you work on?"
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleUpdate}>Save Changes</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </CardHeader>
@@ -522,9 +682,14 @@ export default function TimeEntriesPage() {
                       </TableCell>
                       <TableCell>
                         {entry.status === 'DRAFT' && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(entry.id)}>
-                            Delete
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(entry)}>
+                              Edit
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(entry.id)}>
+                              Delete
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
