@@ -10,7 +10,7 @@ export interface AuditLogEntry {
   fieldName: string | null;
   oldValue: string | null;
   newValue: string | null;
-  userId: string;
+  entityId: string;
   sessionId: string | null;
   ipAddress: string | null;
   timestamp: Date;
@@ -23,7 +23,7 @@ export interface NewAuditLogEntry {
   fieldName?: string | null;
   oldValue?: string | null;
   newValue?: string | null;
-  userId: string;
+  entityId: string;
   sessionId?: string | null;
   ipAddress?: string | null;
 }
@@ -32,7 +32,7 @@ export interface AuditLogFilters {
   tableName?: string;
   recordId?: string;
   actionType?: string;
-  userId?: string;
+  entityId?: string;
   startDate?: Date;
   endDate?: Date;
 }
@@ -47,8 +47,11 @@ export const AuditTableNames = {
   ROLES: 'roles',
   PERMISSIONS: 'permissions',
   ROLE_PERMISSIONS: 'role_permissions',
-  USER_ROLES: 'user_roles',
-  USER_SUBSIDIARY_ACCESS: 'user_subsidiary_access',
+  ENTITY_ROLES: 'entity_roles',
+  ENTITY_SUBSIDIARY_ACCESS: 'entity_subsidiary_access',
+  // Legacy aliases for backward compatibility
+  USER_ROLES: 'entity_roles',
+  USER_SUBSIDIARY_ACCESS: 'entity_subsidiary_access',
 } as const;
 
 export class AuditLogRepository extends BaseRepository {
@@ -65,7 +68,7 @@ export class AuditLogRepository extends BaseRepository {
         fieldName: entry.fieldName ?? null,
         oldValue: entry.oldValue ?? null,
         newValue: entry.newValue ?? null,
-        userId: entry.userId,
+        entityId: entry.entityId,
         sessionId: entry.sessionId ?? null,
         ipAddress: entry.ipAddress ?? null,
       })
@@ -90,7 +93,7 @@ export class AuditLogRepository extends BaseRepository {
           fieldName: entry.fieldName ?? null,
           oldValue: entry.oldValue ?? null,
           newValue: entry.newValue ?? null,
-          userId: entry.userId,
+          entityId: entry.entityId,
           sessionId: entry.sessionId ?? null,
           ipAddress: entry.ipAddress ?? null,
         }))
@@ -126,8 +129,8 @@ export class AuditLogRepository extends BaseRepository {
       conditions.push(eq(glAuditTrail.actionType, filters.actionType));
     }
 
-    if (filters.userId) {
-      conditions.push(eq(glAuditTrail.userId, filters.userId));
+    if (filters.entityId) {
+      conditions.push(eq(glAuditTrail.entityId, filters.entityId));
     }
 
     if (filters.startDate) {
@@ -185,10 +188,10 @@ export class AuditLogRepository extends BaseRepository {
    * Find audit logs by user
    */
   async findByUser(
-    userId: string,
+    entityId: string,
     params: AuditLogPaginationParams = {}
   ): Promise<{ data: AuditLogEntry[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
-    return this.findAll({ userId }, params);
+    return this.findAll({ entityId }, params);
   }
 
   // ============ RBAC-Specific Audit Methods ============
@@ -197,7 +200,7 @@ export class AuditLogRepository extends BaseRepository {
    * Log a role assignment change
    */
   async logRoleAssignment(
-    userId: string,
+    entityId: string,
     targetUserId: string,
     roleId: string,
     action: 'ASSIGN' | 'REVOKE',
@@ -213,7 +216,7 @@ export class AuditLogRepository extends BaseRepository {
       fieldName: 'roleId',
       oldValue: action === 'REVOKE' ? roleId : null,
       newValue: action === 'ASSIGN' ? roleId : null,
-      userId: performedBy,
+      entityId: performedBy,
       sessionId,
       ipAddress,
     });
@@ -237,7 +240,7 @@ export class AuditLogRepository extends BaseRepository {
       fieldName: 'permissionId',
       oldValue: action === 'REVOKE' ? permissionId : null,
       newValue: action === 'ASSIGN' ? permissionId : null,
-      userId: performedBy,
+      entityId: performedBy,
       sessionId,
       ipAddress,
     });
@@ -264,7 +267,7 @@ export class AuditLogRepository extends BaseRepository {
           fieldName: change.fieldName,
           oldValue: change.oldValue ?? null,
           newValue: change.newValue ?? null,
-          userId: performedBy,
+          entityId: performedBy,
           sessionId,
           ipAddress,
         }))
@@ -276,7 +279,7 @@ export class AuditLogRepository extends BaseRepository {
       tableName: AuditTableNames.ROLES,
       recordId: roleId,
       actionType: action,
-      userId: performedBy,
+      entityId: performedBy,
       sessionId,
       ipAddress,
     });
@@ -288,7 +291,7 @@ export class AuditLogRepository extends BaseRepository {
    * Log subsidiary access changes
    */
   async logSubsidiaryAccessChange(
-    userId: string,
+    entityId: string,
     subsidiaryId: string,
     action: 'GRANT' | 'REVOKE' | 'UPDATE',
     performedBy: string,
@@ -302,12 +305,12 @@ export class AuditLogRepository extends BaseRepository {
 
     return this.create({
       tableName: AuditTableNames.USER_SUBSIDIARY_ACCESS,
-      recordId: `${userId}:${subsidiaryId}`,
+      recordId: `${entityId}:${subsidiaryId}`,
       actionType,
       fieldName: 'accessLevel',
       oldValue: oldAccessLevel ?? null,
       newValue: newAccessLevel ?? null,
-      userId: performedBy,
+      entityId: performedBy,
       sessionId,
       ipAddress,
     });
