@@ -1,8 +1,9 @@
 /**
- * Schedule of Values (SOV) Service Types
+ * Schedule of Values (SOV) Service Types - re-exported from @glapi/types for backward compatibility
  *
- * These types define the service layer interfaces for Schedule of Values
- * operations, including creation, updates, and billing progress tracking.
+ * This file re-exports SOV types from the centralized @glapi/types package.
+ * Database-specific types are still imported from @glapi/database.
+ * New code should import directly from '@glapi/types' when possible.
  */
 
 // Re-export database types for convenience
@@ -21,328 +22,44 @@ export type {
 
 export { SOV_STATUS, SOV_LINE_TYPE } from '@glapi/database';
 
-/**
- * Input for creating a new Schedule of Values
- */
-export interface CreateSovInput {
-  organizationId: string;
-  projectId: string;
-  description?: string;
-  originalContractAmount: number;
-  defaultRetainagePercent?: number;
-  retainageCapAmount?: number;
-  retainageCapPercent?: number;
-  effectiveDate?: string;
-  currencyCode?: string;
-  lines?: CreateSovLineInput[];
-}
+// Re-export all SOV service types from centralized package
+export {
+  // SOV Input Types
+  type CreateSovInput,
+  type CreateSovLineInput,
+  type UpdateSovInput,
+  type UpdateSovLineInput,
 
-/**
- * Input for creating an SOV line
- */
-export interface CreateSovLineInput {
-  projectCostCodeId?: string;
-  lineNumber: number;
-  itemNumber?: string;
-  lineType?: string;
-  description: string;
-  originalScheduledValue: number;
-  retainagePercent?: number;
-  revenueAccountId?: string;
-  contractAssetAccountId?: string;
-  retainageAccountId?: string;
-  sortOrder?: number;
-  parentLineId?: string;
-  isSubtotal?: boolean;
-  notes?: string;
-}
+  // Change Order Types
+  type CreateChangeOrderInput,
+  type CreateChangeOrderLineInput,
+  type ApproveChangeOrderInput,
+  type RejectChangeOrderInput,
+  type ChangeOrderSummary,
 
-/**
- * Input for updating an SOV
- */
-export interface UpdateSovInput {
-  description?: string;
-  defaultRetainagePercent?: number;
-  retainageCapAmount?: number;
-  retainageCapPercent?: number;
-  effectiveDate?: string;
-  expirationDate?: string;
-}
+  // SOV Output Types
+  type SovLineWithProgress,
+  type SovSummary,
 
-/**
- * Input for updating an SOV line
- */
-export interface UpdateSovLineInput {
-  lineType?: string;
-  description?: string;
-  originalScheduledValue?: number;
-  retainagePercent?: number;
-  revenueAccountId?: string;
-  contractAssetAccountId?: string;
-  retainageAccountId?: string;
-  sortOrder?: number;
-  isActive?: boolean;
-  notes?: string;
-}
+  // G703 Types
+  type G703ContinuationSheet,
+  type G703Line,
 
-/**
- * Input for creating a change order
- */
-export interface CreateChangeOrderInput {
-  scheduleOfValuesId: string;
-  changeOrderNumber: string;
-  description: string;
-  amount: number;
-  effectiveDate?: string;
-  externalReference?: string;
-  documentUrl?: string;
-  notes?: string;
-  lines: CreateChangeOrderLineInput[];
-}
+  // Filter Types
+  type ListSovFilter,
+  type ListSovLinesFilter,
 
-/**
- * Input for a change order line
- */
-export interface CreateChangeOrderLineInput {
-  sovLineId: string;
-  lineNumber: number;
-  description?: string;
-  amount: number;
-}
+  // Validation Types
+  type SovValidationResult,
+  type SovValidationError,
+  type SovValidationWarning,
 
-/**
- * Input for approving a change order
- */
-export interface ApproveChangeOrderInput {
-  changeOrderId: string;
-  approvedBy: string;
-  notes?: string;
-}
+  // Import/Export Types
+  type SovImportInput,
+  type SovImportResult,
+  type SovImportError,
+  type SovExportOptions,
 
-/**
- * Input for rejecting a change order
- */
-export interface RejectChangeOrderInput {
-  changeOrderId: string;
-  rejectedBy: string;
-  reason: string;
-}
-
-/**
- * SOV line with calculated fields for display
- */
-export interface SovLineWithProgress {
-  id: string;
-  lineNumber: number;
-  itemNumber?: string;
-  lineType: string;
-  description: string;
-
-  // Contract amounts
-  originalScheduledValue: number;
-  changeOrderAmount: number;
-  revisedScheduledValue: number;
-
-  // Billing progress
-  previousWorkCompleted: number;
-  previousMaterialsStored: number;
-  currentWorkCompleted: number;
-  currentMaterialsStored: number;
-  totalCompletedAndStored: number;
-  percentComplete: number;
-  balanceToFinish: number;
-
-  // Retainage
-  retainagePercent: number;
-  retainageHeld: number;
-  retainageReleased: number;
-  netRetainage: number;
-
-  // Associated cost code
-  costCodeId?: string;
-  costCodeName?: string;
-}
-
-/**
- * SOV summary for project dashboard
- */
-export interface SovSummary {
-  id: string;
-  sovNumber: string;
-  projectId: string;
-  projectName: string;
-  status: string;
-
-  // Contract totals
-  originalContractAmount: number;
-  approvedChangeOrders: number;
-  pendingChangeOrders: number;
-  revisedContractAmount: number;
-
-  // Billing totals
-  totalScheduledValue: number;
-  totalPreviouslyBilled: number;
-  totalCurrentBilling: number;
-  totalBilledToDate: number;
-  totalRetainageHeld: number;
-  totalRetainageReleased: number;
-  balanceToFinish: number;
-  percentComplete: number;
-
-  // Line counts
-  lineCount: number;
-  activeLineCount: number;
-
-  // Change order counts
-  approvedChangeOrderCount: number;
-  pendingChangeOrderCount: number;
-}
-
-/**
- * AIA G703 continuation sheet format
- */
-export interface G703ContinuationSheet {
-  projectName: string;
-  applicationNumber: number;
-  periodTo: string;
-  architectsProjectNumber?: string;
-
-  lines: G703Line[];
-
-  grandTotals: {
-    scheduledValue: number;
-    previousWorkCompleted: number;
-    previousMaterialsStored: number;
-    thisWorkCompleted: number;
-    thisMaterialsStored: number;
-    totalCompletedAndStored: number;
-    percentComplete: number;
-    balanceToFinish: number;
-    retainage: number;
-  };
-}
-
-/**
- * Individual line on G703
- */
-export interface G703Line {
-  itemNumber: string;
-  descriptionOfWork: string;
-  scheduledValue: number;
-  workCompletedFromPrevious: number;
-  workCompletedThisPeriod: number;
-  materialsStoredFromPrevious: number;
-  materialsStoredThisPeriod: number;
-  totalCompletedAndStored: number;
-  percentComplete: number;
-  balanceToFinish: number;
-  retainage: number;
-}
-
-/**
- * Filter options for listing SOVs
- */
-export interface ListSovFilter {
-  organizationId: string;
-  projectId?: string;
-  status?: string[];
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
-
-/**
- * Filter options for listing SOV lines
- */
-export interface ListSovLinesFilter {
-  scheduleOfValuesId: string;
-  lineType?: string[];
-  isActive?: boolean;
-  costCodeId?: string;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
-
-/**
- * Result of SOV validation
- */
-export interface SovValidationResult {
-  valid: boolean;
-  errors: SovValidationError[];
-  warnings: SovValidationWarning[];
-}
-
-export interface SovValidationError {
-  code: string;
-  message: string;
-  lineId?: string;
-  field?: string;
-}
-
-export interface SovValidationWarning {
-  code: string;
-  message: string;
-  lineId?: string;
-  field?: string;
-}
-
-/**
- * SOV import from CSV
- */
-export interface SovImportInput {
-  organizationId: string;
-  projectId: string;
-  csvData: string;
-  hasHeaders?: boolean;
-  columnMapping?: Record<string, string>;
-}
-
-export interface SovImportResult {
-  success: boolean;
-  scheduleOfValuesId?: string;
-  linesImported: number;
-  linesSkipped: number;
-  errors: SovImportError[];
-  warnings: string[];
-}
-
-export interface SovImportError {
-  row: number;
-  column?: string;
-  message: string;
-}
-
-/**
- * SOV export options
- */
-export interface SovExportOptions {
-  format: 'csv' | 'xlsx' | 'g703';
-  includeChangeOrders?: boolean;
-  includeProgress?: boolean;
-}
-
-/**
- * Change order summary
- */
-export interface ChangeOrderSummary {
-  id: string;
-  changeOrderNumber: string;
-  description: string;
-  amount: number;
-  status: string;
-  effectiveDate?: string;
-  approvedDate?: string;
-  lineCount: number;
-}
-
-/**
- * Valid SOV status transitions
- */
-export const VALID_SOV_STATUS_TRANSITIONS: Record<string, string[]> = {
-  DRAFT: ['ACTIVE', 'VOIDED'],
-  ACTIVE: ['REVISED', 'CLOSED'],
-  REVISED: ['ACTIVE', 'CLOSED'],
-  CLOSED: ['ACTIVE'],
-  VOIDED: [],
-};
+  // Status Transitions
+  VALID_SOV_STATUS_TRANSITIONS,
+} from '@glapi/types';
