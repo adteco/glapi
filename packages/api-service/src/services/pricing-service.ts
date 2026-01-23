@@ -21,7 +21,7 @@ import {
   PriceListLaborRateWithRelations,
   CreatePriceListLaborRateInput,
   UpdatePriceListLaborRateInput,
-  LaborRateFilters,
+  PriceListLaborRateFilters,
   BillingRateCalculationInput,
   CalculatedBillingRate,
   createPriceListLaborRateSchema,
@@ -631,7 +631,7 @@ export class PricingService extends BaseService {
    */
   async listPriceListLaborRates(
     priceListId: string,
-    filters: Partial<LaborRateFilters> = {},
+    filters: Partial<PriceListLaborRateFilters> = {},
     params: PaginationParams = {}
   ): Promise<PaginatedResult<PriceListLaborRateWithRelations>> {
     const organizationId = this.requireOrganizationContext();
