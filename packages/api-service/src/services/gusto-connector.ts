@@ -39,7 +39,7 @@ import type {
   PayrollSyncError,
   PayrollConnection,
   EmploymentStatus,
-  EmploymentType,
+  PayrollEmploymentType,
   PayType,
   PayFrequency,
   EarningType,
@@ -997,7 +997,7 @@ export class GustoConnector extends BaseConnector {
     return 'active';
   }
 
-  private mapEmploymentType(compensation?: GustoCompensation): EmploymentType {
+  private mapEmploymentType(compensation?: GustoCompensation): PayrollEmploymentType {
     if (!compensation) return 'full_time';
     // Gusto doesn't directly expose employment type, infer from FLSA status
     if (compensation.flsa_status === 'Owner') return 'full_time';
