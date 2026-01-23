@@ -158,7 +158,7 @@ export class PermissionService extends BaseService {
     }
 
     // Fetch from database
-    const permissions = await permissionRepository.findUserPermissions(userId, subsidiaryId);
+    const permissions = await permissionRepository.findEntityPermissions(userId, subsidiaryId);
 
     // Update cache
     PermissionService.permissionCache.set(cacheKey, {
@@ -173,16 +173,16 @@ export class PermissionService extends BaseService {
    * Get a summary of the current user's permissions
    */
   async getUserPermissionSummary(): Promise<UserPermissionSummary> {
-    const userId = this.requireUserContext();
+    const entityId = this.requireUserContext();
 
     const [roles, permissions, subsidiaryAccess] = await Promise.all([
-      permissionRepository.findUserRoles(userId),
-      permissionRepository.findUserPermissions(userId),
-      permissionRepository.findUserSubsidiaryAccess(userId),
+      permissionRepository.findEntityRoles(entityId),
+      permissionRepository.findEntityPermissions(entityId),
+      permissionRepository.findEntitySubsidiaryAccess(entityId),
     ]);
 
     return {
-      userId,
+      entityId,
       roles,
       permissions,
       subsidiaryAccess: subsidiaryAccess.map((sa) => ({
@@ -229,7 +229,7 @@ export class PermissionService extends BaseService {
   async isAdmin(): Promise<boolean> {
     const userId = this.requireUserContext();
 
-    const roles = await permissionRepository.findUserRoles(userId);
+    const roles = await permissionRepository.findEntityRoles(userId);
     return roles.some((r) => r.role?.roleName === 'ADMIN');
   }
 

@@ -11,6 +11,7 @@ export * from './class-repository';
 export * from './account-repository';
 export * from './entity-repository';
 export * from './user-repository';
+export * from './auth-entity-repository';
 
 // Export GL repositories
 export * from './gl-transaction-repository';
@@ -102,6 +103,9 @@ export * from './import-batch-repository';
 // Export Onboarding repository
 export * from './onboarding-repository';
 
+// Export Project Task repository
+export * from './project-task-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -150,6 +154,8 @@ import { MetricsRepository } from './metrics-repository';
 import { ReportScheduleRepository } from './report-schedule-repository';
 import { DeliveryQueueRepository } from './delivery-queue-repository';
 import { ImportBatchRepository } from './import-batch-repository';
+import { ProjectTaskRepository } from './project-task-repository';
+import { AuthEntityRepository } from './auth-entity-repository';
 
 // Create singleton instances - initialized on first use
 // Explicit type annotations to avoid TS7056 "inferred type exceeds max length"
@@ -200,3 +206,5 @@ export const metricsRepository: MetricsRepository = new MetricsRepository();
 export const reportScheduleRepository: ReportScheduleRepository = new ReportScheduleRepository();
 export const deliveryQueueRepository: DeliveryQueueRepository = new DeliveryQueueRepository();
 export const importBatchRepository: ImportBatchRepository = new ImportBatchRepository();
+export const projectTaskRepository: ProjectTaskRepository = new ProjectTaskRepository();
+export const authEntityRepository: AuthEntityRepository = new AuthEntityRepository();

@@ -333,11 +333,17 @@ export class TimeEntryService extends BaseService {
       }
     }
 
+    // Helper to convert empty strings to null for UUID fields
+    const toNullableUuid = (value: string | null | undefined): string | null => {
+      if (!value || value.trim() === '') return null;
+      return value;
+    };
+
     // Calculate labor costs
     const costs = await this.calculateLaborCosts(
       employeeId,
-      input.projectId,
-      input.costCodeId,
+      toNullableUuid(input.projectId),
+      toNullableUuid(input.costCodeId),
       input.entryDate,
       input.hours,
       input.entryType || 'REGULAR'
@@ -346,8 +352,8 @@ export class TimeEntryService extends BaseService {
     const created = await this.repository.create({
       organizationId,
       employeeId,
-      projectId: input.projectId || null,
-      costCodeId: input.costCodeId || null,
+      projectId: toNullableUuid(input.projectId),
+      costCodeId: toNullableUuid(input.costCodeId),
       entryDate: input.entryDate,
       hours: input.hours,
       entryType: input.entryType || 'REGULAR',
@@ -389,6 +395,12 @@ export class TimeEntryService extends BaseService {
       );
     }
 
+    // Helper to convert empty strings to null for UUID fields
+    const toNullableUuid = (value: string | null | undefined): string | null => {
+      if (!value || (typeof value === 'string' && value.trim() === '')) return null;
+      return value;
+    };
+
     // Recalculate costs if hours or entry type changed
     let costUpdates: Partial<{
       laborRate: string;
@@ -400,8 +412,8 @@ export class TimeEntryService extends BaseService {
     if (input.hours || input.entryType) {
       const hours = input.hours || existing.hours;
       const entryType = input.entryType || existing.entryType;
-      const projectId = input.projectId !== undefined ? input.projectId : existing.projectId;
-      const costCodeId = input.costCodeId !== undefined ? input.costCodeId : existing.costCodeId;
+      const projectId = input.projectId !== undefined ? toNullableUuid(input.projectId) : existing.projectId;
+      const costCodeId = input.costCodeId !== undefined ? toNullableUuid(input.costCodeId) : existing.costCodeId;
       const entryDate = input.entryDate || existing.entryDate;
 
       costUpdates = await this.calculateLaborCosts(
@@ -414,8 +426,15 @@ export class TimeEntryService extends BaseService {
       );
     }
 
-    const updateData: any = {
+    // Sanitize UUID fields in input to convert empty strings to null
+    const sanitizedInput = {
       ...input,
+      projectId: input.projectId !== undefined ? toNullableUuid(input.projectId) : undefined,
+      costCodeId: input.costCodeId !== undefined ? toNullableUuid(input.costCodeId) : undefined,
+    };
+
+    const updateData: any = {
+      ...sanitizedInput,
       ...costUpdates,
     };
 

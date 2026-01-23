@@ -41,6 +41,9 @@ export * from './wip-reporting-service';
 // Time tracking
 export * from './time-entry-service';
 
+// Project Tasks
+export * from './project-task-service';
+
 // Expense tracking
 export * from './expense-entry-service';
 

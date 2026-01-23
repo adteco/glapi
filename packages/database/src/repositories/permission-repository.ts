@@ -4,8 +4,8 @@ import {
   roles,
   permissions,
   rolePermissions,
-  userRoles,
-  userSubsidiaryAccess,
+  entityRoles,
+  entitySubsidiaryAccess,
 } from '../db/schema/rls-access-control';
 
 export interface Role {
@@ -25,8 +25,8 @@ export interface Permission {
   createdDate: Date;
 }
 
-export interface UserRole {
-  userId: string;
+export interface EntityRole {
+  entityId: string;
   roleId: string;
   subsidiaryId: string | null;
   grantedBy: string | null;
@@ -35,14 +35,18 @@ export interface UserRole {
   role?: Role;
 }
 
-export interface UserSubsidiaryAccess {
-  userId: string;
+export interface EntitySubsidiaryAccess {
+  entityId: string;
   subsidiaryId: string;
   accessLevel: string;
   grantedBy: string | null;
   grantedDate: Date;
   expiresDate: Date | null;
 }
+
+// Legacy aliases for backward compatibility
+export type UserRole = EntityRole;
+export type UserSubsidiaryAccess = EntitySubsidiaryAccess;
 
 export interface NewRole {
   roleName: string;
@@ -262,17 +266,17 @@ export class PermissionRepository extends BaseRepository {
    * Find all roles for a user, optionally filtered by subsidiary
    * Only returns non-expired roles
    */
-  async findUserRoles(
-    userId: string,
+  async findEntityRoles(
+    entityId: string,
     subsidiaryId?: string | null
   ): Promise<UserRole[]> {
     const now = new Date();
 
     let whereClause = and(
-      eq(userRoles.userId, userId),
+      eq(entityRoles.entityId, entityId),
       or(
-        isNull(userRoles.expiresDate),
-        gt(userRoles.expiresDate, now)
+        isNull(entityRoles.expiresDate),
+        gt(entityRoles.expiresDate, now)
       )
     );
 
@@ -280,14 +284,14 @@ export class PermissionRepository extends BaseRepository {
     if (subsidiaryId !== undefined) {
       if (subsidiaryId === null) {
         // Only global roles
-        whereClause = and(whereClause, isNull(userRoles.subsidiaryId));
+        whereClause = and(whereClause, isNull(entityRoles.subsidiaryId));
       } else {
         // Global roles OR specific subsidiary roles
         whereClause = and(
           whereClause,
           or(
-            isNull(userRoles.subsidiaryId),
-            eq(userRoles.subsidiaryId, subsidiaryId)
+            isNull(entityRoles.subsidiaryId),
+            eq(entityRoles.subsidiaryId, subsidiaryId)
           )
         );
       }
@@ -295,12 +299,12 @@ export class PermissionRepository extends BaseRepository {
 
     const results = await this.db
       .select({
-        userId: userRoles.userId,
-        roleId: userRoles.roleId,
-        subsidiaryId: userRoles.subsidiaryId,
-        grantedBy: userRoles.grantedBy,
-        grantedDate: userRoles.grantedDate,
-        expiresDate: userRoles.expiresDate,
+        entityId: entityRoles.entityId,
+        roleId: entityRoles.roleId,
+        subsidiaryId: entityRoles.subsidiaryId,
+        grantedBy: entityRoles.grantedBy,
+        grantedDate: entityRoles.grantedDate,
+        expiresDate: entityRoles.expiresDate,
         role: {
           id: roles.id,
           roleName: roles.roleName,
@@ -309,8 +313,8 @@ export class PermissionRepository extends BaseRepository {
           createdDate: roles.createdDate,
         },
       })
-      .from(userRoles)
-      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .from(entityRoles)
+      .innerJoin(roles, eq(entityRoles.roleId, roles.id))
       .where(whereClause);
 
     return results;
@@ -319,17 +323,17 @@ export class PermissionRepository extends BaseRepository {
   /**
    * Assign a role to a user
    */
-  async assignRoleToUser(
-    userId: string,
+  async assignRoleToEntity(
+    entityId: string,
     roleId: string,
     grantedBy: string,
     subsidiaryId?: string | null,
     expiresDate?: Date | null
   ): Promise<void> {
     await this.db
-      .insert(userRoles)
+      .insert(entityRoles)
       .values({
-        userId,
+        entityId,
         roleId,
         subsidiaryId: subsidiaryId ?? null,
         grantedBy,
@@ -341,25 +345,25 @@ export class PermissionRepository extends BaseRepository {
   /**
    * Revoke a role from a user
    */
-  async revokeRoleFromUser(
-    userId: string,
+  async revokeRoleFromEntity(
+    entityId: string,
     roleId: string,
     subsidiaryId?: string | null
   ): Promise<void> {
     let whereClause = and(
-      eq(userRoles.userId, userId),
-      eq(userRoles.roleId, roleId)
+      eq(entityRoles.entityId, entityId),
+      eq(entityRoles.roleId, roleId)
     );
 
     if (subsidiaryId !== undefined) {
       if (subsidiaryId === null) {
-        whereClause = and(whereClause, isNull(userRoles.subsidiaryId));
+        whereClause = and(whereClause, isNull(entityRoles.subsidiaryId));
       } else {
-        whereClause = and(whereClause, eq(userRoles.subsidiaryId, subsidiaryId));
+        whereClause = and(whereClause, eq(entityRoles.subsidiaryId, subsidiaryId));
       }
     }
 
-    await this.db.delete(userRoles).where(whereClause);
+    await this.db.delete(entityRoles).where(whereClause);
   }
 
   // ============ Permission Checking ============
@@ -368,8 +372,8 @@ export class PermissionRepository extends BaseRepository {
    * Get all permissions for a user (aggregated from all their roles)
    * Considers role expiration and subsidiary scope
    */
-  async findUserPermissions(
-    userId: string,
+  async findEntityPermissions(
+    entityId: string,
     subsidiaryId?: string | null
   ): Promise<Permission[]> {
     const now = new Date();
@@ -379,12 +383,12 @@ export class PermissionRepository extends BaseRepository {
     if (subsidiaryId !== undefined && subsidiaryId !== null) {
       // Include global roles (null subsidiary) and specific subsidiary roles
       subsidiaryFilter = or(
-        isNull(userRoles.subsidiaryId),
-        eq(userRoles.subsidiaryId, subsidiaryId)
+        isNull(entityRoles.subsidiaryId),
+        eq(entityRoles.subsidiaryId, subsidiaryId)
       );
     } else {
       // Only global roles
-      subsidiaryFilter = isNull(userRoles.subsidiaryId);
+      subsidiaryFilter = isNull(entityRoles.subsidiaryId);
     }
 
     const results = await this.db
@@ -396,16 +400,16 @@ export class PermissionRepository extends BaseRepository {
         description: permissions.description,
         createdDate: permissions.createdDate,
       })
-      .from(userRoles)
-      .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+      .from(entityRoles)
+      .innerJoin(rolePermissions, eq(entityRoles.roleId, rolePermissions.roleId))
       .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
       .where(
         and(
-          eq(userRoles.userId, userId),
+          eq(entityRoles.entityId, entityId),
           subsidiaryFilter,
           or(
-            isNull(userRoles.expiresDate),
-            gt(userRoles.expiresDate, now)
+            isNull(entityRoles.expiresDate),
+            gt(entityRoles.expiresDate, now)
           )
         )
       );
@@ -417,7 +421,7 @@ export class PermissionRepository extends BaseRepository {
    * Check if a user has a specific permission
    */
   async hasPermission(
-    userId: string,
+    entityId: string,
     resourceType: string,
     action: string,
     subsidiaryId?: string | null
@@ -428,27 +432,27 @@ export class PermissionRepository extends BaseRepository {
     let subsidiaryFilter;
     if (subsidiaryId !== undefined && subsidiaryId !== null) {
       subsidiaryFilter = or(
-        isNull(userRoles.subsidiaryId),
-        eq(userRoles.subsidiaryId, subsidiaryId)
+        isNull(entityRoles.subsidiaryId),
+        eq(entityRoles.subsidiaryId, subsidiaryId)
       );
     } else {
-      subsidiaryFilter = isNull(userRoles.subsidiaryId);
+      subsidiaryFilter = isNull(entityRoles.subsidiaryId);
     }
 
     const [result] = await this.db
       .select({ count: sql<number>`COUNT(*)` })
-      .from(userRoles)
-      .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+      .from(entityRoles)
+      .innerJoin(rolePermissions, eq(entityRoles.roleId, rolePermissions.roleId))
       .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
       .where(
         and(
-          eq(userRoles.userId, userId),
+          eq(entityRoles.entityId, entityId),
           eq(permissions.resourceType, resourceType),
           eq(permissions.action, action),
           subsidiaryFilter,
           or(
-            isNull(userRoles.expiresDate),
-            gt(userRoles.expiresDate, now)
+            isNull(entityRoles.expiresDate),
+            gt(entityRoles.expiresDate, now)
           )
         )
       )
@@ -462,18 +466,18 @@ export class PermissionRepository extends BaseRepository {
   /**
    * Get user's subsidiary access levels
    */
-  async findUserSubsidiaryAccess(userId: string): Promise<UserSubsidiaryAccess[]> {
+  async findEntitySubsidiaryAccess(entityId: string): Promise<UserSubsidiaryAccess[]> {
     const now = new Date();
 
     return await this.db
       .select()
-      .from(userSubsidiaryAccess)
+      .from(entitySubsidiaryAccess)
       .where(
         and(
-          eq(userSubsidiaryAccess.userId, userId),
+          eq(entitySubsidiaryAccess.entityId, entityId),
           or(
-            isNull(userSubsidiaryAccess.expiresDate),
-            gt(userSubsidiaryAccess.expiresDate, now)
+            isNull(entitySubsidiaryAccess.expiresDate),
+            gt(entitySubsidiaryAccess.expiresDate, now)
           )
         )
       );
@@ -483,7 +487,7 @@ export class PermissionRepository extends BaseRepository {
    * Check if user has required access level to a subsidiary
    */
   async hasSubsidiaryAccess(
-    userId: string,
+    entityId: string,
     subsidiaryId: string,
     requiredLevel: 'read' | 'write' | 'admin'
   ): Promise<boolean> {
@@ -492,14 +496,14 @@ export class PermissionRepository extends BaseRepository {
 
     const [result] = await this.db
       .select()
-      .from(userSubsidiaryAccess)
+      .from(entitySubsidiaryAccess)
       .where(
         and(
-          eq(userSubsidiaryAccess.userId, userId),
-          eq(userSubsidiaryAccess.subsidiaryId, subsidiaryId),
+          eq(entitySubsidiaryAccess.entityId, entityId),
+          eq(entitySubsidiaryAccess.subsidiaryId, subsidiaryId),
           or(
-            isNull(userSubsidiaryAccess.expiresDate),
-            gt(userSubsidiaryAccess.expiresDate, now)
+            isNull(entitySubsidiaryAccess.expiresDate),
+            gt(entitySubsidiaryAccess.expiresDate, now)
           )
         )
       )
@@ -517,23 +521,23 @@ export class PermissionRepository extends BaseRepository {
    * Grant subsidiary access to a user
    */
   async grantSubsidiaryAccess(
-    userId: string,
+    entityId: string,
     subsidiaryId: string,
     accessLevel: 'read' | 'write' | 'admin',
     grantedBy: string,
     expiresDate?: Date | null
   ): Promise<void> {
     await this.db
-      .insert(userSubsidiaryAccess)
+      .insert(entitySubsidiaryAccess)
       .values({
-        userId,
+        entityId,
         subsidiaryId,
         accessLevel,
         grantedBy,
         expiresDate: expiresDate ?? null,
       })
       .onConflictDoUpdate({
-        target: [userSubsidiaryAccess.userId, userSubsidiaryAccess.subsidiaryId],
+        target: [entitySubsidiaryAccess.entityId, entitySubsidiaryAccess.subsidiaryId],
         set: {
           accessLevel,
           grantedBy,
@@ -546,13 +550,13 @@ export class PermissionRepository extends BaseRepository {
   /**
    * Revoke subsidiary access from a user
    */
-  async revokeSubsidiaryAccess(userId: string, subsidiaryId: string): Promise<void> {
+  async revokeSubsidiaryAccess(entityId: string, subsidiaryId: string): Promise<void> {
     await this.db
-      .delete(userSubsidiaryAccess)
+      .delete(entitySubsidiaryAccess)
       .where(
         and(
-          eq(userSubsidiaryAccess.userId, userId),
-          eq(userSubsidiaryAccess.subsidiaryId, subsidiaryId)
+          eq(entitySubsidiaryAccess.entityId, entityId),
+          eq(entitySubsidiaryAccess.subsidiaryId, subsidiaryId)
         )
       );
   }
