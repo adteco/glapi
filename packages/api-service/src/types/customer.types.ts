@@ -1,28 +1,21 @@
-import { z } from 'zod';
-import { addressSchema } from './common.types';
+/**
+ * Customer types - re-exported from @glapi/types for backward compatibility
+ *
+ * This file re-exports customer types from the centralized @glapi/types package.
+ * New code should import directly from '@glapi/types' when possible.
+ */
 
-export const customerSchema = z.object({
-  id: z.string().uuid().optional(),
-  organizationId: z.string().min(1, 'Organization ID is required'),
-  companyName: z.string().min(1, 'Company name is required'),
-  customerId: z.string().optional(), // Make customerId optional
-  contactEmail: z.string().email().optional().or(z.literal('')),
-  contactPhone: z.string().optional(),
-  billingAddress: addressSchema.optional(),
-  parentCustomerId: z.string().uuid().optional(), // Parent customer reference
-  status: z.enum(['active', 'inactive', 'archived']).default('active'),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-});
+// Re-export customer types from centralized package
+export {
+  customerSchema,
+  type Customer,
+  createCustomerSchema,
+  type CreateCustomerInput,
+  updateCustomerSchema,
+  type UpdateCustomerInput,
+} from '@glapi/types';
 
-export type Customer = z.infer<typeof customerSchema>;
-export type CreateCustomerInput = Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>;
+// Legacy alias for backward compatibility
+import { createCustomerSchema } from '@glapi/types';
 
-// Schema for creating a new customer, corresponding to CreateCustomerInput
-export const NewCustomerSchema = customerSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type UpdateCustomerInput = Partial<Omit<Customer, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>>;
+export const NewCustomerSchema = createCustomerSchema;
