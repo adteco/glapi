@@ -27,6 +27,7 @@ import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { users } from './users';
+import { entities } from './entities';
 import { projects, projectCostCodes } from './projects';
 
 // ============================================================================
@@ -88,8 +89,8 @@ export const timeEntries = pgTable('time_entries', {
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
 
-  // Employee reference
-  employeeId: uuid('employee_id').notNull().references(() => users.id),
+  // Employee reference (references entities table for business employees)
+  employeeId: uuid('employee_id').notNull().references(() => entities.id),
 
   // Project/Cost code allocation
   projectId: uuid('project_id').references(() => projects.id),
@@ -167,7 +168,7 @@ export const laborCostRates = pgTable('labor_cost_rates', {
   subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
 
   // Rate can be employee-specific, role-based, or project-specific
-  employeeId: uuid('employee_id').references(() => users.id),
+  employeeId: uuid('employee_id').references(() => entities.id),
   projectId: uuid('project_id').references(() => projects.id),
   costCodeId: uuid('cost_code_id').references(() => projectCostCodes.id),
 
@@ -222,7 +223,7 @@ export const employeeProjectAssignments = pgTable('employee_project_assignments'
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 
-  employeeId: uuid('employee_id').notNull().references(() => users.id),
+  employeeId: uuid('employee_id').notNull().references(() => entities.id),
   projectId: uuid('project_id').notNull().references(() => projects.id),
 
   // Assignment details
@@ -347,9 +348,9 @@ export const timeEntriesRelations = relations(timeEntries, ({ one, many }) => ({
     fields: [timeEntries.subsidiaryId],
     references: [subsidiaries.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [timeEntries.employeeId],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'timeEntryEmployee',
   }),
   project: one(projects, {
@@ -373,9 +374,9 @@ export const laborCostRatesRelations = relations(laborCostRates, ({ one }) => ({
     fields: [laborCostRates.organizationId],
     references: [organizations.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [laborCostRates.employeeId],
-    references: [users.id],
+    references: [entities.id],
   }),
   project: one(projects, {
     fields: [laborCostRates.projectId],
@@ -392,9 +393,9 @@ export const employeeProjectAssignmentsRelations = relations(employeeProjectAssi
     fields: [employeeProjectAssignments.organizationId],
     references: [organizations.id],
   }),
-  employee: one(users, {
+  employee: one(entities, {
     fields: [employeeProjectAssignments.employeeId],
-    references: [users.id],
+    references: [entities.id],
   }),
   project: one(projects, {
     fields: [employeeProjectAssignments.projectId],
