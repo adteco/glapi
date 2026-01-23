@@ -18,3 +18,4 @@ export * from './revenue';
 export * from './time-tracking';
 export * from './transactions';
 export * from './integrations';
+export * from './project-tasks';
