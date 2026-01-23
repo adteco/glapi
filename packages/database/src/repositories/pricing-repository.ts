@@ -1,8 +1,10 @@
 import { and, eq, gte, lte, or, isNull, desc, asc, sql } from 'drizzle-orm';
 import { BaseRepository } from './base-repository';
-import { priceLists, itemPricing, customerPriceLists } from '../db/schema/pricing';
+import { priceLists, itemPricing, customerPriceLists, priceListLaborRates } from '../db/schema/pricing';
 import { items } from '../db/schema/items';
-import type { PriceList, NewPriceList, ItemPricing, NewItemPricing, CustomerPriceList, NewCustomerPriceList } from '../db/schema/pricing';
+import { entities } from '../db/schema/entities';
+import { projects, projectCostCodes } from '../db/schema/projects';
+import type { PriceList, NewPriceList, ItemPricing, NewItemPricing, CustomerPriceList, NewCustomerPriceList, PriceListLaborRate, NewPriceListLaborRate } from '../db/schema/pricing';
 
 export interface PriceCalculationParams {
   itemId: string;
@@ -19,6 +21,43 @@ export interface CalculatedPrice {
   minQuantity: number;
   effectiveDate: Date | null;
   expirationDate: Date | null;
+}
+
+export interface LaborRateFilters {
+  employeeId?: string;
+  laborRole?: string;
+  projectId?: string;
+  costCodeId?: string;
+  activeOnly?: boolean;
+}
+
+export interface BillingRateCalculationParams {
+  customerId?: string;
+  employeeId?: string;
+  laborRole?: string;
+  projectId?: string;
+  costCodeId?: string;
+  date?: Date;
+  organizationId: string;
+}
+
+export interface CalculatedBillingRate {
+  laborRate: number;
+  burdenRate: number;
+  billingRate: number;
+  overtimeMultiplier: number;
+  doubleTimeMultiplier: number;
+  priceListId: string;
+  priceListName: string;
+  laborRateId: string;
+  effectiveDate: Date;
+  expirationDate: Date | null;
+  matchedOn: {
+    employee: boolean;
+    laborRole: boolean;
+    project: boolean;
+    costCode: boolean;
+  };
 }
 
 export class PricingRepository extends BaseRepository {
@@ -504,5 +543,421 @@ export class PricingRepository extends BaseRepository {
     }));
 
     return await this.createManyItemPrices(newPrices);
+  }
+
+  // ============================================================================
+  // Price List Labor Rates Methods
+  // ============================================================================
+
+  /**
+   * Find all labor rates for a price list
+   */
+  async findPriceListLaborRates(priceListId: string, filters: LaborRateFilters = {}) {
+    const conditions = [eq(priceListLaborRates.priceListId, priceListId)];
+    const today = new Date().toISOString().split('T')[0];
+
+    if (filters.employeeId) {
+      conditions.push(eq(priceListLaborRates.employeeId, filters.employeeId));
+    }
+    if (filters.laborRole) {
+      conditions.push(eq(priceListLaborRates.laborRole, filters.laborRole));
+    }
+    if (filters.projectId) {
+      conditions.push(eq(priceListLaborRates.projectId, filters.projectId));
+    }
+    if (filters.costCodeId) {
+      conditions.push(eq(priceListLaborRates.costCodeId, filters.costCodeId));
+    }
+    if (filters.activeOnly) {
+      conditions.push(lte(priceListLaborRates.effectiveDate, today));
+      conditions.push(
+        or(
+          isNull(priceListLaborRates.expirationDate),
+          gte(priceListLaborRates.expirationDate, today)
+        )!
+      );
+    }
+
+    const results = await this.db
+      .select({
+        id: priceListLaborRates.id,
+        priceListId: priceListLaborRates.priceListId,
+        employeeId: priceListLaborRates.employeeId,
+        laborRole: priceListLaborRates.laborRole,
+        projectId: priceListLaborRates.projectId,
+        costCodeId: priceListLaborRates.costCodeId,
+        laborRate: priceListLaborRates.laborRate,
+        burdenRate: priceListLaborRates.burdenRate,
+        billingRate: priceListLaborRates.billingRate,
+        overtimeMultiplier: priceListLaborRates.overtimeMultiplier,
+        doubleTimeMultiplier: priceListLaborRates.doubleTimeMultiplier,
+        priority: priceListLaborRates.priority,
+        effectiveDate: priceListLaborRates.effectiveDate,
+        expirationDate: priceListLaborRates.expirationDate,
+        description: priceListLaborRates.description,
+        createdAt: priceListLaborRates.createdAt,
+        updatedAt: priceListLaborRates.updatedAt,
+        employee: {
+          id: entities.id,
+          displayName: entities.displayName,
+          email: entities.email,
+        },
+        project: {
+          id: projects.id,
+          name: projects.name,
+          projectCode: projects.projectCode,
+        },
+        costCode: {
+          id: projectCostCodes.id,
+          costCode: projectCostCodes.costCode,
+          name: projectCostCodes.name,
+        },
+      })
+      .from(priceListLaborRates)
+      .leftJoin(entities, eq(priceListLaborRates.employeeId, entities.id))
+      .leftJoin(projects, eq(priceListLaborRates.projectId, projects.id))
+      .leftJoin(projectCostCodes, eq(priceListLaborRates.costCodeId, projectCostCodes.id))
+      .where(and(...conditions))
+      .orderBy(desc(priceListLaborRates.priority), priceListLaborRates.laborRole, priceListLaborRates.effectiveDate);
+
+    return results;
+  }
+
+  /**
+   * Find a single labor rate by ID
+   */
+  async findLaborRateById(id: string) {
+    const results = await this.db
+      .select({
+        id: priceListLaborRates.id,
+        priceListId: priceListLaborRates.priceListId,
+        employeeId: priceListLaborRates.employeeId,
+        laborRole: priceListLaborRates.laborRole,
+        projectId: priceListLaborRates.projectId,
+        costCodeId: priceListLaborRates.costCodeId,
+        laborRate: priceListLaborRates.laborRate,
+        burdenRate: priceListLaborRates.burdenRate,
+        billingRate: priceListLaborRates.billingRate,
+        overtimeMultiplier: priceListLaborRates.overtimeMultiplier,
+        doubleTimeMultiplier: priceListLaborRates.doubleTimeMultiplier,
+        priority: priceListLaborRates.priority,
+        effectiveDate: priceListLaborRates.effectiveDate,
+        expirationDate: priceListLaborRates.expirationDate,
+        description: priceListLaborRates.description,
+        createdAt: priceListLaborRates.createdAt,
+        updatedAt: priceListLaborRates.updatedAt,
+        employee: {
+          id: entities.id,
+          displayName: entities.displayName,
+          email: entities.email,
+        },
+        project: {
+          id: projects.id,
+          name: projects.name,
+          projectCode: projects.projectCode,
+        },
+        costCode: {
+          id: projectCostCodes.id,
+          costCode: projectCostCodes.costCode,
+          name: projectCostCodes.name,
+        },
+      })
+      .from(priceListLaborRates)
+      .leftJoin(entities, eq(priceListLaborRates.employeeId, entities.id))
+      .leftJoin(projects, eq(priceListLaborRates.projectId, projects.id))
+      .leftJoin(projectCostCodes, eq(priceListLaborRates.costCodeId, projectCostCodes.id))
+      .where(eq(priceListLaborRates.id, id));
+
+    return results[0] || null;
+  }
+
+  /**
+   * Create a labor rate
+   */
+  async createPriceListLaborRate(data: NewPriceListLaborRate) {
+    const results = await this.db
+      .insert(priceListLaborRates)
+      .values(data)
+      .returning();
+
+    return results[0];
+  }
+
+  /**
+   * Update a labor rate
+   */
+  async updatePriceListLaborRate(id: string, data: Partial<NewPriceListLaborRate>) {
+    const results = await this.db
+      .update(priceListLaborRates)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(priceListLaborRates.id, id))
+      .returning();
+
+    return results[0] || null;
+  }
+
+  /**
+   * Delete a labor rate
+   */
+  async deletePriceListLaborRate(id: string) {
+    const results = await this.db
+      .delete(priceListLaborRates)
+      .where(eq(priceListLaborRates.id, id))
+      .returning();
+
+    return results[0] || null;
+  }
+
+  /**
+   * Calculate the billing rate for a given set of parameters
+   * Priority order:
+   * 1. Customer's assigned price lists (by customerPriceLists.priority)
+   * 2. Within each list, match by specificity (employee+project+costCode > employee+project > employee > role > default)
+   * 3. Filter by effective dates
+   * 4. Fall back to organization's default price list
+   */
+  async calculateBillingRate(params: BillingRateCalculationParams): Promise<CalculatedBillingRate | null> {
+    const { customerId, employeeId, laborRole, projectId, costCodeId, date = new Date(), organizationId } = params;
+    const dateStr = date.toISOString().split('T')[0];
+
+    // Get applicable price lists
+    const applicablePriceLists = await this.getApplicablePriceLists(customerId, organizationId);
+
+    if (applicablePriceLists.length === 0) {
+      return null;
+    }
+
+    // Try to find a matching rate in each price list (by priority order)
+    for (const priceList of applicablePriceLists) {
+      const rate = await this.findBestMatchingLaborRate(
+        priceList.id,
+        employeeId,
+        laborRole,
+        projectId,
+        costCodeId,
+        dateStr
+      );
+
+      if (rate) {
+        return {
+          laborRate: parseFloat(rate.laborRate),
+          burdenRate: parseFloat(rate.burdenRate),
+          billingRate: parseFloat(rate.billingRate),
+          overtimeMultiplier: parseFloat(rate.overtimeMultiplier),
+          doubleTimeMultiplier: parseFloat(rate.doubleTimeMultiplier),
+          priceListId: priceList.id,
+          priceListName: priceList.name,
+          laborRateId: rate.id,
+          effectiveDate: new Date(rate.effectiveDate),
+          expirationDate: rate.expirationDate ? new Date(rate.expirationDate) : null,
+          matchedOn: {
+            employee: rate.employeeId !== null && rate.employeeId === employeeId,
+            laborRole: rate.laborRole !== null && rate.laborRole === laborRole,
+            project: rate.projectId !== null && rate.projectId === projectId,
+            costCode: rate.costCodeId !== null && rate.costCodeId === costCodeId,
+          },
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Find the best matching labor rate within a price list
+   * Matches are scored by specificity - more specific matches win
+   */
+  private async findBestMatchingLaborRate(
+    priceListId: string,
+    employeeId?: string,
+    laborRole?: string,
+    projectId?: string,
+    costCodeId?: string,
+    dateStr?: string
+  ): Promise<PriceListLaborRate | null> {
+    const currentDate = dateStr || new Date().toISOString().split('T')[0];
+
+    // Build conditions for date filtering
+    const baseConditions = [
+      eq(priceListLaborRates.priceListId, priceListId),
+      lte(priceListLaborRates.effectiveDate, currentDate),
+      or(
+        isNull(priceListLaborRates.expirationDate),
+        gte(priceListLaborRates.expirationDate, currentDate)
+      )!,
+    ];
+
+    // Build all possible matching conditions, ordered by specificity (most specific first)
+    const matchingStrategies: Array<typeof baseConditions> = [];
+
+    // 1. Exact match on all provided criteria
+    if (employeeId && projectId && costCodeId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        eq(priceListLaborRates.employeeId, employeeId),
+        eq(priceListLaborRates.projectId, projectId),
+        eq(priceListLaborRates.costCodeId, costCodeId),
+      ]);
+    }
+
+    // 2. Employee + Project (no cost code)
+    if (employeeId && projectId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        eq(priceListLaborRates.employeeId, employeeId),
+        eq(priceListLaborRates.projectId, projectId),
+        isNull(priceListLaborRates.costCodeId),
+      ]);
+    }
+
+    // 3. Employee + Cost Code (no project)
+    if (employeeId && costCodeId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        eq(priceListLaborRates.employeeId, employeeId),
+        isNull(priceListLaborRates.projectId),
+        eq(priceListLaborRates.costCodeId, costCodeId),
+      ]);
+    }
+
+    // 4. Employee only
+    if (employeeId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        eq(priceListLaborRates.employeeId, employeeId),
+        isNull(priceListLaborRates.projectId),
+        isNull(priceListLaborRates.costCodeId),
+      ]);
+    }
+
+    // 5. Labor Role + Project + Cost Code
+    if (laborRole && projectId && costCodeId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        isNull(priceListLaborRates.employeeId),
+        eq(priceListLaborRates.laborRole, laborRole),
+        eq(priceListLaborRates.projectId, projectId),
+        eq(priceListLaborRates.costCodeId, costCodeId),
+      ]);
+    }
+
+    // 6. Labor Role + Project
+    if (laborRole && projectId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        isNull(priceListLaborRates.employeeId),
+        eq(priceListLaborRates.laborRole, laborRole),
+        eq(priceListLaborRates.projectId, projectId),
+        isNull(priceListLaborRates.costCodeId),
+      ]);
+    }
+
+    // 7. Labor Role only
+    if (laborRole) {
+      matchingStrategies.push([
+        ...baseConditions,
+        isNull(priceListLaborRates.employeeId),
+        eq(priceListLaborRates.laborRole, laborRole),
+        isNull(priceListLaborRates.projectId),
+        isNull(priceListLaborRates.costCodeId),
+      ]);
+    }
+
+    // 8. Project + Cost Code (generic rate for project/cost code)
+    if (projectId && costCodeId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        isNull(priceListLaborRates.employeeId),
+        isNull(priceListLaborRates.laborRole),
+        eq(priceListLaborRates.projectId, projectId),
+        eq(priceListLaborRates.costCodeId, costCodeId),
+      ]);
+    }
+
+    // 9. Project only
+    if (projectId) {
+      matchingStrategies.push([
+        ...baseConditions,
+        isNull(priceListLaborRates.employeeId),
+        isNull(priceListLaborRates.laborRole),
+        eq(priceListLaborRates.projectId, projectId),
+        isNull(priceListLaborRates.costCodeId),
+      ]);
+    }
+
+    // 10. Default rate (no targeting)
+    matchingStrategies.push([
+      ...baseConditions,
+      isNull(priceListLaborRates.employeeId),
+      isNull(priceListLaborRates.laborRole),
+      isNull(priceListLaborRates.projectId),
+      isNull(priceListLaborRates.costCodeId),
+    ]);
+
+    // Try each strategy in order (most specific first)
+    for (const conditions of matchingStrategies) {
+      const results = await this.db
+        .select()
+        .from(priceListLaborRates)
+        .where(and(...conditions))
+        .orderBy(desc(priceListLaborRates.priority))
+        .limit(1);
+
+      if (results.length > 0) {
+        return results[0];
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Copy labor rates from one price list to another
+   */
+  async copyLaborRates(
+    sourcePriceListId: string,
+    targetPriceListId: string,
+    organizationId: string
+  ) {
+    // Verify both price lists belong to the organization
+    const source = await this.findPriceListById(sourcePriceListId, organizationId);
+    const target = await this.findPriceListById(targetPriceListId, organizationId);
+
+    if (!source || !target) {
+      throw new Error('Price list not found');
+    }
+
+    // Get all labor rates from source
+    const sourceRates = await this.findPriceListLaborRates(sourcePriceListId, { activeOnly: false });
+
+    // Create copies for target
+    const newRates = sourceRates.map(rate => ({
+      priceListId: targetPriceListId,
+      employeeId: rate.employeeId,
+      laborRole: rate.laborRole,
+      projectId: rate.projectId,
+      costCodeId: rate.costCodeId,
+      laborRate: rate.laborRate,
+      burdenRate: rate.burdenRate,
+      billingRate: rate.billingRate,
+      overtimeMultiplier: rate.overtimeMultiplier,
+      doubleTimeMultiplier: rate.doubleTimeMultiplier,
+      priority: rate.priority,
+      effectiveDate: rate.effectiveDate,
+      expirationDate: rate.expirationDate,
+      description: rate.description,
+    }));
+
+    if (newRates.length === 0) {
+      return [];
+    }
+
+    return await this.db
+      .insert(priceListLaborRates)
+      .values(newRates)
+      .returning();
   }
 }
