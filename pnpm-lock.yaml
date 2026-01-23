@@ -732,6 +732,9 @@ importers:
       '@glapi/database':
         specifier: workspace:*
         version: link:../database
+      '@glapi/types':
+        specifier: workspace:*
+        version: link:../types
       '@trpc/client':
         specifier: ^11.4.3
         version: 11.4.3(@trpc/server@11.5.1(typescript@5.8.3))(typescript@5.8.3)
