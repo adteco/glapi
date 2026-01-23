@@ -582,7 +582,7 @@ export class YodleeConnector extends BaseConnector {
     let hasMore = true;
     let skip = 0;
     const top = 500;
-    let duplicatesSkipped = 0;
+    const duplicatesSkipped = 0;
 
     const fromDate = options.startDate?.toISOString().split('T')[0];
     const toDate = options.endDate?.toISOString().split('T')[0];

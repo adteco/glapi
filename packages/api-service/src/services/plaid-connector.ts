@@ -490,13 +490,13 @@ export class PlaidConnector extends BaseConnector {
     cursor?: BankFeedSyncCursor
   ): Promise<BankFeedSyncResult> {
     const startedAt = new Date();
-    let added: BankTransaction[] = [];
-    let modified: BankTransaction[] = [];
-    let removed: string[] = [];
+    const added: BankTransaction[] = [];
+    const modified: BankTransaction[] = [];
+    const removed: string[] = [];
     const errors: BankFeedSyncResult['errors'] = [];
     let currentCursor = cursor?.cursor || '';
     let hasMore = true;
-    let duplicatesSkipped = 0;
+    const duplicatesSkipped = 0;
 
     // Get accounts for normalization context
     const accountsResponse = await this.plaidRequest<PlaidAccountsGetResponse>('/accounts/get', {

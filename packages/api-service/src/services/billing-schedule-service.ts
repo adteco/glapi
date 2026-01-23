@@ -451,7 +451,7 @@ export class BillingScheduleService extends BaseService {
       }
 
       // Calculate billing date (billingDay of the period start month, or the period start if before that day)
-      let billingDate = new Date(currentPeriodStart);
+      const billingDate = new Date(currentPeriodStart);
       billingDate.setDate(Math.min(billingDay, this.getDaysInMonth(billingDate)));
 
       // Calculate due date
