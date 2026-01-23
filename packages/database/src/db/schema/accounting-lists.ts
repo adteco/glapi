@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, decimal, boolean, timestamp, uniqueIndex, index, date, integer, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, decimal, boolean, timestamp, uniqueIndex, index, date, integer, pgEnum, text } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { entities } from './entities';
@@ -46,7 +46,7 @@ export const chargeCategoryEnum = pgEnum('charge_category', [
 
 export const accountingLists = pgTable('accounting_lists', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   listType: accountingListTypeEnum('list_type').notNull(),
 
   // Common fields
