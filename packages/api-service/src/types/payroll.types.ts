@@ -20,9 +20,9 @@ export type PayrollProvider = 'gusto' | 'adp' | 'paychex' | 'quickbooks_payroll'
 export type EmploymentStatus = 'active' | 'terminated' | 'on_leave' | 'pending';
 
 /**
- * Employment type
+ * Employment type for payroll (distinct from entity EmploymentType)
  */
-export type EmploymentType = 'full_time' | 'part_time' | 'contractor' | 'temporary';
+export type PayrollEmploymentType = 'full_time' | 'part_time' | 'contractor' | 'temporary';
 
 /**
  * Pay frequency
@@ -68,7 +68,7 @@ export interface PayrollEmployee {
   /** Employment status */
   status: EmploymentStatus;
   /** Employment type */
-  employmentType: EmploymentType;
+  employmentType: PayrollEmploymentType;
   /** Department */
   department?: string;
   /** Job title */

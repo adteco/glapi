@@ -17,3 +17,4 @@ export * from './items';
 export * from './revenue';
 export * from './time-tracking';
 export * from './transactions';
+export * from './integrations';
