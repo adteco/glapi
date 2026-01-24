@@ -185,27 +185,43 @@ export interface GenerateBalanceSheetInput {
 // ============================================
 
 /**
- * Cash Flow Statement section
+ * Cash Flow Statement line item
  */
-export interface CashFlowSection {
-  name: string;
-  category: 'OPERATING' | 'INVESTING' | 'FINANCING';
-  lineItems: {
-    description: string;
-    amount: number;
-    priorPeriodAmount?: number;
-  }[];
-  sectionTotal: number;
+export interface CashFlowLineItem {
+  description: string;
+  amount: number;
+  accountId?: string;
+  accountNumber?: string;
+  isSubtotal: boolean;
+  priorPeriodAmount?: number;
 }
 
 /**
- * Statement of Cash Flows
+ * Cash Flow Statement section
+ */
+export interface CashFlowSection {
+  sectionName: string;
+  category: 'OPERATING' | 'INVESTING' | 'FINANCING';
+  lineItems: CashFlowLineItem[];
+  sectionTotal: number;
+  priorPeriodTotal?: number;
+}
+
+/**
+ * Statement of Cash Flows (Indirect Method)
  */
 export interface CashFlowStatement {
   reportName: string;
+  reportType: 'CASH_FLOW_STATEMENT';
   periodName: string;
-  subsidiaryName: string;
-  asOfDate: string;
+  periodId: string;
+  subsidiaryName: string | null;
+  periodStartDate: string;
+  periodEndDate: string;
+  generatedAt: string;
+
+  // Beginning Cash
+  beginningCashBalance: number;
 
   // Operating Activities
   operatingActivities: CashFlowSection;
@@ -219,10 +235,39 @@ export interface CashFlowStatement {
   financingActivities: CashFlowSection;
   netCashFromFinancing: number;
 
-  // Net Change in Cash
+  // Net Change and Ending Cash
   netChangeInCash: number;
-  beginningCashBalance: number;
   endingCashBalance: number;
+
+  // Trend indicator
+  cashFlowTrend: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+
+  // Reconciliation check (should be ~0)
+  reconciliationDifference: number;
+
+  // Comparative period data (optional)
+  priorPeriod?: {
+    periodName: string;
+    netCashFromOperations: number;
+    netCashFromInvesting: number;
+    netCashFromFinancing: number;
+    netChangeInCash: number;
+  };
+}
+
+/**
+ * Input for generating a Cash Flow Statement
+ */
+export interface GenerateCashFlowStatementInput {
+  organizationId: string;
+  periodId: string;
+  subsidiaryId?: string;
+  classId?: string;
+  departmentId?: string;
+  locationId?: string;
+  includeInactive?: boolean;
+  includeComparison?: boolean;
+  comparePeriodId?: string;
 }
 
 // ============================================

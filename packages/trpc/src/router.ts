@@ -51,6 +51,7 @@ import { workflowsRouter } from './routers/workflows';
 import { taskFieldsRouter } from './routers/task-fields';
 import { taskTemplatesRouter } from './routers/task-templates';
 import { entityTasksRouter } from './routers/entity-tasks';
+import { financialStatementsRouter } from './routers/financial-statements';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -104,6 +105,7 @@ export const appRouter = router({
   taskFields: taskFieldsRouter,
   taskTemplates: taskTemplatesRouter,
   entityTasks: entityTasksRouter,
+  financialStatements: financialStatementsRouter,
 });
 
 export type AppRouter = typeof appRouter;
