@@ -144,6 +144,12 @@ import * as entityTasksSchemas from './entity-tasks';
 // Saved Report Configs schemas
 import * as savedReportConfigsSchemas from './saved-report-configs';
 
+// Communications system schemas
+import * as emailTemplatesSchemas from './email-templates';
+import * as communicationEventsSchemas from './communication-events';
+import * as communicationWorkflowsSchemas from './communication-workflows';
+import * as emailTrackingSchemas from './email-tracking';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -266,6 +272,11 @@ export const schema = {
   ...entityTasksSchemas,
   // Saved Report Configs schemas
   ...savedReportConfigsSchemas,
+  // Communications system schemas
+  ...emailTemplatesSchemas,
+  ...communicationEventsSchemas,
+  ...communicationWorkflowsSchemas,
+  ...emailTrackingSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -1045,3 +1056,102 @@ export type {
   SavedReportType,
   SavedReportConfigJson,
 } from './saved-report-configs';
+
+// Re-export Email Templates schemas
+export {
+  emailTemplates,
+  emailTemplateStatusEnum,
+  emailTemplateCategoryEnum,
+  EMAIL_TEMPLATE_STATUS,
+  EMAIL_TEMPLATE_CATEGORY,
+} from './email-templates';
+export type {
+  EmailTemplate,
+  NewEmailTemplate,
+  UpdateEmailTemplate,
+  EmailTemplateStatus,
+  EmailTemplateCategory,
+  TemplateVariable,
+} from './email-templates';
+
+// Re-export Communication Events schemas
+export {
+  communicationEvents,
+  communicationEventTypeEnum,
+  communicationStatusEnum,
+  COMMUNICATION_STATUS,
+  COMMUNICATION_EVENT_TYPE,
+  COMMUNICATION_ENTITY_TYPES,
+} from './communication-events';
+export type {
+  CommunicationEvent,
+  NewCommunicationEvent,
+  UpdateCommunicationEvent,
+  CommunicationEventType,
+  CommunicationStatus,
+  CommunicationEntityType,
+} from './communication-events';
+
+// Re-export Communication Workflows schemas
+export {
+  communicationWorkflows,
+  communicationWorkflowSteps,
+  communicationWorkflowExecutions,
+  communicationWorkflowStepHistory,
+  commWorkflowTriggerTypeEnum,
+  commWorkflowStepTypeEnum,
+  commWorkflowExecutionStatusEnum,
+  WORKFLOW_TRIGGER_TYPE,
+  WORKFLOW_STEP_TYPE,
+  WORKFLOW_EXECUTION_STATUS,
+} from './communication-workflows';
+export type {
+  CommunicationWorkflow,
+  NewCommunicationWorkflow,
+  UpdateCommunicationWorkflow,
+  CommunicationWorkflowStep,
+  NewCommunicationWorkflowStep,
+  UpdateCommunicationWorkflowStep,
+  CommunicationWorkflowExecution,
+  NewCommunicationWorkflowExecution,
+  UpdateCommunicationWorkflowExecution,
+  CommunicationWorkflowStepHistoryRecord,
+  NewCommunicationWorkflowStepHistoryRecord,
+  WorkflowTriggerType,
+  WorkflowStepType,
+  WorkflowExecutionStatus,
+  TriggerConfig,
+  FilterConditions,
+  FilterRule,
+  StepConfig,
+  BranchConfig,
+  Branch,
+  ExecutionContext,
+} from './communication-workflows';
+
+// Re-export Email Tracking schemas
+export {
+  emailTrackingEvents,
+  emailUnsubscribes,
+  emailSuppressionList,
+  emailTrackingEventTypeEnum,
+  emailBounceTypeEnum,
+  emailUnsubscribeReasonEnum,
+  EMAIL_TRACKING_EVENT_TYPE,
+  EMAIL_BOUNCE_TYPE,
+  EMAIL_UNSUBSCRIBE_REASON,
+  generateEmailHash,
+} from './email-tracking';
+export type {
+  EmailTrackingEvent,
+  NewEmailTrackingEvent,
+  EmailUnsubscribe,
+  NewEmailUnsubscribe,
+  UpdateEmailUnsubscribe,
+  EmailSuppressionRecord,
+  NewEmailSuppressionRecord,
+  EmailTrackingEventType,
+  EmailBounceType,
+  EmailUnsubscribeReason,
+  BouncedRecipient,
+} from './email-tracking';

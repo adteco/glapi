@@ -38,3 +38,6 @@ export * from './imports';
 export * from './onboarding';
 export * from './estimates';
 export * from './project-tasks';
+export * from './email-templates';
+export * from './communication-events';
+export * from './communication-workflows';
