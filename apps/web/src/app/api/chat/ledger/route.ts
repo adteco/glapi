@@ -29,7 +29,7 @@ function getConversationalService(organizationId: string, userId: string) {
   conversationalService = createGeminiConversationalService({
     geminiApiKey: apiKey,
     mcpClient,
-    model: process.env.GEMINI_MODEL || 'gemini-3-pro',
+    model: process.env.GEMINI_MODEL || 'gemini-3-pro-preview',
     systemPrompt: GLAPI_SYSTEM_PROMPT,
     enableLogging: process.env.NODE_ENV === 'development',
   });
