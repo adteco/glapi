@@ -46,6 +46,13 @@ import { importsRouter } from './routers/imports';
 import { onboardingRouter } from './routers/onboarding';
 import { estimatesRouter } from './routers/estimates';
 import { accountingListsRouter } from './routers/accounting-lists';
+import { globalSearchRouter } from './routers/global-search';
+import { workflowsRouter } from './routers/workflows';
+import { taskFieldsRouter } from './routers/task-fields';
+import { taskTemplatesRouter } from './routers/task-templates';
+import { entityTasksRouter } from './routers/entity-tasks';
+import { financialStatementsRouter } from './routers/financial-statements';
+import { savedReportConfigsRouter } from './routers/saved-report-configs';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -94,6 +101,13 @@ export const appRouter = router({
   onboarding: onboardingRouter,
   estimates: estimatesRouter,
   accountingLists: accountingListsRouter,
+  globalSearch: globalSearchRouter,
+  workflows: workflowsRouter,
+  taskFields: taskFieldsRouter,
+  taskTemplates: taskTemplatesRouter,
+  entityTasks: entityTasksRouter,
+  financialStatements: financialStatementsRouter,
+  savedReportConfigs: savedReportConfigsRouter,
 });
 
 export type AppRouter = typeof appRouter;

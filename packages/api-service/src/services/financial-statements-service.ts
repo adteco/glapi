@@ -11,8 +11,10 @@ import { ServiceError } from '../types';
 import type {
   GenerateIncomeStatementInput,
   GenerateBalanceSheetInput,
+  GenerateCashFlowStatementInput,
   IncomeStatement,
   BalanceSheet,
+  CashFlowStatement,
   FinancialStatementExportOptions,
   ReportMetadata,
 } from '../types/financial-statements.types';
@@ -82,6 +84,39 @@ export class FinancialStatementsService extends BaseService {
     );
 
     return result as BalanceSheet;
+  }
+
+  /**
+   * Generate a Cash Flow Statement for the specified period (Indirect Method)
+   */
+  async generateCashFlowStatement(
+    input: GenerateCashFlowStatementInput
+  ): Promise<CashFlowStatement> {
+    const organizationId = this.requireOrganizationContext();
+
+    // Validate input organization matches context
+    if (input.organizationId !== organizationId) {
+      throw new ServiceError(
+        'Organization mismatch',
+        'ORGANIZATION_MISMATCH',
+        403
+      );
+    }
+
+    const result = await glReportingRepository.getCashFlowStatement(
+      {
+        periodId: input.periodId,
+        subsidiaryId: input.subsidiaryId,
+        classId: input.classId,
+        departmentId: input.departmentId,
+        locationId: input.locationId,
+        includeInactive: input.includeInactive,
+        comparePeriodId: input.comparePeriodId,
+      },
+      organizationId
+    );
+
+    return result as CashFlowStatement;
   }
 
   /**

@@ -68,6 +68,36 @@ export interface BalanceSheetFilters {
   comparePeriodId?: string;
 }
 
+export interface CashFlowStatementFilters {
+  periodId: string;
+  subsidiaryId?: string;
+  classId?: string;
+  departmentId?: string;
+  locationId?: string;
+  includeInactive?: boolean;
+  comparePeriodId?: string;
+}
+
+// Cash flow category type
+type CashFlowCategoryType = 'OPERATING' | 'INVESTING' | 'FINANCING';
+
+export interface CashFlowLineItem {
+  description: string;
+  amount: number;
+  accountId?: string;
+  accountNumber?: string;
+  isSubtotal: boolean;
+  priorPeriodAmount?: number;
+}
+
+export interface CashFlowSection {
+  sectionName: string;
+  category: CashFlowCategoryType;
+  lineItems: CashFlowLineItem[];
+  sectionTotal: number;
+  priorPeriodTotal?: number;
+}
+
 export interface FinancialStatementLineItem {
   accountId: string;
   accountNumber: string;
@@ -1143,6 +1173,544 @@ export class GlReportingRepository extends BaseRepository {
       periodName: periodInfo?.periodName || '',
       endDate: periodInfo?.endDate || '',
       subsidiaryName,
+    };
+  }
+
+  /**
+   * Get Cash Flow Statement with organization RLS (Indirect Method)
+   * Returns Operating, Investing, and Financing activities with calculated totals
+   */
+  async getCashFlowStatement(filters: CashFlowStatementFilters, organizationId: string) {
+    const accessibleSubsidiaries = await this.getOrganizationSubsidiaries(organizationId);
+
+    if (accessibleSubsidiaries.length === 0) {
+      return this.emptyCashFlowStatement();
+    }
+
+    // Apply subsidiary filter if specified and validate access
+    let targetSubsidiaries = accessibleSubsidiaries;
+    if (filters.subsidiaryId) {
+      const hasAccess = await this.validateSubsidiaryAccess(filters.subsidiaryId, organizationId);
+      if (!hasAccess) {
+        throw new Error('Access denied to specified subsidiary');
+      }
+      targetSubsidiaries = [filters.subsidiaryId];
+    }
+
+    // Get period info for date range
+    const [periodInfo] = await this.db
+      .select({
+        periodName: accountingPeriods.periodName,
+        startDate: accountingPeriods.startDate,
+        endDate: accountingPeriods.endDate,
+        fiscalYear: accountingPeriods.fiscalYear,
+      })
+      .from(accountingPeriods)
+      .where(eq(accountingPeriods.id, filters.periodId))
+      .limit(1);
+
+    if (!periodInfo) {
+      return this.emptyCashFlowStatement();
+    }
+
+    // Get beginning cash balance (from prior period or beginning of year)
+    const beginningCashBalance = await this.getBeginningCashBalance(
+      filters,
+      organizationId,
+      targetSubsidiaries
+    );
+
+    // Get net income from income statement
+    const netIncome = await this.calculateNetIncome(
+      { ...filters, periodId: filters.periodId },
+      organizationId,
+      targetSubsidiaries
+    );
+
+    // Get changes in balance sheet accounts for indirect method
+    const balanceChanges = await this.getBalanceSheetChanges(
+      filters,
+      organizationId,
+      targetSubsidiaries
+    );
+
+    // Build Operating Activities Section (Indirect Method)
+    const operatingLineItems: CashFlowLineItem[] = [
+      { description: 'Net Income', amount: netIncome, isSubtotal: false },
+    ];
+
+    // Add non-cash adjustments (depreciation, amortization)
+    const depreciation = balanceChanges.depreciation || 0;
+    if (depreciation !== 0) {
+      operatingLineItems.push({
+        description: 'Depreciation & Amortization',
+        amount: depreciation,
+        isSubtotal: false,
+      });
+    }
+
+    // Changes in working capital
+    const workingCapitalChanges = [
+      { description: 'Increase/Decrease in Accounts Receivable', amount: -balanceChanges.accountsReceivable },
+      { description: 'Increase/Decrease in Inventory', amount: -balanceChanges.inventory },
+      { description: 'Increase/Decrease in Prepaid Expenses', amount: -balanceChanges.prepaidExpenses },
+      { description: 'Increase/Decrease in Accounts Payable', amount: balanceChanges.accountsPayable },
+      { description: 'Increase/Decrease in Accrued Liabilities', amount: balanceChanges.accruedLiabilities },
+    ].filter(item => item.amount !== 0);
+
+    operatingLineItems.push(...workingCapitalChanges.map(wc => ({
+      description: wc.description,
+      amount: wc.amount,
+      isSubtotal: false,
+    })));
+
+    const netCashFromOperations = operatingLineItems.reduce((sum, item) => sum + item.amount, 0);
+
+    // Build Investing Activities Section
+    const investingLineItems: CashFlowLineItem[] = [];
+
+    // Get investing activities from accounts marked with cashFlowCategory = 'INVESTING'
+    const investingActivities = await this.getCashFlowActivitiesByCategory(
+      'INVESTING',
+      filters,
+      targetSubsidiaries
+    );
+
+    for (const activity of investingActivities) {
+      investingLineItems.push({
+        description: activity.accountName,
+        amount: activity.netChange,
+        accountId: activity.accountId,
+        accountNumber: activity.accountNumber,
+        isSubtotal: false,
+      });
+    }
+
+    // Add fixed asset changes
+    if (balanceChanges.fixedAssets !== 0) {
+      investingLineItems.push({
+        description: 'Purchase/Sale of Fixed Assets',
+        amount: -balanceChanges.fixedAssets,
+        isSubtotal: false,
+      });
+    }
+
+    const netCashFromInvesting = investingLineItems.reduce((sum, item) => sum + item.amount, 0);
+
+    // Build Financing Activities Section
+    const financingLineItems: CashFlowLineItem[] = [];
+
+    // Get financing activities from accounts marked with cashFlowCategory = 'FINANCING'
+    const financingActivities = await this.getCashFlowActivitiesByCategory(
+      'FINANCING',
+      filters,
+      targetSubsidiaries
+    );
+
+    for (const activity of financingActivities) {
+      financingLineItems.push({
+        description: activity.accountName,
+        amount: activity.netChange,
+        accountId: activity.accountId,
+        accountNumber: activity.accountNumber,
+        isSubtotal: false,
+      });
+    }
+
+    // Add long-term debt and equity changes
+    if (balanceChanges.longTermDebt !== 0) {
+      financingLineItems.push({
+        description: 'Proceeds/Payments on Long-Term Debt',
+        amount: balanceChanges.longTermDebt,
+        isSubtotal: false,
+      });
+    }
+
+    if (balanceChanges.commonStock !== 0) {
+      financingLineItems.push({
+        description: 'Issuance/Repurchase of Common Stock',
+        amount: balanceChanges.commonStock,
+        isSubtotal: false,
+      });
+    }
+
+    if (balanceChanges.dividends !== 0) {
+      financingLineItems.push({
+        description: 'Dividends Paid',
+        amount: -balanceChanges.dividends,
+        isSubtotal: false,
+      });
+    }
+
+    const netCashFromFinancing = financingLineItems.reduce((sum, item) => sum + item.amount, 0);
+
+    // Calculate totals
+    const netChangeInCash = netCashFromOperations + netCashFromInvesting + netCashFromFinancing;
+    const endingCashBalance = beginningCashBalance + netChangeInCash;
+
+    // Determine cash flow trend
+    let cashFlowTrend: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    if (netChangeInCash > 0) {
+      cashFlowTrend = 'POSITIVE';
+    } else if (netChangeInCash < 0) {
+      cashFlowTrend = 'NEGATIVE';
+    } else {
+      cashFlowTrend = 'NEUTRAL';
+    }
+
+    // Get subsidiary name
+    let subsidiaryName = 'All Subsidiaries';
+    if (filters.subsidiaryId) {
+      const [subInfo] = await this.db
+        .select({ name: subsidiaries.name })
+        .from(subsidiaries)
+        .where(eq(subsidiaries.id, filters.subsidiaryId))
+        .limit(1);
+      subsidiaryName = subInfo?.name || '';
+    }
+
+    return {
+      reportName: 'Cash Flow Statement',
+      reportType: 'CASH_FLOW_STATEMENT' as const,
+      periodName: periodInfo.periodName,
+      periodId: filters.periodId,
+      subsidiaryName,
+      periodStartDate: periodInfo.startDate,
+      periodEndDate: periodInfo.endDate,
+      generatedAt: new Date().toISOString(),
+
+      beginningCashBalance,
+
+      operatingActivities: {
+        sectionName: 'Cash Flows from Operating Activities',
+        category: 'OPERATING' as CashFlowCategoryType,
+        lineItems: operatingLineItems,
+        sectionTotal: netCashFromOperations,
+      },
+      netCashFromOperations,
+
+      investingActivities: {
+        sectionName: 'Cash Flows from Investing Activities',
+        category: 'INVESTING' as CashFlowCategoryType,
+        lineItems: investingLineItems.length > 0 ? investingLineItems : [{ description: 'No investing activities', amount: 0, isSubtotal: false }],
+        sectionTotal: netCashFromInvesting,
+      },
+      netCashFromInvesting,
+
+      financingActivities: {
+        sectionName: 'Cash Flows from Financing Activities',
+        category: 'FINANCING' as CashFlowCategoryType,
+        lineItems: financingLineItems.length > 0 ? financingLineItems : [{ description: 'No financing activities', amount: 0, isSubtotal: false }],
+        sectionTotal: netCashFromFinancing,
+      },
+      netCashFromFinancing,
+
+      netChangeInCash,
+      endingCashBalance,
+      cashFlowTrend,
+
+      // Reconciliation check: ending balance should equal beginning + net change
+      reconciliationDifference: Math.abs(endingCashBalance - (beginningCashBalance + netChangeInCash)),
+    };
+  }
+
+  /**
+   * Get beginning cash balance for cash flow statement
+   */
+  private async getBeginningCashBalance(
+    filters: CashFlowStatementFilters,
+    organizationId: string,
+    targetSubsidiaries: string[]
+  ): Promise<number> {
+    // Get cash accounts (typically current assets with subcategory containing 'cash')
+    const whereConditions = [
+      eq(glAccountBalances.periodId, filters.periodId),
+      inArray(glAccountBalances.subsidiaryId, targetSubsidiaries),
+      eq(accounts.accountCategory, 'Asset'),
+    ];
+
+    if (filters.classId) {
+      whereConditions.push(eq(glAccountBalances.classId, filters.classId));
+    }
+    if (filters.departmentId) {
+      whereConditions.push(eq(glAccountBalances.departmentId, filters.departmentId));
+    }
+    if (filters.locationId) {
+      whereConditions.push(eq(glAccountBalances.locationId, filters.locationId));
+    }
+
+    const results = await this.db
+      .select({
+        beginningBalanceDebit: sql<string>`SUM(${glAccountBalances.beginningBalanceDebit})`,
+        beginningBalanceCredit: sql<string>`SUM(${glAccountBalances.beginningBalanceCredit})`,
+      })
+      .from(glAccountBalances)
+      .innerJoin(accounts, eq(glAccountBalances.accountId, accounts.id))
+      .where(
+        and(
+          ...whereConditions,
+          or(
+            sql`LOWER(${accounts.accountSubcategory}) LIKE '%cash%'`,
+            sql`LOWER(${accounts.accountName}) LIKE '%cash%'`,
+            sql`LOWER(${accounts.accountName}) LIKE '%bank%'`
+          )
+        )
+      );
+
+    const row = results[0];
+    if (!row) return 0;
+
+    const beginningDebit = Number(row.beginningBalanceDebit || 0);
+    const beginningCredit = Number(row.beginningBalanceCredit || 0);
+
+    return beginningDebit - beginningCredit;
+  }
+
+  /**
+   * Get balance sheet account changes for cash flow adjustments
+   */
+  private async getBalanceSheetChanges(
+    filters: CashFlowStatementFilters,
+    organizationId: string,
+    targetSubsidiaries: string[]
+  ): Promise<{
+    depreciation: number;
+    accountsReceivable: number;
+    inventory: number;
+    prepaidExpenses: number;
+    accountsPayable: number;
+    accruedLiabilities: number;
+    fixedAssets: number;
+    longTermDebt: number;
+    commonStock: number;
+    dividends: number;
+  }> {
+    const whereConditions = [
+      eq(glAccountBalances.periodId, filters.periodId),
+      inArray(glAccountBalances.subsidiaryId, targetSubsidiaries),
+    ];
+
+    if (filters.classId) {
+      whereConditions.push(eq(glAccountBalances.classId, filters.classId));
+    }
+    if (filters.departmentId) {
+      whereConditions.push(eq(glAccountBalances.departmentId, filters.departmentId));
+    }
+    if (filters.locationId) {
+      whereConditions.push(eq(glAccountBalances.locationId, filters.locationId));
+    }
+
+    // Get account changes by subcategory
+    const results = await this.db
+      .select({
+        accountSubcategory: accounts.accountSubcategory,
+        accountCategory: accounts.accountCategory,
+        accountName: accounts.accountName,
+        beginningBalanceDebit: sql<string>`SUM(${glAccountBalances.beginningBalanceDebit})`,
+        beginningBalanceCredit: sql<string>`SUM(${glAccountBalances.beginningBalanceCredit})`,
+        endingBalanceDebit: sql<string>`SUM(${glAccountBalances.endingBalanceDebit})`,
+        endingBalanceCredit: sql<string>`SUM(${glAccountBalances.endingBalanceCredit})`,
+        periodDebitAmount: sql<string>`SUM(${glAccountBalances.periodDebitAmount})`,
+        periodCreditAmount: sql<string>`SUM(${glAccountBalances.periodCreditAmount})`,
+      })
+      .from(glAccountBalances)
+      .innerJoin(accounts, eq(glAccountBalances.accountId, accounts.id))
+      .where(and(...whereConditions))
+      .groupBy(accounts.accountSubcategory, accounts.accountCategory, accounts.accountName);
+
+    // Calculate changes for each category
+    let depreciation = 0;
+    let accountsReceivable = 0;
+    let inventory = 0;
+    let prepaidExpenses = 0;
+    let accountsPayable = 0;
+    let accruedLiabilities = 0;
+    let fixedAssets = 0;
+    let longTermDebt = 0;
+    let commonStock = 0;
+    let dividends = 0;
+
+    for (const row of results) {
+      const subcategory = (row.accountSubcategory || '').toUpperCase();
+      const accountName = (row.accountName || '').toUpperCase();
+      const category = row.accountCategory;
+
+      const beginningDebit = Number(row.beginningBalanceDebit || 0);
+      const beginningCredit = Number(row.beginningBalanceCredit || 0);
+      const endingDebit = Number(row.endingBalanceDebit || 0);
+      const endingCredit = Number(row.endingBalanceCredit || 0);
+      const periodDebit = Number(row.periodDebitAmount || 0);
+      const periodCredit = Number(row.periodCreditAmount || 0);
+
+      // Calculate net change based on normal balance
+      let beginningBalance: number;
+      let endingBalance: number;
+      let periodChange: number;
+
+      if (category === 'Asset') {
+        beginningBalance = beginningDebit - beginningCredit;
+        endingBalance = endingDebit - endingCredit;
+        periodChange = endingBalance - beginningBalance;
+      } else {
+        beginningBalance = beginningCredit - beginningDebit;
+        endingBalance = endingCredit - endingDebit;
+        periodChange = endingBalance - beginningBalance;
+      }
+
+      // Categorize changes
+      if (accountName.includes('DEPREC') || accountName.includes('AMORTIZ')) {
+        depreciation += periodCredit - periodDebit; // Depreciation increases with credits
+      } else if (subcategory.includes('RECEIV') || accountName.includes('RECEIV')) {
+        accountsReceivable += periodChange;
+      } else if (subcategory.includes('INVENTOR') || accountName.includes('INVENTOR')) {
+        inventory += periodChange;
+      } else if (subcategory.includes('PREPAID') || accountName.includes('PREPAID')) {
+        prepaidExpenses += periodChange;
+      } else if (subcategory.includes('PAYABLE') || accountName.includes('ACCOUNTS PAYABLE')) {
+        accountsPayable += periodChange;
+      } else if (subcategory.includes('ACCRUED') || accountName.includes('ACCRUED')) {
+        accruedLiabilities += periodChange;
+      } else if (subcategory.includes('FIXED') || subcategory.includes('PROPERTY') || subcategory.includes('EQUIPMENT')) {
+        fixedAssets += periodChange;
+      } else if (subcategory.includes('LONG') && category === 'Liability') {
+        longTermDebt += periodChange;
+      } else if (subcategory.includes('COMMON') || subcategory.includes('CAPITAL')) {
+        commonStock += periodChange;
+      } else if (accountName.includes('DIVIDEND')) {
+        dividends += Math.abs(periodDebit - periodCredit);
+      }
+    }
+
+    return {
+      depreciation,
+      accountsReceivable,
+      inventory,
+      prepaidExpenses,
+      accountsPayable,
+      accruedLiabilities,
+      fixedAssets,
+      longTermDebt,
+      commonStock,
+      dividends,
+    };
+  }
+
+  /**
+   * Get cash flow activities by category (OPERATING, INVESTING, FINANCING)
+   */
+  private async getCashFlowActivitiesByCategory(
+    category: CashFlowCategoryType,
+    filters: CashFlowStatementFilters,
+    targetSubsidiaries: string[]
+  ): Promise<Array<{
+    accountId: string;
+    accountNumber: string;
+    accountName: string;
+    netChange: number;
+  }>> {
+    const whereConditions = [
+      eq(glAccountBalances.periodId, filters.periodId),
+      inArray(glAccountBalances.subsidiaryId, targetSubsidiaries),
+      eq(accounts.cashFlowCategory, category),
+    ];
+
+    if (filters.classId) {
+      whereConditions.push(eq(glAccountBalances.classId, filters.classId));
+    }
+    if (filters.departmentId) {
+      whereConditions.push(eq(glAccountBalances.departmentId, filters.departmentId));
+    }
+    if (filters.locationId) {
+      whereConditions.push(eq(glAccountBalances.locationId, filters.locationId));
+    }
+
+    const results = await this.db
+      .select({
+        accountId: glAccountBalances.accountId,
+        accountNumber: accounts.accountNumber,
+        accountName: accounts.accountName,
+        accountCategory: accounts.accountCategory,
+        periodDebitAmount: sql<string>`SUM(${glAccountBalances.periodDebitAmount})`,
+        periodCreditAmount: sql<string>`SUM(${glAccountBalances.periodCreditAmount})`,
+      })
+      .from(glAccountBalances)
+      .innerJoin(accounts, eq(glAccountBalances.accountId, accounts.id))
+      .where(and(...whereConditions))
+      .groupBy(
+        glAccountBalances.accountId,
+        accounts.accountNumber,
+        accounts.accountName,
+        accounts.accountCategory
+      )
+      .orderBy(asc(accounts.accountNumber));
+
+    return results.map(row => {
+      const periodDebit = Number(row.periodDebitAmount || 0);
+      const periodCredit = Number(row.periodCreditAmount || 0);
+
+      // For cash flow, we want the net effect on cash
+      // Assets: increase (debit) = cash outflow (negative)
+      // Liabilities/Equity: increase (credit) = cash inflow (positive)
+      let netChange: number;
+      if (row.accountCategory === 'Asset') {
+        netChange = periodCredit - periodDebit; // Asset increase = cash decrease
+      } else {
+        netChange = periodCredit - periodDebit; // Liability/Equity increase = cash increase
+      }
+
+      return {
+        accountId: row.accountId,
+        accountNumber: row.accountNumber,
+        accountName: row.accountName,
+        netChange,
+      };
+    }).filter(item => item.netChange !== 0);
+  }
+
+  /**
+   * Empty cash flow statement structure
+   */
+  private emptyCashFlowStatement() {
+    return {
+      reportName: 'Cash Flow Statement',
+      reportType: 'CASH_FLOW_STATEMENT' as const,
+      periodName: '',
+      periodId: '',
+      subsidiaryName: '',
+      periodStartDate: '',
+      periodEndDate: '',
+      generatedAt: new Date().toISOString(),
+
+      beginningCashBalance: 0,
+
+      operatingActivities: {
+        sectionName: 'Cash Flows from Operating Activities',
+        category: 'OPERATING' as CashFlowCategoryType,
+        lineItems: [],
+        sectionTotal: 0,
+      },
+      netCashFromOperations: 0,
+
+      investingActivities: {
+        sectionName: 'Cash Flows from Investing Activities',
+        category: 'INVESTING' as CashFlowCategoryType,
+        lineItems: [],
+        sectionTotal: 0,
+      },
+      netCashFromInvesting: 0,
+
+      financingActivities: {
+        sectionName: 'Cash Flows from Financing Activities',
+        category: 'FINANCING' as CashFlowCategoryType,
+        lineItems: [],
+        sectionTotal: 0,
+      },
+      netCashFromFinancing: 0,
+
+      netChangeInCash: 0,
+      endingCashBalance: 0,
+      cashFlowTrend: 'NEUTRAL' as const,
+      reconciliationDifference: 0,
     };
   }
 

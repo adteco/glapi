@@ -30,9 +30,9 @@ The Client-to-Cash workflow provides end-to-end management of the client relatio
 
 ### 1. Client Management
 
-Clients are managed through the `/clients` page, which provides an alias to the existing Customer entity with client-focused terminology.
+Clients are managed through the `/relationships/customers` page (under Lists → Relationships → Customers).
 
-**Navigation:** Client to Cash → Clients
+**Navigation:** Lists → Relationships → Customers
 
 **Features:**
 - List all clients with search and filtering
@@ -284,7 +284,6 @@ The Client-to-Cash section appears in the main navigation sidebar:
 
 ```
 Client to Cash (expandable)
-├── Clients (/clients)
 ├── Projects (/projects)
 ├── Time Tracking (/projects/time)
 ├── Estimates (/transactions/sales/estimates)
@@ -293,6 +292,8 @@ Client to Cash (expandable)
 ├── Payments (/payments)
 ├── Statements (/statements)
 └── Bank Reconciliation (/banking/reconciliation)
+
+Note: Clients/Customers are managed via Lists → Relationships → Customers (/relationships/customers)
 ```
 
 ## Data Model
