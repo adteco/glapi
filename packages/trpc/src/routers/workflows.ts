@@ -736,7 +736,10 @@ export const workflowsRouter = router({
 
       // Return updated workflow with components
       const workflow = await db.query.workflows.findFirst({
-        where: eq(workflows.id, input.workflowId),
+        where: and(
+          eq(workflows.id, input.workflowId),
+          eq(workflows.organizationId, ctx.organizationId)
+        ),
         with: {
           groups: {
             orderBy: [asc(workflowGroups.displayOrder)],
@@ -856,7 +859,10 @@ export const workflowsRouter = router({
 
       // Return the new workflow with its groups and components
       const result = await db.query.workflows.findFirst({
-        where: eq(workflows.id, newWorkflow.id),
+        where: and(
+          eq(workflows.id, newWorkflow.id),
+          eq(workflows.organizationId, ctx.organizationId)
+        ),
         with: {
           groups: {
             orderBy: [asc(workflowGroups.displayOrder)],

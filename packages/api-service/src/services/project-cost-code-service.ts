@@ -473,7 +473,13 @@ export class ProjectCostCodeService extends BaseService {
       actualAmount?: string;
     }
   ): Promise<ProjectCostCode | null> {
-    const updated = await this.costCodeRepository.updateAmounts(id, amounts);
+    const projectIds = await this.getAccessibleProjectIds();
+
+    if (projectIds.length === 0) {
+      return null;
+    }
+
+    const updated = await this.costCodeRepository.updateAmounts(id, projectIds, amounts);
     return updated ? this.transformCostCode(updated) : null;
   }
 }
