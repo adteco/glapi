@@ -258,9 +258,15 @@ export class ProjectRepository extends BaseRepository {
   // ========== Participant Methods ==========
 
   /**
-   * Find participants for a project
+   * Find participants for a project with organization access check
    */
-  async findParticipants(projectId: string) {
+  async findParticipants(projectId: string, organizationId: string) {
+    // Verify project belongs to organization first
+    const project = await this.findById(projectId, organizationId);
+    if (!project) {
+      return [];
+    }
+
     const results = await this.db
       .select()
       .from(projectParticipants)
@@ -271,22 +277,36 @@ export class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Find a participant by ID
+   * Find a participant by ID with organization access check
    */
-  async findParticipantById(id: string) {
+  async findParticipantById(id: string, organizationId: string) {
     const [result] = await this.db
-      .select()
+      .select({
+        participant: projectParticipants,
+      })
       .from(projectParticipants)
-      .where(eq(projectParticipants.id, id))
+      .innerJoin(projects, eq(projectParticipants.projectId, projects.id))
+      .where(
+        and(
+          eq(projectParticipants.id, id),
+          eq(projects.organizationId, organizationId)
+        )
+      )
       .limit(1);
 
-    return result || null;
+    return result?.participant || null;
   }
 
   /**
-   * Add a participant to a project
+   * Add a participant to a project with organization access check
    */
-  async createParticipant(data: CreateParticipantData) {
+  async createParticipant(data: CreateParticipantData, organizationId: string) {
+    // Verify project belongs to organization first
+    const project = await this.findById(data.projectId, organizationId);
+    if (!project) {
+      return null;
+    }
+
     const [result] = await this.db
       .insert(projectParticipants)
       .values({
@@ -301,9 +321,15 @@ export class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Update a participant
+   * Update a participant with organization access check
    */
-  async updateParticipant(id: string, data: UpdateParticipantData) {
+  async updateParticipant(id: string, organizationId: string, data: UpdateParticipantData) {
+    // First verify the participant belongs to a project in this organization
+    const existing = await this.findParticipantById(id, organizationId);
+    if (!existing) {
+      return null;
+    }
+
     const [result] = await this.db
       .update(projectParticipants)
       .set({
@@ -317,16 +343,29 @@ export class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Remove a participant
+   * Remove a participant with organization access check
    */
-  async deleteParticipant(id: string) {
+  async deleteParticipant(id: string, organizationId: string) {
+    // First verify the participant belongs to a project in this organization
+    const existing = await this.findParticipantById(id, organizationId);
+    if (!existing) {
+      return false;
+    }
+
     await this.db.delete(projectParticipants).where(eq(projectParticipants.id, id));
+    return true;
   }
 
   /**
-   * Check if participant exists (by role and entity)
+   * Check if participant exists (by role and entity) with organization access check
    */
-  async participantExists(projectId: string, participantRole: string, entityId?: string) {
+  async participantExists(projectId: string, organizationId: string, participantRole: string, entityId?: string) {
+    // Verify project belongs to organization first
+    const project = await this.findById(projectId, organizationId);
+    if (!project) {
+      return false;
+    }
+
     const conditions = [
       eq(projectParticipants.projectId, projectId),
       eq(projectParticipants.participantRole, participantRole),

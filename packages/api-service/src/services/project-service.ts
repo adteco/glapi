@@ -259,13 +259,7 @@ export class ProjectService extends BaseService {
   async listParticipants(projectId: string): Promise<ProjectParticipant[]> {
     const organizationId = this.requireOrganizationContext();
 
-    // Verify project exists and belongs to organization
-    const project = await this.projectRepository.findById(projectId, organizationId);
-    if (!project) {
-      throw new ServiceError('Project not found', 'PROJECT_NOT_FOUND', 404);
-    }
-
-    const participants = await this.projectRepository.findParticipants(projectId);
+    const participants = await this.projectRepository.findParticipants(projectId, organizationId);
 
     return participants.map(this.mapParticipantToDto);
   }
@@ -276,15 +270,10 @@ export class ProjectService extends BaseService {
   async addParticipant(projectId: string, input: CreateParticipantInput): Promise<ProjectParticipant> {
     const organizationId = this.requireOrganizationContext();
 
-    // Verify project exists
-    const project = await this.projectRepository.findById(projectId, organizationId);
-    if (!project) {
-      throw new ServiceError('Project not found', 'PROJECT_NOT_FOUND', 404);
-    }
-
-    // Check for duplicate
+    // Check for duplicate (this also validates project belongs to org)
     const exists = await this.projectRepository.participantExists(
       projectId,
+      organizationId,
       input.participantRole,
       input.entityId
     );
@@ -299,7 +288,11 @@ export class ProjectService extends BaseService {
     const participant = await this.projectRepository.createParticipant({
       projectId,
       ...input,
-    });
+    }, organizationId);
+
+    if (!participant) {
+      throw new ServiceError('Project not found', 'PROJECT_NOT_FOUND', 404);
+    }
 
     return this.mapParticipantToDto(participant);
   }
@@ -314,19 +307,13 @@ export class ProjectService extends BaseService {
   ): Promise<ProjectParticipant> {
     const organizationId = this.requireOrganizationContext();
 
-    // Verify project exists
-    const project = await this.projectRepository.findById(projectId, organizationId);
-    if (!project) {
-      throw new ServiceError('Project not found', 'PROJECT_NOT_FOUND', 404);
-    }
-
-    // Verify participant exists and belongs to project
-    const existing = await this.projectRepository.findParticipantById(participantId);
+    // Verify participant exists and belongs to a project in this organization
+    const existing = await this.projectRepository.findParticipantById(participantId, organizationId);
     if (!existing || existing.projectId !== projectId) {
       throw new ServiceError('Participant not found', 'PARTICIPANT_NOT_FOUND', 404);
     }
 
-    const updated = await this.projectRepository.updateParticipant(participantId, input);
+    const updated = await this.projectRepository.updateParticipant(participantId, organizationId, input);
 
     if (!updated) {
       throw new ServiceError('Failed to update participant', 'UPDATE_FAILED', 500);
@@ -341,19 +328,16 @@ export class ProjectService extends BaseService {
   async removeParticipant(projectId: string, participantId: string): Promise<void> {
     const organizationId = this.requireOrganizationContext();
 
-    // Verify project exists
-    const project = await this.projectRepository.findById(projectId, organizationId);
-    if (!project) {
-      throw new ServiceError('Project not found', 'PROJECT_NOT_FOUND', 404);
-    }
-
-    // Verify participant exists and belongs to project
-    const existing = await this.projectRepository.findParticipantById(participantId);
+    // Verify participant exists and belongs to a project in this organization
+    const existing = await this.projectRepository.findParticipantById(participantId, organizationId);
     if (!existing || existing.projectId !== projectId) {
       throw new ServiceError('Participant not found', 'PARTICIPANT_NOT_FOUND', 404);
     }
 
-    await this.projectRepository.deleteParticipant(participantId);
+    const deleted = await this.projectRepository.deleteParticipant(participantId, organizationId);
+    if (!deleted) {
+      throw new ServiceError('Participant not found', 'PARTICIPANT_NOT_FOUND', 404);
+    }
   }
 
   // ========== Private Helpers ==========
