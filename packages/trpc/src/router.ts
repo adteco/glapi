@@ -52,6 +52,7 @@ import { taskFieldsRouter } from './routers/task-fields';
 import { taskTemplatesRouter } from './routers/task-templates';
 import { entityTasksRouter } from './routers/entity-tasks';
 import { financialStatementsRouter } from './routers/financial-statements';
+import { savedReportConfigsRouter } from './routers/saved-report-configs';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -106,6 +107,7 @@ export const appRouter = router({
   taskTemplates: taskTemplatesRouter,
   entityTasks: entityTasksRouter,
   financialStatements: financialStatementsRouter,
+  savedReportConfigs: savedReportConfigsRouter,
 });
 
 export type AppRouter = typeof appRouter;
