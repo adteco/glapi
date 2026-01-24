@@ -29,7 +29,7 @@ function getConversationalService(organizationId: string, userId: string) {
   conversationalService = createGeminiConversationalService({
     geminiApiKey: apiKey,
     mcpClient,
-    model: 'gemini-2.0-flash', // Fast and capable model
+    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash', // Default to 1.5-flash for better free tier limits
     systemPrompt: GLAPI_SYSTEM_PROMPT,
     enableLogging: process.env.NODE_ENV === 'development',
   });
@@ -108,11 +108,20 @@ export async function POST(request: NextRequest) {
     // Return user-friendly error message
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
 
+    // Provide helpful error messages based on error type
+    let userMessage = 'Sorry, I encountered an error processing your request. Please try again.';
+
+    if (errorMessage.includes('API_KEY')) {
+      userMessage = 'The AI service is not configured. Please contact an administrator.';
+    } else if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('Too Many Requests')) {
+      userMessage = 'The AI service is temporarily rate limited. Please wait a moment and try again. If this persists, you may need to upgrade your Gemini API plan.';
+    } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+      userMessage = 'The AI service authentication failed. Please check your API key configuration.';
+    }
+
     return NextResponse.json(
       {
-        message: errorMessage.includes('API_KEY')
-          ? 'The AI service is not configured. Please contact an administrator.'
-          : 'Sorry, I encountered an error processing your request. Please try again.',
+        message: userMessage,
         metadata: {
           error: errorMessage,
         },
