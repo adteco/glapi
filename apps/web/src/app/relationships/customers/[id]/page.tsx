@@ -25,7 +25,8 @@ import {
   ExternalLink,
   MoreHorizontal,
   CreditCard,
-  Briefcase
+  Briefcase,
+  ListChecks,
 } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
@@ -35,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { TaskList } from '@/components/tasks';
 
 interface Customer {
   id: string;
@@ -268,6 +270,10 @@ export default function CustomerDetailPage() {
                   {customerPriceLists.length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <ListChecks className="h-4 w-4 mr-2" />
+              Tasks
             </TabsTrigger>
           </TabsList>
 
@@ -732,6 +738,26 @@ export default function CustomerDetailPage() {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tasks Tab */}
+          <TabsContent value="tasks" className="space-y-6">
+            <Card className="border-border shadow-sm">
+              <CardHeader className="border-b border-border bg-muted/50">
+                <div>
+                  <CardTitle className="text-base font-medium">Tasks</CardTitle>
+                  <CardDescription>Tasks associated with this customer</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <TaskList
+                  entityType="customer"
+                  entityId={id}
+                  showFilters={true}
+                  allowCreate={true}
+                />
               </CardContent>
             </Card>
           </TabsContent>
