@@ -194,7 +194,6 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
   const [isAccountingOpen, setIsAccountingOpen] = useState(false);
   const [isRelationshipsOpen, setIsRelationshipsOpen] = useState(false);
   const [isItemsOpen, setIsItemsOpen] = useState(false);
-  const [isConstructionOpen, setIsConstructionOpen] = useState(false);
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
   const [isTransactionManagementOpen, setIsTransactionManagementOpen] = useState(false);
   const [isTransactionSalesOpen, setIsTransactionSalesOpen] = useState(false);
@@ -695,54 +694,6 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
           </div>
         )}
         
-        {/* Construction Section (Expandable) */}
-        {showCollapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                href="/construction/sov"
-                className={cn(
-                  'flex items-center justify-center p-2.5 rounded-md',
-                  pathname.startsWith('/construction') ? activeLinkClass : inactiveLinkClass
-                )}
-              >
-                <HardHatIcon className="h-5 w-5" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="bg-sidebar-accent border-sidebar-border">
-              Construction
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <div>
-            <button
-              onClick={() => setIsConstructionOpen(!isConstructionOpen)}
-              className={`${baseLinkClass} w-full justify-between text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-hover`}
-            >
-              <div className="flex items-center space-x-3">
-                <HardHatIcon className="h-5 w-5" />
-                <span>Construction</span>
-              </div>
-              {isConstructionOpen ? <ChevronDownIcon className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
-            </button>
-            {isConstructionOpen && (
-              <ul className="mt-1 space-y-1">
-                <li>
-                  <Link href="/construction/sov" className={`${baseSubLinkClass} ${isActive('/construction/sov') ? activeLinkClass : inactiveLinkClass}`}>
-                    <ClipboardListIcon className="h-4 w-4" />
-                    <span>Schedule of Values</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/construction/pay-applications" className={`${baseSubLinkClass} ${isActive('/construction/pay-applications') ? activeLinkClass : inactiveLinkClass}`}>
-                    <ReceiptIcon className="h-4 w-4" />
-                    <span>Pay Applications</span>
-                  </Link>
-                </li>
-              </ul>
-            )}
-          </div>
-        )}
 
         {/* Settings Section (Expandable) - NEW TOP LEVEL */}
         {showCollapsed ? (
