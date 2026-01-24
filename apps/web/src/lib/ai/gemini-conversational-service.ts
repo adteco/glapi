@@ -533,12 +533,45 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
 
   /**
    * Convert our message format to Gemini content format
+   * Gemini requires: 1) First message must be 'user', 2) Alternating user/model roles
    */
   function messagesToContents(messages: Message[]): Content[] {
-    return messages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+    // Filter out system messages (Gemini handles system instruction separately)
+    const filtered = messages.filter(m => m.role !== 'system');
+
+    // Find the first user message index
+    const firstUserIndex = filtered.findIndex(m => m.role === 'user');
+
+    // If no user messages, return empty history
+    if (firstUserIndex === -1) {
+      return [];
+    }
+
+    // Start from the first user message
+    const validMessages = filtered.slice(firstUserIndex);
+
+    // Convert to Gemini format, ensuring proper alternation
+    const contents: Content[] = [];
+    let lastRole: 'user' | 'model' | null = null;
+
+    for (const m of validMessages) {
+      const role = m.role === 'assistant' ? 'model' : 'user';
+
+      // Skip if same role as previous (Gemini requires alternation)
+      // Merge consecutive same-role messages instead
+      if (role === lastRole && contents.length > 0) {
+        const lastContent = contents[contents.length - 1];
+        lastContent.parts.push({ text: m.content });
+      } else {
+        contents.push({
+          role,
+          parts: [{ text: m.content }],
+        });
+        lastRole = role;
+      }
+    }
+
+    return contents;
   }
 
   /**
