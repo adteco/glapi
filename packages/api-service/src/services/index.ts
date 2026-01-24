@@ -11,6 +11,7 @@ export * from './gl-posting-engine';
 export * from './gl-reporting-service';
 export * from './gl-balance-service';
 export * from './financial-statements-service';
+export * from './report-export-service';
 
 // Export new items-related services
 export * from './units-of-measure-service';
