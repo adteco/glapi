@@ -200,6 +200,8 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
   const [isTransactionSalesOpen, setIsTransactionSalesOpen] = useState(false);
   const [isTransactionInventoryOpen, setIsTransactionInventoryOpen] = useState(false);
   const [isTransactionRecurringOpen, setIsTransactionRecurringOpen] = useState(false);
+  const [isTransactionPurchasingOpen, setIsTransactionPurchasingOpen] = useState(false);
+  const [isTransactionExpensesOpen, setIsTransactionExpensesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const isActive = (itemPath: string) => {
@@ -851,6 +853,18 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                           <span>Invoices</span>
                         </Link>
                       </li>
+                      <li>
+                        <Link href="/transactions/sales/credit-memos" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/credit-memos') ? activeLinkClass : inactiveLinkClass}`}>
+                          <ReceiptIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Credit Memos</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/transactions/sales/refunds" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/sales/refunds') ? activeLinkClass : inactiveLinkClass}`}>
+                          <DollarSignIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Refunds</span>
+                        </Link>
+                      </li>
                     </ul>
                   )}
                 </div>
@@ -881,6 +895,30 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                           <span>Transfers</span>
                         </Link>
                       </li>
+                    </ul>
+                  )}
+                </div>
+
+                {/* Purchasing Section */}
+                <div>
+                  <button
+                    onClick={() => setIsTransactionPurchasingOpen(!isTransactionPurchasingOpen)}
+                    className={`${baseSubLinkClass} w-full justify-between text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-hover`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <ReceiptIcon className="h-4 w-4" />
+                      <span>Purchasing</span>
+                    </div>
+                    {isTransactionPurchasingOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+                  </button>
+                  {isTransactionPurchasingOpen && (
+                    <ul className="mt-1 space-y-1">
+                      <li>
+                        <Link href="/transactions/inventory/purchase-orders" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/purchase-orders') ? activeLinkClass : inactiveLinkClass}`}>
+                          <ShoppingCartIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Purchase Orders</span>
+                        </Link>
+                      </li>
                       <li>
                         <Link href="/transactions/inventory/receipts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/receipts') ? activeLinkClass : inactiveLinkClass}`}>
                           <PackageIcon className={`h-3 w-3 opacity-75`} />
@@ -888,9 +926,51 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                         </Link>
                       </li>
                       <li>
-                        <Link href="/transactions/inventory/purchase-orders" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/inventory/purchase-orders') ? activeLinkClass : inactiveLinkClass}`}>
-                          <ShoppingCartIcon className={`h-3 w-3 opacity-75`} />
-                          <span>Purchase Orders</span>
+                        <Link href="/transactions/purchasing/vendor-bills" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/purchasing/vendor-bills') ? activeLinkClass : inactiveLinkClass}`}>
+                          <FileTextIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Vendor Bills</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/transactions/purchasing/vendor-credits" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/purchasing/vendor-credits') ? activeLinkClass : inactiveLinkClass}`}>
+                          <ReceiptIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Vendor Credits</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/transactions/purchasing/bill-payments" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/purchasing/bill-payments') ? activeLinkClass : inactiveLinkClass}`}>
+                          <CreditCardIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Bill Payments</span>
+                        </Link>
+                      </li>
+                    </ul>
+                  )}
+                </div>
+
+                {/* Expenses Section */}
+                <div>
+                  <button
+                    onClick={() => setIsTransactionExpensesOpen(!isTransactionExpensesOpen)}
+                    className={`${baseSubLinkClass} w-full justify-between text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-hover`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <CreditCardIcon className="h-4 w-4" />
+                      <span>Expenses</span>
+                    </div>
+                    {isTransactionExpensesOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+                  </button>
+                  {isTransactionExpensesOpen && (
+                    <ul className="mt-1 space-y-1">
+                      <li>
+                        <Link href="/transactions/expenses/expense-reports" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/expenses/expense-reports') ? activeLinkClass : inactiveLinkClass}`}>
+                          <ClipboardListIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Expense Reports</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/transactions/expenses/charges" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/transactions/expenses/charges') ? activeLinkClass : inactiveLinkClass}`}>
+                          <ZapIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Charges</span>
                         </Link>
                       </li>
                     </ul>
