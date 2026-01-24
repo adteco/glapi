@@ -53,6 +53,9 @@ import { taskTemplatesRouter } from './routers/task-templates';
 import { entityTasksRouter } from './routers/entity-tasks';
 import { financialStatementsRouter } from './routers/financial-statements';
 import { savedReportConfigsRouter } from './routers/saved-report-configs';
+import { emailTemplatesRouter } from './routers/email-templates';
+import { communicationEventsRouter } from './routers/communication-events';
+import { communicationWorkflowsRouter } from './routers/communication-workflows';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -108,6 +111,9 @@ export const appRouter = router({
   entityTasks: entityTasksRouter,
   financialStatements: financialStatementsRouter,
   savedReportConfigs: savedReportConfigsRouter,
+  emailTemplates: emailTemplatesRouter,
+  communicationEvents: communicationEventsRouter,
+  communicationWorkflows: communicationWorkflowsRouter,
 });
 
 export type AppRouter = typeof appRouter;
