@@ -53,6 +53,7 @@ import {
   Circle as CircleIcon,
   Loader2 as Loader2Icon,
   FolderOpen as FolderOpenIcon,
+  SlidersHorizontal as SlidersHorizontalIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -727,9 +728,18 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
             </button>
             {isSettingsOpen && (
               <ul className="mt-1 space-y-1">
-                {/* Placeholder for future settings sub-items */}
-                <li><span className={`${baseSubLinkClass} text-sidebar-muted-foreground`}>Sub-item 1</span></li>
-                <li><span className={`${baseSubLinkClass} text-sidebar-muted-foreground`}>Sub-item 2</span></li>
+                <li>
+                  <Link href="/admin/settings/workflows" className={`${baseSubLinkClass} ${isActive('/admin/settings/workflows') ? activeLinkClass : inactiveLinkClass}`}>
+                    <WorkflowIcon className="h-4 w-4" />
+                    <span>Workflows</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/admin/settings/task-fields" className={`${baseSubLinkClass} ${isActive('/admin/settings/task-fields') ? activeLinkClass : inactiveLinkClass}`}>
+                    <SlidersHorizontalIcon className="h-4 w-4" />
+                    <span>Task Fields</span>
+                  </Link>
+                </li>
               </ul>
             )}
           </div>
