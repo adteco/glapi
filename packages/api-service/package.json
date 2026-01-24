@@ -14,6 +14,7 @@
     "evidence:retention": "tsx src/scripts/run-evidence-retention.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.975.0",
     "@glapi/business": "workspace:*",
     "@glapi/database": "workspace:*",
     "@glapi/types": "workspace:*",

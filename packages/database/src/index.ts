@@ -6,4 +6,4 @@ export * from './repositories';
 export * from './seeds';
 
 // Re-export drizzle-orm functions for consistent usage across packages
-export { eq, and, or, gt, gte, lt, lte, ne, sql, desc, asc, isNull, inArray } from 'drizzle-orm';
+export { eq, and, or, gt, gte, lt, lte, ne, sql, desc, asc, isNull, inArray, ilike, like } from 'drizzle-orm';
