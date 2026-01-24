@@ -29,8 +29,8 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   });
 
   const companies = [
-    ...(customersData || []),
-    ...(vendorsData || [])
+    ...(Array.isArray(customersData) ? customersData : customersData?.data || []),
+    ...(Array.isArray(vendorsData) ? vendorsData : vendorsData?.data || [])
   ];
 
   const handleDelete = () => {

@@ -105,8 +105,8 @@ export default function ContactsPage() {
 
   const contacts = contactsData?.data || [];
   const companies = [
-    ...(customersData || []),
-    ...(vendorsData?.data || [])
+    ...(Array.isArray(customersData) ? customersData : customersData?.data || []),
+    ...(Array.isArray(vendorsData) ? vendorsData : vendorsData?.data || [])
   ];
 
   const [formData, setFormData] = useState({
