@@ -129,6 +129,9 @@ import * as projectTasksSchemas from './project-tasks';
 // Accounting Lists schemas
 import * as accountingListsSchemas from './accounting-lists';
 
+// Workflows schemas
+import * as workflowsSchemas from './workflows';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -241,6 +244,8 @@ export const schema = {
   ...projectTasksSchemas,
   // Accounting Lists schemas
   ...accountingListsSchemas,
+  // Workflows schemas
+  ...workflowsSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -935,3 +940,26 @@ export type {
   PaymentMethodWithDetails,
   ChargeTypeWithDetails,
 } from './accounting-lists';
+
+// Re-export Workflows schemas
+export {
+  workflows,
+  workflowGroups,
+  workflowComponents,
+  workflowComponentTypeEnum,
+} from './workflows';
+export type {
+  Workflow,
+  NewWorkflow,
+  UpdateWorkflow,
+  WorkflowGroup,
+  NewWorkflowGroup,
+  UpdateWorkflowGroup,
+  WorkflowComponent,
+  NewWorkflowComponent,
+  UpdateWorkflowComponent,
+  WorkflowComponentType,
+  WorkflowWithGroups,
+  WorkflowWithComponents,
+  WorkflowWithGroupsAndComponents,
+} from './workflows';

@@ -46,6 +46,8 @@ import { importsRouter } from './routers/imports';
 import { onboardingRouter } from './routers/onboarding';
 import { estimatesRouter } from './routers/estimates';
 import { accountingListsRouter } from './routers/accounting-lists';
+import { globalSearchRouter } from './routers/global-search';
+import { workflowsRouter } from './routers/workflows';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -94,6 +96,8 @@ export const appRouter = router({
   onboarding: onboardingRouter,
   estimates: estimatesRouter,
   accountingLists: accountingListsRouter,
+  globalSearch: globalSearchRouter,
+  workflows: workflowsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -531,7 +531,7 @@ export default function CustomersPage() {
           </Table>
           
           {customers.length === 0 && (
-            <div className="text-center py-10 text-gray-500">
+            <div className="text-center py-10 text-muted-foreground">
               No customers found. Create your first customer to get started.
             </div>
           )}
