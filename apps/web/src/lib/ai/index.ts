@@ -58,7 +58,7 @@ export {
   type MCPClient,
 } from './action-executor';
 
-// Conversational service
+// Conversational service (OpenAI)
 export {
   createConversationalService,
   type ConversationalService,
@@ -67,3 +67,17 @@ export {
   type Message,
   type PendingConfirmation,
 } from './conversational-service';
+
+// Gemini Conversational service
+export {
+  createGeminiConversationalService,
+  type GeminiConversationalService,
+  type GeminiServiceConfig,
+  GLAPI_SYSTEM_PROMPT,
+} from './gemini-conversational-service';
+
+// TRPC-based MCP Client
+export {
+  createTRPCMCPClient,
+  type TRPCMCPClientConfig,
+} from './trpc-mcp-client';
