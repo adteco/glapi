@@ -24,7 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Edit, Plus, Users, Trash2, Pencil } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Users, Trash2, Pencil, ListChecks } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TaskList } from '@/components/tasks';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -290,139 +292,175 @@ export default function ProjectDetailPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Project Information</CardTitle>
-            <CardDescription>Basic details about the project</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Project Code</dt>
-              <dd className="mt-1 text-sm text-gray-900">{project.projectCode}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Project Name</dt>
-              <dd className="mt-1 text-sm text-gray-900">{project.name}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Project Type</dt>
-              <dd className="mt-1 text-sm text-gray-900">{project.projectType || 'N/A'}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Job Number</dt>
-              <dd className="mt-1 text-sm text-gray-900">{project.jobNumber || 'N/A'}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Status</dt>
-              <dd className="mt-1">
-                <Badge className={getStatusBadgeColor(project.status)}>
-                  {getStatusLabel(project.status)}
-                </Badge>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Currency</dt>
-              <dd className="mt-1 text-sm text-gray-900">{project.currencyCode || 'USD'}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Start Date</dt>
-              <dd className="mt-1 text-sm text-gray-900">{formatDate(project.startDate)}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">End Date</dt>
-              <dd className="mt-1 text-sm text-gray-900">{formatDate(project.endDate)}</dd>
-            </div>
-            {project.retainagePercent && (
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Retainage</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.retainagePercent}%</dd>
-              </div>
-            )}
-            <div className="col-span-2">
-              <dt className="text-sm font-medium text-gray-500">Description</dt>
-              <dd className="mt-1 text-sm text-gray-900">{project.description || 'No description'}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Created</dt>
-              <dd className="mt-1 text-sm text-gray-900">{formatDateTime(project.createdAt)}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-              <dd className="mt-1 text-sm text-gray-900">{formatDateTime(project.updatedAt)}</dd>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="participants" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Participants
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4" />
+            Tasks
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
+        <TabsContent value="details" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Information</CardTitle>
+              <CardDescription>Basic details about the project</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Project Participants
-                </CardTitle>
-                <CardDescription>Team members and stakeholders assigned to this project</CardDescription>
+                <dt className="text-sm font-medium text-gray-500">Project Code</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.projectCode}</dd>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setIsAddParticipantOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Participant
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {participantsLoading ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Loading participants...</p>
-            ) : !participants || participants.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No participants assigned to this project</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Primary</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {participants.map((participant) => (
-                    <TableRow key={participant.id}>
-                      <TableCell className="font-medium">
-                        {participant.entityId ? employeeMap.get(participant.entityId) || 'Unknown' : 'Not assigned'}
-                      </TableCell>
-                      <TableCell>{participant.participantRole}</TableCell>
-                      <TableCell>
-                        <Badge variant={participant.isPrimary ? 'default' : 'outline'}>
-                          {participant.isPrimary ? 'Yes' : 'No'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditDialog(participant)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openDeleteDialog(participant.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Project Name</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.name}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Project Type</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.projectType || 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Job Number</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.jobNumber || 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Status</dt>
+                <dd className="mt-1">
+                  <Badge className={getStatusBadgeColor(project.status)}>
+                    {getStatusLabel(project.status)}
+                  </Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Currency</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.currencyCode || 'USD'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Start Date</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDate(project.startDate)}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">End Date</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDate(project.endDate)}</dd>
+              </div>
+              {project.retainagePercent && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Retainage</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{project.retainagePercent}%</dd>
+                </div>
+              )}
+              <div className="col-span-2">
+                <dt className="text-sm font-medium text-gray-500">Description</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.description || 'No description'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Created</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDateTime(project.createdAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDateTime(project.updatedAt)}</dd>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="participants" className="mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Project Participants
+                  </CardTitle>
+                  <CardDescription>Team members and stakeholders assigned to this project</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setIsAddParticipantOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Participant
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {participantsLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Loading participants...</p>
+              ) : !participants || participants.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No participants assigned to this project</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Primary</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  </TableHeader>
+                  <TableBody>
+                    {participants.map((participant) => (
+                      <TableRow key={participant.id}>
+                        <TableCell className="font-medium">
+                          {participant.entityId ? employeeMap.get(participant.entityId) || 'Unknown' : 'Not assigned'}
+                        </TableCell>
+                        <TableCell>{participant.participantRole}</TableCell>
+                        <TableCell>
+                          <Badge variant={participant.isPrimary ? 'default' : 'outline'}>
+                            {participant.isPrimary ? 'Yes' : 'No'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(participant)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeleteDialog(participant.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tasks" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ListChecks className="h-5 w-5" />
+                Tasks
+              </CardTitle>
+              <CardDescription>Manage tasks associated with this project</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TaskList
+                entityType="project"
+                entityId={id}
+                showFilters={true}
+                allowCreate={true}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Add Participant Dialog */}
       <Dialog open={isAddParticipantOpen} onOpenChange={setIsAddParticipantOpen}>
