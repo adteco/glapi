@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import {
   Card,
@@ -72,6 +72,27 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import type { RouterOutputs } from '@glapi/trpc';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  DragOverEvent,
+  UniqueIdentifier,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // =============================================================================
 // Types
@@ -815,6 +836,20 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
   const [isComponentPickerOpen, setIsComponentPickerOpen] = useState(false);
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
   const [deleteComponentId, setDeleteComponentId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [activeType, setActiveType] = useState<'group' | 'component' | null>(null);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Group mutations
   const addGroupMutation = trpc.workflows.addGroup.useMutation({
@@ -874,13 +909,19 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
     },
   });
 
-  // Reorder mutation - prepared for drag-and-drop functionality
-  const _reorderMutation = trpc.workflows.reorderComponents.useMutation({
+  // Reorder mutations
+  const reorderComponentsMutation = trpc.workflows.reorderComponents.useMutation({
     onSuccess: () => {
       onUpdate();
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to reorder');
+    },
+  });
+
+  const reorderGroupsMutation = trpc.workflows.updateGroup.useMutation({
+    onError: (error) => {
+      toast.error(error.message || 'Failed to reorder groups');
     },
   });
 
@@ -967,6 +1008,93 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
   // Get ungrouped components
   const ungroupedComponents = workflow.components?.filter(c => !c.groupId) || [];
 
+  // Sort groups by displayOrder
+  const sortedGroups = [...(workflow.groups || [])].sort((a, b) => a.displayOrder - b.displayOrder);
+  const groupIds = sortedGroups.map(g => g.id);
+
+  // DnD handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id);
+    // Determine if dragging a group or component
+    const isGroup = sortedGroups.some(g => g.id === active.id);
+    setActiveType(isGroup ? 'group' : 'component');
+  }, [sortedGroups]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setActiveType(null);
+
+    if (!over || active.id === over.id) return;
+
+    // Handle group reordering
+    if (activeType === 'group') {
+      const oldIndex = sortedGroups.findIndex(g => g.id === active.id);
+      const newIndex = sortedGroups.findIndex(g => g.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedGroups = arrayMove(sortedGroups, oldIndex, newIndex);
+        // Update each group's displayOrder
+        reorderedGroups.forEach((group, index) => {
+          if (group.displayOrder !== index) {
+            reorderGroupsMutation.mutate({
+              id: group.id,
+              data: { displayOrder: index },
+            });
+          }
+        });
+        onUpdate();
+      }
+    } else {
+      // Handle component reordering
+      const activeComponent = workflow.components?.find(c => c.id === active.id);
+      const overComponent = workflow.components?.find(c => c.id === over.id);
+
+      if (activeComponent && overComponent) {
+        // Get components in the same group as the target
+        const targetGroupId = overComponent.groupId;
+        const componentsInGroup = (workflow.components || [])
+          .filter(c => c.groupId === targetGroupId)
+          .sort((a, b) => a.displayOrder - b.displayOrder);
+
+        const oldIndex = componentsInGroup.findIndex(c => c.id === active.id);
+        const newIndex = componentsInGroup.findIndex(c => c.id === over.id);
+
+        // If moving within the same group
+        if (activeComponent.groupId === targetGroupId && oldIndex !== -1 && newIndex !== -1) {
+          const reorderedComponents = arrayMove(componentsInGroup, oldIndex, newIndex);
+          const updates = reorderedComponents.map((comp, index) => ({
+            id: comp.id,
+            displayOrder: index,
+            groupId: targetGroupId,
+          }));
+          reorderComponentsMutation.mutate({
+            workflowId: workflow.id,
+            components: updates,
+          });
+        } else {
+          // Moving to a different group
+          const allComponents = workflow.components || [];
+          const updatedComponents = allComponents.map(c => {
+            if (c.id === activeComponent.id) {
+              return { id: c.id, displayOrder: newIndex >= 0 ? newIndex : 0, groupId: targetGroupId };
+            }
+            return { id: c.id, displayOrder: c.displayOrder, groupId: c.groupId };
+          });
+          reorderComponentsMutation.mutate({
+            workflowId: workflow.id,
+            components: updatedComponents,
+          });
+        }
+      }
+    }
+  }, [activeType, sortedGroups, workflow, reorderGroupsMutation, reorderComponentsMutation, onUpdate]);
+
+  // Get active item for drag overlay
+  const activeGroup = activeType === 'group' ? sortedGroups.find(g => g.id === activeId) : null;
+  const activeComponent = activeType === 'component' ? workflow.components?.find(c => c.id === activeId) : null;
+
   return (
     <Card>
       <CardHeader>
@@ -1026,60 +1154,32 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[500px] pr-4">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
           <div className="space-y-3">
             {/* Groups */}
-            {workflow.groups?.map((group) => {
+            <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
+            {sortedGroups.map((group) => {
               const isExpanded = expandedGroups.has(group.id);
-              const groupComponents = workflow.components?.filter(c => c.groupId === group.id) || [];
+              const groupComponents = (workflow.components?.filter(c => c.groupId === group.id) || [])
+                .sort((a, b) => a.displayOrder - b.displayOrder);
+              const componentIds = groupComponents.map(c => c.id);
 
               return (
-                <div key={group.id} className="border rounded-lg">
-                  {/* Group Header */}
-                  <div
-                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => toggleGroupExpanded(group.id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                      <Folder className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{group.name}</span>
-                      <Badge variant="outline" className="ml-2">
-                        {groupComponents.length}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openComponentPicker(group.id)}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEditGroup(group)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => setDeleteGroupId(group.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
+                <SortableGroup
+                  key={group.id}
+                  group={group}
+                  isExpanded={isExpanded}
+                  componentCount={groupComponents.length}
+                  onToggleExpand={() => toggleGroupExpanded(group.id)}
+                  onAddComponent={() => openComponentPicker(group.id)}
+                  onEdit={() => handleEditGroup(group)}
+                  onDelete={() => setDeleteGroupId(group.id)}
+                >
                   {/* Group Components */}
                   {isExpanded && (
                     <div className="border-t px-3 py-2 bg-muted/30">
@@ -1096,23 +1196,24 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
                           </Button>
                         </div>
                       ) : (
-                        <div className="space-y-1">
-                          {groupComponents
-                            .sort((a, b) => a.displayOrder - b.displayOrder)
-                            .map((component) => (
-                              <ComponentItem
+                        <SortableContext items={componentIds} strategy={verticalListSortingStrategy}>
+                          <div className="space-y-1">
+                            {groupComponents.map((component) => (
+                              <SortableComponentItem
                                 key={component.id}
                                 component={component}
                                 onDelete={() => setDeleteComponentId(component.id)}
                               />
                             ))}
-                        </div>
+                          </div>
+                        </SortableContext>
                       )}
                     </div>
                   )}
-                </div>
+                </SortableGroup>
               );
             })}
+            </SortableContext>
 
             {/* Ungrouped Components */}
             {ungroupedComponents.length > 0 && (
@@ -1132,17 +1233,22 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
                   </Button>
                 </div>
                 <div className="px-3 py-2">
-                  <div className="space-y-1">
-                    {ungroupedComponents
-                      .sort((a, b) => a.displayOrder - b.displayOrder)
-                      .map((component) => (
-                        <ComponentItem
-                          key={component.id}
-                          component={component}
-                          onDelete={() => setDeleteComponentId(component.id)}
-                        />
-                      ))}
-                  </div>
+                  <SortableContext
+                    items={ungroupedComponents.map(c => c.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-1">
+                      {ungroupedComponents
+                        .sort((a, b) => a.displayOrder - b.displayOrder)
+                        .map((component) => (
+                          <SortableComponentItem
+                            key={component.id}
+                            component={component}
+                            onDelete={() => setDeleteComponentId(component.id)}
+                          />
+                        ))}
+                    </div>
+                  </SortableContext>
                 </div>
               </div>
             )}
@@ -1164,6 +1270,30 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
               </div>
             )}
           </div>
+
+          {/* Drag Overlay */}
+          <DragOverlay>
+            {activeGroup && (
+              <div className="border rounded-lg bg-background shadow-lg p-3">
+                <div className="flex items-center gap-2">
+                  <Folder className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{activeGroup.name}</span>
+                </div>
+              </div>
+            )}
+            {activeComponent && (
+              <div className="flex items-center justify-between p-2 rounded bg-background border shadow-lg">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <Badge variant="outline" className="text-xs">
+                    {CATEGORY_LABELS[activeComponent.componentType as ComponentCategory] || activeComponent.componentType}
+                  </Badge>
+                  <span className="text-sm">{activeComponent.displayName}</span>
+                </div>
+              </div>
+            )}
+          </DragOverlay>
+          </DndContext>
         </ScrollArea>
       </CardContent>
 
@@ -1256,19 +1386,145 @@ function WorkflowEditor({ workflow, onUpdate }: WorkflowEditorProps) {
 }
 
 // =============================================================================
-// Component Item
+// Sortable Group Component
 // =============================================================================
 
-interface ComponentItemProps {
+interface SortableGroupProps {
+  group: WorkflowGroup;
+  isExpanded: boolean;
+  componentCount: number;
+  onToggleExpand: () => void;
+  onAddComponent: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  children: React.ReactNode;
+}
+
+function SortableGroup({
+  group,
+  isExpanded,
+  componentCount,
+  onToggleExpand,
+  onAddComponent,
+  onEdit,
+  onDelete,
+  children,
+}: SortableGroupProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: group.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="border rounded-lg">
+      {/* Group Header */}
+      <div
+        className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={onToggleExpand}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            className="cursor-grab active:cursor-grabbing touch-none"
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+          </button>
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+          <Folder className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{group.name}</span>
+          <Badge variant="outline" className="ml-2">
+            {componentCount}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onAddComponent}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onEdit}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Group Content (children) */}
+      {children}
+    </div>
+  );
+}
+
+// =============================================================================
+// Sortable Component Item
+// =============================================================================
+
+interface SortableComponentItemProps {
   component: WorkflowComponent;
   onDelete: () => void;
 }
 
-function ComponentItem({ component, onDelete }: ComponentItemProps) {
+function SortableComponentItem({ component, onDelete }: SortableComponentItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: component.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   return (
-    <div className="flex items-center justify-between p-2 rounded bg-background border group">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-2 rounded bg-background border group"
+    >
       <div className="flex items-center gap-2">
-        <GripVertical className="h-4 w-4 text-muted-foreground opacity-50 group-hover:opacity-100 cursor-grab" />
+        <button
+          className="cursor-grab active:cursor-grabbing touch-none"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground opacity-50 group-hover:opacity-100" />
+        </button>
         <Badge variant="outline" className="text-xs">
           {CATEGORY_LABELS[component.componentType as ComponentCategory] || component.componentType}
         </Badge>
