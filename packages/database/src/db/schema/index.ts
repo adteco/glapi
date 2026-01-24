@@ -132,6 +132,18 @@ import * as accountingListsSchemas from './accounting-lists';
 // Workflows schemas
 import * as workflowsSchemas from './workflows';
 
+// Task Templates schemas
+import * as taskTemplatesSchemas from './task-templates';
+
+// Task Field Definitions schemas
+import * as taskFieldDefinitionsSchemas from './task-field-definitions';
+
+// Entity Tasks schemas (polymorphic tasks)
+import * as entityTasksSchemas from './entity-tasks';
+
+// Saved Report Configs schemas
+import * as savedReportConfigsSchemas from './saved-report-configs';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -246,6 +258,14 @@ export const schema = {
   ...accountingListsSchemas,
   // Workflows schemas
   ...workflowsSchemas,
+  // Task Templates schemas
+  ...taskTemplatesSchemas,
+  // Task Field Definitions schemas
+  ...taskFieldDefinitionsSchemas,
+  // Entity Tasks schemas (polymorphic tasks)
+  ...entityTasksSchemas,
+  // Saved Report Configs schemas
+  ...savedReportConfigsSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -963,3 +983,65 @@ export type {
   WorkflowWithComponents,
   WorkflowWithGroupsAndComponents,
 } from './workflows';
+
+// Re-export Task Templates schemas
+export {
+  taskTemplates,
+} from './task-templates';
+export type {
+  TaskTemplate,
+  NewTaskTemplate,
+  UpdateTaskTemplate,
+  TaskTemplateData,
+  TaskTemplateItem,
+  TaskTemplatePriority,
+} from './task-templates';
+
+// Re-export Task Field Definitions schemas
+export {
+  taskFieldDefinitions,
+  taskFieldTypeEnum,
+  TASK_FIELD_TYPE,
+} from './task-field-definitions';
+export type {
+  TaskFieldDefinition,
+  NewTaskFieldDefinition,
+  UpdateTaskFieldDefinition,
+  TaskFieldType,
+  SelectOption,
+  SelectFieldOptions,
+  NumberFieldOptions,
+  TextFieldOptions,
+  FieldOptions,
+} from './task-field-definitions';
+
+// Re-export Entity Tasks schemas (polymorphic tasks)
+export {
+  entityTasks,
+  entityTaskEntityTypeEnum,
+  entityTaskStatusEnum,
+  entityTaskPriorityEnum,
+  ENTITY_TASK_ENTITY_TYPE,
+  ENTITY_TASK_STATUS,
+  ENTITY_TASK_PRIORITY,
+} from './entity-tasks';
+export type {
+  EntityTask,
+  NewEntityTask,
+  UpdateEntityTask,
+  EntityTaskEntityType,
+  EntityTaskStatus,
+  EntityTaskPriority,
+} from './entity-tasks';
+
+// Re-export Saved Report Configs schemas
+export {
+  savedReportConfigs,
+  REPORT_TYPES,
+} from './saved-report-configs';
+export type {
+  SavedReportConfig,
+  NewSavedReportConfig,
+  SavedReportType,
+  SavedReportConfigJson,
+} from './saved-report-configs';
