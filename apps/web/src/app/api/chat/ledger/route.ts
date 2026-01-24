@@ -1,50 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { createConversationalService, createDefaultUserContext, type UserRole } from '@/lib/ai';
-
-// Mock MCP client for now - in production, this would connect to actual MCP servers
-const mockMcpClient = {
-  async callTool(toolName: string, parameters: Record<string, unknown>, _authToken: string) {
-    // Simulate API calls with mock data
-    const mockResponses: Record<string, unknown> = {
-      list_customers: { customers: [{ id: '1', name: 'Acme Corp' }, { id: '2', name: 'Globex Inc' }] },
-      list_vendors: { vendors: [{ id: '1', name: 'Supplier A' }] },
-      list_invoices: { invoices: [{ id: '1', amount: 5000, status: 'pending' }] },
-      generate_balance_sheet: { report: 'Balance Sheet data...', totalAssets: 100000, totalLiabilities: 40000 },
-      generate_income_statement: { report: 'Income Statement...', revenue: 250000, expenses: 180000 },
-      help: { capabilities: ['List and manage customers', 'Create invoices', 'Generate reports', 'Journal entries'] },
-    };
-
-    return mockResponses[toolName] || { success: true, message: `Executed ${toolName}` };
-  },
-};
+import {
+  createGeminiConversationalService,
+  createTRPCMCPClient,
+  createDefaultUserContext,
+  type UserRole,
+  GLAPI_SYSTEM_PROMPT,
+} from '@/lib/ai';
 
 // Create conversational service instance
-let conversationalService: ReturnType<typeof createConversationalService> | null = null;
+let conversationalService: ReturnType<typeof createGeminiConversationalService> | null = null;
 
-function getConversationalService() {
-  if (!conversationalService) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not configured');
-    }
-
-    conversationalService = createConversationalService({
-      openaiApiKey: apiKey,
-      mcpClient: mockMcpClient,
-      systemPrompt: `You are a helpful accounting assistant for GLAPI, a general ledger and revenue recognition system.
-You can help users with:
-- Managing customers, vendors, and employees
-- Creating and viewing invoices
-- Journal entries and general ledger operations
-- Generating financial reports (balance sheet, income statement, cash flow)
-- Revenue recognition tasks
-
-Always be professional and provide clear, concise responses. When performing actions that modify data, confirm with the user first.
-If you're unsure about something, ask for clarification.`,
-      enableLogging: process.env.NODE_ENV === 'development',
-    });
+function getConversationalService(organizationId: string, userId: string) {
+  // Create a fresh service for each request to use the correct org context
+  // In production, you might want to cache these per-org
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GOOGLE_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or GEMINI_API_KEY is not configured');
   }
+
+  // Create the TRPC-based MCP client for real database access
+  const mcpClient = createTRPCMCPClient({
+    organizationId,
+    userId,
+    enableLogging: process.env.NODE_ENV === 'development',
+  });
+
+  conversationalService = createGeminiConversationalService({
+    geminiApiKey: apiKey,
+    mcpClient,
+    model: process.env.GEMINI_MODEL || 'gemini-3-pro-preview',
+    systemPrompt: GLAPI_SYSTEM_PROMPT,
+    enableLogging: process.env.NODE_ENV === 'development',
+  });
+
   return conversationalService;
 }
 
@@ -62,7 +51,7 @@ function mapClerkRoleToGlapiRole(clerkRole?: string): UserRole {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -76,20 +65,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Message is required' }, { status: 400 });
     }
 
-    // Create user context from Clerk user
-    const orgId = (user?.publicMetadata?.organizationId as string) || 'default-org';
+    // Get organization ID from Clerk org or user metadata
+    const organizationId = orgId || (user?.publicMetadata?.organizationId as string) || 'default-org';
     const userRole = mapClerkRoleToGlapiRole(user?.publicMetadata?.role as string);
-    const userContext = createDefaultUserContext(userId, orgId, userRole);
+    const userContext = createDefaultUserContext(userId, organizationId, userRole);
 
-    // Get or create conversational service
-    const service = getConversationalService();
+    // Get or create conversational service with proper org context
+    const service = getConversationalService(organizationId, userId);
 
     // Process the message
     const response = await service.processMessage(
       message,
       conversationHistory || [],
       userContext,
-      'mock-auth-token', // In production, use actual auth token
+      'clerk-auth-token', // The TRPC client handles auth via context
       conversationId || `conv_${Date.now()}`
     );
 
@@ -119,11 +108,20 @@ export async function POST(request: NextRequest) {
     // Return user-friendly error message
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
 
+    // Provide helpful error messages based on error type
+    let userMessage = 'Sorry, I encountered an error processing your request. Please try again.';
+
+    if (errorMessage.includes('API_KEY')) {
+      userMessage = 'The AI service is not configured. Please contact an administrator.';
+    } else if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('Too Many Requests')) {
+      userMessage = 'The AI service is temporarily rate limited. Please wait a moment and try again. If this persists, you may need to upgrade your Gemini API plan.';
+    } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+      userMessage = 'The AI service authentication failed. Please check your API key configuration.';
+    }
+
     return NextResponse.json(
       {
-        message: errorMessage.includes('OPENAI_API_KEY')
-          ? 'The AI service is not configured. Please contact an administrator.'
-          : 'Sorry, I encountered an error processing your request. Please try again.',
+        message: userMessage,
         metadata: {
           error: errorMessage,
         },

@@ -334,9 +334,11 @@ export class ProjectCostCodeRepository extends BaseRepository {
 
   /**
    * Update amounts for a cost code (called when transactions are posted)
+   * Requires projectIds for organization access validation
    */
   async updateAmounts(
     id: string,
+    projectIds: string[],
     amounts: {
       budgetAmount?: string;
       committedAmount?: string;
@@ -349,17 +351,30 @@ export class ProjectCostCodeRepository extends BaseRepository {
         ...amounts,
         updatedAt: new Date(),
       })
-      .where(eq(projectCostCodes.id, id))
+      .where(
+        and(
+          eq(projectCostCodes.id, id),
+          inArray(projectCostCodes.projectId, projectIds)
+        )
+      )
       .returning();
 
     return result || null;
   }
 
   /**
-   * Bulk create cost codes
+   * Bulk create cost codes with organization access validation
+   * Only creates cost codes for projects that exist in the provided projectIds
    */
-  async bulkCreate(codes: CreateCostCodeData[]) {
-    const codesToCreate = codes.map((c) => ({
+  async bulkCreate(codes: CreateCostCodeData[], projectIds: string[]) {
+    // Filter out any codes for projects not in the accessible list
+    const validCodes = codes.filter((c) => projectIds.includes(c.projectId));
+
+    if (validCodes.length === 0) {
+      return [];
+    }
+
+    const codesToCreate = validCodes.map((c) => ({
       ...c,
       isActive: c.isActive ?? true,
       isBillable: c.isBillable ?? true,
