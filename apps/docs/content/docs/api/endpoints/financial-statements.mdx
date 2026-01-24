@@ -1,0 +1,581 @@
+---
+title: Financial Statements
+description: Financial statements generation and export API endpoints
+---
+
+# Financial Statements API
+
+Generate and export financial statements including Balance Sheet, Income Statement, Cash Flow Statement, and Trial Balance.
+
+## Base Path
+
+```
+/api/financial-statements
+```
+
+## Endpoints
+
+### Balance Sheet
+
+Generate a Balance Sheet for the specified period showing assets, liabilities, and equity.
+
+```http
+POST /api/financial-statements/balanceSheet
+```
+
+**Request Body:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `periodId` | UUID | Yes | Accounting period ID |
+| `comparePeriodId` | UUID | No | Period ID for comparative statement |
+| `subsidiaryId` | UUID | No | Filter by subsidiary |
+| `departmentIds` | UUID[] | No | Filter by departments |
+| `classIds` | UUID[] | No | Filter by classes |
+| `locationIds` | UUID[] | No | Filter by locations |
+| `includeInactive` | boolean | No | Include inactive accounts (default: false) |
+| `showAccountHierarchy` | boolean | No | Show account hierarchy (default: true) |
+| `showZeroBalances` | boolean | No | Show accounts with zero balances (default: false) |
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "periodId": "123e4567-e89b-12d3-a456-426614174000",
+    "showZeroBalances": false
+  }' \
+  https://api.glapi.io/api/financial-statements/balanceSheet
+```
+
+**Example Response:**
+
+```json
+{
+  "reportName": "Balance Sheet",
+  "periodName": "January 2025",
+  "subsidiaryName": "Main Company",
+  "asOfDate": "2025-01-31",
+  "currentAssetsSection": {
+    "name": "Current Assets",
+    "category": "ASSET",
+    "lineItems": [
+      {
+        "accountId": "acc-001",
+        "accountNumber": "1000",
+        "accountName": "Cash",
+        "accountCategory": "ASSET",
+        "currentPeriodAmount": 50000.00,
+        "ytdAmount": 50000.00
+      }
+    ],
+    "sectionTotal": 75000.00
+  },
+  "totalCurrentAssets": 75000.00,
+  "nonCurrentAssetsSection": {
+    "name": "Non-Current Assets",
+    "lineItems": [],
+    "sectionTotal": 25000.00
+  },
+  "totalNonCurrentAssets": 25000.00,
+  "totalAssets": 100000.00,
+  "currentLiabilitiesSection": {
+    "name": "Current Liabilities",
+    "lineItems": [],
+    "sectionTotal": 20000.00
+  },
+  "totalCurrentLiabilities": 20000.00,
+  "longTermLiabilitiesSection": {
+    "name": "Long-Term Liabilities",
+    "lineItems": [],
+    "sectionTotal": 30000.00
+  },
+  "totalLongTermLiabilities": 30000.00,
+  "totalLiabilities": 50000.00,
+  "equitySection": {
+    "name": "Equity",
+    "lineItems": [],
+    "sectionTotal": 50000.00
+  },
+  "retainedEarnings": 35000.00,
+  "currentPeriodNetIncome": 15000.00,
+  "totalEquity": 50000.00,
+  "totalLiabilitiesAndEquity": 100000.00,
+  "balanceCheck": 0
+}
+```
+
+---
+
+### Income Statement
+
+Generate an Income Statement for the specified period showing revenue, expenses, and net income.
+
+```http
+POST /api/financial-statements/incomeStatement
+```
+
+**Request Body:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `periodId` | UUID | Yes | Accounting period ID |
+| `comparePeriodId` | UUID | No | Period ID for comparative statement |
+| `includeYTD` | boolean | No | Include year-to-date amounts (default: true) |
+| `subsidiaryId` | UUID | No | Filter by subsidiary |
+| `departmentIds` | UUID[] | No | Filter by departments |
+| `classIds` | UUID[] | No | Filter by classes |
+| `locationIds` | UUID[] | No | Filter by locations |
+| `includeInactive` | boolean | No | Include inactive accounts (default: false) |
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "periodId": "123e4567-e89b-12d3-a456-426614174000",
+    "includeYTD": true
+  }' \
+  https://api.glapi.io/api/financial-statements/incomeStatement
+```
+
+**Example Response:**
+
+```json
+{
+  "reportName": "Income Statement",
+  "periodName": "January 2025",
+  "subsidiaryName": "Main Company",
+  "asOfDate": "2025-01-31",
+  "revenueSection": {
+    "name": "Revenue",
+    "category": "REVENUE",
+    "lineItems": [
+      {
+        "accountId": "acc-100",
+        "accountNumber": "4000",
+        "accountName": "Product Sales",
+        "accountCategory": "REVENUE",
+        "currentPeriodAmount": 150000.00,
+        "ytdAmount": 150000.00
+      }
+    ],
+    "sectionTotal": 150000.00
+  },
+  "totalRevenue": 150000.00,
+  "cogsSection": {
+    "name": "Cost of Goods Sold",
+    "lineItems": [],
+    "sectionTotal": 60000.00
+  },
+  "totalCogs": 60000.00,
+  "grossProfit": 90000.00,
+  "grossProfitMargin": 60.00,
+  "operatingExpensesSection": {
+    "name": "Operating Expenses",
+    "lineItems": [],
+    "sectionTotal": 75000.00
+  },
+  "totalOperatingExpenses": 75000.00,
+  "operatingIncome": 15000.00,
+  "operatingMargin": 10.00,
+  "netIncome": 15000.00,
+  "netProfitMargin": 10.00
+}
+```
+
+---
+
+### Cash Flow Statement
+
+Generate a Cash Flow Statement for the specified period using the indirect method.
+
+```http
+POST /api/financial-statements/cashFlowStatement
+```
+
+**Request Body:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `periodId` | UUID | Yes | Accounting period ID |
+| `comparePeriodId` | UUID | No | Period ID for comparative statement |
+| `subsidiaryId` | UUID | No | Filter by subsidiary |
+| `departmentIds` | UUID[] | No | Filter by departments |
+| `classIds` | UUID[] | No | Filter by classes |
+| `locationIds` | UUID[] | No | Filter by locations |
+| `includeInactive` | boolean | No | Include inactive accounts (default: false) |
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "periodId": "123e4567-e89b-12d3-a456-426614174000"
+  }' \
+  https://api.glapi.io/api/financial-statements/cashFlowStatement
+```
+
+**Example Response:**
+
+```json
+{
+  "reportName": "Statement of Cash Flows",
+  "reportType": "CASH_FLOW_STATEMENT",
+  "periodName": "January 2025",
+  "periodId": "123e4567-e89b-12d3-a456-426614174000",
+  "subsidiaryName": "Main Company",
+  "periodStartDate": "2025-01-01",
+  "periodEndDate": "2025-01-31",
+  "generatedAt": "2025-01-31T12:00:00Z",
+  "beginningCashBalance": 40000.00,
+  "operatingActivities": {
+    "sectionName": "Cash Flows from Operating Activities",
+    "category": "OPERATING",
+    "lineItems": [
+      {
+        "description": "Net Income",
+        "amount": 15000.00,
+        "isSubtotal": false
+      },
+      {
+        "description": "Depreciation",
+        "amount": 2000.00,
+        "isSubtotal": false
+      },
+      {
+        "description": "Change in Accounts Receivable",
+        "amount": -5000.00,
+        "isSubtotal": false
+      }
+    ],
+    "sectionTotal": 12000.00
+  },
+  "netCashFromOperations": 12000.00,
+  "investingActivities": {
+    "sectionName": "Cash Flows from Investing Activities",
+    "category": "INVESTING",
+    "lineItems": [
+      {
+        "description": "Purchase of Equipment",
+        "amount": -10000.00,
+        "isSubtotal": false
+      }
+    ],
+    "sectionTotal": -10000.00
+  },
+  "netCashFromInvesting": -10000.00,
+  "financingActivities": {
+    "sectionName": "Cash Flows from Financing Activities",
+    "category": "FINANCING",
+    "lineItems": [
+      {
+        "description": "Dividends Paid",
+        "amount": -5000.00,
+        "isSubtotal": false
+      }
+    ],
+    "sectionTotal": -5000.00
+  },
+  "netCashFromFinancing": -5000.00,
+  "netChangeInCash": -3000.00,
+  "endingCashBalance": 37000.00,
+  "cashFlowTrend": "NEGATIVE",
+  "reconciliationDifference": 0
+}
+```
+
+---
+
+### Trial Balance
+
+Generate a Trial Balance for the specified period showing all account balances.
+
+```http
+POST /api/financial-statements/trialBalance
+```
+
+**Request Body:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `periodId` | UUID | Yes | Accounting period ID |
+| `subsidiaryId` | UUID | No | Filter by subsidiary |
+| `departmentIds` | UUID[] | No | Filter by departments |
+| `classIds` | UUID[] | No | Filter by classes |
+| `locationIds` | UUID[] | No | Filter by locations |
+| `includeInactive` | boolean | No | Include inactive accounts (default: false) |
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "periodId": "123e4567-e89b-12d3-a456-426614174000"
+  }' \
+  https://api.glapi.io/api/financial-statements/trialBalance
+```
+
+**Example Response:**
+
+```json
+{
+  "periodName": "January 2025",
+  "subsidiaryName": "Main Company",
+  "asOfDate": "2025-01-31",
+  "assetAccounts": [
+    {
+      "accountId": "acc-001",
+      "accountNumber": "1000",
+      "accountName": "Cash",
+      "accountCategory": "ASSET",
+      "normalBalance": "DEBIT",
+      "debitBalance": 50000.00,
+      "creditBalance": 0,
+      "netBalance": 50000.00,
+      "periodActivity": {
+        "debits": 60000.00,
+        "credits": 10000.00,
+        "net": 50000.00
+      },
+      "ytdActivity": {
+        "debits": 60000.00,
+        "credits": 10000.00,
+        "net": 50000.00
+      }
+    }
+  ],
+  "liabilityAccounts": [],
+  "equityAccounts": [],
+  "revenueAccounts": [],
+  "cogsAccounts": [],
+  "expenseAccounts": [],
+  "categoryTotals": {
+    "assets": { "debit": 100000.00, "credit": 0, "net": 100000.00 },
+    "liabilities": { "debit": 0, "credit": 50000.00, "net": -50000.00 },
+    "equity": { "debit": 0, "credit": 50000.00, "net": -50000.00 },
+    "revenue": { "debit": 0, "credit": 150000.00, "net": -150000.00 },
+    "cogs": { "debit": 60000.00, "credit": 0, "net": 60000.00 },
+    "expenses": { "debit": 75000.00, "credit": 0, "net": 75000.00 }
+  },
+  "totals": {
+    "totalDebits": 235000.00,
+    "totalCredits": 235000.00,
+    "difference": 0
+  }
+}
+```
+
+---
+
+### Export Report
+
+Export a generated financial statement to PDF, Excel, CSV, or JSON format.
+
+```http
+POST /api/financial-statements/export
+```
+
+**Request Body:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `reportType` | string | Yes | Report type: `INCOME_STATEMENT`, `BALANCE_SHEET`, or `CASH_FLOW_STATEMENT` |
+| `reportData` | object | Yes | The generated report data (from one of the above endpoints) |
+| `format` | string | Yes | Export format: `pdf`, `xlsx`, `csv`, or `json` |
+| `includeComparison` | boolean | No | Include comparison period (default: false) |
+| `includeNotes` | boolean | No | Include footnotes (default: false) |
+| `includeLogo` | boolean | No | Include company logo (default: true) |
+| `landscape` | boolean | No | Use landscape orientation (default: false) |
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reportType": "INCOME_STATEMENT",
+    "reportData": { ... },
+    "format": "pdf",
+    "landscape": true
+  }' \
+  https://api.glapi.io/api/financial-statements/export
+```
+
+**Example Response:**
+
+```json
+{
+  "filename": "income_statement_2025-01-31.pdf",
+  "contentType": "application/pdf",
+  "content": "JVBERi0xLjQKJdPr6eEKMSAwI... (base64 encoded)"
+}
+```
+
+---
+
+### Report Metadata
+
+Generate report metadata for audit trail purposes.
+
+```http
+POST /api/financial-statements/metadata
+```
+
+**Request Body:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `reportType` | string | Yes | Report type: `INCOME_STATEMENT`, `BALANCE_SHEET`, `CASH_FLOW`, or `TRIAL_BALANCE` |
+| `periodId` | UUID | Yes | Accounting period ID |
+| `subsidiaryId` | UUID | No | Subsidiary ID if filtered |
+| `filters` | object | No | Additional filters applied to the report |
+
+**Example Request:**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reportType": "BALANCE_SHEET",
+    "periodId": "123e4567-e89b-12d3-a456-426614174000"
+  }' \
+  https://api.glapi.io/api/financial-statements/metadata
+```
+
+**Example Response:**
+
+```json
+{
+  "reportId": "rpt-abc123",
+  "reportType": "BALANCE_SHEET",
+  "generatedAt": "2025-01-31T12:00:00Z",
+  "generatedBy": "user_123",
+  "organizationId": "org_456",
+  "periodId": "123e4567-e89b-12d3-a456-426614174000",
+  "subsidiaryId": null,
+  "filters": {}
+}
+```
+
+---
+
+## Code Examples
+
+### TypeScript
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '@glapi/trpc';
+
+const client = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'https://api.glapi.io/api/trpc',
+      headers: () => ({
+        Authorization: `Bearer ${process.env.GLAPI_TOKEN}`,
+      }),
+    }),
+  ],
+});
+
+// Generate Balance Sheet
+const balanceSheet = await client.financialStatements.balanceSheet.query({
+  periodId: '123e4567-e89b-12d3-a456-426614174000',
+  showZeroBalances: false,
+});
+
+// Generate Income Statement with comparison
+const incomeStatement = await client.financialStatements.incomeStatement.query({
+  periodId: '123e4567-e89b-12d3-a456-426614174000',
+  comparePeriodId: '987e6543-e89b-12d3-a456-426614174000',
+  includeYTD: true,
+});
+
+// Generate Cash Flow Statement
+const cashFlow = await client.financialStatements.cashFlowStatement.query({
+  periodId: '123e4567-e89b-12d3-a456-426614174000',
+});
+
+// Export to PDF
+const pdfExport = await client.financialStatements.export.mutate({
+  reportType: 'INCOME_STATEMENT',
+  reportData: incomeStatement,
+  format: 'pdf',
+  landscape: true,
+});
+
+// Decode and save the PDF
+const buffer = Buffer.from(pdfExport.content, 'base64');
+fs.writeFileSync(pdfExport.filename, buffer);
+```
+
+### Python
+
+```python
+import requests
+import base64
+import os
+
+API_BASE = 'https://api.glapi.io/api/financial-statements'
+TOKEN = os.environ.get('GLAPI_TOKEN')
+HEADERS = {
+    'Authorization': f'Bearer {TOKEN}',
+    'Content-Type': 'application/json',
+}
+
+# Generate Balance Sheet
+response = requests.post(
+    f'{API_BASE}/balanceSheet',
+    headers=HEADERS,
+    json={
+        'periodId': '123e4567-e89b-12d3-a456-426614174000',
+        'showZeroBalances': False
+    }
+)
+balance_sheet = response.json()
+
+# Generate Income Statement
+response = requests.post(
+    f'{API_BASE}/incomeStatement',
+    headers=HEADERS,
+    json={
+        'periodId': '123e4567-e89b-12d3-a456-426614174000',
+        'includeYTD': True
+    }
+)
+income_statement = response.json()
+
+# Export to Excel
+response = requests.post(
+    f'{API_BASE}/export',
+    headers=HEADERS,
+    json={
+        'reportType': 'INCOME_STATEMENT',
+        'reportData': income_statement,
+        'format': 'xlsx'
+    }
+)
+export_result = response.json()
+
+# Save the Excel file
+content = base64.b64decode(export_result['content'])
+with open(export_result['filename'], 'wb') as f:
+    f.write(content)
+```
+
+## Related Resources
+
+- [Chart of Accounts API](/docs/api/endpoints/accounts)
+- [Accounting Periods](/docs/api/objects/accounting-periods)
+- [Authentication](/docs/api/authentication)
