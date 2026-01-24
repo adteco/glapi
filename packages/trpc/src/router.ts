@@ -48,6 +48,9 @@ import { estimatesRouter } from './routers/estimates';
 import { accountingListsRouter } from './routers/accounting-lists';
 import { globalSearchRouter } from './routers/global-search';
 import { workflowsRouter } from './routers/workflows';
+import { taskFieldsRouter } from './routers/task-fields';
+import { taskTemplatesRouter } from './routers/task-templates';
+import { entityTasksRouter } from './routers/entity-tasks';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -98,6 +101,9 @@ export const appRouter = router({
   accountingLists: accountingListsRouter,
   globalSearch: globalSearchRouter,
   workflows: workflowsRouter,
+  taskFields: taskFieldsRouter,
+  taskTemplates: taskTemplatesRouter,
+  entityTasks: entityTasksRouter,
 });
 
 export type AppRouter = typeof appRouter;
