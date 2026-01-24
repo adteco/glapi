@@ -1,14 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import * as React from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { useQuery } from '@tanstack/react-query';
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Download, Printer, RefreshCw, Settings, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import {
+  Download,
+  Printer,
+  RefreshCw,
+  Settings,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
+  FileText,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -16,210 +31,118 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-
-// API response interfaces (matching backend types)
-interface FinancialStatementLineItem {
-  accountId: string;
-  accountNumber: string;
-  accountName: string;
-  accountCategory: string;
-  accountSubcategory: string | null;
-  currentPeriodAmount: number;
-  ytdAmount: number;
-  priorPeriodAmount?: number;
-}
-
-interface FinancialStatementSection {
-  name: string;
-  category: string;
-  subcategory?: string;
-  lineItems: FinancialStatementLineItem[];
-  sectionTotal: number;
-  priorPeriodTotal?: number;
-}
-
-interface BalanceSheetResponse {
-  reportName: string;
-  periodName: string;
-  subsidiaryName: string;
-  asOfDate: string;
-  currentAssetsSection: FinancialStatementSection;
-  totalCurrentAssets: number;
-  nonCurrentAssetsSection: FinancialStatementSection;
-  totalNonCurrentAssets: number;
-  totalAssets: number;
-  currentLiabilitiesSection: FinancialStatementSection;
-  totalCurrentLiabilities: number;
-  longTermLiabilitiesSection: FinancialStatementSection;
-  totalLongTermLiabilities: number;
-  totalLiabilities: number;
-  equitySection: FinancialStatementSection;
-  retainedEarnings: number;
-  currentPeriodNetIncome: number;
-  totalEquity: number;
-  totalLiabilitiesAndEquity: number;
-  balanceCheck: number;
-}
-
-interface AccountingPeriod {
-  id: string;
-  periodName: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-}
-
-interface Subsidiary {
-  id: string;
-  name: string;
-}
-
-// Form schema for report parameters
-const balanceSheetFormSchema = z.object({
-  periodId: z.string().min(1, "Period is required"),
-  subsidiaryId: z.string().optional(),
-  includeInactive: z.boolean().optional(),
-  classId: z.string().optional(),
-  departmentId: z.string().optional(),
-  locationId: z.string().optional(),
-});
-
-type BalanceSheetFormValues = z.infer<typeof balanceSheetFormSchema>;
-
-// API fetch functions
-async function fetchBalanceSheet(params: {
-  periodId: string;
-  subsidiaryId?: string;
-  includeInactive?: boolean;
-  classId?: string;
-  departmentId?: string;
-  locationId?: string;
-}): Promise<BalanceSheetResponse> {
-  const searchParams = new URLSearchParams();
-  searchParams.set('periodId', params.periodId);
-  if (params.subsidiaryId) searchParams.set('subsidiaryId', params.subsidiaryId);
-  if (params.includeInactive) searchParams.set('includeInactive', 'true');
-  if (params.classId) searchParams.set('classId', params.classId);
-  if (params.departmentId) searchParams.set('departmentId', params.departmentId);
-  if (params.locationId) searchParams.set('locationId', params.locationId);
-
-  const response = await fetch(`/api/gl/reports/balance-sheet?${searchParams.toString()}`);
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to fetch balance sheet');
-  }
-  return response.json();
-}
-
-async function fetchAccountingPeriods(): Promise<AccountingPeriod[]> {
-  const response = await fetch('/api/accounting-periods?status=OPEN,CLOSED');
-  if (!response.ok) {
-    throw new Error('Failed to fetch accounting periods');
-  }
-  const data = await response.json();
-  return data.data || [];
-}
-
-async function fetchSubsidiaries(): Promise<Subsidiary[]> {
-  const response = await fetch('/api/subsidiaries');
-  if (!response.ok) {
-    throw new Error('Failed to fetch subsidiaries');
-  }
-  const data = await response.json();
-  return data.data || [];
-}
+  DimensionFilters,
+  type DimensionFilterValues,
+} from '@/components/reports/DimensionFilters';
+import { PeriodSelector } from '@/components/reports/PeriodSelector';
 
 export default function BalanceSheetPage() {
-  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
-  const [reportParams, setReportParams] = useState<BalanceSheetFormValues | null>(null);
   const { orgId } = useAuth();
+  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = React.useState(false);
 
-  // Fetch available accounting periods
-  const { data: accountingPeriods = [], isLoading: periodsLoading } = useQuery({
-    queryKey: ['accounting-periods'],
-    queryFn: fetchAccountingPeriods,
-    enabled: !!orgId,
-  });
+  // Report parameters
+  const [periodId, setPeriodId] = React.useState<string>('');
+  const [comparePeriodId, setComparePeriodId] = React.useState<
+    string | undefined
+  >();
+  const [dimensionFilters, setDimensionFilters] =
+    React.useState<DimensionFilterValues>({
+      subsidiaryId: undefined,
+      departmentIds: [],
+      classIds: [],
+      locationIds: [],
+    });
+  const [includeInactive, setIncludeInactive] = React.useState(false);
 
-  // Fetch available subsidiaries
-  const { data: subsidiaries = [], isLoading: subsidiariesLoading } = useQuery({
-    queryKey: ['subsidiaries'],
-    queryFn: fetchSubsidiaries,
-    enabled: !!orgId,
-  });
-
-  // Fetch balance sheet when params are set
+  // Query for balance sheet data
   const {
     data: balanceSheetData,
-    isLoading: reportLoading,
-    error: reportError,
-    refetch: refetchReport,
-  } = useQuery({
-    queryKey: ['balance-sheet', reportParams],
-    queryFn: () => fetchBalanceSheet(reportParams!),
-    enabled: !!reportParams && !!reportParams.periodId,
-  });
+    isLoading,
+    refetch,
+    isRefetching,
+    error,
+  } = trpc.financialStatements.balanceSheet.useQuery(
+    {
+      periodId,
+      comparePeriodId,
+      subsidiaryId: dimensionFilters.subsidiaryId,
+      departmentIds:
+        dimensionFilters.departmentIds.length > 0
+          ? dimensionFilters.departmentIds
+          : undefined,
+      classIds:
+        dimensionFilters.classIds.length > 0
+          ? dimensionFilters.classIds
+          : undefined,
+      locationIds:
+        dimensionFilters.locationIds.length > 0
+          ? dimensionFilters.locationIds
+          : undefined,
+      includeInactive,
+    },
+    {
+      enabled: !!periodId,
+    }
+  );
 
-  const form = useForm<BalanceSheetFormValues>({
-    resolver: zodResolver(balanceSheetFormSchema),
-    defaultValues: {
-      periodId: "",
-      subsidiaryId: "",
-      includeInactive: false,
+  // Export mutation
+  const exportMutation = trpc.financialStatements.export.useMutation({
+    onSuccess: (data) => {
+      // Convert base64 to blob and download
+      const binaryString = atob(data.content);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: data.contentType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Balance sheet exported as ${data.filename}`);
+    },
+    onError: (error) => {
+      toast.error(`Failed to export: ${error.message}`);
     },
   });
 
-  // Handle generate report
-  const handleGenerateReport = async (values: BalanceSheetFormValues) => {
-    setReportParams(values);
-    setIsOptionsDialogOpen(false);
-    toast.success('Generating balance sheet...');
-  };
-
-  // Show error toast when report fetch fails
-  if (reportError) {
-    toast.error(`Failed to generate balance sheet: ${reportError.message}`);
-  }
-
-  // Handle export
-  const handleExport = (format: 'PDF' | 'EXCEL' | 'CSV') => {
-    try {
-      // TODO: Implement export functionality
-      toast.success(`Balance sheet exported as ${format}`);
-    } catch (error) {
-      toast.error('Failed to export balance sheet');
+  const handleExport = (format: 'pdf' | 'xlsx' | 'csv' | 'json') => {
+    if (!balanceSheetData) {
+      toast.error('No report data to export');
+      return;
     }
+    exportMutation.mutate({
+      reportType: 'BALANCE_SHEET',
+      reportData: balanceSheetData,
+      format,
+      includeComparison: !!comparePeriodId,
+    });
   };
 
-  // Handle print
   const handlePrint = () => {
-    try {
-      window.print();
-    } catch (error) {
-      toast.error('Failed to print balance sheet');
-    }
+    window.print();
   };
 
-  // Format currency
+  const handleRefresh = () => {
+    refetch();
+    toast.success('Report refreshed');
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -228,51 +151,132 @@ export default function BalanceSheetPage() {
   };
 
   // Check if balanced (within tolerance)
-  const isBalanced = balanceSheetData ? Math.abs(balanceSheetData.balanceCheck) < 0.01 : false;
+  const isBalanced = balanceSheetData
+    ? Math.abs(balanceSheetData.balanceCheck) < 0.01
+    : false;
 
   if (!orgId) {
-    return <div className="container mx-auto py-10"><p>Please select an organization to view reports.</p></div>;
+    return (
+      <div className="container mx-auto py-10">
+        <p>Please select an organization to view reports.</p>
+      </div>
+    );
   }
 
   return (
     <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Balance Sheet</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsOptionsDialogOpen(true)}>
+          <Button
+            variant="outline"
+            onClick={() => setIsOptionsDialogOpen(true)}
+          >
             <Settings className="mr-2 h-4 w-4" />
             Options
           </Button>
-          <Button variant="outline" onClick={() => handleGenerateReport(form.getValues())}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefetching || !periodId}
+          >
+            {isRefetching ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
             Refresh
           </Button>
-          <Button variant="outline" onClick={handlePrint}>
+          <Button
+            variant="outline"
+            onClick={handlePrint}
+            disabled={!balanceSheetData}
+          >
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
-          <Button variant="outline" onClick={() => handleExport('PDF')}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                disabled={!balanceSheetData || exportMutation.isPending}
+              >
+                {exportMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('xlsx')}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv')}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {reportLoading && (
+      {/* Period and Dimension Filters */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Report Parameters</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <PeriodSelector
+            value={periodId}
+            onChange={setPeriodId}
+            compareValue={comparePeriodId}
+            onCompareChange={setComparePeriodId}
+            showCompare={true}
+            label="As of Period"
+          />
+          <DimensionFilters
+            value={dimensionFilters}
+            onChange={setDimensionFilters}
+            compact
+          />
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
         <Card>
           <CardContent className="py-16">
             <div className="flex flex-col items-center justify-center gap-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-muted-foreground">Generating balance sheet...</p>
+              <p className="text-muted-foreground">
+                Generating balance sheet...
+              </p>
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {balanceSheetData && !reportLoading ? (
+      ) : error ? (
+        <Card>
+          <CardContent className="py-16">
+            <div className="flex flex-col items-center justify-center gap-4">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+              <p className="text-destructive">
+                Failed to load balance sheet: {error.message}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : balanceSheetData ? (
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">{balanceSheetData.reportName}</CardTitle>
+            <CardTitle className="text-2xl">
+              {balanceSheetData.reportName}
+            </CardTitle>
             <CardDescription>
               {balanceSheetData.periodName} | {balanceSheetData.subsidiaryName}
               <br />
@@ -283,153 +287,199 @@ export default function BalanceSheetPage() {
             <div className="space-y-8">
               {/* ASSETS */}
               <div>
-                <h2 className="text-xl font-bold mb-4 bg-muted p-2 rounded">ASSETS</h2>
+                <h2 className="mb-4 rounded bg-muted p-2 text-xl font-bold">
+                  ASSETS
+                </h2>
 
                 {/* Current Assets */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">{balanceSheetData.currentAssetsSection.name}</h3>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    {balanceSheetData.currentAssetsSection.name}
+                  </h3>
                   <Table>
                     <TableBody>
-                      {balanceSheetData.currentAssetsSection.lineItems.map((item) => (
-                        <TableRow key={item.accountId}>
-                          <TableCell className="font-medium pl-8">
-                            {item.accountNumber} - {item.accountName}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(item.currentPeriodAmount)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {formatCurrency(item.ytdAmount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {balanceSheetData.currentAssetsSection.lineItems.map(
+                        (item) => (
+                          <TableRow key={item.accountId}>
+                            <TableCell className="pl-8 font-medium">
+                              {item.accountNumber} - {item.accountName}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(item.currentPeriodAmount)}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {formatCurrency(item.ytdAmount)}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      )}
                     </TableBody>
                   </Table>
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between items-center pl-4">
+                  <div className="mt-2 border-t pt-2">
+                    <div className="flex items-center justify-between pl-4">
                       <span className="font-semibold">Total Current Assets</span>
-                      <span className="font-semibold">{formatCurrency(balanceSheetData.totalCurrentAssets)}</span>
+                      <span className="font-semibold">
+                        {formatCurrency(balanceSheetData.totalCurrentAssets)}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Non-Current Assets */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">{balanceSheetData.nonCurrentAssetsSection.name}</h3>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    {balanceSheetData.nonCurrentAssetsSection.name}
+                  </h3>
                   <Table>
                     <TableBody>
-                      {balanceSheetData.nonCurrentAssetsSection.lineItems.map((item) => (
-                        <TableRow key={item.accountId}>
-                          <TableCell className="font-medium pl-8">
-                            {item.accountNumber} - {item.accountName}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(item.currentPeriodAmount)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {formatCurrency(item.ytdAmount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {balanceSheetData.nonCurrentAssetsSection.lineItems.map(
+                        (item) => (
+                          <TableRow key={item.accountId}>
+                            <TableCell className="pl-8 font-medium">
+                              {item.accountNumber} - {item.accountName}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(item.currentPeriodAmount)}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {formatCurrency(item.ytdAmount)}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      )}
                     </TableBody>
                   </Table>
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between items-center pl-4">
-                      <span className="font-semibold">Total Non-Current Assets</span>
-                      <span className="font-semibold">{formatCurrency(balanceSheetData.totalNonCurrentAssets)}</span>
+                  <div className="mt-2 border-t pt-2">
+                    <div className="flex items-center justify-between pl-4">
+                      <span className="font-semibold">
+                        Total Non-Current Assets
+                      </span>
+                      <span className="font-semibold">
+                        {formatCurrency(balanceSheetData.totalNonCurrentAssets)}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Total Assets */}
                 <div className="border-t-2 border-primary pt-2">
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <span className="text-lg font-bold">TOTAL ASSETS</span>
-                    <span className="text-lg font-bold">{formatCurrency(balanceSheetData.totalAssets)}</span>
+                    <span className="text-lg font-bold">
+                      {formatCurrency(balanceSheetData.totalAssets)}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* LIABILITIES */}
               <div>
-                <h2 className="text-xl font-bold mb-4 bg-muted p-2 rounded">LIABILITIES</h2>
+                <h2 className="mb-4 rounded bg-muted p-2 text-xl font-bold">
+                  LIABILITIES
+                </h2>
 
                 {/* Current Liabilities */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">{balanceSheetData.currentLiabilitiesSection.name}</h3>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    {balanceSheetData.currentLiabilitiesSection.name}
+                  </h3>
                   <Table>
                     <TableBody>
-                      {balanceSheetData.currentLiabilitiesSection.lineItems.map((item) => (
-                        <TableRow key={item.accountId}>
-                          <TableCell className="font-medium pl-8">
-                            {item.accountNumber} - {item.accountName}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(item.currentPeriodAmount)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {formatCurrency(item.ytdAmount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {balanceSheetData.currentLiabilitiesSection.lineItems.map(
+                        (item) => (
+                          <TableRow key={item.accountId}>
+                            <TableCell className="pl-8 font-medium">
+                              {item.accountNumber} - {item.accountName}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(item.currentPeriodAmount)}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {formatCurrency(item.ytdAmount)}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      )}
                     </TableBody>
                   </Table>
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between items-center pl-4">
-                      <span className="font-semibold">Total Current Liabilities</span>
-                      <span className="font-semibold">{formatCurrency(balanceSheetData.totalCurrentLiabilities)}</span>
+                  <div className="mt-2 border-t pt-2">
+                    <div className="flex items-center justify-between pl-4">
+                      <span className="font-semibold">
+                        Total Current Liabilities
+                      </span>
+                      <span className="font-semibold">
+                        {formatCurrency(
+                          balanceSheetData.totalCurrentLiabilities
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Long-Term Liabilities */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">{balanceSheetData.longTermLiabilitiesSection.name}</h3>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    {balanceSheetData.longTermLiabilitiesSection.name}
+                  </h3>
                   <Table>
                     <TableBody>
-                      {balanceSheetData.longTermLiabilitiesSection.lineItems.map((item) => (
-                        <TableRow key={item.accountId}>
-                          <TableCell className="font-medium pl-8">
-                            {item.accountNumber} - {item.accountName}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(item.currentPeriodAmount)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {formatCurrency(item.ytdAmount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {balanceSheetData.longTermLiabilitiesSection.lineItems.map(
+                        (item) => (
+                          <TableRow key={item.accountId}>
+                            <TableCell className="pl-8 font-medium">
+                              {item.accountNumber} - {item.accountName}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(item.currentPeriodAmount)}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {formatCurrency(item.ytdAmount)}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      )}
                     </TableBody>
                   </Table>
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between items-center pl-4">
-                      <span className="font-semibold">Total Long-Term Liabilities</span>
-                      <span className="font-semibold">{formatCurrency(balanceSheetData.totalLongTermLiabilities)}</span>
+                  <div className="mt-2 border-t pt-2">
+                    <div className="flex items-center justify-between pl-4">
+                      <span className="font-semibold">
+                        Total Long-Term Liabilities
+                      </span>
+                      <span className="font-semibold">
+                        {formatCurrency(
+                          balanceSheetData.totalLongTermLiabilities
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Total Liabilities */}
                 <div className="border-t-2 border-primary pt-2">
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <span className="text-lg font-bold">TOTAL LIABILITIES</span>
-                    <span className="text-lg font-bold">{formatCurrency(balanceSheetData.totalLiabilities)}</span>
+                    <span className="text-lg font-bold">
+                      {formatCurrency(balanceSheetData.totalLiabilities)}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* EQUITY */}
               <div>
-                <h2 className="text-xl font-bold mb-4 bg-muted p-2 rounded">EQUITY</h2>
+                <h2 className="mb-4 rounded bg-muted p-2 text-xl font-bold">
+                  EQUITY
+                </h2>
 
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">{balanceSheetData.equitySection.name}</h3>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    {balanceSheetData.equitySection.name}
+                  </h3>
                   <Table>
                     <TableBody>
                       {balanceSheetData.equitySection.lineItems.map((item) => (
                         <TableRow key={item.accountId}>
-                          <TableCell className="font-medium pl-8">
+                          <TableCell className="pl-8 font-medium">
                             {item.accountNumber} - {item.accountName}
                           </TableCell>
                           <TableCell className="text-right">
@@ -442,7 +492,7 @@ export default function BalanceSheetPage() {
                       ))}
                       {/* Retained Earnings */}
                       <TableRow>
-                        <TableCell className="font-medium pl-8">
+                        <TableCell className="pl-8 font-medium">
                           Retained Earnings
                         </TableCell>
                         <TableCell className="text-right">
@@ -454,14 +504,18 @@ export default function BalanceSheetPage() {
                       </TableRow>
                       {/* Current Period Net Income */}
                       <TableRow>
-                        <TableCell className="font-medium pl-8">
+                        <TableCell className="pl-8 font-medium">
                           Current Period Net Income
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(balanceSheetData.currentPeriodNetIncome)}
+                          {formatCurrency(
+                            balanceSheetData.currentPeriodNetIncome
+                          )}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
-                          {formatCurrency(balanceSheetData.currentPeriodNetIncome)}
+                          {formatCurrency(
+                            balanceSheetData.currentPeriodNetIncome
+                          )}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -470,53 +524,65 @@ export default function BalanceSheetPage() {
 
                 {/* Total Equity */}
                 <div className="border-t-2 border-primary pt-2">
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <span className="text-lg font-bold">TOTAL EQUITY</span>
-                    <span className="text-lg font-bold">{formatCurrency(balanceSheetData.totalEquity)}</span>
+                    <span className="text-lg font-bold">
+                      {formatCurrency(balanceSheetData.totalEquity)}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Total Liabilities and Equity */}
-              <div className="bg-muted p-4 rounded-lg border-4 border-double border-muted-foreground/30">
-                <div className="flex justify-between items-center">
-                  <span className="text-xl font-bold">TOTAL LIABILITIES AND EQUITY</span>
-                  <span className="text-xl font-bold">{formatCurrency(balanceSheetData.totalLiabilitiesAndEquity)}</span>
+              <div className="rounded-lg border-4 border-double border-muted-foreground/30 bg-muted p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xl font-bold">
+                    TOTAL LIABILITIES AND EQUITY
+                  </span>
+                  <span className="text-xl font-bold">
+                    {formatCurrency(balanceSheetData.totalLiabilitiesAndEquity)}
+                  </span>
                 </div>
               </div>
 
               {/* Balance Check */}
               <div className="text-center">
                 {isBalanced ? (
-                  <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white gap-2 px-4 py-2">
+                  <Badge
+                    variant="default"
+                    className="gap-2 bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+                  >
                     <CheckCircle2 className="h-4 w-4" />
                     Balance Sheet is Balanced
                   </Badge>
                 ) : (
                   <Badge variant="destructive" className="gap-2 px-4 py-2">
                     <AlertTriangle className="h-4 w-4" />
-                    Balance Sheet is NOT Balanced (Difference: {formatCurrency(balanceSheetData.balanceCheck)})
+                    Balance Sheet is NOT Balanced (Difference:{' '}
+                    {formatCurrency(balanceSheetData.balanceCheck)})
                   </Badge>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
-      ) : !reportLoading && (
+      ) : (
         <Card>
           <CardHeader>
             <CardTitle>Balance Sheet</CardTitle>
             <CardDescription>
-              Click "Options" to configure and generate the balance sheet report.
+              Select a reporting period above to generate the balance sheet.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">No report data available.</p>
-              <Button onClick={() => setIsOptionsDialogOpen(true)}>
-                <Settings className="mr-2 h-4 w-4" />
-                Configure Report
-              </Button>
+            <div className="py-8 text-center">
+              <p className="mb-4 text-muted-foreground">
+                No report data available.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Choose a period from the dropdown above to view the balance
+                sheet.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -528,105 +594,29 @@ export default function BalanceSheetPage() {
           <DialogHeader>
             <DialogTitle>Balance Sheet Options</DialogTitle>
             <DialogDescription>
-              Configure the balance sheet report parameters.
+              Configure additional options for the balance sheet report.
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleGenerateReport)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="periodId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Accounting Period</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select period" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {periodsLoading ? (
-                          <SelectItem value="" disabled>Loading periods...</SelectItem>
-                        ) : accountingPeriods.length === 0 ? (
-                          <SelectItem value="" disabled>No periods available</SelectItem>
-                        ) : (
-                          accountingPeriods.map((period) => (
-                            <SelectItem key={period.id} value={period.id}>
-                              {period.periodName} ({period.status})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <div className="space-y-4 py-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="includeInactive"
+                checked={includeInactive}
+                onCheckedChange={(checked) =>
+                  setIncludeInactive(checked as boolean)
+                }
               />
-
-              <FormField
-                control={form.control}
-                name="subsidiaryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Subsidiary</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="All Subsidiaries" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">All Subsidiaries</SelectItem>
-                        {subsidiariesLoading ? (
-                          <SelectItem value="" disabled>Loading...</SelectItem>
-                        ) : (
-                          subsidiaries.map((subsidiary) => (
-                            <SelectItem key={subsidiary.id} value={subsidiary.id}>
-                              {subsidiary.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="includeInactive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        checked={field.value || false}
-                        onChange={field.onChange}
-                        className="h-4 w-4 rounded border-input"
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Include Inactive Accounts</FormLabel>
-                      <p className="text-sm text-muted-foreground">
-                        Show accounts that are currently inactive
-                      </p>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsOptionsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={reportLoading || periodsLoading}>
-                  {reportLoading ? "Generating..." : "Generate Report"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+              <Label htmlFor="includeInactive">Include inactive accounts</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsOptionsDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

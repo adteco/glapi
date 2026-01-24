@@ -1,26 +1,27 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, Mail, Phone, Building } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Edit, Mail, Phone, FileText, ListChecks } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
-import type { RouterOutputs } from '@glapi/trpc';
-
-type Employee = NonNullable<RouterOutputs['employees']['get']>;
+import { TaskList } from '@/components/tasks';
 
 export default function EmployeeDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
   const { orgId } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Use tRPC query
   const { data: employee, isLoading: employeeLoading } = trpc.employees.get.useQuery(
     { id },
-    { 
+    {
       enabled: !!orgId && !!id,
       retry: 1,
     }
@@ -117,117 +118,143 @@ export default function EmployeeDetailPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Employee Information</CardTitle>
-            <CardDescription>Basic details about the employee</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Full Name</dt>
-                <dd className="mt-1 text-sm text-gray-900">{employee.name}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Employee ID</dt>
-                <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.employee_id as string || 'N/A'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Position</dt>
-                <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.position as string || 'N/A'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Department</dt>
-                <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.department as string || 'N/A'}</dd>
-              </div>
-            </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-background border border-border p-1">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <FileText className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <ListChecks className="h-4 w-4 mr-2" />
+            Tasks
+          </TabsTrigger>
+        </TabsList>
 
-            <div className="border-t pt-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Contact Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Email</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {employee.email ? (
-                        <a href={`mailto:${employee.email}`} className="text-blue-600 hover:underline">
-                          {employee.email}
-                        </a>
-                      ) : (
-                        'N/A'
-                      )}
-                    </dd>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {employee.phone ? (
-                        <a href={`tel:${employee.phone}`} className="text-blue-600 hover:underline">
-                          {employee.phone}
-                        </a>
-                      ) : (
-                        'N/A'
-                      )}
-                    </dd>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {employee.metadata && Object.keys(employee.metadata).length > 0 && (
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Additional Information</h3>
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Employee Information</CardTitle>
+                <CardDescription>Basic details about the employee</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  {employee.metadata.startDate && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Start Date</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {new Date(employee.metadata.startDate).toLocaleDateString()}
-                      </dd>
-                    </div>
-                  )}
-                  {employee.metadata.employmentType && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Employment Type</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{employee.metadata.employmentType}</dd>
-                    </div>
-                  )}
-                  {employee.metadata.managerId && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Manager ID</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{employee.metadata.managerId}</dd>
-                    </div>
-                  )}
-                  {employee.metadata.locationId && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Location ID</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{employee.metadata.locationId}</dd>
-                    </div>
-                  )}
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Full Name</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{employee.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Employee ID</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.employee_id as string || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Position</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.position as string || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Department</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{(employee.metadata as Record<string, unknown>)?.department as string || 'N/A'}</dd>
+                  </div>
                 </div>
-              </div>
-            )}
 
-            <div className="border-t pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Created</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDate(employee.createdAt)}</dd>
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Contact Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-gray-400" />
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Email</dt>
+                        <dd className="mt-1 text-sm text-gray-900">
+                          {employee.email ? (
+                            <a href={`mailto:${employee.email}`} className="text-blue-600 hover:underline">
+                              {employee.email}
+                            </a>
+                          ) : (
+                            'N/A'
+                          )}
+                        </dd>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Phone</dt>
+                        <dd className="mt-1 text-sm text-gray-900">
+                          {employee.phone ? (
+                            <a href={`tel:${employee.phone}`} className="text-blue-600 hover:underline">
+                              {employee.phone}
+                            </a>
+                          ) : (
+                            'N/A'
+                          )}
+                        </dd>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDate(employee.updatedAt)}</dd>
+
+                {employee.metadata && Object.keys(employee.metadata).length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">Additional Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {employee.metadata.startDate && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Start Date</dt>
+                          <dd className="mt-1 text-sm text-gray-900">
+                            {new Date(employee.metadata.startDate).toLocaleDateString()}
+                          </dd>
+                        </div>
+                      )}
+                      {employee.metadata.employmentType && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Employment Type</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{employee.metadata.employmentType}</dd>
+                        </div>
+                      )}
+                      {employee.metadata.managerId && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Manager ID</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{employee.metadata.managerId}</dd>
+                        </div>
+                      )}
+                      {employee.metadata.locationId && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Location ID</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{employee.metadata.locationId}</dd>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Created</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{formatDate(employee.createdAt)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{formatDate(employee.updatedAt)}</dd>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Tasks Tab */}
+        <TabsContent value="tasks" className="space-y-6">
+          <TaskList
+            entityType="employee"
+            entityId={id}
+            showFilters={true}
+            allowCreate={true}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

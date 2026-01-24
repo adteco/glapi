@@ -29,6 +29,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "seed:test-org": "tsx src/seed-test-org.ts",
+    "seed:workflow-templates": "tsx src/seeds/workflow-templates.ts",
     "run:entities-migration": "tsx src/scripts/run-entities-migration.ts"
   },
   "dependencies": {
