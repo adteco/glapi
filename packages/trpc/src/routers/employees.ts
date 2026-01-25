@@ -35,10 +35,10 @@ export const employeesRouter = router({
   list: authenticatedProcedure
     .input(employeeQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new EmployeeService();
+      const service = new EmployeeService(ctx.serviceContext);
       const { page = 1, limit = 10, search, isActive } = input;
 
-      return await service.listEmployees(ctx.user.organizationId, {
+      return await service.listEmployees({
         page,
         limit,
         orderBy: 'name' as const,
@@ -51,23 +51,23 @@ export const employeesRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new EmployeeService();
-      return await service.findById(input.id, ctx.user.organizationId);
+      const service = new EmployeeService(ctx.serviceContext);
+      return await service.findById(input.id);
     }),
 
   // Alias for getById (some components use get)
   get: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new EmployeeService();
-      return await service.findById(input.id, ctx.user.organizationId);
+      const service = new EmployeeService(ctx.serviceContext);
+      return await service.findById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(employeeSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new EmployeeService();
-      return await service.createEmployee(ctx.user.organizationId, {
+      const service = new EmployeeService(ctx.serviceContext);
+      return await service.createEmployee({
         ...input,
         status: 'active' as const,
         entityTypes: ['Employee'] as const,
@@ -80,14 +80,14 @@ export const employeesRouter = router({
       data: updateEmployeeSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new EmployeeService();
-      return await service.updateEmployee(input.id, ctx.user.organizationId, input.data);
+      const service = new EmployeeService(ctx.serviceContext);
+      return await service.updateEmployee(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new EmployeeService();
-      return await service.delete(input.id, ctx.user.organizationId);
+      const service = new EmployeeService(ctx.serviceContext);
+      return await service.delete(input.id);
     }),
 });

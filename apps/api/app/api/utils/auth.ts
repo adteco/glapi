@@ -8,6 +8,7 @@ export interface OrganizationContext {
   userId: string;
   clerkOrganizationId?: string;
   apiKeyName?: string;
+  organizationName?: string; // Organization name for debugging headers
 }
 
 export class AuthenticationError extends Error {
@@ -17,25 +18,41 @@ export class AuthenticationError extends Error {
   }
 }
 
-// Cache for Clerk org ID to database org ID mapping
-const orgIdCache = new Map<string, string>();
+// Cache for Clerk org ID to database org ID and name mapping
+const orgCache = new Map<string, { id: string; name: string }>();
 
 // Cache for Clerk user ID to entity ID mapping
 const entityIdCache = new Map<string, string>();
 
+interface ResolvedOrganization {
+  id: string;
+  name?: string;
+}
+
 /**
- * Resolve a Clerk org ID (org_xxxxx) to a database organization UUID
+ * Resolve a Clerk org ID (org_xxxxx) to a database organization UUID and name
  */
-async function resolveOrganizationId(clerkOrgId: string): Promise<string | null> {
+async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganization | null> {
   // Check cache first
-  if (orgIdCache.has(clerkOrgId)) {
-    return orgIdCache.get(clerkOrgId)!;
+  if (orgCache.has(clerkOrgId)) {
+    return orgCache.get(clerkOrgId)!;
   }
 
-  // If it's already a UUID format, return as-is
+  // If it's already a UUID format, look up org by ID to get the name
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (uuidPattern.test(clerkOrgId)) {
-    return clerkOrgId;
+    try {
+      const orgRepo = new OrganizationRepository();
+      const org = await orgRepo.findById(clerkOrgId);
+      if (org) {
+        const resolved = { id: org.id, name: org.name };
+        orgCache.set(clerkOrgId, resolved);
+        return resolved;
+      }
+    } catch (error) {
+      console.error('Failed to look up organization by UUID:', error);
+    }
+    return { id: clerkOrgId };
   }
 
   // Look up by Clerk org ID
@@ -44,8 +61,9 @@ async function resolveOrganizationId(clerkOrgId: string): Promise<string | null>
     const org = await orgRepo.findByClerkId(clerkOrgId);
 
     if (org) {
-      orgIdCache.set(clerkOrgId, org.id);
-      return org.id;
+      const resolved = { id: org.id, name: org.name };
+      orgCache.set(clerkOrgId, resolved);
+      return resolved;
     }
   } catch (error) {
     console.error('Failed to resolve organization ID:', error);
@@ -96,16 +114,17 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   console.log('Auth context - rawOrgId:', rawOrganizationId, 'rawUserId:', rawUserId);
 
   if (rawOrganizationId && rawUserId) {
-    // Resolve Clerk org ID to database UUID
-    const organizationId = await resolveOrganizationId(rawOrganizationId);
+    // Resolve Clerk org ID to database UUID and get organization name
+    const resolvedOrg = await resolveOrganization(rawOrganizationId);
 
     // Resolve Clerk user ID to entity UUID
     // This supports the consolidated auth model where entities (Employee) serve as users
     const entityId = await resolveEntityId(rawUserId);
 
-    if (organizationId) {
+    if (resolvedOrg) {
       return {
-        organizationId,
+        organizationId: resolvedOrg.id,
+        organizationName: resolvedOrg.name,
         // Use entity ID if resolved, otherwise fall back to raw user ID
         userId: entityId || rawUserId,
         clerkOrganizationId: rawOrganizationId,
@@ -120,6 +139,7 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   console.log('No org/user in headers or unresolved org - using development context');
   return {
     organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Adteco dev org UUID
+    organizationName: 'Development',
     userId: rawUserId || 'user_development',
     clerkOrganizationId: rawOrganizationId || 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2'
   };

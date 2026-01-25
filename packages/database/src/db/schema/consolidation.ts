@@ -5,6 +5,7 @@ import { accounts } from './accounts';
 import { accountingPeriods } from './accounting-periods';
 import { users } from './users';
 import { currencies } from './currencies';
+import { organizations } from './organizations';
 
 // Enums for consolidation
 export const consolidationMethodEnum = pgEnum('consolidation_method', [
@@ -41,7 +42,7 @@ export const consolidationRunStatusEnum = pgEnum('consolidation_run_status', [
 // ==========================================
 export const consolidationGroups = pgTable('consolidation_groups', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   name: text('name').notNull(),
   code: text('code').notNull(),
   description: text('description'),
@@ -225,7 +226,7 @@ export const fxTranslationRulesRelations = relations(fxTranslationRules, ({ one 
 // ==========================================
 export const consolidationExchangeRates = pgTable('consolidation_exchange_rates', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   fromCurrencyId: uuid('from_currency_id').notNull().references(() => currencies.id),
   toCurrencyId: uuid('to_currency_id').notNull().references(() => currencies.id),
   periodId: uuid('period_id').notNull().references(() => accountingPeriods.id),
@@ -377,7 +378,7 @@ export const consolidationAdjustmentsRelations = relations(consolidationAdjustme
 // ==========================================
 export const intercompanyAccountMappings = pgTable('intercompany_account_mappings', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   name: text('name').notNull(),
   description: text('description'),
 

@@ -1,3 +1,8 @@
+import * as dotenv from 'dotenv';
+// Load env from monorepo root first, then package directory
+dotenv.config({ path: '../../.env' });
+dotenv.config();
+
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { schema } from "./db/schema";
@@ -24,7 +29,7 @@ const sslConfig = needsSsl ? { rejectUnauthorized: false } : undefined;
 
 console.log('DB connection:', needsSsl ? 'SSL enabled (rejectUnauthorized: false)' : 'No SSL');
 
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: cleanUrl,
   ssl: sslConfig,
 });

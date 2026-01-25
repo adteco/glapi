@@ -67,7 +67,7 @@ export const changeRequests = pgTable(
   'change_requests',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    organizationId: text('organization_id')
+    organizationId: uuid('organization_id')
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
 
@@ -124,7 +124,7 @@ export const unifiedAuditLog = pgTable('unified_audit_log', {
   id: uuid('id').defaultRandom().primaryKey(),
 
   // Organization (multi-tenancy)
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 
   // Event correlation (optional link to event store)
   eventId: uuid('event_id').references(() => eventStore.id),
@@ -218,7 +218,7 @@ export const unifiedAuditLog = pgTable('unified_audit_log', {
 export const auditEvidencePackages = pgTable('audit_evidence_packages', {
   id: uuid('id').defaultRandom().primaryKey(),
 
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 
   // Package metadata
   packageName: text('package_name').notNull(),

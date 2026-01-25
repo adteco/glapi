@@ -1,8 +1,9 @@
 import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
+import { organizations } from './organizations';
 
 export const addresses = pgTable('addresses', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   addressee: text('addressee'),
   companyName: text('company_name'),
   attention: text('attention'),

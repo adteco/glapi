@@ -37,7 +37,7 @@ export function baseOptions(): BaseLayoutProps {
     links: [
       {
         text: 'API Reference',
-        url: '/api-reference',
+        url: '/docs/api',
       },
       {
         text: 'Quickstart',

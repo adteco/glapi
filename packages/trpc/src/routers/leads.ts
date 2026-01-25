@@ -34,10 +34,10 @@ export const leadsRouter = router({
   list: authenticatedProcedure
     .input(leadQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new LeadService();
+      const service = new LeadService(ctx.serviceContext);
       const { page = 1, limit = 10, search, isActive } = input;
 
-      return await service.listLeads(ctx.user.organizationId, {
+      return await service.listLeads({
         page,
         limit,
         orderBy: 'name' as const,
@@ -50,23 +50,23 @@ export const leadsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new LeadService();
-      return await service.findById(input.id, ctx.user.organizationId);
+      const service = new LeadService(ctx.serviceContext);
+      return await service.findById(input.id);
     }),
 
   // Alias for getById (some components use get)
   get: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new LeadService();
-      return await service.findById(input.id, ctx.user.organizationId);
+      const service = new LeadService(ctx.serviceContext);
+      return await service.findById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(leadSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService();
-      return await service.createLead(ctx.user.organizationId, {
+      const service = new LeadService(ctx.serviceContext);
+      return await service.createLead({
         ...input,
         status: 'active' as const,
         entityTypes: ['Lead'] as const,
@@ -79,21 +79,21 @@ export const leadsRouter = router({
       data: updateLeadSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService();
-      return await service.updateLead(input.id, ctx.user.organizationId, input.data);
+      const service = new LeadService(ctx.serviceContext);
+      return await service.updateLead(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService();
-      return await service.delete(input.id, ctx.user.organizationId);
+      const service = new LeadService(ctx.serviceContext);
+      return await service.delete(input.id);
     }),
 
   convertToCustomer: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService();
-      return await service.convertToCustomer(input.id, ctx.user.organizationId);
+      const service = new LeadService(ctx.serviceContext);
+      return await service.convertToCustomer(input.id);
     }),
 });

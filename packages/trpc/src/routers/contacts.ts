@@ -35,10 +35,10 @@ export const contactsRouter = router({
   list: authenticatedProcedure
     .input(contactQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new ContactService();
+      const service = new ContactService(ctx.serviceContext);
       const { page = 1, limit = 10, search, isActive } = input;
 
-      return await service.listContacts(ctx.user.organizationId, {
+      return await service.listContacts({
         page,
         limit,
         orderBy: 'name' as const,
@@ -51,15 +51,15 @@ export const contactsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new ContactService();
-      return await service.findById(input.id, ctx.user.organizationId);
+      const service = new ContactService(ctx.serviceContext);
+      return await service.findById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(contactSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ContactService();
-      return await service.createContact(ctx.user.organizationId, {
+      const service = new ContactService(ctx.serviceContext);
+      return await service.createContact({
         ...input,
         status: 'active' as const,
         entityTypes: ['Contact'] as const,
@@ -72,14 +72,14 @@ export const contactsRouter = router({
       data: updateContactSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ContactService();
-      return await service.updateContact(input.id, ctx.user.organizationId, input.data);
+      const service = new ContactService(ctx.serviceContext);
+      return await service.updateContact(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ContactService();
-      return await service.delete(input.id, ctx.user.organizationId);
+      const service = new ContactService(ctx.serviceContext);
+      return await service.delete(input.id);
     }),
 });

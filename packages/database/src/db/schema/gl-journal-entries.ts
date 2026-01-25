@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, decimal, date, jsonb, pgEnum, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, decimal, date, jsonb, pgEnum, boolean, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 import { revenueSchedules } from './revenue-schedules';
@@ -24,7 +24,7 @@ export const glJournalStatusEnum = pgEnum('gl_journal_status', [
 // GL Journal entries table - extends revenue journal entries with GL-specific fields
 export const glJournalEntries = pgTable('gl_journal_entries', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Batch reference
   batchId: text('batch_id').references(() => journalEntryBatches.id, { onDelete: 'set null' }),

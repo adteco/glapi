@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, decimal, jsonb, integer, date, pgEnum, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, decimal, jsonb, integer, date, pgEnum, boolean, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 
@@ -14,7 +14,7 @@ export const cohortTypeEnum = pgEnum('cohort_type', [
 // Cohort analysis table
 export const cohortAnalysis = pgTable('cohort_analysis', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Cohort details
   cohortName: text('cohort_name').notNull(),
@@ -49,7 +49,7 @@ export const cohortAnalysis = pgTable('cohort_analysis', {
 // Deferred revenue rollforward table
 export const deferredRevenueRollforward = pgTable('deferred_revenue_rollforward', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Period
   periodStart: date('period_start').notNull(),

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, jsonb, integer, boolean, pgEnum, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 
@@ -15,7 +15,7 @@ export const batchStatusEnum = pgEnum('batch_status', [
 // Journal entry batch table
 export const journalEntryBatches = pgTable('journal_entry_batches', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Batch details
   batchNumber: text('batch_number').notNull(),

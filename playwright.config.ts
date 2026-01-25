@@ -5,45 +5,99 @@ import * as path from 'path';
 const STORAGE_STATE = path.join(__dirname, 'playwright/.auth/user.json');
 
 /**
+ * GLAPI E2E Test Configuration
+ *
+ * Projects:
+ * - api: API tests (no browser, TRPC endpoint testing)
+ * - web: Full UI tests with authentication
+ * - smoke: Quick verification tests
+ * - mobile: Mobile viewport tests
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
   testDir: './tests',
+
   /* Run tests in files in parallel */
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
+
+  /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
+
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
+
+  /* Opt out of parallel tests on CI for stability */
   workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+
+  /* Reporter configuration */
   reporter: [
-    ['html'],
+    ['html', { outputFolder: 'test-results/html-report' }],
     ['list'],
+    ['json', { outputFile: 'test-results/results.json' }],
   ],
+
   /* Global timeout for tests */
   timeout: 30000,
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
-  use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+  /* Expect timeout */
+  expect: {
+    timeout: 10000,
+  },
+
+  /* Shared settings for all the projects below */
+  use: {
+    /* Base URL for the web app */
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3030',
+
+    /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
 
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',
 
-    /* Video recording */
+    /* Video recording on retry */
     video: 'on-first-retry',
+
+    /* Default viewport */
+    viewport: { width: 1280, height: 720 },
+
+    /* Timeout for navigation */
+    navigationTimeout: 30000,
+
+    /* Timeout for actions */
+    actionTimeout: 15000,
   },
 
-  /* Configure projects for major browsers */
+  /* Configure output directories */
+  outputDir: 'test-results/test-artifacts',
+
+  /* Configure projects */
   projects: [
-    // API Tests - TRPC endpoint testing (no browser needed)
+    // ==========================================
+    // SETUP PROJECTS
+    // ==========================================
+
+    // Global setup - Clerk testing token setup
     {
-      name: 'api-tests',
+      name: 'global-setup',
+      testMatch: /global\.setup\.ts/,
+    },
+
+    // Auth setup project - authenticates and stores session
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+      dependencies: ['global-setup'],
+    },
+
+    // ==========================================
+    // API TESTS (No browser needed)
+    // ==========================================
+
+    // API Tests - TRPC endpoint testing
+    {
+      name: 'api',
       testMatch: /tests\/api\/.*\.spec\.ts/,
       use: {
         // API tests don't need a browser
@@ -51,13 +105,26 @@ export default defineConfig({
       },
     },
 
-    // Setup project - runs auth.setup.ts to authenticate
+    // ==========================================
+    // SMOKE TESTS (Quick verification)
+    // ==========================================
+
+    // Smoke tests - Critical path verification
     {
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
+      name: 'smoke',
+      testMatch: /smoke\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
     },
 
-    // Authenticated tests - Desktop browsers
+    // ==========================================
+    // WEB UI TESTS (Full browser testing)
+    // ==========================================
+
+    // Chromium - Primary browser for testing
     {
       name: 'chromium',
       use: {
@@ -65,9 +132,15 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
-      testIgnore: /tests\/api\//,
+      testIgnore: [
+        /tests\/api\//,
+        /smoke\.spec\.ts/,
+        /.*\.landing\.spec\.ts/,
+        /.*\.public\.spec\.ts/,
+      ],
     },
 
+    // Firefox - Secondary browser
     {
       name: 'firefox',
       use: {
@@ -75,9 +148,15 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
-      testIgnore: /tests\/api\//,
+      testIgnore: [
+        /tests\/api\//,
+        /smoke\.spec\.ts/,
+        /.*\.landing\.spec\.ts/,
+        /.*\.public\.spec\.ts/,
+      ],
     },
 
+    // WebKit - Safari testing
     {
       name: 'webkit',
       use: {
@@ -85,42 +164,151 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
-      testIgnore: /tests\/api\//,
+      testIgnore: [
+        /tests\/api\//,
+        /smoke\.spec\.ts/,
+        /.*\.landing\.spec\.ts/,
+        /.*\.public\.spec\.ts/,
+      ],
     },
 
-    // Authenticated tests - Mobile viewports
+    // ==========================================
+    // MOBILE TESTS
+    // ==========================================
+
+    // Mobile Chrome (Android)
     {
-      name: 'Mobile Chrome',
+      name: 'mobile-chrome',
       use: {
         ...devices['Pixel 5'],
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
-      testIgnore: /tests\/api\//,
+      testMatch: [
+        /tests\/lists\/.*\.spec\.ts/,
+        /tests\/relationships\/.*\.spec\.ts/,
+        /tests\/dashboard\.spec\.ts/,
+      ],
     },
+
+    // Mobile Safari (iOS)
     {
-      name: 'Mobile Safari',
+      name: 'mobile-safari',
       use: {
         ...devices['iPhone 12'],
         storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
-      testIgnore: /tests\/api\//,
+      testMatch: [
+        /tests\/lists\/.*\.spec\.ts/,
+        /tests\/relationships\/.*\.spec\.ts/,
+        /tests\/dashboard\.spec\.ts/,
+      ],
     },
 
-    // Unauthenticated tests (for landing pages, public routes)
+    // ==========================================
+    // SPECIALIZED TEST GROUPS
+    // ==========================================
+
+    // Lists module tests
     {
-      name: 'unauthenticated',
+      name: 'lists',
+      testMatch: /tests\/lists\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+
+    // Relationships module tests
+    {
+      name: 'relationships',
+      testMatch: /tests\/relationships\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+
+    // Transactions module tests
+    {
+      name: 'transactions',
+      testMatch: /tests\/transactions\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+
+    // Reports module tests
+    {
+      name: 'reports',
+      testMatch: /tests\/reports\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+
+    // Construction module tests
+    {
+      name: 'construction',
+      testMatch: /tests\/construction\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+
+    // Admin module tests
+    {
+      name: 'admin',
+      testMatch: /tests\/admin\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+
+    // ==========================================
+    // UNAUTHENTICATED TESTS
+    // ==========================================
+
+    // Landing/public page tests (no auth needed)
+    {
+      name: 'public',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: /.*\.(landing|public)\.spec\.ts/,
+      testMatch: [
+        /.*\.landing\.spec\.ts/,
+        /.*\.public\.spec\.ts/,
+        /tests\/landing\.spec\.ts/,
+      ],
     },
   ],
 
-  /* Run your local dev server before starting the tests */
+  /* Run local dev server before starting the tests */
   webServer: {
     command: 'pnpm dev',
-    url: 'http://127.0.0.1:3000',
+    url: 'http://127.0.0.1:3030',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
+
+  /* Global setup and teardown */
+  globalSetup: undefined, // We use project-based setup instead
+  globalTeardown: undefined,
+
+  /* Metadata for test reporting */
+  metadata: {
+    project: 'GLAPI',
+    environment: process.env.NODE_ENV || 'test',
   },
 });

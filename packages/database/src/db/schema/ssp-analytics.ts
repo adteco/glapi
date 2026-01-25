@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, integer, decimal, boolean, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, jsonb, integer, decimal, boolean, index, unique, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 import { items } from './items';
@@ -9,7 +9,7 @@ import { items } from './items';
  */
 export const sspCalculationRuns = pgTable('ssp_calculation_runs', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Run Information
   runNumber: text('run_number').notNull(),
@@ -68,7 +68,7 @@ export const sspCalculationRuns = pgTable('ssp_calculation_runs', {
  */
 export const vsoeEvidence = pgTable('vsoe_evidence', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   itemId: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
   calculationRunId: text('calculation_run_id').references(() => sspCalculationRuns.id, { onDelete: 'set null' }),
   
@@ -120,7 +120,7 @@ export const vsoeEvidence = pgTable('vsoe_evidence', {
  */
 export const sspPricingBands = pgTable('ssp_pricing_bands', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   itemId: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
   calculationRunId: text('calculation_run_id').references(() => sspCalculationRuns.id, { onDelete: 'set null' }),
   
@@ -176,7 +176,7 @@ export const sspPricingBands = pgTable('ssp_pricing_bands', {
  */
 export const sspExceptions = pgTable('ssp_exceptions', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   itemId: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
   calculationRunId: text('calculation_run_id').references(() => sspCalculationRuns.id, { onDelete: 'set null' }),
   

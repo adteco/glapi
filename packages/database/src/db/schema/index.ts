@@ -693,6 +693,7 @@ export { departments } from './departments';
 export { classes } from './classes';
 export { subsidiaries } from './subsidiaries';
 export { projects } from './projects';
+export { organizations } from './organizations';
 
 // Re-export Purchase Order schemas (Procure-to-Pay)
 export {

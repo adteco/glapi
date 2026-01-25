@@ -143,7 +143,18 @@ export const accountingPeriodsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new AccountingPeriodService(ctx.serviceContext);
-      return service.createFiscalYearPeriods(input);
+      try {
+        return await service.createFiscalYearPeriods(input);
+      } catch (err: any) {
+        // Log detailed error information to aid debugging, without changing client behaviour
+        console.error('[accountingPeriods.createFiscalYear] Failed to create fiscal year periods', {
+          input,
+          message: err?.message,
+          code: err?.code,
+          stack: err?.stack,
+        });
+        throw err;
+      }
     }),
 
   /**

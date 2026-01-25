@@ -34,10 +34,10 @@ export const prospectsRouter = router({
   list: authenticatedProcedure
     .input(prospectQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new ProspectService();
+      const service = new ProspectService(ctx.serviceContext);
       const { page = 1, limit = 10, search, isActive } = input;
 
-      return await service.listProspects(ctx.user.organizationId, {
+      return await service.listProspects({
         page,
         limit,
         orderBy: 'name' as const,
@@ -50,15 +50,15 @@ export const prospectsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new ProspectService();
-      return await service.findById(input.id, ctx.user.organizationId);
+      const service = new ProspectService(ctx.serviceContext);
+      return await service.findById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(prospectSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProspectService();
-      return await service.createProspect(ctx.user.organizationId, {
+      const service = new ProspectService(ctx.serviceContext);
+      return await service.createProspect({
         ...input,
         status: 'active' as const,
         entityTypes: ['Prospect'] as const,
@@ -71,28 +71,28 @@ export const prospectsRouter = router({
       data: updateProspectSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ProspectService();
-      return await service.updateProspect(input.id, ctx.user.organizationId, input.data);
+      const service = new ProspectService(ctx.serviceContext);
+      return await service.updateProspect(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ProspectService();
-      return await service.delete(input.id, ctx.user.organizationId);
+      const service = new ProspectService(ctx.serviceContext);
+      return await service.delete(input.id);
     }),
 
   convertToLead: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ProspectService();
-      return await service.convertToLead(input.id, ctx.user.organizationId);
+      const service = new ProspectService(ctx.serviceContext);
+      return await service.convertToLead(input.id);
     }),
 
   convertToCustomer: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ProspectService();
-      return await service.convertToCustomer(input.id, ctx.user.organizationId);
+      const service = new ProspectService(ctx.serviceContext);
+      return await service.convertToCustomer(input.id);
     }),
 });

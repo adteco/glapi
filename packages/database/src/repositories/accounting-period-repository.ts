@@ -20,6 +20,7 @@ export interface AccountingPeriodFilters {
 }
 
 export interface CreateAccountingPeriodData {
+  organizationId: string;
   subsidiaryId: string;
   periodName: string;
   fiscalYear: string;
@@ -329,12 +330,14 @@ export class AccountingPeriodRepository extends BaseRepository {
    * Bulk create periods for a fiscal year
    */
   async createFiscalYearPeriods(
+    organizationId: string,
     subsidiaryId: string,
     fiscalYear: string,
-    periods: Omit<CreateAccountingPeriodData, 'subsidiaryId' | 'fiscalYear'>[]
+    periods: Omit<CreateAccountingPeriodData, 'organizationId' | 'subsidiaryId' | 'fiscalYear'>[]
   ) {
     const periodsToCreate = periods.map(p => ({
       ...p,
+      organizationId,
       subsidiaryId,
       fiscalYear,
       status: PERIOD_STATUS.OPEN,
