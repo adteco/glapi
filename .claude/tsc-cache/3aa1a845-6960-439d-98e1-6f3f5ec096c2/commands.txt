@@ -1,2 +1,2 @@
-packages/database:build:cd /Users/fredpope/Development/glapi/packages/database && npm run build
-packages/database:tsc:cd /Users/fredpope/Development/glapi/packages/database && npx tsc --noEmit
+packages/trpc:build:cd /Users/fredpope/Development/glapi/packages/trpc && npm run build
+packages/trpc:tsc:cd /Users/fredpope/Development/glapi/packages/trpc && npx tsc --noEmit
