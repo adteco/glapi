@@ -15,13 +15,15 @@ export interface ServiceContext {
 export interface CreateContextOptions {
   req?: CreateNextContextOptions['req'];
   res?: CreateNextContextOptions['res'];
+  resHeaders?: Headers; // Response headers for fetch adapter
   user?: User | null;
   db?: any; // We'll type this properly in the API app
+  organizationName?: string | null; // Organization name for debugging headers
 }
 
 export async function createContext(opts: CreateContextOptions) {
-  const { req, res, user, db } = opts;
-  
+  const { req, res, resHeaders, user, db, organizationName } = opts;
+
   // Create service context from user info
   const serviceContext: ServiceContext | undefined = user ? {
     organizationId: user.organizationId,
@@ -31,9 +33,11 @@ export async function createContext(opts: CreateContextOptions) {
   return {
     req,
     res,
+    resHeaders,
     user,
     db,
     serviceContext,
+    organizationName,
   };
 }
 
