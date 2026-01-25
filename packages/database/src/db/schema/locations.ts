@@ -1,14 +1,15 @@
 import { relations } from 'drizzle-orm';
-import { pgTable, uuid, text, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { subsidiaries } from './subsidiaries';
 import { transactionLines } from './transactionLines'; // For relation back from locations to lines
+import { organizations } from './organizations';
 
 export const locations = pgTable('locations', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   code: text('code'),
   description: text('description'),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   subsidiaryId: uuid('subsidiary_id'),
   addressLine1: text('address_line_1'),
   addressLine2: text('address_line_2'),
@@ -19,7 +20,9 @@ export const locations = pgTable('locations', {
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-});
+}, (table) => ({
+  orgCodeUnique: uniqueIndex('locations_org_code_unique').on(table.organizationId, table.code),
+}));
 
 export const locationRelations = relations(locations, ({ one, many }) => ({
   // organization relation removed - organizationId is now just a varchar field

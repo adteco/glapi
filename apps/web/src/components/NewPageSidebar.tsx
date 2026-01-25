@@ -540,6 +540,12 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                   {isAccountingOpen && (
                     <ul className="mt-1 space-y-1">
                       <li>
+                        <Link href="/lists/accounting-periods" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/accounting-periods') ? activeLinkClass : inactiveLinkClass}`}>
+                          <CalendarIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Accounting Periods</span>
+                        </Link>
+                      </li>
+                      <li>
                         <Link href="/lists/accounts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/accounts') ? activeLinkClass : inactiveLinkClass}`}>
                           <ListOrderedIcon className={`h-3 w-3 opacity-75`} />
                           <span>Accounts</span>
@@ -606,15 +612,15 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                   {isRelationshipsOpen && (
                     <ul className="mt-1 space-y-1">
                       <li>
-                        <Link href="/relationships/customers" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/customers') ? activeLinkClass : inactiveLinkClass}`}>
+                        <Link href="/relationships/contacts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/contacts') ? activeLinkClass : inactiveLinkClass}`}>
                           <UsersIcon className={`h-3 w-3 opacity-75`} />
-                          <span>Customers</span>
+                          <span>Contacts</span>
                         </Link>
                       </li>
                       <li>
-                        <Link href="/relationships/vendors" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/vendors') ? activeLinkClass : inactiveLinkClass}`}>
-                          <BriefcaseIcon className={`h-3 w-3 opacity-75`} />
-                          <span>Vendors</span>
+                        <Link href="/relationships/customers" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/customers') ? activeLinkClass : inactiveLinkClass}`}>
+                          <UsersIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Customers</span>
                         </Link>
                       </li>
                       <li>
@@ -630,15 +636,21 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                         </Link>
                       </li>
                       <li>
+                        <Link href="/construction/projects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/construction/projects') ? activeLinkClass : inactiveLinkClass}`}>
+                          <HardHatIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Projects</span>
+                        </Link>
+                      </li>
+                      <li>
                         <Link href="/relationships/prospects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/prospects') ? activeLinkClass : inactiveLinkClass}`}>
                           <ShieldIcon className={`h-3 w-3 opacity-75`} />
                           <span>Prospects</span>
                         </Link>
                       </li>
                       <li>
-                        <Link href="/relationships/contacts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/contacts') ? activeLinkClass : inactiveLinkClass}`}>
-                          <UsersIcon className={`h-3 w-3 opacity-75`} />
-                          <span>Contacts</span>
+                        <Link href="/relationships/vendors" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/vendors') ? activeLinkClass : inactiveLinkClass}`}>
+                          <BriefcaseIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Vendors</span>
                         </Link>
                       </li>
                     </ul>

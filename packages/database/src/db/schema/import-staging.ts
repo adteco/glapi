@@ -105,7 +105,7 @@ export const importSourceSystemEnum = pgEnum('import_source_system', [
  */
 export const importBatches = pgTable('import_batches', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 
   // Batch identification
   batchNumber: text('batch_number').notNull(),
@@ -218,7 +218,7 @@ export const importRecords = pgTable('import_records', {
  */
 export const importFieldMappings = pgTable('import_field_mappings', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 
   // Mapping identification
   name: text('name').notNull(),
@@ -258,7 +258,7 @@ export const importFieldMappings = pgTable('import_field_mappings', {
  */
 export const importTemplates = pgTable('import_templates', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id'),
+  organizationId: uuid('organization_id').references(() => organizations.id),
 
   // Template identification
   name: text('name').notNull(),

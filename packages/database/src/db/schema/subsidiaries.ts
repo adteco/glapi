@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, AnyPgColumn } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, AnyPgColumn, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { currencies } from './currencies';
 import { organizations } from './organizations';
@@ -8,7 +8,7 @@ import { organizations } from './organizations';
 
 export const subsidiaries = pgTable('subsidiaries', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   name: text('name').notNull(),
   code: text('code'),
   description: text('description'),
@@ -18,7 +18,9 @@ export const subsidiaries = pgTable('subsidiaries', {
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-});
+}, (table) => ({
+  orgCodeUnique: uniqueIndex('subsidiaries_org_code_unique').on(table.organizationId, table.code),
+}));
 
 export const subsidiaryRelations = relations(subsidiaries, ({ one, many }) => ({
   // organization relation removed - organizationId is now just a varchar field

@@ -108,7 +108,7 @@ export class GlBalanceService extends BaseService {
    * Get account balance for a specific account, period, and optional dimensions
    */
   async getAccountBalance(query: AccountBalanceQuery): Promise<AccountBalance | null> {
-    this.requireOrganizationContext();
+    const organizationId = this.requireOrganizationContext();
 
     if (!query.accountId && !query.accountIds?.length) {
       throw new ServiceError(
@@ -127,7 +127,10 @@ export class GlBalanceService extends BaseService {
     }
 
     try {
-      const conditions = [eq(glAccountBalances.periodId, query.periodId)];
+      const conditions = [
+        eq(glAccountBalances.organizationId, organizationId),
+        eq(glAccountBalances.periodId, query.periodId),
+      ];
 
       if (query.accountId) {
         conditions.push(eq(glAccountBalances.accountId, query.accountId));
@@ -164,7 +167,7 @@ export class GlBalanceService extends BaseService {
    * Get balances for multiple accounts in a period
    */
   async getAccountBalances(query: AccountBalanceQuery): Promise<AccountBalance[]> {
-    this.requireOrganizationContext();
+    const organizationId = this.requireOrganizationContext();
 
     if (!query.periodId) {
       throw new ServiceError(
@@ -175,7 +178,10 @@ export class GlBalanceService extends BaseService {
     }
 
     try {
-      const conditions = [eq(glAccountBalances.periodId, query.periodId)];
+      const conditions = [
+        eq(glAccountBalances.organizationId, organizationId),
+        eq(glAccountBalances.periodId, query.periodId),
+      ];
 
       if (query.subsidiaryId) {
         conditions.push(eq(glAccountBalances.subsidiaryId, query.subsidiaryId));
@@ -208,7 +214,7 @@ export class GlBalanceService extends BaseService {
     subsidiaryId?: string,
     currencyCode?: string
   ): Promise<TrialBalanceResult> {
-    this.requireOrganizationContext();
+    const organizationId = this.requireOrganizationContext();
 
     if (!periodId) {
       throw new ServiceError(
@@ -219,7 +225,10 @@ export class GlBalanceService extends BaseService {
     }
 
     try {
-      const conditions = [eq(glAccountBalances.periodId, periodId)];
+      const conditions = [
+        eq(glAccountBalances.organizationId, organizationId),
+        eq(glAccountBalances.periodId, periodId),
+      ];
 
       if (subsidiaryId) {
         conditions.push(eq(glAccountBalances.subsidiaryId, subsidiaryId));
@@ -290,6 +299,7 @@ export class GlBalanceService extends BaseService {
     priorPeriodId: string,
     subsidiaryId?: string
   ): Promise<BalanceComparisonResult | null> {
+    // Note: Organization context is verified by the getAccountBalance calls below
     this.requireOrganizationContext();
 
     try {
@@ -362,15 +372,16 @@ export class GlBalanceService extends BaseService {
     lag: number;
     isUpToDate: boolean;
   }> {
-    this.requireOrganizationContext();
+    const organizationId = this.requireOrganizationContext();
 
     try {
-      // Get the latest balance update time
+      // Get the latest balance update time for this organization
       const latestBalance = await db
         .select({
           lastUpdated: sql<Date>`MAX(${glAccountBalances.lastUpdated})`,
         })
-        .from(glAccountBalances);
+        .from(glAccountBalances)
+        .where(eq(glAccountBalances.organizationId, organizationId));
 
       // For now, return a simplified response
       // In production, this would compare against the event store's latest sequence

@@ -24,7 +24,19 @@
     "test:playwright:ui": "playwright test --ui",
     "test:playwright:headed": "playwright test --headed",
     "test:playwright:debug": "playwright test --debug",
-    "test:playwright:install": "playwright install"
+    "test:playwright:install": "playwright install",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:all": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:smoke": "playwright test --project=smoke",
+    "test:api": "playwright test --project=api",
+    "test:lists": "playwright test --project=lists",
+    "test:relationships": "playwright test --project=relationships",
+    "test:transactions": "playwright test --project=transactions",
+    "test:reports": "playwright test --project=reports",
+    "test:construction": "playwright test --project=construction",
+    "test:admin": "playwright test --project=admin",
+    "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari"
   },
   "workspaces": [
     "packages/*",
@@ -32,6 +44,7 @@
     "apps/*"
   ],
   "devDependencies": {
+    "@clerk/testing": "^1.13.31",
     "@eslint/js": "^9.39.2",
     "@pact-foundation/pact": "^15.0.1",
     "@playwright/test": "^1.40.0",

@@ -1,15 +1,20 @@
 import { EntityService } from './entity-service';
-import { 
-  CreateEntityInput, 
-  UpdateEntityInput, 
+import {
+  CreateEntityInput,
+  UpdateEntityInput,
   EntityListQuery,
   EntityListResponse,
   BaseEntity,
   LeadProspectMetadata
 } from './types';
+import { ServiceContext } from '../types';
 
 export class ProspectService extends EntityService {
-  
+
+  constructor(context: ServiceContext = {}) {
+    super(context);
+  }
+
   /**
    * Transform database entity to match expected types
    */
@@ -32,93 +37,80 @@ export class ProspectService extends EntityService {
   /**
    * List all prospects
    */
-  async listProspects(
-    organizationId: string,
-    query: EntityListQuery
-  ): Promise<EntityListResponse> {
-    return this.list(organizationId, ['Prospect'], query);
+  async listProspects(query: EntityListQuery): Promise<EntityListResponse> {
+    return this.list(['Prospect'], query);
   }
-  
+
   /**
    * Create a new prospect
    */
   async createProspect(
-    organizationId: string,
     data: CreateEntityInput & { metadata?: LeadProspectMetadata }
   ): Promise<BaseEntity> {
-    return this.create(organizationId, ['Prospect'], data);
+    return this.create(['Prospect'], data);
   }
-  
+
   /**
    * Update a prospect
    */
   async updateProspect(
     id: string,
-    organizationId: string,
     data: UpdateEntityInput & { metadata?: LeadProspectMetadata }
   ): Promise<BaseEntity> {
-    return this.update(id, organizationId, data);
+    return this.update(id, data);
   }
-  
+
   /**
    * Convert prospect to lead
    */
-  async convertToLead(
-    prospectId: string,
-    organizationId: string
-  ): Promise<BaseEntity> {
-    const prospect = await this.findById(prospectId, organizationId);
+  async convertToLead(prospectId: string): Promise<BaseEntity> {
+    const prospect = await this.findById(prospectId);
     if (!prospect) {
       throw new Error('Prospect not found');
     }
-    
+
     // Remove Prospect type and add Lead type
-    await this.removeEntityType(prospectId, organizationId, 'Prospect');
-    const lead = await this.addEntityType(prospectId, organizationId, 'Lead');
-    
+    await this.removeEntityType(prospectId, 'Prospect');
+    await this.addEntityType(prospectId, 'Lead');
+
     // Update metadata with conversion info
     const metadata = {
       ...(prospect.metadata || {}),
       convertedDate: new Date().toISOString(),
       originalType: 'Prospect',
     };
-    
-    return this.update(prospectId, organizationId, { metadata });
+
+    return this.update(prospectId, { metadata });
   }
-  
+
   /**
    * Convert prospect to customer
    */
-  async convertToCustomer(
-    prospectId: string,
-    organizationId: string
-  ): Promise<BaseEntity> {
-    const prospect = await this.findById(prospectId, organizationId);
+  async convertToCustomer(prospectId: string): Promise<BaseEntity> {
+    const prospect = await this.findById(prospectId);
     if (!prospect) {
       throw new Error('Prospect not found');
     }
-    
+
     // Remove Prospect type and add Customer type
-    await this.removeEntityType(prospectId, organizationId, 'Prospect');
-    const customer = await this.addEntityType(prospectId, organizationId, 'Customer');
-    
+    await this.removeEntityType(prospectId, 'Prospect');
+    await this.addEntityType(prospectId, 'Customer');
+
     // Update metadata with conversion info
     const metadata = {
       ...(prospect.metadata || {}),
       convertedDate: new Date().toISOString(),
       originalType: 'Prospect',
     };
-    
-    return this.update(prospectId, organizationId, { metadata });
+
+    return this.update(prospectId, { metadata });
   }
-  
+
   /**
    * Find prospects by industry
    */
-  async findByIndustry(
-    industry: string,
-    organizationId: string
-  ): Promise<BaseEntity[]> {
+  async findByIndustry(industry: string): Promise<BaseEntity[]> {
+    const organizationId = this.requireOrganizationContext();
     const prospects = await this.repository.findByTypes(
       ['Prospect'],
       organizationId,
@@ -126,21 +118,19 @@ export class ProspectService extends EntityService {
         limit: 1000,
       }
     );
-    
+
     // Filter by industry in metadata
-    const filtered = prospects.filter(p => 
+    const filtered = prospects.filter(p =>
       (p.metadata as LeadProspectMetadata)?.industry === industry
     );
     return this.transformEntities(filtered);
   }
-  
+
   /**
    * Find high-value prospects
    */
-  async findHighValueProspects(
-    organizationId: string,
-    minRevenue: number = 1000000
-  ): Promise<BaseEntity[]> {
+  async findHighValueProspects(minRevenue: number = 1000000): Promise<BaseEntity[]> {
+    const organizationId = this.requireOrganizationContext();
     const rawProspects = await this.repository.findByTypes(
       ['Prospect'],
       organizationId,
@@ -148,9 +138,9 @@ export class ProspectService extends EntityService {
         limit: 1000,
       }
     );
-    
+
     const prospects = this.transformEntities(rawProspects);
-    
+
     // Filter by annual revenue in metadata
     return prospects
       .filter(p => {
@@ -165,4 +155,5 @@ export class ProspectService extends EntityService {
   }
 }
 
+// Note: Prefer creating new instances with serviceContext rather than using singleton
 export const prospectService = new ProspectService();

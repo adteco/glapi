@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, integer, boolean, index, unique, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, jsonb, integer, boolean, index, unique, primaryKey, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
@@ -13,7 +13,7 @@ import { items } from './items';
  */
 export const glAccountMappings = pgTable('gl_account_mappings', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Mapping Name and Description
   mappingName: text('mapping_name').notNull(),
@@ -85,7 +85,7 @@ export const glAccountMappings = pgTable('gl_account_mappings', {
  */
 export const glPeriodEndBatches = pgTable('gl_period_end_batches', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Batch Information
   batchNumber: text('batch_number').notNull(),

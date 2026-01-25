@@ -272,6 +272,7 @@ export class BalanceProjectionWorker extends WorkerBase {
     await db
       .insert(glAccountBalances)
       .values({
+        organizationId,
         accountId: data.accountId,
         subsidiaryId: data.subsidiaryId,
         periodId: data.periodId,
@@ -332,6 +333,7 @@ export class BalanceProjectionWorker extends WorkerBase {
     await db
       .insert(glAccountBalances)
       .values({
+        organizationId,
         accountId: line.accountId,
         subsidiaryId,
         periodId,

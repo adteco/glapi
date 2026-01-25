@@ -171,9 +171,8 @@ export const globalSearchRouter = router({
       // Search employees
       if (targetType === 'all' || targetType === 'employee') {
         try {
-          const entityService = new EntityService();
+          const entityService = new EntityService(ctx.serviceContext);
           const employees = await entityService.list(
-            ctx.user.organizationId,
             ['Employee'],
             {
               page: 1,
@@ -212,9 +211,8 @@ export const globalSearchRouter = router({
       // Search vendors
       if (targetType === 'all' || targetType === 'vendor') {
         try {
-          const entityService = new EntityService();
+          const entityService = new EntityService(ctx.serviceContext);
           const vendors = await entityService.list(
-            ctx.user.organizationId,
             ['Vendor'],
             {
               page: 1,
@@ -289,9 +287,8 @@ export const globalSearchRouter = router({
       // Search contacts
       if (targetType === 'all' || targetType === 'contact') {
         try {
-          const entityService = new EntityService();
+          const entityService = new EntityService(ctx.serviceContext);
           const contacts = await entityService.list(
-            ctx.user.organizationId,
             ['Contact'],
             {
               page: 1,

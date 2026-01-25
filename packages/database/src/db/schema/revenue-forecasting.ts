@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, decimal, integer, boolean, index, pgEnum, date } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, jsonb, decimal, integer, boolean, index, pgEnum, date, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 
@@ -20,7 +20,7 @@ export const forecastModelEnum = pgEnum('forecast_model', [
  */
 export const revenueForecastRuns = pgTable('revenue_forecast_runs', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Forecast parameters
   forecastName: text('forecast_name').notNull(),
@@ -107,7 +107,7 @@ export const revenueForecastDetails = pgTable('revenue_forecast_details', {
  */
 export const cohortAnalysis = pgTable('cohort_analysis', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Cohort definition
   cohortName: text('cohort_name').notNull(),
@@ -150,7 +150,7 @@ export const cohortAnalysis = pgTable('cohort_analysis', {
  */
 export const scenarioAnalysis = pgTable('scenario_analysis', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   scenarioName: text('scenario_name').notNull(),
   scenarioType: text('scenario_type').notNull(), // growth, recession, best_case, worst_case, custom
@@ -210,7 +210,7 @@ export const scenarioAnalysis = pgTable('scenario_analysis', {
  */
 export const churnPredictions = pgTable('churn_predictions', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   customerId: text('customer_id').notNull(),
   
   // Prediction details
@@ -259,7 +259,7 @@ export const churnPredictions = pgTable('churn_predictions', {
  */
 export const deferredRevenueRollforward = pgTable('deferred_revenue_rollforward', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Period information
   periodStart: date('period_start').notNull(),

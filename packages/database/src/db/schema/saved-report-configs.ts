@@ -10,6 +10,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { entities } from './entities';
+import { organizations } from './organizations';
 
 /**
  * Report type enum values
@@ -65,7 +66,7 @@ export const savedReportConfigs = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
 
     // Organization context for RLS
-    organizationId: text('organization_id').notNull(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 
     // Owner - references entities table for RLS compatibility
     // When a user saves a config, we use their entity_id (not clerk user_id)

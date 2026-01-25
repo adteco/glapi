@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import { router, authenticatedProcedure } from '../trpc';
 import {
   ConsolidationService,
   ConsolidationEngine,
@@ -125,7 +125,7 @@ export const consolidationRouter = router({
   /**
    * List all consolidation groups
    */
-  listGroups: protectedProcedure
+  listGroups: authenticatedProcedure
     .input(
       z
         .object({
@@ -140,7 +140,7 @@ export const consolidationRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.listConsolidationGroups(
         input?.pagination ?? {},
         input?.filters ?? {}
@@ -150,20 +150,20 @@ export const consolidationRouter = router({
   /**
    * Get a single consolidation group by ID
    */
-  getGroup: protectedProcedure
+  getGroup: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.getConsolidationGroupById(input.id);
     }),
 
   /**
    * Create a new consolidation group
    */
-  createGroup: protectedProcedure
+  createGroup: authenticatedProcedure
     .input(createGroupSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.createConsolidationGroup({
         organizationId: ctx.organizationId,
         name: input.name,
@@ -180,7 +180,7 @@ export const consolidationRouter = router({
   /**
    * Update an existing consolidation group
    */
-  updateGroup: protectedProcedure
+  updateGroup: authenticatedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -188,7 +188,7 @@ export const consolidationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       // Convert null to undefined for service compatibility
       return service.updateConsolidationGroup(input.id, {
         ...input.data,
@@ -200,10 +200,10 @@ export const consolidationRouter = router({
   /**
    * Delete a consolidation group
    */
-  deleteGroup: protectedProcedure
+  deleteGroup: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       await service.deleteConsolidationGroup(input.id);
       return { success: true };
     }),
@@ -215,7 +215,7 @@ export const consolidationRouter = router({
   /**
    * Get members of a consolidation group
    */
-  getGroupMembers: protectedProcedure
+  getGroupMembers: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -228,17 +228,17 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.getGroupMembers(input.groupId, input.filters ?? {});
     }),
 
   /**
    * Add a subsidiary to a consolidation group
    */
-  addGroupMember: protectedProcedure
+  addGroupMember: authenticatedProcedure
     .input(addMemberSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.addGroupMember({
         groupId: input.groupId,
         subsidiaryId: input.subsidiaryId,
@@ -255,7 +255,7 @@ export const consolidationRouter = router({
   /**
    * Update a group member
    */
-  updateGroupMember: protectedProcedure
+  updateGroupMember: authenticatedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -263,7 +263,7 @@ export const consolidationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       // Convert null to undefined for service compatibility
       return service.updateGroupMember(input.id, {
         ...input.data,
@@ -275,10 +275,10 @@ export const consolidationRouter = router({
   /**
    * Remove a subsidiary from a consolidation group
    */
-  removeGroupMember: protectedProcedure
+  removeGroupMember: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       await service.removeGroupMember(input.id);
       return { success: true };
     }),
@@ -290,7 +290,7 @@ export const consolidationRouter = router({
   /**
    * Get elimination rules for a group
    */
-  getEliminationRules: protectedProcedure
+  getEliminationRules: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -304,17 +304,17 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.getEliminationRules(input.groupId, input.filters ?? {});
     }),
 
   /**
    * Create an elimination rule
    */
-  createEliminationRule: protectedProcedure
+  createEliminationRule: authenticatedProcedure
     .input(createEliminationRuleSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.createEliminationRule({
         groupId: input.groupId,
         name: input.name,
@@ -338,7 +338,7 @@ export const consolidationRouter = router({
   /**
    * Update an elimination rule
    */
-  updateEliminationRule: protectedProcedure
+  updateEliminationRule: authenticatedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -346,17 +346,17 @@ export const consolidationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.updateEliminationRule(input.id, input.data);
     }),
 
   /**
    * Delete an elimination rule
    */
-  deleteEliminationRule: protectedProcedure
+  deleteEliminationRule: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       await service.deleteEliminationRule(input.id);
       return { success: true };
     }),
@@ -368,20 +368,20 @@ export const consolidationRouter = router({
   /**
    * Get exchange rates for a period
    */
-  getExchangeRates: protectedProcedure
+  getExchangeRates: authenticatedProcedure
     .input(z.object({ periodId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.getExchangeRatesByPeriod(input.periodId);
     }),
 
   /**
    * Create or update an exchange rate
    */
-  upsertExchangeRate: protectedProcedure
+  upsertExchangeRate: authenticatedProcedure
     .input(upsertExchangeRateSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.upsertExchangeRate({
         organizationId: ctx.organizationId,
         fromCurrencyId: input.fromCurrencyId,
@@ -401,18 +401,18 @@ export const consolidationRouter = router({
   /**
    * Get all intercompany mappings
    */
-  getIntercompanyMappings: protectedProcedure.query(async ({ ctx }) => {
-    const service = new ConsolidationService({ organizationId: ctx.organizationId });
+  getIntercompanyMappings: authenticatedProcedure.query(async ({ ctx }) => {
+    const service = new ConsolidationService(ctx.serviceContext);
     return service.getIntercompanyMappings();
   }),
 
   /**
    * Create an intercompany mapping
    */
-  createIntercompanyMapping: protectedProcedure
+  createIntercompanyMapping: authenticatedProcedure
     .input(createIntercompanyMappingSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.createIntercompanyMapping({
         organizationId: ctx.organizationId,
         name: input.name,
@@ -427,7 +427,7 @@ export const consolidationRouter = router({
   /**
    * Update an intercompany mapping
    */
-  updateIntercompanyMapping: protectedProcedure
+  updateIntercompanyMapping: authenticatedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -435,17 +435,17 @@ export const consolidationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.updateIntercompanyMapping(input.id, input.data);
     }),
 
   /**
    * Delete an intercompany mapping
    */
-  deleteIntercompanyMapping: protectedProcedure
+  deleteIntercompanyMapping: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       await service.deleteIntercompanyMapping(input.id);
       return { success: true };
     }),
@@ -457,7 +457,7 @@ export const consolidationRouter = router({
   /**
    * Get summary data for a consolidation group
    */
-  getGroupSummary: protectedProcedure
+  getGroupSummary: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -465,7 +465,7 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationService({ organizationId: ctx.organizationId });
+      const service = new ConsolidationService(ctx.serviceContext);
       return service.getGroupSummary(input.groupId, input.periodId);
     }),
 
@@ -476,7 +476,7 @@ export const consolidationRouter = router({
   /**
    * Execute a consolidation run
    */
-  runConsolidation: protectedProcedure
+  runConsolidation: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -486,7 +486,7 @@ export const consolidationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const engine = new ConsolidationEngine({ organizationId: ctx.organizationId });
+      const engine = new ConsolidationEngine(ctx.serviceContext);
       return engine.runConsolidation({
         groupId: input.groupId,
         periodId: input.periodId,
@@ -498,27 +498,27 @@ export const consolidationRouter = router({
   /**
    * Reverse a consolidation run
    */
-  reverseConsolidationRun: protectedProcedure
+  reverseConsolidationRun: authenticatedProcedure
     .input(z.object({ runId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const engine = new ConsolidationEngine({ organizationId: ctx.organizationId });
+      const engine = new ConsolidationEngine(ctx.serviceContext);
       return engine.reverseConsolidationRun(input.runId);
     }),
 
   /**
    * Get details of a consolidation run
    */
-  getConsolidationRunDetails: protectedProcedure
+  getConsolidationRunDetails: authenticatedProcedure
     .input(z.object({ runId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const engine = new ConsolidationEngine({ organizationId: ctx.organizationId });
+      const engine = new ConsolidationEngine(ctx.serviceContext);
       return engine.getConsolidationRunDetails(input.runId);
     }),
 
   /**
    * List consolidation runs for a group/period
    */
-  listConsolidationRuns: protectedProcedure
+  listConsolidationRuns: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -534,7 +534,7 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const engine = new ConsolidationEngine({ organizationId: ctx.organizationId });
+      const engine = new ConsolidationEngine(ctx.serviceContext);
       return engine.listConsolidationRuns(
         input.groupId,
         input.periodId,
@@ -549,7 +549,7 @@ export const consolidationRouter = router({
   /**
    * Get consolidated balance sheet
    */
-  getConsolidatedBalanceSheet: protectedProcedure
+  getConsolidatedBalanceSheet: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -560,9 +560,7 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationReportingService({
-        organizationId: ctx.organizationId,
-      });
+      const service = new ConsolidationReportingService(ctx.serviceContext);
       return service.getConsolidatedBalanceSheet({
         groupId: input.groupId,
         periodId: input.periodId,
@@ -575,7 +573,7 @@ export const consolidationRouter = router({
   /**
    * Get consolidated income statement
    */
-  getConsolidatedIncomeStatement: protectedProcedure
+  getConsolidatedIncomeStatement: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -586,9 +584,7 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationReportingService({
-        organizationId: ctx.organizationId,
-      });
+      const service = new ConsolidationReportingService(ctx.serviceContext);
       return service.getConsolidatedIncomeStatement({
         groupId: input.groupId,
         periodId: input.periodId,
@@ -601,7 +597,7 @@ export const consolidationRouter = router({
   /**
    * Get consolidated trial balance
    */
-  getConsolidatedTrialBalance: protectedProcedure
+  getConsolidatedTrialBalance: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -612,9 +608,7 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationReportingService({
-        organizationId: ctx.organizationId,
-      });
+      const service = new ConsolidationReportingService(ctx.serviceContext);
       return service.getConsolidatedTrialBalance({
         groupId: input.groupId,
         periodId: input.periodId,
@@ -627,43 +621,37 @@ export const consolidationRouter = router({
   /**
    * Get elimination summary for a run
    */
-  getEliminationSummary: protectedProcedure
+  getEliminationSummary: authenticatedProcedure
     .input(z.object({ runId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationReportingService({
-        organizationId: ctx.organizationId,
-      });
+      const service = new ConsolidationReportingService(ctx.serviceContext);
       return service.getEliminationSummary(input.runId);
     }),
 
   /**
    * Get translation summary for a run
    */
-  getTranslationSummary: protectedProcedure
+  getTranslationSummary: authenticatedProcedure
     .input(z.object({ runId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationReportingService({
-        organizationId: ctx.organizationId,
-      });
+      const service = new ConsolidationReportingService(ctx.serviceContext);
       return service.getTranslationSummary(input.runId);
     }),
 
   /**
    * Get available books/entities for filtering
    */
-  getAvailableBooks: protectedProcedure
+  getAvailableBooks: authenticatedProcedure
     .input(z.object({ groupId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationReportingService({
-        organizationId: ctx.organizationId,
-      });
+      const service = new ConsolidationReportingService(ctx.serviceContext);
       return service.getAvailableBooks(input.groupId);
     }),
 
   /**
    * Export consolidation data
    */
-  exportConsolidationData: protectedProcedure
+  exportConsolidationData: authenticatedProcedure
     .input(
       z.object({
         groupId: z.string().uuid(),
@@ -673,9 +661,7 @@ export const consolidationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ConsolidationReportingService({
-        organizationId: ctx.organizationId,
-      });
+      const service = new ConsolidationReportingService(ctx.serviceContext);
       return service.exportConsolidationData({
         groupId: input.groupId,
         periodId: input.periodId,
