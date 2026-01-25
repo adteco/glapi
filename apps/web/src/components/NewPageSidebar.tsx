@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserButton, useUser, useAuth, OrganizationSwitcher } from '@clerk/nextjs';
+import { UserButton, useUser, useAuth } from '@clerk/nextjs';
+import { OrganizationSwitcher } from '@/components/organization-switcher';
 import { trpc } from '@/lib/trpc';
 import {
   Home as HomeIcon,
@@ -273,31 +274,16 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
         </div>
 
       {/* Organization Switcher */}
-      {!showCollapsed && (
-        <div className="p-4 border-b border-sidebar-border">
-          <OrganizationSwitcher
-            afterCreateOrganizationUrl="/dashboard"
-            afterSelectOrganizationUrl="/dashboard"
-            appearance={{
-              elements: {
-                organizationSwitcherTrigger:
-                  'w-full flex items-center justify-between p-3 rounded-md bg-sidebar-accent hover:bg-sidebar-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-sidebar focus:ring-sky-500 text-sm font-medium text-sidebar-foreground border border-transparent',
-                organizationSwitcherPopoverCard:
-                  'bg-sidebar-accent border-sidebar-border text-sidebar-foreground shadow-xl',
-                organizationSwitcherPopoverActionButton:
-                  'text-sidebar-foreground hover:bg-sidebar-hover px-3 py-2 rounded-md',
-                organizationSwitcherPreviewButton:
-                  'text-sidebar-foreground hover:bg-sidebar-hover px-3 py-2 rounded-md',
-                organizationSwitcherCreateOrganizationButton:
-                  'text-sidebar-foreground hover:bg-sidebar-hover px-3 py-2 rounded-md',
-                organizationPreviewTextContainer: 'text-sidebar-foreground',
-                organizationPreviewMainIdentifier: 'text-sidebar-foreground font-medium',
-                organizationSwitcherErrorText: 'text-red-400 text-xs',
-              },
-            }}
-          />
-        </div>
-      )}
+      <div className={cn(
+        'border-b border-sidebar-border',
+        showCollapsed ? 'p-2' : 'p-4'
+      )}>
+        <OrganizationSwitcher
+          afterCreateOrganizationUrl="/dashboard"
+          afterSelectOrganizationUrl="/dashboard"
+          collapsed={showCollapsed}
+        />
+      </div>
 
       {/* Navigation */}
       <nav className={cn(

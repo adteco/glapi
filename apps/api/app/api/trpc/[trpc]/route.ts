@@ -7,7 +7,7 @@ import type { NextRequest } from 'next/server';
 const handler = async (req: NextRequest) => {
   // Get the organization context from headers (set by middleware)
   const context = await getServiceContext();
-  
+
   // Create a user object compatible with the API service types
   const user = {
     id: context.userId,
@@ -20,11 +20,24 @@ const handler = async (req: NextRequest) => {
     endpoint: '/api/trpc',
     req,
     router: appRouter,
-    createContext: () => createContext({ 
-      req: req as any,
-      user,
-      db 
-    }),
+    createContext: ({ resHeaders }) => {
+      // Add organization context headers for debugging and auditing
+      // These are only set for authenticated requests
+      if (context.organizationId) {
+        resHeaders.set('X-Organization-Id', context.organizationId);
+        if (context.organizationName) {
+          resHeaders.set('X-Organization-Name', context.organizationName);
+        }
+      }
+
+      return createContext({
+        req: req as any,
+        resHeaders,
+        user,
+        db,
+        organizationName: context.organizationName,
+      });
+    },
     onError({ error, path }) {
       console.error(`tRPC error on ${path}:`, error);
     },

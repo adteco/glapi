@@ -50,6 +50,7 @@ describe('Financial Statements TRPC Router Integration', () => {
   const createAuthenticatedContext = (): Context => ({
     req: undefined as any,
     res: undefined as any,
+    resHeaders: undefined,
     db: {} as any, // Will be replaced by RLS-contextual db in middleware
     user: {
       id: testUserId,
@@ -61,14 +62,17 @@ describe('Financial Statements TRPC Router Integration', () => {
       organizationId: testOrganizationId,
       userId: testUserId,
     } as ServiceContext,
+    organizationName: undefined,
   });
 
   const createUnauthenticatedContext = (): Context => ({
     req: undefined as any,
     res: undefined as any,
+    resHeaders: undefined,
     db: {} as any,
     user: null,
     serviceContext: undefined,
+    organizationName: undefined,
   });
 
   beforeEach(() => {
