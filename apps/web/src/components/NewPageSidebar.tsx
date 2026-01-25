@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserButton, useUser, useAuth, OrganizationSwitcher } from '@clerk/nextjs';
+import { UserButton, useUser, useAuth } from '@clerk/nextjs';
+import { OrganizationSwitcher } from '@/components/organization-switcher';
 import { trpc } from '@/lib/trpc';
 import {
   Home as HomeIcon,
@@ -273,31 +274,16 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
         </div>
 
       {/* Organization Switcher */}
-      {!showCollapsed && (
-        <div className="p-4 border-b border-sidebar-border">
-          <OrganizationSwitcher
-            afterCreateOrganizationUrl="/dashboard"
-            afterSelectOrganizationUrl="/dashboard"
-            appearance={{
-              elements: {
-                organizationSwitcherTrigger:
-                  'w-full flex items-center justify-between p-3 rounded-md bg-sidebar-accent hover:bg-sidebar-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-sidebar focus:ring-sky-500 text-sm font-medium text-sidebar-foreground border border-transparent',
-                organizationSwitcherPopoverCard:
-                  'bg-sidebar-accent border-sidebar-border text-sidebar-foreground shadow-xl',
-                organizationSwitcherPopoverActionButton:
-                  'text-sidebar-foreground hover:bg-sidebar-hover px-3 py-2 rounded-md',
-                organizationSwitcherPreviewButton:
-                  'text-sidebar-foreground hover:bg-sidebar-hover px-3 py-2 rounded-md',
-                organizationSwitcherCreateOrganizationButton:
-                  'text-sidebar-foreground hover:bg-sidebar-hover px-3 py-2 rounded-md',
-                organizationPreviewTextContainer: 'text-sidebar-foreground',
-                organizationPreviewMainIdentifier: 'text-sidebar-foreground font-medium',
-                organizationSwitcherErrorText: 'text-red-400 text-xs',
-              },
-            }}
-          />
-        </div>
-      )}
+      <div className={cn(
+        'border-b border-sidebar-border',
+        showCollapsed ? 'p-2' : 'p-4'
+      )}>
+        <OrganizationSwitcher
+          afterCreateOrganizationUrl="/dashboard"
+          afterSelectOrganizationUrl="/dashboard"
+          collapsed={showCollapsed}
+        />
+      </div>
 
       {/* Navigation */}
       <nav className={cn(
@@ -540,6 +526,12 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                   {isAccountingOpen && (
                     <ul className="mt-1 space-y-1">
                       <li>
+                        <Link href="/lists/accounting-periods" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/accounting-periods') ? activeLinkClass : inactiveLinkClass}`}>
+                          <CalendarIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Accounting Periods</span>
+                        </Link>
+                      </li>
+                      <li>
                         <Link href="/lists/accounts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/lists/accounts') ? activeLinkClass : inactiveLinkClass}`}>
                           <ListOrderedIcon className={`h-3 w-3 opacity-75`} />
                           <span>Accounts</span>
@@ -606,15 +598,15 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                   {isRelationshipsOpen && (
                     <ul className="mt-1 space-y-1">
                       <li>
-                        <Link href="/relationships/customers" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/customers') ? activeLinkClass : inactiveLinkClass}`}>
+                        <Link href="/relationships/contacts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/contacts') ? activeLinkClass : inactiveLinkClass}`}>
                           <UsersIcon className={`h-3 w-3 opacity-75`} />
-                          <span>Customers</span>
+                          <span>Contacts</span>
                         </Link>
                       </li>
                       <li>
-                        <Link href="/relationships/vendors" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/vendors') ? activeLinkClass : inactiveLinkClass}`}>
-                          <BriefcaseIcon className={`h-3 w-3 opacity-75`} />
-                          <span>Vendors</span>
+                        <Link href="/relationships/customers" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/customers') ? activeLinkClass : inactiveLinkClass}`}>
+                          <UsersIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Customers</span>
                         </Link>
                       </li>
                       <li>
@@ -630,15 +622,21 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                         </Link>
                       </li>
                       <li>
+                        <Link href="/construction/projects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/construction/projects') ? activeLinkClass : inactiveLinkClass}`}>
+                          <HardHatIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Projects</span>
+                        </Link>
+                      </li>
+                      <li>
                         <Link href="/relationships/prospects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/prospects') ? activeLinkClass : inactiveLinkClass}`}>
                           <ShieldIcon className={`h-3 w-3 opacity-75`} />
                           <span>Prospects</span>
                         </Link>
                       </li>
                       <li>
-                        <Link href="/relationships/contacts" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/contacts') ? activeLinkClass : inactiveLinkClass}`}>
-                          <UsersIcon className={`h-3 w-3 opacity-75`} />
-                          <span>Contacts</span>
+                        <Link href="/relationships/vendors" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/vendors') ? activeLinkClass : inactiveLinkClass}`}>
+                          <BriefcaseIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Vendors</span>
                         </Link>
                       </li>
                     </ul>

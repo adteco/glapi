@@ -1,10 +1,11 @@
 import { pgTable, uuid, text, boolean, timestamp } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { organizations } from './organizations';
 
 // Simple test table to verify Drizzle is working
 export const testGl = pgTable('test_gl', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   name: text('name').notNull(),
   code: text('code'),
   description: text('description'),

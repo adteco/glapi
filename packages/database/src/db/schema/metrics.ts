@@ -1,5 +1,6 @@
 import { pgTable, text, uuid, timestamp, boolean, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { organizations } from './organizations';
 
 // ==========================================
 // Custom Metrics Table
@@ -10,7 +11,7 @@ import { relations } from 'drizzle-orm';
  */
 export const customMetrics = pgTable('custom_metrics', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   name: text('name').notNull(),
   description: text('description'),
   category: text('category').notNull(), // revenue, expenses, profitability, liquidity, efficiency, project, custom
@@ -34,7 +35,7 @@ export const customMetrics = pgTable('custom_metrics', {
  */
 export const savedViews = pgTable('saved_views', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   name: text('name').notNull(),
   description: text('description'),
   viewType: text('view_type').notNull(), // dashboard, report, analysis
@@ -55,7 +56,7 @@ export const savedViews = pgTable('saved_views', {
  */
 export const metricSnapshots = pgTable('metric_snapshots', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   metricId: text('metric_id').notNull(), // Built-in metric ID or custom metric UUID
   periodId: uuid('period_id').notNull(),
   subsidiaryId: uuid('subsidiary_id'),

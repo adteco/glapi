@@ -8,7 +8,7 @@ import { projects, projectCostCodes } from './projects';
 // Price Lists
 export const priceLists = pgTable('price_lists', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   name: text('name').notNull(),
   code: text('code').notNull(),
   description: text('description'),
