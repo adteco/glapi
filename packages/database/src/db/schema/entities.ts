@@ -1,10 +1,11 @@
 import { relations } from 'drizzle-orm';
 import { pgTable, uuid, text, boolean, timestamp, jsonb, index, unique, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { addresses } from './addresses';
+import { organizations } from './organizations';
 
 export const entities = pgTable('entities', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   
   // Basic information
   name: text('name').notNull(),

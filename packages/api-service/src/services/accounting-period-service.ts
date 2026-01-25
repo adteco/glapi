@@ -170,6 +170,7 @@ export class AccountingPeriodService extends BaseService {
    */
   async createPeriod(data: CreateAccountingPeriodInput): Promise<AccountingPeriod> {
     const userId = this.requireUserContext();
+    const organizationId = this.requireOrganizationContext();
     const subsidiaryIds = await this.getAccessibleSubsidiaryIds();
 
     if (!subsidiaryIds.includes(data.subsidiaryId)) {
@@ -190,6 +191,7 @@ export class AccountingPeriodService extends BaseService {
     }
 
     const period = await this.periodRepository.create({
+      organizationId,
       subsidiaryId: data.subsidiaryId,
       periodName: data.periodName,
       fiscalYear: data.fiscalYear,
@@ -198,7 +200,8 @@ export class AccountingPeriodService extends BaseService {
       endDate: data.endDate,
       periodType: data.periodType,
       isAdjustmentPeriod: data.isAdjustmentPeriod,
-      createdBy: userId,
+      // createdBy is a UUID column; external auth IDs (e.g. Clerk) are not UUIDs,
+      // so we leave this null for now until there is an internal user mapping.
     });
 
     return this.transformPeriod(period);
@@ -374,8 +377,8 @@ export class AccountingPeriodService extends BaseService {
       );
     }
 
-    // Parse the year start date
-    const yearStart = new Date(input.yearStartDate);
+    // Parse the year start date - use UTC to avoid timezone issues
+    const [startYear, startMonth, startDay] = input.yearStartDate.split('-').map(Number);
     const periods: Array<{
       periodName: string;
       periodNumber: number;
@@ -383,46 +386,61 @@ export class AccountingPeriodService extends BaseService {
       endDate: string;
       periodType: string;
       isAdjustmentPeriod: boolean;
-      createdBy: string;
     }> = [];
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
 
     // Generate 12 monthly periods
     for (let i = 0; i < 12; i++) {
-      const periodStart = new Date(yearStart);
-      periodStart.setMonth(yearStart.getMonth() + i);
+      // Calculate month (0-11) accounting for fiscal year starting month
+      const monthIndex = (startMonth - 1 + i) % 12;
+      const yearOffset = Math.floor((startMonth - 1 + i) / 12);
+      const periodYear = startYear + yearOffset;
 
-      const periodEnd = new Date(periodStart);
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
-      periodEnd.setDate(periodEnd.getDate() - 1);
+      // First day of this period's month
+      const periodStartDate = new Date(Date.UTC(periodYear, monthIndex, 1));
 
-      const monthName = periodStart.toLocaleString('default', { month: 'long' });
+      // Last day of this period's month (first day of next month minus 1)
+      const nextMonthIndex = (monthIndex + 1) % 12;
+      const nextYearOffset = monthIndex === 11 ? 1 : 0;
+      const periodEndDate = new Date(Date.UTC(periodYear + nextYearOffset, nextMonthIndex, 0));
+
+      const monthName = monthNames[monthIndex];
 
       periods.push({
-        periodName: `${monthName} ${input.fiscalYear}`,
+        periodName: `${monthName} ${periodYear}`,
         periodNumber: i + 1,
-        startDate: periodStart.toISOString().split('T')[0],
-        endDate: periodEnd.toISOString().split('T')[0],
+        startDate: periodStartDate.toISOString().split('T')[0],
+        endDate: periodEndDate.toISOString().split('T')[0],
         periodType: 'MONTH',
         isAdjustmentPeriod: false,
-        createdBy: userId,
       });
     }
 
     // Add adjustment period if requested
     if (input.includeAdjustmentPeriod) {
       const lastPeriod = periods[periods.length - 1];
+      // Adjustment period is typically the day after the last period
+      const [lastYear, lastMonth, lastDay] = lastPeriod.endDate.split('-').map(Number);
+      const adjDate = new Date(Date.UTC(lastYear, lastMonth - 1, lastDay + 1));
+      const adjDateStr = adjDate.toISOString().split('T')[0];
+
       periods.push({
         periodName: `Adjustment Period ${input.fiscalYear}`,
         periodNumber: 13,
-        startDate: lastPeriod.endDate,
-        endDate: lastPeriod.endDate,
+        startDate: adjDateStr,
+        endDate: adjDateStr,
         periodType: 'ADJUSTMENT',
         isAdjustmentPeriod: true,
-        createdBy: userId,
       });
     }
 
+    const organizationId = this.requireOrganizationContext();
     const created = await this.periodRepository.createFiscalYearPeriods(
+      organizationId,
       input.subsidiaryId,
       input.fiscalYear,
       periods

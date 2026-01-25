@@ -89,7 +89,7 @@ export const eventStore = pgTable('event_store', {
   causationId: uuid('causation_id'),
 
   // Multi-tenancy
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 }, (table) => ({
   // Index for querying events by aggregate (most common query pattern)
   aggregateIdx: index('event_store_aggregate_idx')
@@ -155,7 +155,7 @@ export const eventOutbox = pgTable('event_outbox', {
   errorMessage: text('error_message'),
 
   // Multi-tenancy
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 }, (table) => ({
   // Index for outbox processor queries (find pending events)
   statusCreatedIdx: index('event_outbox_status_created_idx')
@@ -208,7 +208,7 @@ export const eventProjections = pgTable('event_projections', {
   updatedAt: timestamp('updated_at', { withTimezone: true, precision: 6 }).defaultNow().notNull(),
 
   // Multi-tenancy
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
 }, (table) => ({
   // Unique constraint for projection identity
   projectionUniqueIdx: uniqueIndex('event_projections_unique_idx')

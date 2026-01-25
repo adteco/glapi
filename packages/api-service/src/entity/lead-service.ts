@@ -1,15 +1,20 @@
 import { EntityService } from './entity-service';
-import { 
-  CreateEntityInput, 
-  UpdateEntityInput, 
+import {
+  CreateEntityInput,
+  UpdateEntityInput,
   EntityListQuery,
   EntityListResponse,
   BaseEntity,
   LeadProspectMetadata
 } from './types';
+import { ServiceContext } from '../types';
 
 export class LeadService extends EntityService {
-  
+
+  constructor(context: ServiceContext = {}) {
+    super(context);
+  }
+
   /**
    * Transform database entity to match expected types
    */
@@ -32,67 +37,57 @@ export class LeadService extends EntityService {
   /**
    * List all leads
    */
-  async listLeads(
-    organizationId: string,
-    query: EntityListQuery
-  ): Promise<EntityListResponse> {
-    return this.list(organizationId, ['Lead'], query);
+  async listLeads(query: EntityListQuery): Promise<EntityListResponse> {
+    return this.list(['Lead'], query);
   }
-  
+
   /**
    * Create a new lead
    */
   async createLead(
-    organizationId: string,
     data: CreateEntityInput & { metadata?: LeadProspectMetadata }
   ): Promise<BaseEntity> {
-    return this.create(organizationId, ['Lead'], data);
+    return this.create(['Lead'], data);
   }
-  
+
   /**
    * Update a lead
    */
   async updateLead(
     id: string,
-    organizationId: string,
     data: UpdateEntityInput & { metadata?: LeadProspectMetadata }
   ): Promise<BaseEntity> {
-    return this.update(id, organizationId, data);
+    return this.update(id, data);
   }
-  
+
   /**
    * Convert lead to customer
    */
-  async convertToCustomer(
-    leadId: string,
-    organizationId: string
-  ): Promise<BaseEntity> {
-    const lead = await this.findById(leadId, organizationId);
+  async convertToCustomer(leadId: string): Promise<BaseEntity> {
+    const lead = await this.findById(leadId);
     if (!lead) {
       throw new Error('Lead not found');
     }
-    
+
     // Remove Lead type and add Customer type
-    await this.removeEntityType(leadId, organizationId, 'Lead');
-    const customer = await this.addEntityType(leadId, organizationId, 'Customer');
-    
+    await this.removeEntityType(leadId, 'Lead');
+    await this.addEntityType(leadId, 'Customer');
+
     // Update metadata with conversion info
     const metadata = {
       ...(lead.metadata || {}),
       convertedDate: new Date().toISOString(),
       originalType: 'Lead',
     };
-    
-    return this.update(leadId, organizationId, { metadata });
+
+    return this.update(leadId, { metadata });
   }
-  
+
   /**
    * Find leads by source
    */
-  async findBySource(
-    source: string,
-    organizationId: string
-  ): Promise<BaseEntity[]> {
+  async findBySource(source: string): Promise<BaseEntity[]> {
+    const organizationId = this.requireOrganizationContext();
     const leads = await this.repository.findByTypes(
       ['Lead'],
       organizationId,
@@ -100,21 +95,19 @@ export class LeadService extends EntityService {
         limit: 1000,
       }
     );
-    
+
     // Filter by source in metadata
-    const filtered = leads.filter(l => 
+    const filtered = leads.filter(l =>
       (l.metadata as LeadProspectMetadata)?.source === source
     );
     return this.transformEntities(filtered);
   }
-  
+
   /**
    * Find leads assigned to a user
    */
-  async findByAssignee(
-    assigneeId: string,
-    organizationId: string
-  ): Promise<BaseEntity[]> {
+  async findByAssignee(assigneeId: string): Promise<BaseEntity[]> {
+    const organizationId = this.requireOrganizationContext();
     const leads = await this.repository.findByTypes(
       ['Lead'],
       organizationId,
@@ -122,22 +115,23 @@ export class LeadService extends EntityService {
         limit: 1000,
       }
     );
-    
+
     // Filter by assignedTo in metadata
-    const filtered = leads.filter(l => 
+    const filtered = leads.filter(l =>
       (l.metadata as LeadProspectMetadata)?.assignedTo === assigneeId
     );
     return this.transformEntities(filtered);
   }
-  
+
   /**
    * Get lead scoring statistics
    */
-  async getLeadScoreStats(organizationId: string): Promise<{
+  async getLeadScoreStats(): Promise<{
     averageScore: number;
     highScoringLeads: BaseEntity[];
     totalLeads: number;
   }> {
+    const organizationId = this.requireOrganizationContext();
     const rawLeads = await this.repository.findByTypes(
       ['Lead'],
       organizationId,
@@ -145,17 +139,17 @@ export class LeadService extends EntityService {
         limit: 1000,
       }
     );
-    
+
     const leads = this.transformEntities(rawLeads);
-    
+
     const scores = leads
       .map(l => (l.metadata as LeadProspectMetadata)?.leadScore || 0)
       .filter(score => score > 0);
-    
-    const averageScore = scores.length > 0 
-      ? scores.reduce((a, b) => a + b, 0) / scores.length 
+
+    const averageScore = scores.length > 0
+      ? scores.reduce((a, b) => a + b, 0) / scores.length
       : 0;
-    
+
     const highScoringLeads = leads
       .filter(l => {
         const score = (l.metadata as LeadProspectMetadata)?.leadScore || 0;
@@ -166,7 +160,7 @@ export class LeadService extends EntityService {
         const scoreB = (b.metadata as LeadProspectMetadata)?.leadScore || 0;
         return scoreB - scoreA;
       });
-    
+
     return {
       averageScore,
       highScoringLeads,
@@ -175,4 +169,5 @@ export class LeadService extends EntityService {
   }
 }
 
+// Note: Prefer creating new instances with serviceContext rather than using singleton
 export const leadService = new LeadService();

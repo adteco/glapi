@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, decimal, integer, boolean, index, unique, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, jsonb, decimal, integer, boolean, index, unique, pgEnum, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 import { subscriptions } from './subscriptions';
@@ -52,7 +52,7 @@ export const modificationStatusEnum = pgEnum('modification_status', [
  */
 export const contractModifications = pgTable('contract_modifications', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   subscriptionId: text('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'restrict' }),
   
   // Modification details
@@ -172,7 +172,7 @@ export const modificationLineItems = pgTable('modification_line_items', {
  */
 export const catchUpAdjustments = pgTable('catch_up_adjustments', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   modificationId: text('modification_id').notNull().references(() => contractModifications.id, { onDelete: 'cascade' }),
   performanceObligationId: text('performance_obligation_id').references(() => performanceObligations.id, { onDelete: 'set null' }),
   

@@ -1,5 +1,6 @@
 import { pgTable, text, boolean, timestamp, uniqueIndex, date, uuid, integer, decimal, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { users } from './users';
 
@@ -30,6 +31,9 @@ export type PeriodType = typeof PERIOD_TYPE[keyof typeof PERIOD_TYPE];
 
 export const accountingPeriods = pgTable('accounting_periods', {
   id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id),
   subsidiaryId: uuid('subsidiary_id').notNull(),
   periodName: text('period_name').notNull(),
   fiscalYear: text('fiscal_year').notNull(),
@@ -54,10 +58,11 @@ export const accountingPeriods = pgTable('accounting_periods', {
   modifiedBy: uuid('modified_by'),
   modifiedDate: timestamp('modified_date', { withTimezone: true }),
 }, (table) => ({
-  subYearPeriodIdx: uniqueIndex('idx_periods_sub_year_period').on(table.subsidiaryId, table.fiscalYear, table.periodNumber),
+  orgSubYearPeriodIdx: uniqueIndex('idx_periods_org_sub_year_period').on(table.organizationId, table.subsidiaryId, table.fiscalYear, table.periodNumber),
   statusIdx: index('idx_periods_status').on(table.status, table.startDate),
   dateRangeIdx: index('idx_periods_date_range').on(table.startDate, table.endDate),
   subsidiaryIdx: index('idx_periods_subsidiary').on(table.subsidiaryId),
+  organizationIdx: index('idx_periods_organization').on(table.organizationId),
 }));
 
 export const exchangeRates = pgTable('exchange_rates', {
@@ -74,6 +79,10 @@ export const exchangeRates = pgTable('exchange_rates', {
 
 // Relations will be defined separately to avoid circular dependencies
 export const accountingPeriodsRelations = relations(accountingPeriods, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [accountingPeriods.organizationId],
+    references: [organizations.id],
+  }),
   subsidiary: one(subsidiaries, {
     fields: [accountingPeriods.subsidiaryId],
     references: [subsidiaries.id],

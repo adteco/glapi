@@ -1,10 +1,13 @@
-import { pgTable, text, boolean, timestamp, uniqueIndex, decimal, date, uuid, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, uniqueIndex, index, decimal, date, uuid, integer, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { accountingPeriods } from './accounting-periods';
 import { projects } from './projects';
 
 export const glTransactions = pgTable('gl_transactions', {
   id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id),
   transactionNumber: text('transaction_number').notNull().unique(),
   subsidiaryId: uuid('subsidiary_id').notNull(),
   transactionDate: date('transaction_date').notNull(),
@@ -38,9 +41,14 @@ export const glTransactions = pgTable('gl_transactions', {
   dateAndSubIdx: uniqueIndex('idx_gl_trans_date_sub').on(table.transactionDate, table.subsidiaryId),
   periodIdx: uniqueIndex('idx_gl_trans_period').on(table.periodId, table.status),
   sourceIdx: uniqueIndex('idx_gl_trans_source').on(table.sourceTransactionId),
+  organizationIdx: index('idx_gl_trans_organization').on(table.organizationId),
 }));
 
 export const glTransactionsRelations = relations(glTransactions, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [glTransactions.organizationId],
+    references: [organizations.id],
+  }),
   subsidiary: one(subsidiaries, {
     fields: [glTransactions.subsidiaryId],
     references: [subsidiaries.id],
@@ -77,6 +85,9 @@ export const glTransactionsRelations = relations(glTransactions, ({ one, many })
 
 export const glTransactionLines = pgTable('gl_transaction_lines', {
   id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id),
   transactionId: uuid('transaction_id').notNull().references(() => glTransactions.id, { onDelete: 'cascade' }),
   lineNumber: integer('line_number').notNull(),
   accountId: uuid('account_id').notNull(),
@@ -98,9 +109,14 @@ export const glTransactionLines = pgTable('gl_transaction_lines', {
 }, (table) => ({
   transactionLineIdx: uniqueIndex('idx_gl_line_trans').on(table.transactionId, table.lineNumber),
   accountIdx: uniqueIndex('idx_gl_line_account').on(table.accountId, table.transactionId),
+  organizationIdx: index('idx_gl_line_organization').on(table.organizationId),
 }));
 
 export const glTransactionLinesRelations = relations(glTransactionLines, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [glTransactionLines.organizationId],
+    references: [organizations.id],
+  }),
   transaction: one(glTransactions, {
     fields: [glTransactionLines.transactionId],
     references: [glTransactions.id],
@@ -133,6 +149,9 @@ export const glTransactionLinesRelations = relations(glTransactionLines, ({ one 
 
 export const glPostingRules = pgTable('gl_posting_rules', {
   id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id),
   transactionTypeId: uuid('transaction_type_id').notNull().references(() => transactionTypes.id),
   subsidiaryId: uuid('subsidiary_id'), // Optional: null means global
   ruleName: text('rule_name').notNull(),
@@ -152,9 +171,14 @@ export const glPostingRules = pgTable('gl_posting_rules', {
 }, (table) => ({
   typeAndSubIdx: uniqueIndex('idx_posting_rules_type_sub').on(table.transactionTypeId, table.subsidiaryId),
   activeIdx: uniqueIndex('idx_posting_rules_active').on(table.isActive, table.effectiveDate),
+  organizationIdx: index('idx_posting_rules_organization').on(table.organizationId),
 }));
 
 export const glPostingRulesRelations = relations(glPostingRules, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [glPostingRules.organizationId],
+    references: [organizations.id],
+  }),
   transactionType: one(transactionTypes, {
     fields: [glPostingRules.transactionTypeId],
     references: [transactionTypes.id],
@@ -177,6 +201,9 @@ export const glPostingRulesRelations = relations(glPostingRules, ({ one }) => ({
 
 export const glAccountBalances = pgTable('gl_account_balances', {
   id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id),
   accountId: uuid('account_id').notNull(),
   subsidiaryId: uuid('subsidiary_id').notNull(),
   periodId: uuid('period_id').notNull(),
@@ -213,9 +240,14 @@ export const glAccountBalances = pgTable('gl_account_balances', {
     table.locationId,
     table.currencyCode
   ),
+  organizationIdx: index('idx_balance_organization').on(table.organizationId),
 }));
 
 export const glAccountBalancesRelations = relations(glAccountBalances, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [glAccountBalances.organizationId],
+    references: [organizations.id],
+  }),
   account: one(accounts, {
     fields: [glAccountBalances.accountId],
     references: [accounts.id],
@@ -267,6 +299,7 @@ export const glAuditTrailRelations = relations(glAuditTrail, ({ one }) => ({
 }));
 
 // Import references
+import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { entities } from './entities';
 import { accounts } from './accounts';

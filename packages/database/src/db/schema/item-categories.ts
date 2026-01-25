@@ -4,7 +4,7 @@ import { organizations } from './organizations';
 
 export const itemCategories = pgTable('item_categories', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   code: text('code').notNull(),
   name: text('name').notNull(),
   parentCategoryId: uuid('parent_category_id'),

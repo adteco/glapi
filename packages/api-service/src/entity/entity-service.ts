@@ -1,15 +1,32 @@
 import { entityRepository } from '@glapi/database';
-import { 
-  EntityType, 
-  CreateEntityInput, 
-  UpdateEntityInput, 
+import {
+  EntityType,
+  CreateEntityInput,
+  UpdateEntityInput,
   EntityListQuery,
   EntityListResponse,
   BaseEntity
 } from './types';
+import { ServiceContext } from '../types';
 
 export class EntityService {
   protected repository = entityRepository;
+  protected context: ServiceContext;
+
+  constructor(context: ServiceContext = {}) {
+    this.context = context;
+  }
+
+  /**
+   * Validates that the current context has an organization ID
+   * @throws {Error} If no organization ID is present
+   */
+  protected requireOrganizationContext(): string {
+    if (!this.context.organizationId) {
+      throw new Error('Organization context is required for this operation');
+    }
+    return this.context.organizationId;
+  }
   
   /**
    * Transform database entity to match expected types
@@ -33,34 +50,37 @@ export class EntityService {
   /**
    * Find entity by ID
    */
-  async findById(id: string, organizationId: string): Promise<BaseEntity | null> {
-    const entity = await this.repository.findById(id, organizationId);
+  async findById(id: string, organizationId?: string): Promise<BaseEntity | null> {
+    const orgId = organizationId ?? this.requireOrganizationContext();
+    const entity = await this.repository.findById(id, orgId);
     return this.transformEntity(entity);
   }
-  
+
   /**
    * Find entity by code
    */
-  async findByCode(code: string, organizationId: string): Promise<BaseEntity | null> {
-    const entity = await this.repository.findByCode(code, organizationId);
+  async findByCode(code: string, organizationId?: string): Promise<BaseEntity | null> {
+    const orgId = organizationId ?? this.requireOrganizationContext();
+    const entity = await this.repository.findByCode(code, orgId);
     return this.transformEntity(entity);
   }
-  
+
   /**
    * List entities by type with pagination
    */
   async list(
-    organizationId: string,
     entityTypes: EntityType[],
-    query: EntityListQuery
+    query: EntityListQuery,
+    organizationId?: string
   ): Promise<EntityListResponse> {
+    const orgId = organizationId ?? this.requireOrganizationContext();
     const { page, limit, orderBy, orderDirection, status, search, parentEntityId, isActive } = query;
-    
+
     const offset = (page - 1) * limit;
-    
+
     const entities = await this.repository.findByTypes(
       entityTypes,
-      organizationId,
+      orgId,
       {
         status,
         searchTerm: search,
@@ -72,10 +92,10 @@ export class EntityService {
         orderDirection,
       }
     );
-    
+
     const total = await this.repository.countByTypes(
       entityTypes,
-      organizationId,
+      orgId,
       {
         status,
         searchTerm: search,
@@ -83,7 +103,7 @@ export class EntityService {
         isActive,
       }
     );
-    
+
     return {
       data: this.transformEntities(entities),
       total: Number(total),
@@ -108,13 +128,14 @@ export class EntityService {
    * Create a new entity
    */
   async create(
-    organizationId: string,
     entityTypes: EntityType[],
-    data: CreateEntityInput
+    data: CreateEntityInput,
+    organizationId?: string
   ): Promise<BaseEntity> {
+    const orgId = organizationId ?? this.requireOrganizationContext();
     const entity = await this.repository.create({
       ...this.cleanData(data),
-      organizationId,
+      organizationId: orgId,
       entityTypes,
     } as any);
 
@@ -126,10 +147,11 @@ export class EntityService {
    */
   async update(
     id: string,
-    organizationId: string,
-    data: UpdateEntityInput
+    data: UpdateEntityInput,
+    organizationId?: string
   ): Promise<BaseEntity> {
-    const entity = await this.repository.update(id, organizationId, this.cleanData(data) as any);
+    const orgId = organizationId ?? this.requireOrganizationContext();
+    const entity = await this.repository.update(id, orgId, this.cleanData(data) as any);
 
     if (!entity) {
       throw new Error('Entity not found');
@@ -137,48 +159,53 @@ export class EntityService {
 
     return this.transformEntity(entity);
   }
-  
+
   /**
    * Delete an entity
    */
-  async delete(id: string, organizationId: string): Promise<void> {
-    await this.repository.delete(id, organizationId);
+  async delete(id: string, organizationId?: string): Promise<void> {
+    const orgId = organizationId ?? this.requireOrganizationContext();
+    await this.repository.delete(id, orgId);
   }
-  
+
   /**
    * Add an entity type to an existing entity
    */
   async addEntityType(
     id: string,
-    organizationId: string,
-    entityType: EntityType
+    entityType: EntityType,
+    organizationId?: string
   ): Promise<BaseEntity> {
-    const entity = await this.repository.addEntityType(id, organizationId, entityType);
+    const orgId = organizationId ?? this.requireOrganizationContext();
+    const entity = await this.repository.addEntityType(id, orgId, entityType);
     return this.transformEntity(entity);
   }
-  
+
   /**
    * Remove an entity type from an existing entity
    */
   async removeEntityType(
     id: string,
-    organizationId: string,
-    entityType: EntityType
+    entityType: EntityType,
+    organizationId?: string
   ): Promise<BaseEntity> {
-    const entity = await this.repository.removeEntityType(id, organizationId, entityType);
+    const orgId = organizationId ?? this.requireOrganizationContext();
+    const entity = await this.repository.removeEntityType(id, orgId, entityType);
     return this.transformEntity(entity);
   }
-  
+
   /**
    * Find contacts for a parent entity
    */
   async findContactsForEntity(
     entityId: string,
-    organizationId: string
+    organizationId?: string
   ): Promise<BaseEntity[]> {
-    const contacts = await this.repository.findContactsForEntity(entityId, organizationId);
+    const orgId = organizationId ?? this.requireOrganizationContext();
+    const contacts = await this.repository.findContactsForEntity(entityId, orgId);
     return this.transformEntities(contacts);
   }
 }
 
+// Note: Prefer creating new instances with serviceContext rather than using singleton
 export const entityService = new EntityService();

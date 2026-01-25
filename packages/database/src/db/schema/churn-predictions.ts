@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, decimal, jsonb, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, decimal, jsonb, integer, boolean, pgEnum, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 import { subscriptions } from './subscriptions';
@@ -14,7 +14,7 @@ export const churnRiskLevelEnum = pgEnum('churn_risk_level', [
 // Churn predictions table
 export const churnPredictions = pgTable('churn_predictions', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   subscriptionId: text('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
   
   // Prediction details

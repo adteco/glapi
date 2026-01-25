@@ -9,7 +9,7 @@ import { entities } from './entities';
 // Warehouses
 export const warehouses = pgTable('warehouses', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   warehouseId: text('warehouse_id').notNull(),
   name: text('name').notNull(),
   locationId: uuid('location_id').references(() => locations.id),
@@ -41,7 +41,7 @@ export const warehousePriceLists = pgTable('warehouse_price_lists', {
 // Customer Warehouse Assignments - Assigns customers to specific warehouses for items
 export const customerWarehouseAssignments = pgTable('customer_warehouse_assignments', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organizations.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   customerId: uuid('customer_id').notNull(), // References entities table where entity_type = 'customer'
   itemId: uuid('item_id').notNull().references(() => items.id),
   warehouseId: uuid('warehouse_id').notNull().references(() => warehouses.id),

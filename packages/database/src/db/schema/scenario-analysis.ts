@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, decimal, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, decimal, jsonb, pgEnum, uuid } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { organizations } from './organizations';
 
@@ -20,7 +20,7 @@ export const scenarioStatusEnum = pgEnum('scenario_status', [
 // Scenario analysis table
 export const scenarioAnalysis = pgTable('scenario_analysis', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Scenario details
   scenarioName: text('scenario_name').notNull(),
