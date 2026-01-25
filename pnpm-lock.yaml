@@ -277,6 +277,9 @@ importers:
       '@glapi/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.57.0(react@19.2.3))
@@ -2478,6 +2481,10 @@ packages:
         optional: true
       tailwindcss:
         optional: true
+
+  '@google/generative-ai@0.24.1':
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
+    engines: {node: '>=18.0.0'}
 
   '@hapi/bourne@3.0.0':
     resolution: {integrity: sha512-Waj1cwPXJDucOib4a3bAISsKJVb15MKi9IvmTI/7ssVEm6sywXGjVJDhl6/umt1pK1ZS7PacXU3A1PmFKHEZ2w==}
@@ -12138,6 +12145,8 @@ snapshots:
       - supports-color
       - waku
       - zod
+
+  '@google/generative-ai@0.24.1': {}
 
   '@hapi/bourne@3.0.0': {}
 
