@@ -14,13 +14,13 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const getTokenRef = useRef(getToken);
   const orgIdRef = useRef(orgId);
   const userIdRef = useRef(userId);
+  const prevOrgIdRef = useRef(orgId);
 
-  // Update refs when values change
-  useEffect(() => {
-    getTokenRef.current = getToken;
-    orgIdRef.current = orgId;
-    userIdRef.current = userId;
-  }, [getToken, orgId, userId]);
+  // Update refs SYNCHRONOUSLY during render to avoid race conditions
+  // This ensures headers use correct values before any queries are made
+  getTokenRef.current = getToken;
+  orgIdRef.current = orgId;
+  userIdRef.current = userId;
 
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
@@ -32,9 +32,12 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   }));
 
   // Invalidate all queries when organization changes
+  // Refs are already updated synchronously above, so queries will use new org
   useEffect(() => {
-    if (orgId) {
-      queryClient.invalidateQueries();
+    if (orgId && prevOrgIdRef.current !== orgId) {
+      prevOrgIdRef.current = orgId;
+      // Clear cache completely to ensure no stale data from previous org
+      queryClient.clear();
     }
   }, [orgId, queryClient]);
 
