@@ -135,8 +135,15 @@ export async function getServiceContext(): Promise<OrganizationContext> {
     console.warn(`Could not resolve organization ID: ${rawOrganizationId}`);
   }
 
-  // Fallback for development - use valid UUID matching the test API key's org
-  console.log('No org/user in headers or unresolved org - using development context');
+  // CRITICAL SECURITY: Never fallback to dev org in production - this would be a data breach
+  if (process.env.NODE_ENV === 'production') {
+    throw new AuthenticationError(
+      'Organization context required. Ensure x-organization-id and x-user-id headers are set.'
+    );
+  }
+
+  // Development fallback only - NEVER happens in production
+  console.warn('[DEV ONLY] Using development context - this should never appear in production logs');
   return {
     organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Adteco dev org UUID
     organizationName: 'Development',
