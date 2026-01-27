@@ -7,6 +7,29 @@ import { trpc } from '@/lib/trpc';
 import { useAuth } from '@clerk/nextjs';
 import superjson from 'superjson';
 
+/**
+ * Get the API URL based on environment.
+ *
+ * Priority:
+ * 1. Explicit NEXT_PUBLIC_API_URL env var
+ * 2. In production browser, use same origin (Next.js API routes)
+ * 3. Development fallback to localhost
+ */
+function getApiUrl(): string {
+  // Explicit env var takes precedence
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  // In production browser, use same origin (Next.js API routes)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    return window.location.origin;
+  }
+
+  // Development fallback
+  return 'http://localhost:3031';
+}
+
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const { getToken, orgId, userId } = useAuth();
 
@@ -46,7 +69,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
     trpc.createClient({
       links: [
         httpBatchLink({
-          url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031'}/api/trpc`,
+          url: `${getApiUrl()}/api/trpc`,
           transformer: superjson,
           async headers() {
             const token = await getTokenRef.current();
