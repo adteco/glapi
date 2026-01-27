@@ -12,7 +12,6 @@ import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import {
-  db,
   workflows,
   workflowGroups,
   workflowComponents,
@@ -27,7 +26,11 @@ import type {
   WorkflowGroup,
   WorkflowComponent,
   WorkflowComponentType,
+  ContextualDatabase,
 } from '@glapi/database';
+
+// Type alias for the RLS-protected database connection
+type Db = ContextualDatabase;
 
 // =============================================================================
 // Input Schemas
@@ -108,6 +111,7 @@ const reorderComponentsSchema = z.object({
 // =============================================================================
 
 async function verifyWorkflowOwnership(
+  db: Db,
   workflowId: string,
   organizationId: string
 ): Promise<Workflow> {
@@ -129,6 +133,7 @@ async function verifyWorkflowOwnership(
 }
 
 async function verifyGroupOwnership(
+  db: Db,
   groupId: string,
   organizationId: string
 ): Promise<WorkflowGroup> {
@@ -150,6 +155,7 @@ async function verifyGroupOwnership(
 }
 
 async function verifyComponentOwnership(
+  db: Db,
   componentId: string,
   organizationId: string
 ): Promise<WorkflowComponent> {
@@ -178,6 +184,7 @@ async function verifyComponentOwnership(
  * Copy a system template (organizationId = null) to create a workflow for an organization
  */
 async function copySystemTemplateToOrganization(
+  db: Db,
   templateName: string,
   organizationId: string
 ): Promise<void> {
@@ -304,7 +311,7 @@ export const workflowsRouter = router({
       }
 
       // First, check if org has any workflows at all
-      const existingWorkflows = await db.query.workflows.findMany({
+      const existingWorkflows = await ctx.db.query.workflows.findMany({
         where: eq(workflows.organizationId, ctx.organizationId),
         columns: { id: true },
         limit: 1,
@@ -312,10 +319,10 @@ export const workflowsRouter = router({
 
       // If no workflows exist, auto-create the default "Client to Cash" workflow
       if (existingWorkflows.length === 0) {
-        await copySystemTemplateToOrganization('Client to Cash', ctx.organizationId);
+        await copySystemTemplateToOrganization(ctx.db, 'Client to Cash', ctx.organizationId);
       }
 
-      const result = await db.query.workflows.findMany({
+      const result = await ctx.db.query.workflows.findMany({
         where: and(...conditions),
         orderBy: [asc(workflows.name)],
         with: {
@@ -337,7 +344,7 @@ export const workflowsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const workflow = await db.query.workflows.findFirst({
+      const workflow = await ctx.db.query.workflows.findFirst({
         where: and(
           eq(workflows.id, input.id),
           eq(workflows.organizationId, ctx.organizationId)
@@ -374,7 +381,7 @@ export const workflowsRouter = router({
     .input(createWorkflowSchema)
     .mutation(async ({ ctx, input }) => {
       // Check for duplicate name within organization
-      const existing = await db.query.workflows.findFirst({
+      const existing = await ctx.db.query.workflows.findFirst({
         where: and(
           eq(workflows.organizationId, ctx.organizationId),
           eq(workflows.name, input.name)
@@ -388,7 +395,7 @@ export const workflowsRouter = router({
         });
       }
 
-      const [workflow] = await db
+      const [workflow] = await ctx.db
         .insert(workflows)
         .values({
           organizationId: ctx.organizationId,
@@ -413,11 +420,11 @@ export const workflowsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await verifyWorkflowOwnership(input.id, ctx.organizationId);
+      await verifyWorkflowOwnership(ctx.db, input.id, ctx.organizationId);
 
       // Check for duplicate name if name is being updated
       if (input.data.name) {
-        const existing = await db.query.workflows.findFirst({
+        const existing = await ctx.db.query.workflows.findFirst({
           where: and(
             eq(workflows.organizationId, ctx.organizationId),
             eq(workflows.name, input.data.name)
@@ -432,7 +439,7 @@ export const workflowsRouter = router({
         }
       }
 
-      const [updated] = await db
+      const [updated] = await ctx.db
         .update(workflows)
         .set({
           ...input.data,
@@ -450,9 +457,9 @@ export const workflowsRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await verifyWorkflowOwnership(input.id, ctx.organizationId);
+      await verifyWorkflowOwnership(ctx.db, input.id, ctx.organizationId);
 
-      await db.delete(workflows).where(eq(workflows.id, input.id));
+      await ctx.db.delete(workflows).where(eq(workflows.id, input.id));
 
       return { success: true };
     }),
@@ -467,10 +474,10 @@ export const workflowsRouter = router({
   addGroup: authenticatedProcedure
     .input(createGroupSchema)
     .mutation(async ({ ctx, input }) => {
-      await verifyWorkflowOwnership(input.workflowId, ctx.organizationId);
+      await verifyWorkflowOwnership(ctx.db, input.workflowId, ctx.organizationId);
 
       // Check for duplicate group name within workflow
-      const existing = await db.query.workflowGroups.findFirst({
+      const existing = await ctx.db.query.workflowGroups.findFirst({
         where: and(
           eq(workflowGroups.workflowId, input.workflowId),
           eq(workflowGroups.name, input.name)
@@ -484,7 +491,7 @@ export const workflowsRouter = router({
         });
       }
 
-      const [group] = await db
+      const [group] = await ctx.db
         .insert(workflowGroups)
         .values({
           workflowId: input.workflowId,
@@ -507,11 +514,11 @@ export const workflowsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const group = await verifyGroupOwnership(input.id, ctx.organizationId);
+      const group = await verifyGroupOwnership(ctx.db, input.id, ctx.organizationId);
 
       // Check for duplicate name if name is being updated
       if (input.data.name) {
-        const existing = await db.query.workflowGroups.findFirst({
+        const existing = await ctx.db.query.workflowGroups.findFirst({
           where: and(
             eq(workflowGroups.workflowId, group.workflowId),
             eq(workflowGroups.name, input.data.name)
@@ -526,7 +533,7 @@ export const workflowsRouter = router({
         }
       }
 
-      const [updated] = await db
+      const [updated] = await ctx.db
         .update(workflowGroups)
         .set({
           ...input.data,
@@ -544,9 +551,9 @@ export const workflowsRouter = router({
   deleteGroup: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await verifyGroupOwnership(input.id, ctx.organizationId);
+      await verifyGroupOwnership(ctx.db, input.id, ctx.organizationId);
 
-      await db.delete(workflowGroups).where(eq(workflowGroups.id, input.id));
+      await ctx.db.delete(workflowGroups).where(eq(workflowGroups.id, input.id));
 
       return { success: true };
     }),
@@ -561,11 +568,11 @@ export const workflowsRouter = router({
   addComponent: authenticatedProcedure
     .input(createComponentSchema)
     .mutation(async ({ ctx, input }) => {
-      await verifyWorkflowOwnership(input.workflowId, ctx.organizationId);
+      await verifyWorkflowOwnership(ctx.db, input.workflowId, ctx.organizationId);
 
       // Verify group belongs to the same workflow if specified
       if (input.groupId) {
-        const group = await db.query.workflowGroups.findFirst({
+        const group = await ctx.db.query.workflowGroups.findFirst({
           where: and(
             eq(workflowGroups.id, input.groupId),
             eq(workflowGroups.workflowId, input.workflowId)
@@ -581,7 +588,7 @@ export const workflowsRouter = router({
       }
 
       // Check for duplicate component key within workflow
-      const existing = await db.query.workflowComponents.findFirst({
+      const existing = await ctx.db.query.workflowComponents.findFirst({
         where: and(
           eq(workflowComponents.workflowId, input.workflowId),
           eq(workflowComponents.componentKey, input.componentKey)
@@ -595,7 +602,7 @@ export const workflowsRouter = router({
         });
       }
 
-      const [component] = await db
+      const [component] = await ctx.db
         .insert(workflowComponents)
         .values({
           workflowId: input.workflowId,
@@ -625,13 +632,14 @@ export const workflowsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const component = await verifyComponentOwnership(
+        ctx.db,
         input.id,
         ctx.organizationId
       );
 
       // Verify group belongs to the same workflow if specified
       if (input.data.groupId) {
-        const group = await db.query.workflowGroups.findFirst({
+        const group = await ctx.db.query.workflowGroups.findFirst({
           where: and(
             eq(workflowGroups.id, input.data.groupId),
             eq(workflowGroups.workflowId, component.workflowId)
@@ -648,7 +656,7 @@ export const workflowsRouter = router({
 
       // Check for duplicate component key if being updated
       if (input.data.componentKey) {
-        const existing = await db.query.workflowComponents.findFirst({
+        const existing = await ctx.db.query.workflowComponents.findFirst({
           where: and(
             eq(workflowComponents.workflowId, component.workflowId),
             eq(workflowComponents.componentKey, input.data.componentKey)
@@ -663,7 +671,7 @@ export const workflowsRouter = router({
         }
       }
 
-      const [updated] = await db
+      const [updated] = await ctx.db
         .update(workflowComponents)
         .set({
           ...input.data,
@@ -681,9 +689,9 @@ export const workflowsRouter = router({
   deleteComponent: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await verifyComponentOwnership(input.id, ctx.organizationId);
+      await verifyComponentOwnership(ctx.db, input.id, ctx.organizationId);
 
-      await db
+      await ctx.db
         .delete(workflowComponents)
         .where(eq(workflowComponents.id, input.id));
 
@@ -696,13 +704,13 @@ export const workflowsRouter = router({
   reorderComponents: authenticatedProcedure
     .input(reorderComponentsSchema)
     .mutation(async ({ ctx, input }) => {
-      await verifyWorkflowOwnership(input.workflowId, ctx.organizationId);
+      await verifyWorkflowOwnership(ctx.db, input.workflowId, ctx.organizationId);
 
       // Update each component's order and optionally group
       const updates = input.componentOrders.map(async (item) => {
         // Verify group if specified
         if (item.groupId) {
-          const group = await db.query.workflowGroups.findFirst({
+          const group = await ctx.db.query.workflowGroups.findFirst({
             where: and(
               eq(workflowGroups.id, item.groupId),
               eq(workflowGroups.workflowId, input.workflowId)
@@ -717,7 +725,7 @@ export const workflowsRouter = router({
           }
         }
 
-        return db
+        return ctx.db
           .update(workflowComponents)
           .set({
             displayOrder: item.displayOrder,
@@ -735,7 +743,7 @@ export const workflowsRouter = router({
       await Promise.all(updates);
 
       // Return updated workflow with components
-      const workflow = await db.query.workflows.findFirst({
+      const workflow = await ctx.db.query.workflows.findFirst({
         where: and(
           eq(workflows.id, input.workflowId),
           eq(workflows.organizationId, ctx.organizationId)
@@ -770,7 +778,7 @@ export const workflowsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify the template exists and belongs to this organization
-      const template = await db.query.workflows.findFirst({
+      const template = await ctx.db.query.workflows.findFirst({
         where: and(
           eq(workflows.id, input.templateId),
           eq(workflows.organizationId, ctx.organizationId),
@@ -790,7 +798,7 @@ export const workflowsRouter = router({
       }
 
       // Check for duplicate name
-      const existing = await db.query.workflows.findFirst({
+      const existing = await ctx.db.query.workflows.findFirst({
         where: and(
           eq(workflows.organizationId, ctx.organizationId),
           eq(workflows.name, input.name)
@@ -805,7 +813,7 @@ export const workflowsRouter = router({
       }
 
       // Create the new workflow
-      const [newWorkflow] = await db
+      const [newWorkflow] = await ctx.db
         .insert(workflows)
         .values({
           organizationId: ctx.organizationId,
@@ -821,7 +829,7 @@ export const workflowsRouter = router({
 
       // Copy groups
       if (template.groups.length > 0) {
-        const newGroups = await db
+        const newGroups = await ctx.db
           .insert(workflowGroups)
           .values(
             template.groups.map((group) => ({
@@ -840,7 +848,7 @@ export const workflowsRouter = router({
 
       // Copy components
       if (template.components.length > 0) {
-        await db.insert(workflowComponents).values(
+        await ctx.db.insert(workflowComponents).values(
           template.components.map((component) => ({
             workflowId: newWorkflow.id,
             groupId: component.groupId
@@ -858,7 +866,7 @@ export const workflowsRouter = router({
       }
 
       // Return the new workflow with its groups and components
-      const result = await db.query.workflows.findFirst({
+      const result = await ctx.db.query.workflows.findFirst({
         where: and(
           eq(workflows.id, newWorkflow.id),
           eq(workflows.organizationId, ctx.organizationId)
