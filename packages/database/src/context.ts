@@ -57,16 +57,16 @@ export async function withOrganizationContext<T>(
 
   try {
     // Set organization context - enables RLS policies
-    // The 'true' parameter makes the setting local to the current transaction/session
+    // Use session-scoped setting so it persists across queries in this connection.
     await client.query(
-      "SELECT set_config('app.current_organization_id', $1, true)",
+      "SELECT set_config('app.current_organization_id', $1, false)",
       [context.organizationId]
     );
 
     // Optionally set user context for audit trails and user-level policies
     if (context.userId) {
       await client.query(
-        "SELECT set_config('app.current_user_id', $1, true)",
+        "SELECT set_config('app.current_user_id', $1, false)",
         [context.userId]
       );
     }
@@ -171,15 +171,15 @@ export async function createContextualDb(
 ): Promise<{ db: ContextualDatabase; release: () => void; client: PoolClient }> {
   const client = await pool.connect();
 
-  // Set organization context
+  // Set organization context (session-scoped for this client)
   await client.query(
-    "SELECT set_config('app.current_organization_id', $1, true)",
+    "SELECT set_config('app.current_organization_id', $1, false)",
     [context.organizationId]
   );
 
   if (context.userId) {
     await client.query(
-      "SELECT set_config('app.current_user_id', $1, true)",
+      "SELECT set_config('app.current_user_id', $1, false)",
       [context.userId]
     );
   }
@@ -211,8 +211,11 @@ export async function verifyRLSContext(client: PoolClient): Promise<{
     "SELECT current_setting('app.current_user_id', true) as user_id"
   );
 
+  const orgId = orgResult.rows[0]?.org_id || null;
+  const userId = userResult.rows[0]?.user_id || null;
+
   return {
-    organizationId: orgResult.rows[0]?.org_id || null,
-    userId: userResult.rows[0]?.user_id || null,
+    organizationId: orgId,
+    userId: userId,
   };
 }
