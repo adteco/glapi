@@ -1,7 +1,9 @@
 import { and, asc, desc, eq, gte, lte, sql, inArray, or, between } from 'drizzle-orm';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { BaseRepository } from './base-repository';
 import { accountingPeriods, PERIOD_STATUS, type PeriodStatus } from '../db/schema/accounting-periods';
 import { subsidiaries } from '../db/schema/subsidiaries';
+import type { ContextualDatabase } from '../context';
 
 export interface AccountingPeriodPaginationParams {
   page?: number;
@@ -38,6 +40,13 @@ export interface UpdatePeriodStatusData {
 }
 
 export class AccountingPeriodRepository extends BaseRepository {
+  /**
+   * @param db Optional contextual database for RLS support. Pass ctx.db from tRPC context.
+   */
+  constructor(db?: ContextualDatabase | NodePgDatabase<any>) {
+    super(db);
+  }
+
   /**
    * Find a period by ID with subsidiary access check
    */
