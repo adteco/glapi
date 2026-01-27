@@ -20,6 +20,7 @@
     "@glapi/types": "workspace:*",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.9.1",
+    "@magneteco/client": "^0.0.2",
     "@marsidev/react-turnstile": "^1.1.0",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.0.4",
