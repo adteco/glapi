@@ -41,7 +41,7 @@ export const accountingPeriodsRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.listPeriods(
         { page: input?.page, limit: input?.limit },
         input?.filters || {},
@@ -56,7 +56,7 @@ export const accountingPeriodsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       const period = await service.getPeriodById(input.id);
 
       if (!period) {
@@ -80,7 +80,7 @@ export const accountingPeriodsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.getPeriodForDate(input.subsidiaryId, input.date);
     }),
 
@@ -96,7 +96,7 @@ export const accountingPeriodsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.checkPostingAllowed(input);
     }),
 
@@ -104,7 +104,7 @@ export const accountingPeriodsRouter = router({
    * Get available fiscal years
    */
   fiscalYears: authenticatedProcedure.query(async ({ ctx }) => {
-    const service = new AccountingPeriodService(ctx.serviceContext);
+    const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
     return service.getFiscalYears();
   }),
 
@@ -114,7 +114,7 @@ export const accountingPeriodsRouter = router({
   currentOpen: authenticatedProcedure
     .input(z.object({ subsidiaryId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.getCurrentOpenPeriod(input.subsidiaryId);
     }),
 
@@ -124,7 +124,7 @@ export const accountingPeriodsRouter = router({
   create: authenticatedProcedure
     .input(createPeriodSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.createPeriod(input);
     }),
 
@@ -142,7 +142,7 @@ export const accountingPeriodsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.createFiscalYearPeriods(input);
       } catch (err: any) {
@@ -169,7 +169,7 @@ export const accountingPeriodsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.updatePeriodStatus(input.id, { status: input.status });
     }),
 
@@ -180,7 +180,7 @@ export const accountingPeriodsRouter = router({
   softClose: adminProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.softClosePeriod(input.id);
     }),
 
@@ -191,7 +191,7 @@ export const accountingPeriodsRouter = router({
   close: adminProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.closePeriod(input.id);
     }),
 
@@ -202,7 +202,7 @@ export const accountingPeriodsRouter = router({
   lock: adminProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.lockPeriod(input.id);
     }),
 
@@ -213,7 +213,7 @@ export const accountingPeriodsRouter = router({
   reopen: adminProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       return service.reopenPeriod(input.id);
     }),
 
@@ -223,7 +223,7 @@ export const accountingPeriodsRouter = router({
   delete: adminProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountingPeriodService(ctx.serviceContext);
+      const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
       await service.deletePeriod(input.id);
       return { success: true };
     }),
