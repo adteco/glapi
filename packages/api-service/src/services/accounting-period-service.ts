@@ -11,14 +11,19 @@ import {
   PeriodStatus,
 } from '../types/accounting-periods.types';
 import { PaginationParams, PaginatedResult, ServiceError } from '../types';
-import { AccountingPeriodRepository } from '@glapi/database';
+import { AccountingPeriodRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface AccountingPeriodServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class AccountingPeriodService extends BaseService {
   private periodRepository: AccountingPeriodRepository;
 
-  constructor(context = {}) {
+  constructor(context: Record<string, any> = {}, options: AccountingPeriodServiceOptions = {}) {
     super(context);
-    this.periodRepository = new AccountingPeriodRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.periodRepository = new AccountingPeriodRepository(options.db);
   }
 
   /**

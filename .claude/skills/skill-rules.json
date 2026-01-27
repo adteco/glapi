@@ -183,6 +183,55 @@
                 ]
             }
         },
+        "glapi-rls-guide": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Row Level Security (RLS) implementation guide for GLAPI multi-tenant database isolation. Covers PostgreSQL RLS policies, session variables, contextual database connections, tRPC middleware, and common troubleshooting. Use when working with RLS, multi-tenancy, organization isolation, database security, or debugging RLS policy violations.",
+            "promptTriggers": {
+                "keywords": [
+                    "RLS",
+                    "row level security",
+                    "row-level security",
+                    "multi-tenant",
+                    "multi-tenancy",
+                    "organization isolation",
+                    "tenant isolation",
+                    "session variable",
+                    "current_setting",
+                    "app.current_organization_id",
+                    "RLS policy",
+                    "policy violation",
+                    "contextual db",
+                    "contextual database",
+                    "createContextualDb",
+                    "withOrganizationContext"
+                ],
+                "intentPatterns": [
+                    "(create|add|implement|fix|debug).*?(RLS|row level security|policy)",
+                    "(how does|explain|understand).*?(RLS|multi-tenant|isolation)",
+                    "violates.*?row.*?level.*?security",
+                    "organization.*?(id|isolation|context)",
+                    "(set|get).*?session.*?variable"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "packages/database/src/context.ts",
+                    "packages/database/drizzle/*rls*.sql",
+                    "packages/trpc/src/trpc.ts"
+                ],
+                "contentPatterns": [
+                    "ENABLE ROW LEVEL SECURITY",
+                    "CREATE POLICY",
+                    "current_setting\\(",
+                    "set_config\\(",
+                    "createContextualDb",
+                    "withOrganizationContext",
+                    "app\\.current_organization_id"
+                ]
+            }
+        },
         "error-tracking": {
             "type": "domain",
             "enforcement": "suggest",
