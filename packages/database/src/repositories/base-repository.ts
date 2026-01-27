@@ -1,16 +1,25 @@
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, eq, sql } from 'drizzle-orm';
-import { db } from '../db';
+import { db as globalDb } from '../db';
+import type { ContextualDatabase } from '../context';
 
 /**
  * Base repository class that provides common database access functionality
  * All entity-specific repositories should extend this class
+ *
+ * IMPORTANT: When using with RLS-protected tables, pass the contextual db
+ * from the tRPC context to ensure proper organization isolation.
  */
 export abstract class BaseRepository {
   protected db: NodePgDatabase<any>;
 
-  constructor() {
-    this.db = db;
+  /**
+   * @param db Optional contextual database instance. If not provided, uses
+   *           the global db which does NOT have RLS context set. For RLS-
+   *           protected tables, always pass the contextual db from ctx.db.
+   */
+  constructor(db?: ContextualDatabase | NodePgDatabase<any>) {
+    this.db = db ?? globalDb;
   }
 
   /**

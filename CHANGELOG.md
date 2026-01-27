@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - January 2026
+
+### Added
+- Event store foundation tables (event_store, event_outbox, event_projections) for event sourcing patterns
+- RLS guide skill (`glapi-rls-guide`) documenting multi-tenant database isolation patterns
+
+### Fixed
+- **Accounting Periods RLS**: Fixed "new row violates row-level security policy" error when creating fiscal year periods
+  - Root cause: RLS policies used `get_current_organization_id()` function which returns UUID, but `current_setting()` returns text
+  - Solution: Changed policies to use `current_setting('app.current_organization_id', true)` directly with text comparison
+  - Affected operations: INSERT on accounting_periods table via fiscal year wizard
+
+### Technical Details
+- RLS policies must compare `organization_id::text = current_setting('app.current_organization_id', true)` (both as text)
+- Do NOT use the `get_current_organization_id()` function for INSERT policies - it has UUID casting issues
+- Event store tables use TEXT for organization_id (Clerk org IDs) without FK to organizations table
+
 ## [1.3.0] - January 2026
 
 ### Added
