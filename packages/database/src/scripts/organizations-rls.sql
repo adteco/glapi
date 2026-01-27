@@ -2,20 +2,25 @@
 -- Organizations Table Row Level Security Policy
 -- ============================================================================
 -- SPECIAL CASE: This IS the organization table itself.
--- Users should only be able to see their OWN organization.
--- The check is: id = get_current_organization_id()
+--
+-- SELECT: Must be permissive to allow auth resolution (looking up org by
+-- clerk_org_id before we know the internal UUID). The application layer
+-- enforces that users only see their own org data after auth.
+--
+-- INSERT/UPDATE/DELETE: Restricted to matching organization context.
 -- ============================================================================
 
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE organizations FORCE ROW LEVEL SECURITY;
 
--- SELECT: Users can only see their own organization
+-- SELECT: Permissive to allow auth resolution (clerk_org_id lookup)
+-- Application enforces org isolation after auth context is established
 DO $$
 BEGIN
-  CREATE POLICY "org_isolation_select_organizations" ON organizations
-    FOR SELECT USING (id = get_current_organization_id());
+  CREATE POLICY "org_select_for_auth_and_context" ON organizations
+    FOR SELECT USING (true);
 EXCEPTION WHEN duplicate_object THEN
-  RAISE NOTICE 'Policy org_isolation_select_organizations already exists, skipping.';
+  RAISE NOTICE 'Policy org_select_for_auth_and_context already exists, skipping.';
 END $$;
 
 -- INSERT: Users can only create their own organization (during onboarding)
