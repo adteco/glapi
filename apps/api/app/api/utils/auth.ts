@@ -111,8 +111,6 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const rawUserId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
 
-  console.log('Auth context - rawOrgId:', rawOrganizationId, 'rawUserId:', rawUserId);
-
   if (rawOrganizationId && rawUserId) {
     // Resolve Clerk org ID to database UUID and get organization name
     const resolvedOrg = await resolveOrganization(rawOrganizationId);
