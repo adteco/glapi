@@ -1,8 +1,20 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as fs from 'fs';
 import * as path from 'path';
+import * as dotenv from 'dotenv';
 
 // Auth storage file path
 const STORAGE_STATE = path.join(__dirname, 'playwright/.auth/user.json');
+
+const webEnvLocal = path.join(__dirname, 'apps/web/.env.local');
+if (fs.existsSync(webEnvLocal)) {
+  dotenv.config({ path: webEnvLocal });
+}
+
+const webEnv = path.join(__dirname, 'apps/web/.env');
+if (fs.existsSync(webEnv)) {
+  dotenv.config({ path: webEnv });
+}
 
 /**
  * GLAPI E2E Test Configuration
@@ -269,6 +281,17 @@ export default defineConfig({
     {
       name: 'admin',
       testMatch: /tests\/admin\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+
+    // RLS isolation tests - verify multi-tenant data isolation
+    {
+      name: 'rls',
+      testMatch: /tests\/rls\/.*\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: STORAGE_STATE,
