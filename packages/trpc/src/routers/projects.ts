@@ -88,7 +88,7 @@ export const projectsRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       return service.listProjects(
         {
           page: input?.page,
@@ -106,7 +106,7 @@ export const projectsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.getProjectById(input.id);
       } catch (error: any) {
@@ -126,7 +126,7 @@ export const projectsRouter = router({
   getByCode: authenticatedProcedure
     .input(z.object({ projectCode: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.getProjectByCode(input.projectCode);
       } catch (error: any) {
@@ -146,7 +146,7 @@ export const projectsRouter = router({
   create: authenticatedProcedure
     .input(createProjectSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.createProject({
           projectCode: input.projectCode,
@@ -191,7 +191,7 @@ export const projectsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.updateProject(input.id, input.data);
       } catch (error: any) {
@@ -223,7 +223,7 @@ export const projectsRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         await service.deleteProject(input.id);
         return { success: true };
@@ -246,7 +246,7 @@ export const projectsRouter = router({
   listParticipants: authenticatedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.listParticipants(input.projectId);
       } catch (error: any) {
@@ -271,7 +271,7 @@ export const projectsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.addParticipant(input.projectId, {
           participantRole: input.data.participantRole,
@@ -308,7 +308,7 @@ export const projectsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.updateParticipant(
           input.projectId,
@@ -340,7 +340,7 @@ export const projectsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectService(ctx.serviceContext);
+      const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
       try {
         await service.removeParticipant(input.projectId, input.participantId);
         return { success: true };
