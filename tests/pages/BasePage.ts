@@ -43,12 +43,21 @@ export class BasePage {
 
   /**
    * Wait for page to finish loading
+   * Note: We use 'domcontentloaded' instead of 'networkidle' because
+   * the app has persistent connections (SSE/WebSockets) that prevent networkidle.
    */
   async waitForPageLoad(): Promise<void> {
-    await this.page.waitForLoadState('networkidle');
-    // Wait for any loading spinners to disappear
-    if (await this.loadingSpinner.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await this.page.waitForLoadState('domcontentloaded');
+    // Wait a short moment for React hydration
+    await this.page.waitForTimeout(500);
+    // Wait for any loading spinners to disappear (indicates data is loaded)
+    if (await this.loadingSpinner.isVisible({ timeout: 2000 }).catch(() => false)) {
       await this.loadingSpinner.waitFor({ state: 'hidden', timeout: 30000 });
+    }
+    // Also wait for common loading text patterns to disappear
+    const loadingText = this.page.locator('text=/Loading\\.\\.\\.|Loading [a-z]+\\.\\.\\./i');
+    if (await loadingText.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await loadingText.waitFor({ state: 'hidden', timeout: 30000 });
     }
   }
 
