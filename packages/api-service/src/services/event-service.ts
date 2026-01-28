@@ -2,13 +2,14 @@ import { BaseService } from './base-service';
 import { ServiceContext, ServiceError } from '../types';
 import {
   eventStoreRepository,
-  type EventStoreRepository,
+  EventStoreRepository,
   type EventQueryOptions,
   type AppendEventResult,
   type EventStoreRecord,
   type BaseEvent,
   type EventCategoryType,
   EventCategory,
+  type ContextualDatabase,
 } from '@glapi/database';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -131,13 +132,15 @@ export class EventService extends BaseService {
   constructor(
     context: ServiceContext = {},
     options?: {
+      db?: ContextualDatabase;
       repository?: EventStoreRepository;
       logger?: EventServiceLogger;
       retryConfig?: Partial<RetryConfig>;
     }
   ) {
     super(context);
-    this.repository = options?.repository || eventStoreRepository;
+    // If db is provided, create a new repository with it; otherwise use existing repository or singleton
+    this.repository = options?.repository || (options?.db ? new EventStoreRepository(options.db) : eventStoreRepository);
     this.logger = options?.logger || defaultLogger;
     this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...options?.retryConfig };
   }
