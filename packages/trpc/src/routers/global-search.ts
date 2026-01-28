@@ -137,7 +137,7 @@ export const globalSearchRouter = router({
       // Search invoices
       if (targetType === 'all' || targetType === 'invoice') {
         try {
-          const invoiceService = new InvoiceService(ctx.serviceContext);
+          const invoiceService = new InvoiceService(ctx.serviceContext, { db: ctx.db });
           const invoices = await invoiceService.listInvoices({
             page: 1,
             limit: 100,

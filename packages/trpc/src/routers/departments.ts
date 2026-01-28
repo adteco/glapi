@@ -19,7 +19,7 @@ export const departmentsRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new DepartmentService(ctx.serviceContext);
+      const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });
       const result = await service.listDepartments(
         { page: 1, limit: 100 },
         'name',
@@ -32,7 +32,7 @@ export const departmentsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new DepartmentService(ctx.serviceContext);
+      const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });
       const department = await service.getDepartmentById(input.id);
       
       if (!department) {
@@ -48,7 +48,7 @@ export const departmentsRouter = router({
   create: authenticatedProcedure
     .input(departmentSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new DepartmentService(ctx.serviceContext);
+      const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });
       return service.createDepartment({
         ...input,
         organizationId: ctx.serviceContext!.organizationId,
@@ -63,7 +63,7 @@ export const departmentsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new DepartmentService(ctx.serviceContext);
+      const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });
       const updated = await service.updateDepartment(input.id, input.data);
       
       if (!updated) {
@@ -79,7 +79,7 @@ export const departmentsRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new DepartmentService(ctx.serviceContext);
+      const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });
       await service.deleteDepartment(input.id);
       return { success: true };
     }),

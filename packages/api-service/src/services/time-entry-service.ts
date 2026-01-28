@@ -21,14 +21,20 @@ import { PaginationParams, PaginatedResult, ServiceError } from '../types';
 import {
   TimeEntryRepository,
   TimeEntryWithRelations as RepoTimeEntryWithRelations,
+  type ContextualDatabase,
 } from '@glapi/database';
+
+export interface TimeEntryServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class TimeEntryService extends BaseService {
   private repository: TimeEntryRepository;
 
-  constructor(context = {}) {
+  constructor(context = {}, options: TimeEntryServiceOptions = {}) {
     super(context);
-    this.repository = new TimeEntryRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.repository = new TimeEntryRepository(options.db);
   }
 
   // ============================================================================
