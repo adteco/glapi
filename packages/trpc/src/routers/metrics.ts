@@ -85,7 +85,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.getDashboard({
         periodId: input.periodId,
         timeRange: input.timeRange as { from: string; to: string } | undefined,
@@ -107,7 +107,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.getKpiCards(input.periodId, input.metricIds, input.filters);
     }),
 
@@ -129,7 +129,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.getSegmentPerformance({
         periodId: input.periodId,
         dimensionType: input.dimensionType,
@@ -152,7 +152,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.getDimensionBreakdown(
         input.periodId,
         input.dimensionType,
@@ -179,7 +179,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.getTrend({
         metricId: input.metricId,
         periodIds: input.periodIds,
@@ -201,7 +201,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.getMultipleTrends(input.metricIds, input.periodIds, input.filters);
     }),
 
@@ -222,7 +222,7 @@ export const metricsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.compareMetrics({
         metricIds: input.metricIds,
         currentPeriodId: input.currentPeriodId,
@@ -249,7 +249,7 @@ export const metricsRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.listMetricDefinitions(input?.category);
     }),
 
@@ -279,7 +279,7 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.createCustomMetric({
         name: input.name,
         description: input.description,
@@ -322,7 +322,7 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       const { id, thresholds, ...updateData } = input;
       return service.updateCustomMetric(id, {
         ...updateData,
@@ -336,7 +336,7 @@ export const metricsRouter = router({
   deleteCustomMetric: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       await service.deleteCustomMetric(input.id);
       return { success: true };
     }),
@@ -357,7 +357,7 @@ export const metricsRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.listSavedViews(input?.viewType);
     }),
 
@@ -367,7 +367,7 @@ export const metricsRouter = router({
   getSavedView: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       const view = await service.getSavedView(input.id);
       if (!view) {
         throw new TRPCError({
@@ -393,7 +393,7 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       return service.createSavedView({
         name: input.name,
         description: input.description,
@@ -429,7 +429,7 @@ export const metricsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       const { id, configuration, ...updateData } = input;
       return service.updateSavedView(id, {
         ...updateData,
@@ -453,7 +453,7 @@ export const metricsRouter = router({
   deleteSavedView: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new MetricsService({ organizationId: ctx.organizationId });
+      const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
       await service.deleteSavedView(input.id);
       return { success: true };
     }),
