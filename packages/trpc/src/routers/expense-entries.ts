@@ -125,7 +125,7 @@ export const expenseEntriesRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.list(
         { page: input?.page, limit: input?.limit },
         input?.filters || {},
@@ -140,7 +140,7 @@ export const expenseEntriesRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       const entry = await service.getById(input.id);
 
       if (!entry) {
@@ -159,7 +159,7 @@ export const expenseEntriesRouter = router({
   getByIdWithRelations: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       const entry = await service.getByIdWithRelations(input.id);
 
       if (!entry) {
@@ -185,7 +185,7 @@ export const expenseEntriesRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getPendingApprovals({ page: input?.page, limit: input?.limit });
     }),
 
@@ -193,7 +193,7 @@ export const expenseEntriesRouter = router({
    * Create a new expense entry
    */
   create: authenticatedProcedure.input(createExpenseEntrySchema).mutation(async ({ ctx, input }) => {
-    const service = new ExpenseEntryService(ctx.serviceContext);
+    const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
     return service.create({
       expenseDate: input.expenseDate,
       category: input.category,
@@ -227,7 +227,7 @@ export const expenseEntriesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.update(input.id, input.data);
     }),
 
@@ -235,7 +235,7 @@ export const expenseEntriesRouter = router({
    * Delete an expense entry (DRAFT only)
    */
   delete: authenticatedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
-    const service = new ExpenseEntryService(ctx.serviceContext);
+    const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
     await service.delete(input.id);
     return { success: true };
   }),
@@ -253,7 +253,7 @@ export const expenseEntriesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.submit({
         expenseEntryIds: input.expenseEntryIds,
         comments: input.comments,
@@ -271,7 +271,7 @@ export const expenseEntriesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.approve({
         expenseEntryIds: input.expenseEntryIds,
         comments: input.comments,
@@ -289,7 +289,7 @@ export const expenseEntriesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.reject({
         expenseEntryIds: input.expenseEntryIds,
         reason: input.reason,
@@ -302,7 +302,7 @@ export const expenseEntriesRouter = router({
   returnToDraft: authenticatedProcedure
     .input(z.object({ expenseEntryIds: z.array(z.string().uuid()).min(1) }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.returnToDraft(input.expenseEntryIds);
     }),
 
@@ -314,7 +314,7 @@ export const expenseEntriesRouter = router({
   getAttachments: authenticatedProcedure
     .input(z.object({ expenseEntryId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getAttachments(input.expenseEntryId);
     }),
 
@@ -324,7 +324,7 @@ export const expenseEntriesRouter = router({
   deleteAttachment: authenticatedProcedure
     .input(z.object({ attachmentId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       await service.deleteAttachment(input.attachmentId);
       return { success: true };
     }),
@@ -335,7 +335,7 @@ export const expenseEntriesRouter = router({
    * Create an expense report
    */
   createReport: authenticatedProcedure.input(createExpenseReportSchema).mutation(async ({ ctx, input }) => {
-    const service = new ExpenseEntryService(ctx.serviceContext);
+    const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
     return service.createReport({
       title: input.title,
       description: input.description,
@@ -361,7 +361,7 @@ export const expenseEntriesRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.listReports(
         { page: input?.page, limit: input?.limit },
         { status: input?.status }
@@ -374,7 +374,7 @@ export const expenseEntriesRouter = router({
   getReportWithEntries: authenticatedProcedure
     .input(z.object({ reportId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getReportWithEntries(input.reportId);
     }),
 
@@ -392,7 +392,7 @@ export const expenseEntriesRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getMySummary(input.startDate, input.endDate, input.status);
     }),
 
@@ -407,7 +407,7 @@ export const expenseEntriesRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getProjectTotals(input.projectId, input.status);
     }),
 
@@ -417,7 +417,7 @@ export const expenseEntriesRouter = router({
   getApprovalHistory: authenticatedProcedure
     .input(z.object({ expenseEntryId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ExpenseEntryService(ctx.serviceContext);
+      const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getApprovalHistory(input.expenseEntryId);
     }),
 });

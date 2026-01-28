@@ -54,7 +54,7 @@ export const itemsRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new ItemsService(ctx.serviceContext);
+      const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
       
       const result = await service.listItems({
         page: 1, 
@@ -67,7 +67,7 @@ export const itemsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ItemsService(ctx.serviceContext);
+      const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
       return service.getItem(input.id);
     }),
 
@@ -75,14 +75,14 @@ export const itemsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ItemsService(ctx.serviceContext);
+      const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
       return service.getItem(input.id);
     }),
 
   create: authenticatedProcedure
     .input(itemSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ItemsService(ctx.serviceContext);
+      const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
       return service.createItem({
         ...input,
         categoryId: input.categoryId ?? undefined,
@@ -102,7 +102,7 @@ export const itemsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ItemsService(ctx.serviceContext);
+      const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
       // Convert null to undefined for service compatibility
       const sanitizedData = {
         ...input.data,
@@ -119,7 +119,7 @@ export const itemsRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ItemsService(ctx.serviceContext);
+      const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
       await service.deleteItem(input.id);
       return { success: true };
     }),

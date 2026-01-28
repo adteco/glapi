@@ -1,4 +1,4 @@
-import { entityRepository } from '@glapi/database';
+import { EntityRepository, type ContextualDatabase } from '@glapi/database';
 import {
   EntityType,
   CreateEntityInput,
@@ -9,12 +9,18 @@ import {
 } from './types';
 import { ServiceContext } from '../types';
 
+export interface EntityServiceOptions {
+  db?: ContextualDatabase;
+}
+
 export class EntityService {
-  protected repository = entityRepository;
+  protected repository: EntityRepository;
   protected context: ServiceContext;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: EntityServiceOptions = {}) {
     this.context = context;
+    // Pass the contextual db to the repository for RLS support
+    this.repository = new EntityRepository(options.db);
   }
 
   /**
@@ -207,5 +213,6 @@ export class EntityService {
   }
 }
 
-// Note: Prefer creating new instances with serviceContext rather than using singleton
+// DEPRECATED: Prefer creating new instances with serviceContext and db for RLS support
+// This singleton does NOT have RLS context set
 export const entityService = new EntityService();

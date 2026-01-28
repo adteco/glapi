@@ -1,5 +1,7 @@
 import { eq, and, desc, sql, gte, lte, inArray, isNull, lt } from 'drizzle-orm';
-import { db } from '../db';
+import { db as globalDb } from '../db';
+import type { ContextualDatabase } from '../context';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   billingSchedules,
   billingScheduleLines,
@@ -13,12 +15,17 @@ import {
 } from '../db/schema/billing-schedules';
 
 export class BillingScheduleRepository {
+  private db: NodePgDatabase<any>;
+
+  constructor(db?: ContextualDatabase | NodePgDatabase<any>) {
+    this.db = db ?? globalDb;
+  }
   // ============================================================================
   // Schedule CRUD Operations
   // ============================================================================
 
   async create(data: NewBillingSchedule): Promise<BillingSchedule> {
-    const [schedule] = await db
+    const [schedule] = await this.db
       .insert(billingSchedules)
       .values(data)
       .returning();
@@ -29,7 +36,7 @@ export class BillingScheduleRepository {
     scheduleData: NewBillingSchedule,
     linesData: Omit<NewBillingScheduleLine, 'billingScheduleId'>[]
   ): Promise<BillingScheduleWithLines> {
-    return await db.transaction(async (tx) => {
+    return await this.db.transaction(async (tx) => {
       // Create the billing schedule
       const [schedule] = await tx
         .insert(billingSchedules)
@@ -74,7 +81,7 @@ export class BillingScheduleRepository {
   }
 
   async findById(id: string): Promise<BillingSchedule | null> {
-    const [schedule] = await db
+    const [schedule] = await this.db
       .select()
       .from(billingSchedules)
       .where(eq(billingSchedules.id, id))
@@ -86,7 +93,7 @@ export class BillingScheduleRepository {
     const schedule = await this.findById(id);
     if (!schedule) return null;
 
-    const lines = await db
+    const lines = await this.db
       .select()
       .from(billingScheduleLines)
       .where(eq(billingScheduleLines.billingScheduleId, id))
@@ -99,7 +106,7 @@ export class BillingScheduleRepository {
   }
 
   async findBySubscriptionId(subscriptionId: string): Promise<BillingSchedule[]> {
-    return await db
+    return await this.db
       .select()
       .from(billingSchedules)
       .where(eq(billingSchedules.subscriptionId, subscriptionId))
@@ -107,7 +114,7 @@ export class BillingScheduleRepository {
   }
 
   async findActiveBySubscriptionId(subscriptionId: string): Promise<BillingSchedule | null> {
-    const [schedule] = await db
+    const [schedule] = await this.db
       .select()
       .from(billingSchedules)
       .where(
@@ -122,7 +129,7 @@ export class BillingScheduleRepository {
   }
 
   async update(id: string, data: UpdateBillingSchedule): Promise<BillingSchedule | null> {
-    const [updated] = await db
+    const [updated] = await this.db
       .update(billingSchedules)
       .set({
         ...data,
@@ -134,7 +141,7 @@ export class BillingScheduleRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await db.delete(billingSchedules).where(eq(billingSchedules.id, id));
+    await this.db.delete(billingSchedules).where(eq(billingSchedules.id, id));
   }
 
   // ============================================================================
@@ -142,7 +149,7 @@ export class BillingScheduleRepository {
   // ============================================================================
 
   async createLine(data: NewBillingScheduleLine): Promise<BillingScheduleLine> {
-    const [line] = await db
+    const [line] = await this.db
       .insert(billingScheduleLines)
       .values(data)
       .returning();
@@ -152,14 +159,14 @@ export class BillingScheduleRepository {
   async createLines(lines: NewBillingScheduleLine[]): Promise<BillingScheduleLine[]> {
     if (lines.length === 0) return [];
 
-    return await db
+    return await this.db
       .insert(billingScheduleLines)
       .values(lines)
       .returning();
   }
 
   async findLineById(id: string): Promise<BillingScheduleLine | null> {
-    const [line] = await db
+    const [line] = await this.db
       .select()
       .from(billingScheduleLines)
       .where(eq(billingScheduleLines.id, id))
@@ -168,7 +175,7 @@ export class BillingScheduleRepository {
   }
 
   async findLinesByScheduleId(scheduleId: string): Promise<BillingScheduleLine[]> {
-    return await db
+    return await this.db
       .select()
       .from(billingScheduleLines)
       .where(eq(billingScheduleLines.billingScheduleId, scheduleId))
@@ -176,7 +183,7 @@ export class BillingScheduleRepository {
   }
 
   async updateLine(id: string, data: UpdateBillingScheduleLine): Promise<BillingScheduleLine | null> {
-    const [updated] = await db
+    const [updated] = await this.db
       .update(billingScheduleLines)
       .set({
         ...data,
@@ -188,11 +195,11 @@ export class BillingScheduleRepository {
   }
 
   async deleteLine(id: string): Promise<void> {
-    await db.delete(billingScheduleLines).where(eq(billingScheduleLines.id, id));
+    await this.db.delete(billingScheduleLines).where(eq(billingScheduleLines.id, id));
   }
 
   async deleteLinesByScheduleId(scheduleId: string): Promise<void> {
-    await db.delete(billingScheduleLines).where(eq(billingScheduleLines.billingScheduleId, scheduleId));
+    await this.db.delete(billingScheduleLines).where(eq(billingScheduleLines.billingScheduleId, scheduleId));
   }
 
   // ============================================================================
@@ -224,12 +231,12 @@ export class BillingScheduleRepository {
 
     const whereClause = and(...conditions);
 
-    const [countResult] = await db
+    const [countResult] = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(billingSchedules)
       .where(whereClause);
 
-    const data = await db
+    const data = await this.db
       .select()
       .from(billingSchedules)
       .where(whereClause)
@@ -253,7 +260,7 @@ export class BillingScheduleRepository {
   ): Promise<BillingScheduleLine[]> {
     const dateStr = asOfDate.toISOString().split('T')[0];
 
-    return await db
+    return await this.db
       .select()
       .from(billingScheduleLines)
       .where(
@@ -276,7 +283,7 @@ export class BillingScheduleRepository {
   ): Promise<BillingScheduleLine[]> {
     const dateStr = asOfDate.toISOString().split('T')[0];
 
-    return await db
+    return await this.db
       .select()
       .from(billingScheduleLines)
       .where(
@@ -298,7 +305,7 @@ export class BillingScheduleRepository {
     invoiceId: string,
     invoicedAmount: string
   ): Promise<BillingScheduleLine | null> {
-    return await db.transaction(async (tx) => {
+    return await this.db.transaction(async (tx) => {
       const [line] = await tx
         .update(billingScheduleLines)
         .set({
@@ -321,7 +328,7 @@ export class BillingScheduleRepository {
   }
 
   async markLineAsPaid(lineId: string): Promise<BillingScheduleLine | null> {
-    return await db.transaction(async (tx) => {
+    return await this.db.transaction(async (tx) => {
       const [line] = await tx
         .update(billingScheduleLines)
         .set({
@@ -341,7 +348,7 @@ export class BillingScheduleRepository {
   }
 
   async markLineAsCancelled(lineId: string, reason?: string): Promise<BillingScheduleLine | null> {
-    return await db.transaction(async (tx) => {
+    return await this.db.transaction(async (tx) => {
       const [line] = await tx
         .update(billingScheduleLines)
         .set({
@@ -427,7 +434,7 @@ export class BillingScheduleRepository {
   }
 
   async generateScheduleNumber(organizationId: string): Promise<string> {
-    const [result] = await db
+    const [result] = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(billingSchedules)
       .where(eq(billingSchedules.organizationId, organizationId));
@@ -437,7 +444,7 @@ export class BillingScheduleRepository {
   }
 
   async getNextSequenceNumber(scheduleId: string): Promise<number> {
-    const [result] = await db
+    const [result] = await this.db
       .select({ maxSeq: sql<number>`COALESCE(MAX(${billingScheduleLines.sequenceNumber}), 0)::int` })
       .from(billingScheduleLines)
       .where(eq(billingScheduleLines.billingScheduleId, scheduleId));

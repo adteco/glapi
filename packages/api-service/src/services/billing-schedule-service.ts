@@ -49,8 +49,8 @@ export class BillingScheduleService extends BaseService {
 
   constructor(context: ServiceContext = {}, options: BillingScheduleServiceOptions = {}) {
     super(context);
-    // BillingScheduleRepository uses global db - needs refactoring for RLS support
-    this.billingScheduleRepository = new BillingScheduleRepository();
+    // Pass the contextual db to both repositories for RLS support
+    this.billingScheduleRepository = new BillingScheduleRepository(options.db);
     this.subscriptionRepository = new SubscriptionRepository(options.db);
   }
 

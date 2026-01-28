@@ -39,14 +39,19 @@ import {
   ProjectMilestoneStatus,
 } from '../types/project-tasks.types';
 import { PaginationParams, PaginatedResult, ServiceError } from '../types';
-import { ProjectTaskRepository } from '@glapi/database';
+import { ProjectTaskRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface ProjectTaskServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class ProjectTaskService extends BaseService {
   private repository: ProjectTaskRepository;
 
-  constructor(context = {}) {
+  constructor(context = {}, options: ProjectTaskServiceOptions = {}) {
     super(context);
-    this.repository = new ProjectTaskRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.repository = new ProjectTaskRepository(options.db);
   }
 
   /**
