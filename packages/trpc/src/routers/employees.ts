@@ -35,7 +35,7 @@ export const employeesRouter = router({
   list: authenticatedProcedure
     .input(employeeQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new EmployeeService(ctx.serviceContext);
+      const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
       const { page = 1, limit = 10, search, isActive } = input;
 
       return await service.listEmployees({
@@ -51,7 +51,7 @@ export const employeesRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new EmployeeService(ctx.serviceContext);
+      const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
       return await service.findById(input.id);
     }),
 
@@ -59,14 +59,14 @@ export const employeesRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new EmployeeService(ctx.serviceContext);
+      const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
       return await service.findById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(employeeSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new EmployeeService(ctx.serviceContext);
+      const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
       return await service.createEmployee({
         ...input,
         status: 'active' as const,
@@ -80,14 +80,14 @@ export const employeesRouter = router({
       data: updateEmployeeSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new EmployeeService(ctx.serviceContext);
+      const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
       return await service.updateEmployee(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new EmployeeService(ctx.serviceContext);
+      const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
       return await service.delete(input.id);
     }),
 });

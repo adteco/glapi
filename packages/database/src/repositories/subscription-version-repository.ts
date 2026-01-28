@@ -1,5 +1,7 @@
 import { eq, and, desc, sql } from 'drizzle-orm';
-import { db } from '../db';
+import { db as globalDb } from '../db';
+import type { ContextualDatabase } from '../context';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   subscriptionVersions,
   type SubscriptionVersion,
@@ -7,11 +9,16 @@ import {
 } from '../db/schema/subscription-versions';
 
 export class SubscriptionVersionRepository {
+  private db: NodePgDatabase<any>;
+
+  constructor(db?: ContextualDatabase | NodePgDatabase<any>) {
+    this.db = db ?? globalDb;
+  }
   /**
    * Create a new subscription version record
    */
   async create(data: NewSubscriptionVersion): Promise<SubscriptionVersion> {
-    const [version] = await db
+    const [version] = await this.db
       .insert(subscriptionVersions)
       .values(data)
       .returning();
@@ -22,7 +29,7 @@ export class SubscriptionVersionRepository {
    * Find a version by ID
    */
   async findById(id: string): Promise<SubscriptionVersion | null> {
-    const [version] = await db
+    const [version] = await this.db
       .select()
       .from(subscriptionVersions)
       .where(eq(subscriptionVersions.id, id))
@@ -34,7 +41,7 @@ export class SubscriptionVersionRepository {
    * Get all versions for a subscription, ordered by version number descending
    */
   async findBySubscriptionId(subscriptionId: string): Promise<SubscriptionVersion[]> {
-    return await db
+    return await this.db
       .select()
       .from(subscriptionVersions)
       .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
@@ -45,7 +52,7 @@ export class SubscriptionVersionRepository {
    * Get the latest version for a subscription
    */
   async findLatestVersion(subscriptionId: string): Promise<SubscriptionVersion | null> {
-    const [version] = await db
+    const [version] = await this.db
       .select()
       .from(subscriptionVersions)
       .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
@@ -71,12 +78,12 @@ export class SubscriptionVersionRepository {
   ): Promise<{ data: SubscriptionVersion[]; total: number }> {
     const { limit = 50, offset = 0 } = options;
 
-    const [countResult] = await db
+    const [countResult] = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(subscriptionVersions)
       .where(eq(subscriptionVersions.subscriptionId, subscriptionId));
 
-    const data = await db
+    const data = await this.db
       .select()
       .from(subscriptionVersions)
       .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
@@ -97,7 +104,7 @@ export class SubscriptionVersionRepository {
     subscriptionId: string,
     versionNumber: number
   ): Promise<SubscriptionVersion | null> {
-    const [version] = await db
+    const [version] = await this.db
       .select()
       .from(subscriptionVersions)
       .where(
@@ -117,7 +124,7 @@ export class SubscriptionVersionRepository {
     subscriptionId: string,
     versionType: string
   ): Promise<SubscriptionVersion[]> {
-    return await db
+    return await this.db
       .select()
       .from(subscriptionVersions)
       .where(
@@ -139,7 +146,7 @@ export class SubscriptionVersionRepository {
   ): Promise<SubscriptionVersion[]> {
     const { limit = 50, offset = 0 } = options;
 
-    return await db
+    return await this.db
       .select()
       .from(subscriptionVersions)
       .where(
@@ -161,7 +168,7 @@ export class SubscriptionVersionRepository {
     startDate: Date,
     endDate: Date
   ): Promise<SubscriptionVersion[]> {
-    return await db
+    return await this.db
       .select()
       .from(subscriptionVersions)
       .where(
@@ -178,7 +185,7 @@ export class SubscriptionVersionRepository {
    * Count versions for a subscription
    */
   async countBySubscriptionId(subscriptionId: string): Promise<number> {
-    const [result] = await db
+    const [result] = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(subscriptionVersions)
       .where(eq(subscriptionVersions.subscriptionId, subscriptionId));
@@ -194,7 +201,7 @@ export class SubscriptionVersionRepository {
     contractValue: string | null;
     delta: string | null;
   }[]> {
-    const versions = await db
+    const versions = await this.db
       .select({
         versionNumber: subscriptionVersions.versionNumber,
         effectiveDate: subscriptionVersions.effectiveDate,

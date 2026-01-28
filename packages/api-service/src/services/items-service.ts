@@ -1,5 +1,5 @@
 import { BaseService } from './base-service';
-import { 
+import {
   Item,
   CreateItemInput,
   UpdateItemInput,
@@ -12,23 +12,34 @@ import {
   PaginatedResult,
   PaginationParams
 } from '../types';
-import { 
+import {
   ItemsRepository,
   UnitsOfMeasureRepository,
   ItemCategoriesRepository,
   AccountRepository,
   // AssembliesKitsRepository,
-  type ItemSearchParams
+  type ItemSearchParams,
+  type ContextualDatabase
 } from '@glapi/database';
 
-// Create repository instances
-const itemsRepository = new ItemsRepository();
-const unitsOfMeasureRepository = new UnitsOfMeasureRepository();
-const itemCategoriesRepository = new ItemCategoriesRepository();
-const accountRepository = new AccountRepository();
-// const assembliesKitsRepository = new AssembliesKitsRepository();
+export interface ItemsServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class ItemsService extends BaseService {
+  private itemsRepository: ItemsRepository;
+  private unitsOfMeasureRepository: UnitsOfMeasureRepository;
+  private itemCategoriesRepository: ItemCategoriesRepository;
+  private accountRepository: AccountRepository;
+
+  constructor(context = {}, options: ItemsServiceOptions = {}) {
+    super(context);
+    // Pass the contextual db to all repositories for RLS support
+    this.itemsRepository = new ItemsRepository(options.db);
+    this.unitsOfMeasureRepository = new UnitsOfMeasureRepository(options.db);
+    this.itemCategoriesRepository = new ItemCategoriesRepository(options.db);
+    this.accountRepository = new AccountRepository(options.db);
+  }
   /**
    * Transform database record to service layer type
    */
@@ -100,11 +111,11 @@ export class ItemsService extends BaseService {
       offset: (page - 1) * limit,
     };
     
-    const items = await itemsRepository.findByOrganization(organizationId, searchParams);
+    const items = await this.itemsRepository.findByOrganization(organizationId, searchParams);
     
     // Get total count (would need to add a count method to repository)
     const totalParams = { ...searchParams, limit: undefined, offset: undefined };
-    const allItems = await itemsRepository.findByOrganization(organizationId, totalParams);
+    const allItems = await this.itemsRepository.findByOrganization(organizationId, totalParams);
     const total = allItems.length;
     
     return this.createPaginatedResult(
@@ -121,7 +132,7 @@ export class ItemsService extends BaseService {
   async getItem(id: string): Promise<Item> {
     const organizationId = this.requireOrganizationContext();
     
-    const item = await itemsRepository.findById(id, organizationId);
+    const item = await this.itemsRepository.findById(id, organizationId);
     if (!item) {
       throw new ServiceError(
         'Item not found',
@@ -139,7 +150,7 @@ export class ItemsService extends BaseService {
   async getItemVariants(parentItemId: string): Promise<Item[]> {
     const organizationId = this.requireOrganizationContext();
     
-    const variants = await itemsRepository.findVariants(parentItemId, organizationId);
+    const variants = await this.itemsRepository.findVariants(parentItemId, organizationId);
     
     return variants.map(v => this.transformItem(v));
   }
@@ -155,7 +166,7 @@ export class ItemsService extends BaseService {
     const validatedInput = createItemSchema.parse(input);
     
     // Check if item code already exists
-    const existing = await itemsRepository.findByCode(
+    const existing = await this.itemsRepository.findByCode(
       validatedInput.itemCode,
       organizationId
     );
@@ -168,7 +179,7 @@ export class ItemsService extends BaseService {
     }
     
     // Validate unit of measure
-    const uom = await unitsOfMeasureRepository.findById(
+    const uom = await this.unitsOfMeasureRepository.findById(
       validatedInput.unitOfMeasureId,
       organizationId
     );
@@ -182,7 +193,7 @@ export class ItemsService extends BaseService {
     
     // Validate category if provided
     if (validatedInput.categoryId) {
-      const category = await itemCategoriesRepository.findById(
+      const category = await this.itemCategoriesRepository.findById(
         validatedInput.categoryId,
         organizationId
       );
@@ -200,7 +211,7 @@ export class ItemsService extends BaseService {
     
     // Validate parent item if creating a variant
     if (validatedInput.parentItemId) {
-      const parent = await itemsRepository.findById(
+      const parent = await this.itemsRepository.findById(
         validatedInput.parentItemId,
         organizationId
       );
@@ -220,7 +231,7 @@ export class ItemsService extends BaseService {
       }
     }
     
-    const created = await itemsRepository.create({
+    const created = await this.itemsRepository.create({
       organizationId,
       itemCode: validatedInput.itemCode,
       name: validatedInput.name,
@@ -271,7 +282,7 @@ export class ItemsService extends BaseService {
     const validatedInput = updateItemSchema.parse(input);
     
     // Check if item exists
-    const existing = await itemsRepository.findById(id, organizationId);
+    const existing = await this.itemsRepository.findById(id, organizationId);
     if (!existing) {
       throw new ServiceError(
         'Item not found',
@@ -282,7 +293,7 @@ export class ItemsService extends BaseService {
     
     // Check if code is being changed and already exists
     if (validatedInput.itemCode && validatedInput.itemCode !== existing.itemCode) {
-      const codeExists = await itemsRepository.findByCode(
+      const codeExists = await this.itemsRepository.findByCode(
         validatedInput.itemCode,
         organizationId
       );
@@ -297,7 +308,7 @@ export class ItemsService extends BaseService {
     
     // Validate unit of measure if changed
     if (validatedInput.unitOfMeasureId) {
-      const uom = await unitsOfMeasureRepository.findById(
+      const uom = await this.unitsOfMeasureRepository.findById(
         validatedInput.unitOfMeasureId,
         organizationId
       );
@@ -313,7 +324,7 @@ export class ItemsService extends BaseService {
     // Validate category if changed
     if (validatedInput.categoryId !== undefined) {
       if (validatedInput.categoryId) {
-        const category = await itemCategoriesRepository.findById(
+        const category = await this.itemCategoriesRepository.findById(
           validatedInput.categoryId,
           organizationId
         );
@@ -363,7 +374,7 @@ export class ItemsService extends BaseService {
       updateData.weight = validatedInput.weight?.toString() || null;
     }
     
-    const updated = await itemsRepository.update(id, organizationId, updateData);
+    const updated = await this.itemsRepository.update(id, organizationId, updateData);
     
     if (!updated) {
       throw new ServiceError(
@@ -383,7 +394,7 @@ export class ItemsService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     try {
-      await itemsRepository.delete(id, organizationId);
+      await this.itemsRepository.delete(id, organizationId);
     } catch (error: any) {
       if (error.message.includes('variants')) {
         throw new ServiceError(
@@ -410,7 +421,7 @@ export class ItemsService extends BaseService {
     const validatedInput = generateVariantsSchema.parse(input);
     
     try {
-      const variants = await itemsRepository.generateVariants(
+      const variants = await this.itemsRepository.generateVariants(
         validatedInput.parentItemId,
         organizationId,
         validatedInput.attributes as any
@@ -446,7 +457,7 @@ export class ItemsService extends BaseService {
   async searchItems(query: string): Promise<Item[]> {
     const organizationId = this.requireOrganizationContext();
     
-    const items = await itemsRepository.findByOrganization(organizationId, {
+    const items = await this.itemsRepository.findByOrganization(organizationId, {
       query,
       limit: 50,
     });
@@ -460,7 +471,7 @@ export class ItemsService extends BaseService {
   async getItemsByCategory(categoryId: string): Promise<Item[]> {
     const organizationId = this.requireOrganizationContext();
     
-    const items = await itemsRepository.findByOrganization(organizationId, {
+    const items = await this.itemsRepository.findByOrganization(organizationId, {
       categoryId,
     });
     
@@ -533,7 +544,7 @@ export class ItemsService extends BaseService {
     ].filter(Boolean);
     
     for (const accountId of accountIds) {
-      const account = await accountRepository.findById(accountId, organizationId);
+      const account = await this.accountRepository.findById(accountId, organizationId);
       if (!account) {
         throw new ServiceError(
           'Invalid GL account',
