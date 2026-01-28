@@ -4,6 +4,7 @@ import { invoiceLineItems } from "../db/schema/invoice-line-items";
 import { type NewInvoiceLineItem, type InvoiceLineItem } from "../db/schema/invoice-line-items";
 import { payments } from "../db/schema/payments";
 import { BaseRepository } from "./base-repository";
+import type { ContextualDatabase } from "../context";
 
 export interface InvoiceWithLineItems extends Invoice {
   lineItems?: InvoiceLineItem[];
@@ -26,8 +27,8 @@ export interface InvoiceListOptions {
 }
 
 export class InvoiceRepository extends BaseRepository {
-  constructor() {
-    super();
+  constructor(db?: ContextualDatabase) {
+    super(db);
   }
 
   /**

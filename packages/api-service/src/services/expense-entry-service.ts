@@ -12,6 +12,7 @@ import { ServiceError } from '../types/common.types';
 import {
   ExpenseEntryRepository,
   type ExpenseEntryFilters,
+  type ContextualDatabase,
 } from '@glapi/database';
 import type {
   ExpenseEntry,
@@ -26,6 +27,10 @@ import type {
   ExpenseCategory,
   PaymentMethod,
 } from '@glapi/database';
+
+export interface ExpenseEntryServiceOptions {
+  db?: ContextualDatabase;
+}
 
 // ============================================================================
 // Types
@@ -105,9 +110,10 @@ export interface ExpenseReportCreateInput {
 export class ExpenseEntryService extends BaseService {
   private repository: ExpenseEntryRepository;
 
-  constructor(context = {}) {
+  constructor(context = {}, options: ExpenseEntryServiceOptions = {}) {
     super(context);
-    this.repository = new ExpenseEntryRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.repository = new ExpenseEntryRepository(options.db);
   }
 
   // --------------------------------------------------------------------------

@@ -25,7 +25,7 @@ export const locationsRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new LocationService(ctx.serviceContext);
+      const service = new LocationService(ctx.serviceContext, { db: ctx.db });
       const result = await service.listLocations(
         { page: 1, limit: 100 },
         'name',
@@ -37,7 +37,7 @@ export const locationsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new LocationService(ctx.serviceContext);
+      const service = new LocationService(ctx.serviceContext, { db: ctx.db });
       const location = await service.getLocationById(input.id);
       
       if (!location) {
@@ -53,7 +53,7 @@ export const locationsRouter = router({
   create: authenticatedProcedure
     .input(locationSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new LocationService(ctx.serviceContext);
+      const service = new LocationService(ctx.serviceContext, { db: ctx.db });
       return service.createLocation({
         ...input,
         organizationId: ctx.serviceContext!.organizationId,
@@ -68,7 +68,7 @@ export const locationsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new LocationService(ctx.serviceContext);
+      const service = new LocationService(ctx.serviceContext, { db: ctx.db });
       const updated = await service.updateLocation(input.id, input.data);
       
       if (!updated) {
@@ -84,7 +84,7 @@ export const locationsRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new LocationService(ctx.serviceContext);
+      const service = new LocationService(ctx.serviceContext, { db: ctx.db });
       await service.deleteLocation(input.id);
       return { success: true };
     }),

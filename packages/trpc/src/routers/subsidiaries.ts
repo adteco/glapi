@@ -18,7 +18,7 @@ export const subsidiariesRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new SubsidiaryService(ctx.serviceContext);
+      const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });
       const result = await service.listSubsidiaries(
         { page: 1, limit: 100 },
         'name',
@@ -30,7 +30,7 @@ export const subsidiariesRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new SubsidiaryService(ctx.serviceContext);
+      const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });
       const subsidiary = await service.getSubsidiaryById(input.id);
       
       if (!subsidiary) {
@@ -46,7 +46,7 @@ export const subsidiariesRouter = router({
   create: authenticatedProcedure
     .input(subsidiarySchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new SubsidiaryService(ctx.serviceContext);
+      const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });
       return service.createSubsidiary({
         ...input,
         organizationId: ctx.serviceContext!.organizationId,
@@ -61,7 +61,7 @@ export const subsidiariesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new SubsidiaryService(ctx.serviceContext);
+      const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });
       const updated = await service.updateSubsidiary(input.id, input.data);
       
       if (!updated) {
@@ -77,7 +77,7 @@ export const subsidiariesRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubsidiaryService(ctx.serviceContext);
+      const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });
       await service.deleteSubsidiary(input.id);
       return { success: true };
     }),

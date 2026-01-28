@@ -1,21 +1,26 @@
 import { BaseService } from './base-service';
-import { 
-  Account, 
-  CreateAccountInput, 
-  UpdateAccountInput, 
-  PaginationParams, 
+import {
+  Account,
+  CreateAccountInput,
+  UpdateAccountInput,
+  PaginationParams,
   PaginatedResult,
   ServiceError,
   AccountFilters
 } from '../types';
-import { AccountRepository } from '@glapi/database';
+import { AccountRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface AccountServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class AccountService extends BaseService {
   private accountRepository: AccountRepository;
-  
-  constructor(context = {}) {
+
+  constructor(context = {}, options: AccountServiceOptions = {}) {
     super(context);
-    this.accountRepository = new AccountRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.accountRepository = new AccountRepository(options.db);
   }
   /**
    * Transform database account to service layer type

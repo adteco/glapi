@@ -29,7 +29,7 @@ export const paymentsRouter = router({
       limit: z.number().min(1).max(100).default(50)
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       return service.listPayments(input);
     }),
 
@@ -37,7 +37,7 @@ export const paymentsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       const payment = await service.getPaymentById(input.id);
       
       if (!payment) {
@@ -54,7 +54,7 @@ export const paymentsRouter = router({
   create: authenticatedProcedure
     .input(paymentSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       
       try {
         const payment = await service.createPayment({
@@ -95,7 +95,7 @@ export const paymentsRouter = router({
       reason: z.string().min(1)
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.processRefund(input.id, parseFloat(input.amount), input.reason);
@@ -120,7 +120,7 @@ export const paymentsRouter = router({
   getByInvoice: authenticatedProcedure
     .input(z.object({ invoiceId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.getPaymentsByInvoice(input.invoiceId);
@@ -139,7 +139,7 @@ export const paymentsRouter = router({
   getSummaryByInvoice: authenticatedProcedure
     .input(z.object({ invoiceId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.getPaymentSummary(input.invoiceId);
@@ -160,7 +160,7 @@ export const paymentsRouter = router({
       payments: z.array(paymentSchema).min(1).max(100)
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       
       const results = {
         successful: [] as any[],
@@ -199,7 +199,7 @@ export const paymentsRouter = router({
       dateTo: z.coerce.date().optional()
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new PaymentService(ctx.serviceContext);
+      const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
       
       // Get all payments for the period
       const payments = await service.listPayments({

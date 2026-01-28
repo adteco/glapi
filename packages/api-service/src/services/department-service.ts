@@ -1,15 +1,26 @@
 import { BaseService } from './base-service';
-import { 
-  Department, 
-  CreateDepartmentInput, 
-  UpdateDepartmentInput, 
-  PaginationParams, 
+import {
+  Department,
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  PaginationParams,
   PaginatedResult,
   ServiceError
 } from '../types';
-import { departmentRepository } from '@glapi/database';
+import { DepartmentRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface DepartmentServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class DepartmentService extends BaseService {
+  private departmentRepository: DepartmentRepository;
+
+  constructor(context = {}, options: DepartmentServiceOptions = {}) {
+    super(context);
+    // Pass the contextual db to the repository for RLS support
+    this.departmentRepository = new DepartmentRepository(options.db);
+  }
   /**
    * Transform database department to service layer type
    */
@@ -41,7 +52,7 @@ export class DepartmentService extends BaseService {
     
     // If subsidiaryId filter is provided, use findBySubsidiary
     if (filters.subsidiaryId) {
-      const departments = await departmentRepository.findBySubsidiary(
+      const departments = await this.departmentRepository.findBySubsidiary(
         filters.subsidiaryId, 
         organizationId
       );
@@ -60,7 +71,7 @@ export class DepartmentService extends BaseService {
     }
     
     // Regular paginated query
-    const result = await departmentRepository.findAll(
+    const result = await this.departmentRepository.findAll(
       organizationId,
       page,
       limit,
@@ -82,7 +93,7 @@ export class DepartmentService extends BaseService {
    */
   async getDepartmentById(id: string): Promise<Department | null> {
     const organizationId = this.requireOrganizationContext();
-    const department = await departmentRepository.findById(id, organizationId);
+    const department = await this.departmentRepository.findById(id, organizationId);
     return department ? this.transformDepartment(department) : null;
   }
   
@@ -102,7 +113,7 @@ export class DepartmentService extends BaseService {
     }
     
     // Create the department
-    const department = await departmentRepository.create({
+    const department = await this.departmentRepository.create({
       name: data.name,
       organizationId: data.organizationId,
       code: data.code,
@@ -130,7 +141,7 @@ export class DepartmentService extends BaseService {
     }
     
     // Update the department
-    const updated = await departmentRepository.update(id, data, organizationId);
+    const updated = await this.departmentRepository.update(id, data, organizationId);
     
     if (!updated) {
       throw new ServiceError(
@@ -160,7 +171,7 @@ export class DepartmentService extends BaseService {
     }
     
     // Delete the department
-    const success = await departmentRepository.delete(id, organizationId);
+    const success = await this.departmentRepository.delete(id, organizationId);
     
     if (!success) {
       throw new ServiceError(
