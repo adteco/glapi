@@ -252,15 +252,11 @@ export class AccountRepository extends BaseRepository {
   }
 
   /**
-   * Delete an account (soft delete by setting isActive to false)
+   * Delete an account (hard delete - actually removes the record)
    */
   async delete(id: string, organizationId: string) {
     const [result] = await this.db
-      .update(accounts)
-      .set({
-        isActive: false,
-        updatedAt: new Date(),
-      })
+      .delete(accounts)
       .where(
         and(
           eq(accounts.id, id),
@@ -268,7 +264,7 @@ export class AccountRepository extends BaseRepository {
         )
       )
       .returning();
-    
+
     return result || null;
   }
   
