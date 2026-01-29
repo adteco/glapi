@@ -62,4 +62,54 @@ export const organizationsRouter = router({
         subdomain: input.subdomain,
       };
     }),
+
+  /**
+   * Provision a new organization from Clerk with a default subsidiary
+   *
+   * This endpoint is used when a new organization signs up via Clerk
+   * (including satellite domains like AdTeco). It creates the organization
+   * record and a default subsidiary.
+   */
+  provisionFromClerk: publicProcedure
+    .input(
+      z.object({
+        clerkOrgId: z.string().min(1, 'Clerk organization ID is required'),
+        name: z.string().min(1, 'Organization name is required'),
+        slug: z.string().optional(),
+        defaultSubsidiaryName: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const service = new OrganizationService({});
+      try {
+        return await service.provisionFromClerk(input);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('already exists')) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }),
+
+  /**
+   * Find or provision organization from Clerk
+   *
+   * If the organization exists, returns it. Otherwise provisions a new one.
+   * Useful for automatic provisioning during authentication flow.
+   */
+  findOrProvisionFromClerk: publicProcedure
+    .input(
+      z.object({
+        clerkOrgId: z.string().min(1),
+        name: z.string().min(1),
+        slug: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const service = new OrganizationService({});
+      return await service.findOrProvisionFromClerk(input);
+    }),
 });
