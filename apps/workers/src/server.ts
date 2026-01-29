@@ -1,8 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { getMetrics, getMetricsContentType } from './utils/metrics.js';
-import { getHealthStatus, getLivenessStatus } from './utils/health.js';
-import { createChildLogger } from './utils/logger.js';
-import { config } from './config.js';
+import { getMetrics, getMetricsContentType } from './utils/metrics';
+import { getHealthStatus, getLivenessStatus } from './utils/health';
+import { createChildLogger } from './utils/logger';
+import { config } from './config';
 
 const logger = createChildLogger('HttpServer');
 

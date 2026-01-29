@@ -19,8 +19,8 @@ import type {
   CommunicationWorkflowStep,
   CommunicationEvent,
 } from '@glapi/database';
-import { createChildLogger, type Logger } from '../utils/logger.js';
-import { registerHealthCheck, type HealthCheck } from '../utils/health.js';
+import { createChildLogger, type Logger } from '../utils/logger';
+import { registerHealthCheck, type HealthCheck } from '../utils/health';
 
 // =============================================================================
 // Types

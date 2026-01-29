@@ -1,9 +1,9 @@
 import { eq, and, gt, asc, sql } from 'drizzle-orm';
 import { db } from '@glapi/database';
 import { eventStore, type EventStoreRecord } from '@glapi/database/schema';
-import { createChildLogger, type Logger } from '../utils/logger.js';
-import { auditMetrics } from '../utils/audit-metrics.js';
-import { registerHealthCheck, type HealthCheck } from '../utils/health.js';
+import { createChildLogger, type Logger } from '../utils/logger';
+import { auditMetrics } from '../utils/audit-metrics';
+import { registerHealthCheck, type HealthCheck } from '../utils/health';
 import { createHash } from 'crypto';
 
 // ============================================================================

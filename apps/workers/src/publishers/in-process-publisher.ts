@@ -1,5 +1,5 @@
-import type { EventPublisher, PublishableEvent, PublishResult } from './event-publisher.js';
-import { createChildLogger } from '../utils/logger.js';
+import type { EventPublisher, PublishableEvent, PublishResult } from './event-publisher';
+import { createChildLogger } from '../utils/logger';
 
 const logger = createChildLogger('InProcessPublisher');
 
