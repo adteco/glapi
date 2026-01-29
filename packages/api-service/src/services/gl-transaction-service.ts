@@ -13,15 +13,20 @@ import {
   ApproveTransactionRequest,
   PaginationParams,
   PaginatedResult,
-  ServiceError
+  ServiceError,
+  ServiceContext,
 } from '../types';
 import { SubsidiaryService } from './subsidiary-service';
 import { EventService, TransactionEvents, EventCategory } from './event-service';
-import { glTransactionRepository } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase, GlTransactionRepository } from '@glapi/database';
 import type {
   BusinessTransactionPaginationParams,
   BusinessTransactionFilters
 } from '@glapi/database';
+
+export interface GlTransactionServiceOptions {
+  db?: ContextualDatabase;
+}
 
 // Define types for lines that are prepared but not yet finalized with transaction/line numbers
 // These types omit fields that are added just before database insertion.
@@ -29,12 +34,16 @@ type PreparedBusinessLine = Omit<CreateBusinessTransactionLineInput, 'businessTr
 type PreparedGlLine = Omit<CreateGlTransactionLineInput, 'transactionId' | 'lineNumber'>;
 
 export class GlTransactionService extends BaseService {
+  private db: ContextualDatabase;
+  private repository: GlTransactionRepository;
   private subsidiaryService: SubsidiaryService;
   private eventService: EventService;
 
-  constructor(context = {}) {
+  constructor(context: ServiceContext = {}, options: GlTransactionServiceOptions = {}) {
     super(context);
-    this.subsidiaryService = new SubsidiaryService(context);
+    this.db = options.db ?? globalDb;
+    this.repository = new GlTransactionRepository(this.db);
+    this.subsidiaryService = new SubsidiaryService(context, { db: options.db });
     this.eventService = new EventService(context);
   }
 
@@ -271,7 +280,7 @@ export class GlTransactionService extends BaseService {
 
     try {
       // Create the business transaction
-      const result = await glTransactionRepository.create(transactionData, organizationId);
+      const result = await this.repository.create(transactionData, organizationId);
 
       // Create transaction lines if provided
       if (preparedLines && preparedLines.length > 0) {
@@ -281,7 +290,7 @@ export class GlTransactionService extends BaseService {
           lineNumber: index + 1,
         }));
 
-        await glTransactionRepository.createTransactionLines(linesWithTransactionId, organizationId);
+        await this.repository.createTransactionLines(linesWithTransactionId, organizationId);
       }
 
       // Transform and emit event
@@ -332,7 +341,7 @@ export class GlTransactionService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     try {
-      const result = await glTransactionRepository.findById(id, organizationId);
+      const result = await this.repository.findById(id, organizationId);
       
       if (!result) {
         return null;
@@ -381,7 +390,7 @@ export class GlTransactionService extends BaseService {
         dateTo: filters.dateTo,
       };
       
-      const result = await glTransactionRepository.findAll(
+      const result = await this.repository.findAll(
         organizationId,
         paginationParams,
         transactionFilters
@@ -493,7 +502,7 @@ export class GlTransactionService extends BaseService {
       }
       
       // Update transaction status to APPROVED
-      const result = await glTransactionRepository.updateStatus(
+      const result = await this.repository.updateStatus(
         request.transactionId,
         'APPROVED',
         userId,
@@ -563,7 +572,7 @@ export class GlTransactionService extends BaseService {
       }
       
       // Delete the transaction (repository handles lines via cascade)
-      await glTransactionRepository.delete(id, organizationId);
+      await this.repository.delete(id, organizationId);
     } catch (error) {
       if (error instanceof ServiceError) {
         throw error;
