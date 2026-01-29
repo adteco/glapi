@@ -108,11 +108,11 @@ export default function AccountingPeriodsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
-  const { orgId } = useAuth();
+  const { orgId, isLoaded: isAuthLoaded } = useAuth();
   const previousOrgIdRef = useRef<string | null>(null);
 
   // tRPC queries
-  const { data: periodsData, isLoading, refetch } = trpc.accountingPeriods.list.useQuery(
+  const { data: periodsData, isLoading, isError, error, refetch } = trpc.accountingPeriods.list.useQuery(
     { limit: 100, orderBy: 'startDate', orderDirection: 'desc' },
     { enabled: !!orgId }
   );
@@ -768,8 +768,33 @@ export default function AccountingPeriodsPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {!isAuthLoaded ? (
+        <div className="text-center py-10">Loading...</div>
+      ) : !orgId ? (
+        <Card className="text-center py-10">
+          <CardContent className="pt-6">
+            <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Organization Selected</h3>
+            <p className="text-muted-foreground">
+              Please select an organization to view accounting periods.
+            </p>
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
         <div className="text-center py-10">Loading accounting periods...</div>
+      ) : isError ? (
+        <Card className="text-center py-10">
+          <CardContent className="pt-6">
+            <XCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Failed to Load Accounting Periods</h3>
+            <p className="text-muted-foreground mb-4">
+              {error?.message || 'An error occurred while loading accounting periods.'}
+            </p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       ) : periods.length === 0 ? (
         <Card className="text-center py-10">
           <CardContent className="pt-6">

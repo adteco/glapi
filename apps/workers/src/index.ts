@@ -1,9 +1,9 @@
-import { config } from './config.js';
-import { logger } from './utils/logger.js';
-import { registerHealthCheck } from './utils/health.js';
-import { startHttpServer } from './server.js';
-import { OutboxProcessor } from './processors/outbox-processor.js';
-import { inProcessPublisher } from './publishers/in-process-publisher.js';
+import { config } from './config';
+import { logger } from './utils/logger';
+import { registerHealthCheck } from './utils/health';
+import { startHttpServer } from './server';
+import { OutboxProcessor } from './processors/outbox-processor';
+import { inProcessPublisher } from './publishers/in-process-publisher';
 
 // Global processor instance for graceful shutdown
 let processor: OutboxProcessor | null = null;

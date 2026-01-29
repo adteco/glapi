@@ -37,7 +37,7 @@ export async function GET(_request: NextRequest) {
     // 2. Service Layer Health Check
     const serviceStartTime = Date.now();
     try {
-      const context = getOptionalServiceContext();
+      const context = await getOptionalServiceContext();
       if (!context) {
         health.checks.service.status = 'healthy';
         health.checks.service.message = 'Service layer available (no auth context)';
@@ -60,7 +60,7 @@ export async function GET(_request: NextRequest) {
     // 3. Database Health Check (via service layer)
     const dbStartTime = Date.now();
     try {
-      const context = getOptionalServiceContext();
+      const context = await getOptionalServiceContext();
       if (!context) {
         health.checks.database.status = 'healthy';
         health.checks.database.message = 'Database check skipped (no auth context)';

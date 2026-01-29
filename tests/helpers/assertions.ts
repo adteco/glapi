@@ -244,7 +244,7 @@ export const authAssertions = {
   async expectAuthenticated(page: Page): Promise<void> {
     const userButton = page.locator(
       '[data-clerk-user-button], .cl-userButton-root, [aria-label*="user"]'
-    );
+    ).first();
     await expect(userButton).toBeVisible({ timeout: 10000 });
   },
 
