@@ -1,20 +1,25 @@
 import { BaseService } from './base-service';
-import { 
-  Customer, 
-  CreateCustomerInput, 
-  UpdateCustomerInput, 
-  PaginationParams, 
+import {
+  Customer,
+  CreateCustomerInput,
+  UpdateCustomerInput,
+  PaginationParams,
   PaginatedResult,
   ServiceError
 } from '../types';
-import { CustomerRepository } from '@glapi/database';
+import { CustomerRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface CustomerServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class CustomerService extends BaseService {
   private customerRepository: CustomerRepository;
-  
-  constructor(context = {}) {
+
+  constructor(context = {}, options: CustomerServiceOptions = {}) {
     super(context);
-    this.customerRepository = new CustomerRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.customerRepository = new CustomerRepository(options.db);
   }
 
   /**

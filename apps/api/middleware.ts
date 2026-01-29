@@ -8,8 +8,13 @@ const VALID_API_KEYS: Record<string, {
   scopes: string[];
 }> = {
   'glapi_test_sk_1234567890abcdef': {
-    organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Use existing Adteco org UUID
-    name: 'Development API Key',
+    organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Adteco org UUID
+    name: 'Development API Key (Adteco)',
+    scopes: ['read', 'write']
+  },
+  'glapi_test_sk_orgb_0987654321fedcba': {
+    organizationId: '456c2475-2277-4d90-929b-ae694a2a8577', // CJD-Consulting org UUID
+    name: 'Development API Key (CJD-Consulting)',
     scopes: ['read', 'write']
   }
 };

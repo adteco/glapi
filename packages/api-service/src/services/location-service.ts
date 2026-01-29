@@ -1,15 +1,26 @@
 import { BaseService } from './base-service';
-import { 
-  Location, 
-  CreateLocationInput, 
-  UpdateLocationInput, 
-  PaginationParams, 
+import {
+  Location,
+  CreateLocationInput,
+  UpdateLocationInput,
+  PaginationParams,
   PaginatedResult,
   ServiceError
 } from '../types';
-import { locationRepository } from '@glapi/database';
+import { LocationRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface LocationServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class LocationService extends BaseService {
+  private locationRepository: LocationRepository;
+
+  constructor(context = {}, options: LocationServiceOptions = {}) {
+    super(context);
+    // Pass the contextual db to the repository for RLS support
+    this.locationRepository = new LocationRepository(options.db);
+  }
   /**
    * Transform database location to service layer type
    */
@@ -47,7 +58,7 @@ export class LocationService extends BaseService {
     
     // If subsidiaryId filter is provided, use findBySubsidiary
     if (filters.subsidiaryId) {
-      const locations = await locationRepository.findBySubsidiary(
+      const locations = await this.locationRepository.findBySubsidiary(
         filters.subsidiaryId, 
         organizationId
       );
@@ -75,7 +86,7 @@ export class LocationService extends BaseService {
     
     // Regular paginated query
     // Note: For more complex filtering, we would want to enhance the repository's findAll method
-    const result = await locationRepository.findAll(
+    const result = await this.locationRepository.findAll(
       organizationId,
       page,
       limit,
@@ -97,7 +108,7 @@ export class LocationService extends BaseService {
    */
   async getLocationById(id: string): Promise<Location | null> {
     const organizationId = this.requireOrganizationContext();
-    const location = await locationRepository.findById(id, organizationId);
+    const location = await this.locationRepository.findById(id, organizationId);
     return location ? this.transformLocation(location) : null;
   }
   
@@ -117,7 +128,7 @@ export class LocationService extends BaseService {
     }
     
     // Create the location
-    const location = await locationRepository.create({
+    const location = await this.locationRepository.create({
       organizationId,
       name: data.name,
       code: data.code,
@@ -151,7 +162,7 @@ export class LocationService extends BaseService {
     }
     
     // Update the location
-    const updated = await locationRepository.update(id, data, organizationId);
+    const updated = await this.locationRepository.update(id, data, organizationId);
     
     if (!updated) {
       throw new ServiceError(
@@ -181,7 +192,7 @@ export class LocationService extends BaseService {
     }
     
     // Delete the location
-    const success = await locationRepository.delete(id, organizationId);
+    const success = await this.locationRepository.delete(id, organizationId);
     
     if (!success) {
       throw new ServiceError(

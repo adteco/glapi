@@ -44,7 +44,7 @@ export const invoicesRouter = router({
       limit: z.number().min(1).max(100).default(50)
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       return service.listInvoices(input);
     }),
 
@@ -52,7 +52,7 @@ export const invoicesRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       const invoice = await service.getInvoiceById(input.id);
       
       if (!invoice) {
@@ -69,7 +69,7 @@ export const invoicesRouter = router({
   create: authenticatedProcedure
     .input(invoiceSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.createInvoice(input as CreateInvoiceData);
@@ -93,7 +93,7 @@ export const invoicesRouter = router({
       invoiceDate: z.coerce.date().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.generateFromSubscription(input as GenerateInvoiceParams);
@@ -121,7 +121,7 @@ export const invoicesRouter = router({
       data: invoiceSchema.partial()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       
       try {
         const updated = await service.updateInvoice(input.id, input.data as unknown as UpdateInvoiceData);
@@ -149,7 +149,7 @@ export const invoicesRouter = router({
   send: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.sendInvoice(input.id);
@@ -177,7 +177,7 @@ export const invoicesRouter = router({
       reason: z.string().min(1)
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.voidInvoice(input.id, input.reason);
@@ -204,7 +204,7 @@ export const invoicesRouter = router({
       asOfDate: z.coerce.date().optional()
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       return service.getAgingReport(input.asOfDate || new Date());
     }),
 
@@ -216,7 +216,7 @@ export const invoicesRouter = router({
       dateTo: z.coerce.date().optional()
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new InvoiceService(ctx.serviceContext);
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
       
       // Get all invoices for the period
       const invoices = await service.listInvoices({

@@ -1,15 +1,26 @@
 import { BaseService } from './base-service';
-import { 
-  Class, 
-  CreateClassInput, 
-  UpdateClassInput, 
-  PaginationParams, 
+import {
+  Class,
+  CreateClassInput,
+  UpdateClassInput,
+  PaginationParams,
   PaginatedResult,
   ServiceError
 } from '../types';
-import { classRepository } from '@glapi/database';
+import { ClassRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface ClassServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class ClassService extends BaseService {
+  private classRepository: ClassRepository;
+
+  constructor(context = {}, options: ClassServiceOptions = {}) {
+    super(context);
+    // Pass the contextual db to the repository for RLS support
+    this.classRepository = new ClassRepository(options.db);
+  }
   /**
    * Transform database class to service layer type
    */
@@ -41,7 +52,7 @@ export class ClassService extends BaseService {
     
     // If subsidiaryId filter is provided, use findBySubsidiary
     if (filters.subsidiaryId) {
-      const classes = await classRepository.findBySubsidiary(
+      const classes = await this.classRepository.findBySubsidiary(
         filters.subsidiaryId, 
         organizationId
       );
@@ -60,7 +71,7 @@ export class ClassService extends BaseService {
     }
     
     // Regular paginated query
-    const result = await classRepository.findAll(
+    const result = await this.classRepository.findAll(
       organizationId,
       page,
       limit,
@@ -82,7 +93,7 @@ export class ClassService extends BaseService {
    */
   async getClassById(id: string): Promise<Class | null> {
     const organizationId = this.requireOrganizationContext();
-    const cls = await classRepository.findById(id, organizationId);
+    const cls = await this.classRepository.findById(id, organizationId);
     return cls ? this.transformClass(cls) : null;
   }
   
@@ -102,7 +113,7 @@ export class ClassService extends BaseService {
     }
     
     // Create the class
-    const created = await classRepository.create({
+    const created = await this.classRepository.create({
       name: data.name,
       organizationId: data.organizationId,
       code: data.code,
@@ -130,7 +141,7 @@ export class ClassService extends BaseService {
     }
     
     // Update the class
-    const updated = await classRepository.update(id, data, organizationId);
+    const updated = await this.classRepository.update(id, data, organizationId);
     
     if (!updated) {
       throw new ServiceError(
@@ -160,7 +171,7 @@ export class ClassService extends BaseService {
     }
     
     // Delete the class
-    const success = await classRepository.delete(id, organizationId);
+    const success = await this.classRepository.delete(id, organizationId);
     
     if (!success) {
       throw new ServiceError(

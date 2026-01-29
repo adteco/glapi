@@ -1,10 +1,11 @@
 import { eq, and, desc } from "drizzle-orm";
 import { subscriptionItems, type SubscriptionItem, type NewSubscriptionItem, type UpdateSubscriptionItem } from "../db/schema/subscription-items";
 import { BaseRepository } from "./base-repository";
+import type { ContextualDatabase } from "../context";
 
 export class SubscriptionItemRepository extends BaseRepository {
-  constructor() {
-    super();
+  constructor(db?: ContextualDatabase) {
+    super(db);
   }
 
   /**

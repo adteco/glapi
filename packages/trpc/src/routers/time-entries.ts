@@ -31,7 +31,7 @@ export const timeEntriesRouter = router({
    * List time entries with optional filters
    */
   list: authenticatedProcedure.input(timeEntryListInputSchema).query(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.list(
       { page: input?.page, limit: input?.limit },
       input?.filters || {},
@@ -44,7 +44,7 @@ export const timeEntriesRouter = router({
    * Get a single time entry by ID
    */
   getById: authenticatedProcedure.input(byIdInputSchema).query(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     const entry = await service.getById(input.id);
 
     if (!entry) {
@@ -61,7 +61,7 @@ export const timeEntriesRouter = router({
    * Get a time entry with relations (employee, project, approver)
    */
   getByIdWithRelations: authenticatedProcedure.input(byIdInputSchema).query(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     const entry = await service.getByIdWithRelations(input.id);
 
     if (!entry) {
@@ -78,7 +78,7 @@ export const timeEntriesRouter = router({
    * Get entries pending approval for the current user
    */
   getPendingApprovals: authenticatedProcedure.input(optionalPaginationInputSchema.optional()).query(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.getPendingApprovals({ page: input?.page, limit: input?.limit });
   }),
 
@@ -86,7 +86,7 @@ export const timeEntriesRouter = router({
    * Create a new time entry
    */
   create: authenticatedProcedure.input(createTimeEntrySchema).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.create(input);
   }),
 
@@ -101,7 +101,7 @@ export const timeEntriesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.update(input.id, input.data);
     }),
 
@@ -109,7 +109,7 @@ export const timeEntriesRouter = router({
    * Delete a time entry (DRAFT only)
    */
   delete: authenticatedProcedure.input(byIdInputSchema).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     await service.delete(input.id);
     return { success: true };
   }),
@@ -120,7 +120,7 @@ export const timeEntriesRouter = router({
    * Submit time entries for approval
    */
   submit: authenticatedProcedure.input(submitTimeEntriesSchema).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.submit(input);
   }),
 
@@ -128,7 +128,7 @@ export const timeEntriesRouter = router({
    * Approve submitted time entries
    */
   approve: authenticatedProcedure.input(approveTimeEntriesSchema).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.approve(input);
   }),
 
@@ -136,7 +136,7 @@ export const timeEntriesRouter = router({
    * Reject submitted time entries
    */
   reject: authenticatedProcedure.input(rejectTimeEntriesSchema).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.reject(input);
   }),
 
@@ -146,7 +146,7 @@ export const timeEntriesRouter = router({
   returnToDraft: authenticatedProcedure
     .input(z.object({ timeEntryIds: uuidArraySchema }))
     .mutation(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.returnToDraft(input.timeEntryIds);
     }),
 
@@ -154,7 +154,7 @@ export const timeEntriesRouter = router({
    * Post approved time entries to GL
    */
   postToGL: adminProcedure.input(z.object({ timeEntryIds: uuidArraySchema })).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.postToGL(input.timeEntryIds);
   }),
 
@@ -164,7 +164,7 @@ export const timeEntriesRouter = router({
    * Create a new labor cost rate
    */
   createLaborRate: adminProcedure.input(createLaborCostRateSchema).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.createLaborRate(input);
   }),
 
@@ -172,7 +172,7 @@ export const timeEntriesRouter = router({
    * List labor cost rates
    */
   listLaborRates: authenticatedProcedure.input(laborRateFiltersSchema).query(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.listLaborRates(input || {});
   }),
 
@@ -182,7 +182,7 @@ export const timeEntriesRouter = router({
    * Create an employee project assignment
    */
   createAssignment: authenticatedProcedure.input(createEmployeeAssignmentSchema).mutation(async ({ ctx, input }) => {
-    const service = new TimeEntryService(ctx.serviceContext);
+    const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.createAssignment(input);
   }),
 
@@ -192,7 +192,7 @@ export const timeEntriesRouter = router({
   getMyAssignments: authenticatedProcedure
     .input(z.object({ activeOnly: z.boolean().default(true) }).optional())
     .query(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getMyAssignments(input?.activeOnly ?? true);
     }),
 
@@ -210,7 +210,7 @@ export const timeEntriesRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getSummaryByEmployee(input.startDate, input.endDate, input.status);
     }),
 
@@ -226,7 +226,7 @@ export const timeEntriesRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getSummaryByProject(input.startDate, input.endDate, input.status);
     }),
 
@@ -243,7 +243,7 @@ export const timeEntriesRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getEmployeeTotalHours(input.employeeId, input.startDate, input.endDate, input.status);
     }),
 
@@ -258,7 +258,7 @@ export const timeEntriesRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.getProjectTotalCost(input.projectId, input.status);
     }),
 
@@ -278,7 +278,7 @@ export const timeEntriesRouter = router({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       return service.listPostingBatches({ page: input?.page, limit: input?.limit }, { status: input?.status });
     }),
 
@@ -288,7 +288,7 @@ export const timeEntriesRouter = router({
   getPostingBatch: authenticatedProcedure
     .input(z.object({ batchId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new TimeEntryService(ctx.serviceContext);
+      const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
       const batch = await service.getPostingBatch(input.batchId);
       if (!batch) {
         throw new TRPCError({

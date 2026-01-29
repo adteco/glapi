@@ -33,7 +33,7 @@ export const vendorsRouter = router({
   list: authenticatedProcedure
     .input(vendorQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new VendorService(ctx.serviceContext);
+      const service = new VendorService(ctx.serviceContext, { db: ctx.db });
       const { page = 1, limit = 10, search, isActive } = input;
 
       return await service.listVendors({
@@ -49,14 +49,14 @@ export const vendorsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new VendorService(ctx.serviceContext);
+      const service = new VendorService(ctx.serviceContext, { db: ctx.db });
       return await service.findById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(vendorSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService(ctx.serviceContext);
+      const service = new VendorService(ctx.serviceContext, { db: ctx.db });
       return await service.createVendor({
         ...input,
         status: 'active' as const,
@@ -70,21 +70,21 @@ export const vendorsRouter = router({
       data: updateVendorSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService(ctx.serviceContext);
+      const service = new VendorService(ctx.serviceContext, { db: ctx.db });
       return await service.updateVendor(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new VendorService(ctx.serviceContext);
+      const service = new VendorService(ctx.serviceContext, { db: ctx.db });
       return await service.delete(input.id);
     }),
 
   findByEIN: authenticatedProcedure
     .input(z.object({ ein: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new VendorService(ctx.serviceContext);
+      const service = new VendorService(ctx.serviceContext, { db: ctx.db });
       return await service.findByEIN(input.ein);
     }),
 });

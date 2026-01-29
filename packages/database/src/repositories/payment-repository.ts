@@ -3,6 +3,7 @@ import { payments, type Payment, type NewPayment, type UpdatePayment } from "../
 import { invoices } from "../db/schema/invoices";
 import { BaseRepository } from "./base-repository";
 import { InvoiceRepository } from "./invoice-repository";
+import type { ContextualDatabase } from "../context";
 
 export interface PaymentWithInvoice extends Payment {
   invoice?: {
@@ -27,9 +28,9 @@ export interface PaymentListOptions {
 export class PaymentRepository extends BaseRepository {
   private invoiceRepository: InvoiceRepository;
 
-  constructor() {
-    super();
-    this.invoiceRepository = new InvoiceRepository();
+  constructor(db?: ContextualDatabase) {
+    super(db);
+    this.invoiceRepository = new InvoiceRepository(db);
   }
 
   /**

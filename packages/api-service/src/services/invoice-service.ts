@@ -1,13 +1,18 @@
 import { BaseService } from './base-service';
 import { ServiceContext, ServiceError, PaginatedResult } from '../types';
-import { 
+import {
   InvoiceRepository,
   SubscriptionRepository,
   SubscriptionItemRepository,
   type Invoice,
   type NewInvoice,
-  type UpdateInvoice
+  type UpdateInvoice,
+  type ContextualDatabase
 } from '@glapi/database';
+
+export interface InvoiceServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export interface CreateInvoiceData {
   organizationId?: string;
@@ -105,11 +110,12 @@ export class InvoiceService extends BaseService {
   private subscriptionRepository: SubscriptionRepository;
   private subscriptionItemRepository: SubscriptionItemRepository;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: InvoiceServiceOptions = {}) {
     super(context);
-    this.invoiceRepository = new InvoiceRepository();
-    this.subscriptionRepository = new SubscriptionRepository();
-    this.subscriptionItemRepository = new SubscriptionItemRepository();
+    // Pass the contextual db to the repositories for RLS support
+    this.invoiceRepository = new InvoiceRepository(options.db);
+    this.subscriptionRepository = new SubscriptionRepository(options.db);
+    this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
   }
 
   async listInvoices(input: ListInvoicesInput = {}): Promise<PaginatedResult<Invoice>> {

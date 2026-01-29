@@ -31,7 +31,7 @@ export const billingSchedulesRouter = router({
       paymentTermsDays: z.number().min(0).default(30)
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.generateBillingSchedule({
@@ -50,7 +50,7 @@ export const billingSchedulesRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       const schedule = await service.getScheduleById(input.id);
       if (!schedule) {
@@ -67,7 +67,7 @@ export const billingSchedulesRouter = router({
   getBySubscription: authenticatedProcedure
     .input(z.object({ subscriptionId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.getActiveScheduleBySubscription(input.subscriptionId);
@@ -88,7 +88,7 @@ export const billingSchedulesRouter = router({
       limit: z.number().min(1).max(100).default(50)
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       return service.listSchedules({
         subscriptionId: input.subscriptionId,
@@ -104,7 +104,7 @@ export const billingSchedulesRouter = router({
       asOfDate: z.coerce.date().optional()
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       return service.getLinesDueToBill(input.asOfDate);
     }),
@@ -115,7 +115,7 @@ export const billingSchedulesRouter = router({
       asOfDate: z.coerce.date().optional()
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       return service.getOverdueLines(input.asOfDate);
     }),
@@ -128,7 +128,7 @@ export const billingSchedulesRouter = router({
       invoicedAmount: z.string().regex(/^\d+\.?\d*$/, 'Must be a valid decimal amount')
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.markLineInvoiced(
@@ -147,7 +147,7 @@ export const billingSchedulesRouter = router({
       lineId: z.string().uuid()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.markLinePaid(input.lineId);
@@ -163,7 +163,7 @@ export const billingSchedulesRouter = router({
       reason: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.pauseSchedule(input.id, input.reason);
@@ -178,7 +178,7 @@ export const billingSchedulesRouter = router({
       id: z.string().uuid()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.resumeSchedule(input.id);
@@ -194,7 +194,7 @@ export const billingSchedulesRouter = router({
       reason: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new BillingScheduleService(ctx.serviceContext);
+      const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.cancelSchedule(input.id, input.reason);

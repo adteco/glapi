@@ -3,6 +3,7 @@ import { subscriptions, type Subscription, type NewSubscription, type UpdateSubs
 import { subscriptionItems } from "../db/schema/subscription-items";
 import { type NewSubscriptionItem, type UpdateSubscriptionItem } from "../db/schema/subscription-items";
 import { BaseRepository } from "./base-repository";
+import type { ContextualDatabase } from "../context";
 
 export interface SubscriptionWithItems extends Subscription {
   items?: Array<{
@@ -29,8 +30,8 @@ export interface SubscriptionListOptions {
 }
 
 export class SubscriptionRepository extends BaseRepository {
-  constructor() {
-    super();
+  constructor(db?: ContextualDatabase) {
+    super(db);
   }
 
   /**
