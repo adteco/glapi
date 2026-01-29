@@ -3,7 +3,7 @@ import { BaseService } from './base-service';
 import { ServiceError, type PaginatedResult, type PaginationParams } from '../types';
 import { EventService } from './event-service';
 import { PaymentPostingService, type PaymentGLConfig, type PaymentPostingResult } from './payment-posting-service';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   customerPayments,
   customerPaymentApplications,
@@ -15,6 +15,10 @@ import {
   type NewCustomerPaymentApplication,
   type NewCustomerCreditMemo,
 } from '@glapi/database/schema';
+
+export interface CustomerPaymentServiceOptions {
+  db?: ContextualDatabase;
+}
 import type {
   ReceiveCustomerPaymentInput,
   PaymentApplicationInput,
@@ -45,13 +49,15 @@ import type {
  * - GL posting for clearing/suspense accounts
  */
 export class CustomerPaymentService extends BaseService {
+  private db: ContextualDatabase;
   private eventService: EventService;
   private postingService: PaymentPostingService;
 
-  constructor(context: { organizationId?: string; userId?: string } = {}) {
+  constructor(context: { organizationId?: string; userId?: string } = {}, options: CustomerPaymentServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
     this.eventService = new EventService(context);
-    this.postingService = new PaymentPostingService(context);
+    this.postingService = new PaymentPostingService(context, { db: options.db });
   }
 
   // ==========================================================================
@@ -63,7 +69,7 @@ export class CustomerPaymentService extends BaseService {
     const year = new Date().getFullYear();
     const prefix = `PMT-${year}-`;
 
-    const [result] = await db
+    const [result] = await this.db
       .select({
         maxNumber: sql<string>`MAX(${customerPayments.paymentNumber})`,
       })
@@ -132,7 +138,7 @@ export class CustomerPaymentService extends BaseService {
       createdBy: userId,
     };
 
-    const [payment] = await db.insert(customerPayments).values(paymentData).returning();
+    const [payment] = await this.db.insert(customerPayments).values(paymentData).returning();
 
     // Emit event
     await this.eventService.emit({
@@ -213,7 +219,7 @@ export class CustomerPaymentService extends BaseService {
 
     for (const app of applications) {
       // Validate invoice
-      const [invoice] = await db
+      const [invoice] = await this.db
         .select()
         .from(invoices)
         .where(and(eq(invoices.id, app.invoiceId), eq(invoices.organizationId, organizationId)))
@@ -238,7 +244,7 @@ export class CustomerPaymentService extends BaseService {
         createdBy: userId,
       };
 
-      const [application] = await db
+      const [application] = await this.db
         .insert(customerPaymentApplications)
         .values(applicationData)
         .returning();
@@ -293,7 +299,7 @@ export class CustomerPaymentService extends BaseService {
     }
 
     // Get open invoices for this customer
-    const openInvoices = await db
+    const openInvoices = await this.db
       .select()
       .from(invoices)
       .where(
@@ -409,7 +415,7 @@ export class CustomerPaymentService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
 
-    const [application] = await db
+    const [application] = await this.db
       .select()
       .from(customerPaymentApplications)
       .where(
@@ -429,7 +435,7 @@ export class CustomerPaymentService extends BaseService {
     }
 
     // Mark as reversed
-    await db
+    await this.db
       .update(customerPaymentApplications)
       .set({
         reversedAt: new Date(),
@@ -482,7 +488,7 @@ export class CustomerPaymentService extends BaseService {
     }
 
     // Reverse all applications
-    const activeApplications = await db
+    const activeApplications = await this.db
       .select()
       .from(customerPaymentApplications)
       .where(
@@ -497,7 +503,7 @@ export class CustomerPaymentService extends BaseService {
     }
 
     // Void the payment
-    await db
+    await this.db
       .update(customerPayments)
       .set({
         status: 'VOIDED',
@@ -581,7 +587,7 @@ export class CustomerPaymentService extends BaseService {
     const year = new Date().getFullYear();
     const prefix = `CM-${year}-`;
 
-    const [result] = await db
+    const [result] = await this.db
       .select({
         maxNumber: sql<string>`MAX(${customerCreditMemos.creditMemoNumber})`,
       })
@@ -627,7 +633,7 @@ export class CustomerPaymentService extends BaseService {
       createdBy: userId,
     };
 
-    const [creditMemo] = await db.insert(customerCreditMemos).values(creditMemoData).returning();
+    const [creditMemo] = await this.db.insert(customerCreditMemos).values(creditMemoData).returning();
 
     // Emit event
     await this.eventService.emit({
@@ -678,7 +684,7 @@ export class CustomerPaymentService extends BaseService {
     const newApplied = parseFloat(creditMemo.appliedAmount) + applyAmount;
     const newRemaining = parseFloat(creditMemo.originalAmount) - newApplied;
 
-    await db
+    await this.db
       .update(customerCreditMemos)
       .set({
         appliedAmount: newApplied.toFixed(2),
@@ -846,7 +852,7 @@ export class CustomerPaymentService extends BaseService {
     const organizationId = this.requireOrganizationContext();
 
     // Calculate total applied from active applications
-    const [totals] = await db
+    const [totals] = await this.db
       .select({
         totalApplied: sql<string>`COALESCE(SUM(${customerPaymentApplications.appliedAmount}), 0)::text`,
       })
@@ -861,7 +867,7 @@ export class CustomerPaymentService extends BaseService {
     const totalApplied = parseFloat(totals?.totalApplied || '0');
 
     // Get payment amount
-    const [payment] = await db
+    const [payment] = await this.db
       .select({ paymentAmount: customerPayments.paymentAmount })
       .from(customerPayments)
       .where(eq(customerPayments.id, paymentId))
@@ -880,7 +886,7 @@ export class CustomerPaymentService extends BaseService {
       status = CustomerPaymentStatus.RECEIVED;
     }
 
-    await db
+    await this.db
       .update(customerPayments)
       .set({
         appliedAmount: totalApplied.toFixed(2),
@@ -893,7 +899,7 @@ export class CustomerPaymentService extends BaseService {
 
   private async updateInvoiceAfterPayment(invoiceId: string): Promise<void> {
     // Calculate total payments applied to this invoice
-    const [totals] = await db
+    const [totals] = await this.db
       .select({
         totalApplied: sql<string>`COALESCE(SUM(${customerPaymentApplications.appliedAmount}), 0)::text`,
       })
@@ -908,7 +914,7 @@ export class CustomerPaymentService extends BaseService {
     const totalPaid = parseFloat(totals?.totalApplied || '0');
 
     // Get invoice total
-    const [invoice] = await db
+    const [invoice] = await this.db
       .select({ totalAmount: invoices.totalAmount })
       .from(invoices)
       .where(eq(invoices.id, invoiceId))
@@ -927,7 +933,7 @@ export class CustomerPaymentService extends BaseService {
       status = 'sent'; // or keep current status
     }
 
-    await db
+    await this.db
       .update(invoices)
       .set({
         status: status as any,
@@ -946,7 +952,7 @@ export class CustomerPaymentService extends BaseService {
   async getPaymentById(id: string): Promise<CustomerPaymentWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const [result] = await db
+    const [result] = await this.db
       .select({
         payment: customerPayments,
         entity: {
@@ -968,7 +974,7 @@ export class CustomerPaymentService extends BaseService {
     if (!result) return null;
 
     // Get applications
-    const applications = await db
+    const applications = await this.db
       .select({
         application: customerPaymentApplications,
         invoice: {
@@ -1055,13 +1061,13 @@ export class CustomerPaymentService extends BaseService {
     const whereClause = and(...conditions);
 
     // Get total count
-    const [{ count }] = await db
+    const [{ count }] = await this.db
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(customerPayments)
       .where(whereClause);
 
     // Get paginated results
-    const results = await db
+    const results = await this.db
       .select({
         payment: customerPayments,
         entity: {
@@ -1094,14 +1100,14 @@ export class CustomerPaymentService extends BaseService {
     const organizationId = this.requireOrganizationContext();
 
     // Get entity name
-    const [entity] = await db
+    const [entity] = await this.db
       .select({ name: entities.name })
       .from(entities)
       .where(eq(entities.id, entityId))
       .limit(1);
 
     // Get outstanding invoices
-    const [invoiceTotals] = await db
+    const [invoiceTotals] = await this.db
       .select({
         totalOutstanding: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)::text`,
         invoiceCount: sql<number>`COUNT(*)::int`,
@@ -1123,7 +1129,7 @@ export class CustomerPaymentService extends BaseService {
       );
 
     // Get unapplied payments
-    const [paymentTotals] = await db
+    const [paymentTotals] = await this.db
       .select({
         totalUnapplied: sql<string>`COALESCE(SUM(CAST(${customerPayments.unappliedAmount} AS NUMERIC)), 0)::text`,
       })
@@ -1137,7 +1143,7 @@ export class CustomerPaymentService extends BaseService {
       );
 
     // Get credit balance
-    const [creditTotals] = await db
+    const [creditTotals] = await this.db
       .select({
         totalCredits: sql<string>`COALESCE(SUM(CAST(${customerCreditMemos.remainingAmount} AS NUMERIC)), 0)::text`,
       })
@@ -1169,7 +1175,7 @@ export class CustomerPaymentService extends BaseService {
   async getCreditMemoById(id: string): Promise<CreditMemoWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const [result] = await db
+    const [result] = await this.db
       .select({
         creditMemo: customerCreditMemos,
         entity: {

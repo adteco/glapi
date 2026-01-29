@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BaseService } from './base-service';
 import { ServiceContext, ServiceError, PaginationParams, PaginatedResult } from '../types';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   unifiedAuditLog,
   auditEvidencePackages,
@@ -22,6 +22,10 @@ import {
   type WorkflowApprovalAction,
 } from '@glapi/database/schema';
 import { eq, and, gte, lte, desc, sql, inArray, or, like, asc } from 'drizzle-orm';
+
+export interface AuditServiceOptions {
+  db?: ContextualDatabase;
+}
 import { v4 as uuidv4 } from 'uuid';
 import {
   buildEvidenceBundleArchive,
@@ -183,13 +187,15 @@ const defaultLogger: AuditServiceLogger = {
  * - Evidence package generation for compliance
  */
 export class AuditService extends BaseService {
+  private db: ContextualDatabase;
   private logger: AuditServiceLogger;
 
   constructor(
     context: ServiceContext = {},
-    options?: { logger?: AuditServiceLogger }
+    options?: AuditServiceOptions & { logger?: AuditServiceLogger }
   ) {
     super(context);
+    this.db = options?.db ?? globalDb;
     this.logger = options?.logger || defaultLogger;
   }
 
@@ -236,7 +242,7 @@ export class AuditService extends BaseService {
       occurredAt: input.occurredAt || new Date(),
     };
 
-    const [result] = await db
+    const [result] = await this.db
       .insert(unifiedAuditLog)
       .values(entry)
       .returning();
@@ -291,7 +297,7 @@ export class AuditService extends BaseService {
       occurredAt: input.occurredAt || new Date(),
     }));
 
-    const results = await db
+    const results = await this.db
       .insert(unifiedAuditLog)
       .values(entries)
       .returning();
@@ -423,7 +429,7 @@ export class AuditService extends BaseService {
     const whereClause = and(...conditions);
 
     // Get total count
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`COUNT(*)` })
       .from(unifiedAuditLog)
       .where(whereClause);
@@ -431,7 +437,7 @@ export class AuditService extends BaseService {
     const total = Number(countResult[0]?.count || 0);
 
     // Get paginated results
-    const results = await db
+    const results = await this.db
       .select()
       .from(unifiedAuditLog)
       .where(whereClause)
@@ -448,7 +454,7 @@ export class AuditService extends BaseService {
   async getAuditLogById(id: string): Promise<UnifiedAuditLogRecord | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const [result] = await db
+    const [result] = await this.db
       .select()
       .from(unifiedAuditLog)
       .where(
@@ -517,7 +523,7 @@ export class AuditService extends BaseService {
     const whereClause = and(...conditions);
 
     // Total count
-    const totalResult = await db
+    const totalResult = await this.db
       .select({ count: sql<number>`COUNT(*)` })
       .from(unifiedAuditLog)
       .where(whereClause);
@@ -525,7 +531,7 @@ export class AuditService extends BaseService {
     const totalLogs = Number(totalResult[0]?.count || 0);
 
     // By action type
-    const actionTypeResult = await db
+    const actionTypeResult = await this.db
       .select({
         actionType: unifiedAuditLog.actionType,
         count: sql<number>`COUNT(*)`,
@@ -540,7 +546,7 @@ export class AuditService extends BaseService {
     }
 
     // By severity
-    const severityResult = await db
+    const severityResult = await this.db
       .select({
         severity: unifiedAuditLog.severity,
         count: sql<number>`COUNT(*)`,
@@ -555,7 +561,7 @@ export class AuditService extends BaseService {
     }
 
     // By resource type
-    const resourceTypeResult = await db
+    const resourceTypeResult = await this.db
       .select({
         resourceType: unifiedAuditLog.resourceType,
         count: sql<number>`COUNT(*)`,
@@ -581,7 +587,7 @@ export class AuditService extends BaseService {
       last30Days: 0,
     };
 
-    const recent24 = await db
+    const recent24 = await this.db
       .select({ count: sql<number>`COUNT(*)` })
       .from(unifiedAuditLog)
       .where(
@@ -592,7 +598,7 @@ export class AuditService extends BaseService {
       );
     recentActivity.last24Hours = Number(recent24[0]?.count || 0);
 
-    const recent7 = await db
+    const recent7 = await this.db
       .select({ count: sql<number>`COUNT(*)` })
       .from(unifiedAuditLog)
       .where(
@@ -603,7 +609,7 @@ export class AuditService extends BaseService {
       );
     recentActivity.last7Days = Number(recent7[0]?.count || 0);
 
-    const recent30 = await db
+    const recent30 = await this.db
       .select({ count: sql<number>`COUNT(*)` })
       .from(unifiedAuditLog)
       .where(
@@ -659,7 +665,7 @@ export class AuditService extends BaseService {
       conditions.push(inArray(unifiedAuditLog.severity, input.filters.severity));
     }
 
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`COUNT(*)` })
       .from(unifiedAuditLog)
       .where(and(...conditions));
@@ -679,7 +685,7 @@ export class AuditService extends BaseService {
       ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000)
       : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30 days
 
-    const [result] = await db
+    const [result] = await this.db
       .insert(auditEvidencePackages)
       .values({
         organizationId,
@@ -715,7 +721,7 @@ export class AuditService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
 
-    const [result] = await db
+    const [result] = await this.db
       .select()
       .from(auditEvidencePackages)
       .where(
@@ -749,14 +755,14 @@ export class AuditService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const { skip, take, page, limit } = this.getPaginationParams(pagination);
 
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`COUNT(*)` })
       .from(auditEvidencePackages)
       .where(eq(auditEvidencePackages.organizationId, organizationId));
 
     const total = Number(countResult[0]?.count || 0);
 
-    const results = await db
+    const results = await this.db
       .select()
       .from(auditEvidencePackages)
       .where(eq(auditEvidencePackages.organizationId, organizationId))
@@ -809,14 +815,14 @@ export class AuditService extends BaseService {
       conditions.push(inArray(unifiedAuditLog.severity, filters.severity));
     }
 
-    const results = await db
+    const results = await this.db
       .select()
       .from(unifiedAuditLog)
       .where(and(...conditions))
       .orderBy(desc(unifiedAuditLog.occurredAt));
 
     // Mark package as downloaded
-    await db
+    await this.db
       .update(auditEvidencePackages)
       .set({ downloadedAt: new Date() })
       .where(eq(auditEvidencePackages.id, packageId));
@@ -836,7 +842,7 @@ export class AuditService extends BaseService {
       throw new ServiceError('Evidence package not found', 'NOT_FOUND', 404);
     }
 
-    await db
+    await this.db
       .update(auditEvidencePackages)
       .set({
         status: 'GENERATING',
@@ -868,7 +874,7 @@ export class AuditService extends BaseService {
         await writeFile(filePath, buildResult.bundle);
       }
 
-      await db
+      await this.db
         .update(auditEvidencePackages)
         .set({
           status: 'READY',
@@ -899,7 +905,7 @@ export class AuditService extends BaseService {
         contentHash,
       };
     } catch (error) {
-      await db
+      await this.db
         .update(auditEvidencePackages)
         .set({
           status: 'FAILED',
@@ -919,7 +925,7 @@ export class AuditService extends BaseService {
     const now = new Date();
     const retentionThreshold = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
 
-    const readyPackages = await db
+    const readyPackages = await this.db
       .select()
       .from(auditEvidencePackages)
       .where(
@@ -937,7 +943,7 @@ export class AuditService extends BaseService {
     });
 
     if (expiredPackages.length) {
-      await db
+      await this.db
         .update(auditEvidencePackages)
         .set({ status: 'EXPIRED' })
         .where(
@@ -1006,7 +1012,7 @@ export class AuditService extends BaseService {
       conditions.push(inArray(approvalInstances.documentId, documentIds));
     }
 
-    const instances = await db
+    const instances = await this.db
       .select()
       .from(approvalInstances)
       .where(and(...conditions))
@@ -1017,7 +1023,7 @@ export class AuditService extends BaseService {
     }
 
     const instanceIds = instances.map((instance) => instance.id);
-    const actions = await db
+    const actions = await this.db
       .select()
       .from(approvalActions)
       .where(inArray(approvalActions.approvalInstanceId, instanceIds))
@@ -1187,7 +1193,7 @@ export class AuditService extends BaseService {
  */
 export function createAuditService(
   context: ServiceContext,
-  options?: { logger?: AuditServiceLogger }
+  options?: AuditServiceOptions & { logger?: AuditServiceLogger }
 ): AuditService {
   return new AuditService(context, options);
 }

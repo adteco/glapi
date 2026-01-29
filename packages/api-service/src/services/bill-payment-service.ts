@@ -31,7 +31,7 @@ import {
   BillPaymentStatus,
   VendorBillStatus,
 } from '@glapi/database/schema';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   billPayments,
   billPaymentApplications,
@@ -42,17 +42,23 @@ import {
 import { eq, and, desc, asc, sql, inArray, gte, lte, or, ilike, isNull } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 
+export interface BillPaymentServiceOptions {
+  db?: ContextualDatabase;
+}
+
 // ============================================================================
 // Bill Payment Service
 // ============================================================================
 
 export class BillPaymentService extends BaseService {
+  private db: ContextualDatabase;
   private vendorBillService: VendorBillService;
   private eventService: EventService;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: BillPaymentServiceOptions = {}) {
     super(context);
-    this.vendorBillService = new VendorBillService(context);
+    this.db = options.db ?? globalDb;
+    this.vendorBillService = new VendorBillService(context, { db: options.db });
     this.eventService = new EventService(context);
   }
 
@@ -123,14 +129,14 @@ export class BillPaymentService extends BaseService {
     }
 
     // Count total
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(billPayments)
       .where(and(...conditions));
     const total = Number(countResult[0]?.count || 0);
 
     // Fetch payments
-    const payments = await db
+    const payments = await this.db
       .select()
       .from(billPayments)
       .where(and(...conditions))
@@ -152,7 +158,7 @@ export class BillPaymentService extends BaseService {
   async getBillPaymentById(id: string): Promise<BillPaymentWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const payment = await db
+    const payment = await this.db
       .select()
       .from(billPayments)
       .where(and(eq(billPayments.id, id), eq(billPayments.organizationId, organizationId)))
@@ -173,7 +179,7 @@ export class BillPaymentService extends BaseService {
     const userId = this.requireUserContext();
 
     // Validate vendor exists
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, input.vendorId))
@@ -185,7 +191,7 @@ export class BillPaymentService extends BaseService {
 
     // Validate bank account exists
     if (input.bankAccountId) {
-      const bankAccount = await db
+      const bankAccount = await this.db
         .select({ id: accounts.id })
         .from(accounts)
         .where(eq(accounts.id, input.bankAccountId))
@@ -255,7 +261,7 @@ export class BillPaymentService extends BaseService {
     const paymentNumber = await this.generatePaymentNumber();
 
     // Create payment
-    const [payment] = await db
+    const [payment] = await this.db
       .insert(billPayments)
       .values({
         organizationId,
@@ -287,7 +293,7 @@ export class BillPaymentService extends BaseService {
 
     // Create applications
     for (const app of input.applications) {
-      await db.insert(billPaymentApplications).values({
+      await this.db.insert(billPaymentApplications).values({
         billPaymentId: payment.id,
         vendorBillId: app.vendorBillId,
         appliedAmount: app.appliedAmount.toString(),
@@ -348,7 +354,7 @@ export class BillPaymentService extends BaseService {
       ? BillPaymentStatus.COMPLETED
       : BillPaymentStatus.PROCESSING;
 
-    await db
+    await this.db
       .update(billPayments)
       .set({
         status: newStatus,
@@ -397,7 +403,7 @@ export class BillPaymentService extends BaseService {
       );
     }
 
-    await db
+    await this.db
       .update(billPayments)
       .set({
         status: BillPaymentStatus.COMPLETED,
@@ -444,7 +450,7 @@ export class BillPaymentService extends BaseService {
     const applications = payment.applications || [];
     for (const app of applications) {
       // Mark application as reversed
-      await db
+      await this.db
         .update(billPaymentApplications)
         .set({
           reversedAt: new Date(),
@@ -463,7 +469,7 @@ export class BillPaymentService extends BaseService {
     }
 
     // Void the payment
-    await db
+    await this.db
       .update(billPayments)
       .set({
         status: BillPaymentStatus.VOIDED,
@@ -519,7 +525,7 @@ export class BillPaymentService extends BaseService {
     }
 
     // Get overall totals
-    const totals = await db
+    const totals = await this.db
       .select({
         totalPaid: sql<string>`sum(payment_amount::decimal)`,
         totalDiscount: sql<string>`sum(discount_taken::decimal)`,
@@ -529,7 +535,7 @@ export class BillPaymentService extends BaseService {
       .where(and(...conditions));
 
     // Get breakdown by payment method
-    const byMethod = await db
+    const byMethod = await this.db
       .select({
         method: billPayments.paymentMethod,
         amount: sql<string>`sum(payment_amount::decimal)`,
@@ -540,7 +546,7 @@ export class BillPaymentService extends BaseService {
       .groupBy(billPayments.paymentMethod);
 
     // Get breakdown by subsidiary
-    const bySubsidiary = await db
+    const bySubsidiary = await this.db
       .select({
         subsidiaryId: billPayments.subsidiaryId,
         amount: sql<string>`sum(payment_amount::decimal)`,
@@ -599,7 +605,7 @@ export class BillPaymentService extends BaseService {
     const today = new Date().toISOString().split('T')[0];
 
     // Get vendor
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, vendorId))
@@ -620,7 +626,7 @@ export class BillPaymentService extends BaseService {
       conditions.push(eq(vendorBills.subsidiaryId, subsidiaryId));
     }
 
-    const bills = await db
+    const bills = await this.db
       .select()
       .from(vendorBills)
       .where(and(...conditions))
@@ -670,7 +676,7 @@ export class BillPaymentService extends BaseService {
 
   private async generatePaymentNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const result = await db.execute(sql`
+    const result = await this.db.execute(sql`
       SELECT COUNT(*) + 1 as seq
       FROM bill_payments
       WHERE payment_number LIKE ${`VPMT-${year}-%`}
@@ -684,7 +690,7 @@ export class BillPaymentService extends BaseService {
     includeAll = false
   ): Promise<BillPaymentWithDetails> {
     // Get vendor
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, payment.vendorId))
@@ -692,7 +698,7 @@ export class BillPaymentService extends BaseService {
 
     // Get bank account
     const bankAccount = payment.bankAccountId
-      ? await db
+      ? await this.db
           .select({ id: accounts.id, name: accounts.accountName })
           .from(accounts)
           .where(eq(accounts.id, payment.bankAccountId))
@@ -700,7 +706,7 @@ export class BillPaymentService extends BaseService {
       : [];
 
     // Get applications
-    const applications = await db
+    const applications = await this.db
       .select()
       .from(billPaymentApplications)
       .where(eq(billPaymentApplications.billPaymentId, payment.id));
@@ -709,7 +715,7 @@ export class BillPaymentService extends BaseService {
     const enrichedApplications: BillPaymentApplicationWithDetails[] = await Promise.all(
       applications.map(async (app) => {
         const bill = includeAll
-          ? await db
+          ? await this.db
               .select({
                 id: vendorBills.id,
                 billNumber: vendorBills.billNumber,

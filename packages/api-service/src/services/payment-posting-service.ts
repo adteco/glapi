@@ -3,12 +3,16 @@ import { BaseService } from './base-service';
 import { ServiceError } from '../types';
 import { EventService } from './event-service';
 import { AccountingPeriodService } from './accounting-period-service';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   customerPayments,
   customerPaymentApplications,
   accounts,
 } from '@glapi/database/schema';
+
+export interface PaymentPostingServiceOptions {
+  db?: ContextualDatabase;
+}
 import type {
   CustomerPaymentWithDetails,
   PaymentApplicationWithDetails,
@@ -111,13 +115,15 @@ export interface PaymentPostingValidation {
  * - Voiding: Reverse entries
  */
 export class PaymentPostingService extends BaseService {
+  private db: ContextualDatabase;
   private eventService: EventService;
   private periodService: AccountingPeriodService;
 
-  constructor(context: { organizationId?: string; userId?: string } = {}) {
+  constructor(context: { organizationId?: string; userId?: string } = {}, options: PaymentPostingServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
     this.eventService = new EventService(context);
-    this.periodService = new AccountingPeriodService(context);
+    this.periodService = new AccountingPeriodService(context, { db: options.db });
   }
 
   // ==========================================================================
@@ -133,7 +139,7 @@ export class PaymentPostingService extends BaseService {
     const organizationId = this.requireOrganizationContext();
 
     // Get payment
-    const [payment] = await db
+    const [payment] = await this.db
       .select()
       .from(customerPayments)
       .where(
@@ -203,7 +209,7 @@ export class PaymentPostingService extends BaseService {
   ): Promise<{ isValid: boolean; account?: Account; error?: string }> {
     const organizationId = this.requireOrganizationContext();
 
-    const [account] = await db
+    const [account] = await this.db
       .select()
       .from(accounts)
       .where(
@@ -258,7 +264,7 @@ export class PaymentPostingService extends BaseService {
     }
 
     // Get payment details
-    const [payment] = await db
+    const [payment] = await this.db
       .select()
       .from(customerPayments)
       .where(
@@ -317,7 +323,7 @@ export class PaymentPostingService extends BaseService {
     const glTransactionId = `gl-pmt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Update payment with GL reference
-    await db
+    await this.db
       .update(customerPayments)
       .set({
         glTransactionId,
@@ -371,7 +377,7 @@ export class PaymentPostingService extends BaseService {
     const userId = this.requireUserContext();
 
     // Get application details
-    const [application] = await db
+    const [application] = await this.db
       .select()
       .from(customerPaymentApplications)
       .where(
@@ -399,7 +405,7 @@ export class PaymentPostingService extends BaseService {
     }
 
     // Get parent payment
-    const [payment] = await db
+    const [payment] = await this.db
       .select()
       .from(customerPayments)
       .where(eq(customerPayments.id, application.customerPaymentId))
@@ -525,7 +531,7 @@ export class PaymentPostingService extends BaseService {
     const userId = this.requireUserContext();
 
     // Get payment
-    const [payment] = await db
+    const [payment] = await this.db
       .select()
       .from(customerPayments)
       .where(
@@ -616,7 +622,7 @@ export class PaymentPostingService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const accountIds = entries.map((e) => e.accountId);
 
-    const accountsData = await db
+    const accountsData = await this.db
       .select({
         id: accounts.id,
         accountNumber: accounts.accountNumber,
@@ -654,7 +660,7 @@ export class PaymentPostingService extends BaseService {
     // For now, subsidiaryId parameter is ignored until accounts table has subsidiary column
     void subsidiaryId;
 
-    const [cashAccount] = await db
+    const [cashAccount] = await this.db
       .select()
       .from(accounts)
       .where(
@@ -666,7 +672,7 @@ export class PaymentPostingService extends BaseService {
       )
       .limit(1);
 
-    const [arAccount] = await db
+    const [arAccount] = await this.db
       .select()
       .from(accounts)
       .where(
@@ -704,7 +710,7 @@ export class PaymentPostingService extends BaseService {
   }> {
     const organizationId = this.requireOrganizationContext();
 
-    const [payment] = await db
+    const [payment] = await this.db
       .select({
         glTransactionId: customerPayments.glTransactionId,
         postedAt: customerPayments.postedAt,
