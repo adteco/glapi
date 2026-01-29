@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { vendorId: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new VendorItemsService(context);
     
     // Parse query parameters
@@ -54,7 +54,7 @@ export async function POST(
   { params }: { params: { vendorId: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     const service = new VendorItemsService(context);

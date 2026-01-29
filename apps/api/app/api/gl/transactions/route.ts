@@ -6,7 +6,7 @@ import { isServiceError } from '../../utils/errors';
 // POST /api/gl/transactions - Create a new GL transaction
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating GL transaction with context:', context);
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 // GET /api/gl/transactions - List all GL transactions
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const transactionService = new GlTransactionService(context);
     
     const searchParams = request.nextUrl.searchParams;

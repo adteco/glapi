@@ -6,7 +6,7 @@ import { isServiceError } from '../../utils/errors';
 // GET /api/item-categories/tree - Get hierarchical category tree
 export async function GET(_request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemCategoriesService(context);
     
     const result = await service.getCategoryTree();

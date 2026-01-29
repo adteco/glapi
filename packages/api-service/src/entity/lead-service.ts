@@ -1,4 +1,4 @@
-import { EntityService } from './entity-service';
+import { EntityService, EntityServiceOptions } from './entity-service';
 import {
   CreateEntityInput,
   UpdateEntityInput,
@@ -11,8 +11,8 @@ import { ServiceContext } from '../types';
 
 export class LeadService extends EntityService {
 
-  constructor(context: ServiceContext = {}) {
-    super(context);
+  constructor(context: ServiceContext = {}, options: EntityServiceOptions = {}) {
+    super(context, options);
   }
 
   /**

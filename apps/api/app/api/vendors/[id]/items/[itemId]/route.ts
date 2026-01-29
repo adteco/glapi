@@ -9,7 +9,7 @@ export async function PUT(
   { params }: { params: { vendorId: string; itemId: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     const service = new VendorItemsService(context);
@@ -54,7 +54,7 @@ export async function DELETE(
   { params }: { params: { vendorId: string; itemId: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new VendorItemsService(context);
     
     await service.removeVendorItem(params.vendorId, params.itemId);

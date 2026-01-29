@@ -32,7 +32,7 @@ interface ProjectionMetrics {
  */
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
 
     // Get current global sequence
     const sequenceResult = await db

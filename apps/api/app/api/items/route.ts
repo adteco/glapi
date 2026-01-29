@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // GET /api/items - List all items with filters
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemsService(context);
     
     // Parse query parameters
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 // POST /api/items - Create a new item
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     const service = new ItemsService(context);

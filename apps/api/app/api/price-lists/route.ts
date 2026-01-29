@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // GET /api/price-lists - List all price lists
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new PricingService(context);
     
     // Parse query parameters
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 // POST /api/price-lists - Create a new price list
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     const service = new PricingService(context);
