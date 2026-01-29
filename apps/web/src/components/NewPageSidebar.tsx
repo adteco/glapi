@@ -137,20 +137,29 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  const isWorkflowsRoute = pathname.startsWith('/admin/settings/workflows');
+
+  // State for workflow section expansion
+  const [isWorkflowsSectionOpen, setIsWorkflowsSectionOpen] = useState(isWorkflowsRoute);
+  const [openWorkflows, setOpenWorkflows] = useState<Record<string, boolean>>({});
+  const [openWorkflowGroups, setOpenWorkflowGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!collapsed && isWorkflowsRoute && !isWorkflowsSectionOpen) {
+      setIsWorkflowsSectionOpen(true);
+    }
+  }, [collapsed, isWorkflowsRoute, isWorkflowsSectionOpen]);
+
   // Fetch workflows with caching (5 minutes stale time)
+  // Only load when the workflows section is expanded or user is on workflows settings.
   const { data: workflowsData, isLoading: isLoadingWorkflows } = trpc.workflows.list.useQuery(
     {},
     {
-      enabled: !!orgId,
+      enabled: !!orgId && (isWorkflowsSectionOpen || isWorkflowsRoute),
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnWindowFocus: false,
     }
   );
-
-  // State for workflow section expansion
-  const [isWorkflowsSectionOpen, setIsWorkflowsSectionOpen] = useState(false);
-  const [openWorkflows, setOpenWorkflows] = useState<Record<string, boolean>>({});
-  const [openWorkflowGroups, setOpenWorkflowGroups] = useState<Record<string, boolean>>({});
 
   // Toggle individual workflow open/close
   const toggleWorkflow = (workflowId: string) => {

@@ -100,7 +100,7 @@ const defaultAccounts = [
 // POST /api/gl/accounts/seed - Seed GL accounts with default chart of accounts
 export async function POST(_request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const accountService = new AccountService(context);
     
     const result = await accountService.seedDefaultAccounts(defaultAccounts);

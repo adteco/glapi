@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // POST /api/subsidiaries - Create a new subsidiary
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating subsidiary with context:', context);
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 // GET /api/subsidiaries - List all subsidiaries with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const subsidiaryService = new SubsidiaryService(context);
     
     // Parse query parameters

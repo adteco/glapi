@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const accountService = new AccountService(context);
     
     const account = await accountService.getAccountById(params.id);
@@ -49,7 +49,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     // Validate request body against schema
@@ -103,7 +103,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const accountService = new AccountService(context);
     
     await accountService.deleteAccount(params.id);

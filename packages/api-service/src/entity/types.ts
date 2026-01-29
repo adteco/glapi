@@ -57,6 +57,10 @@ export {
   leadProspectMetadataSchema,
   type LeadProspectMetadata,
 
+  // Social handles (shared across entity types)
+  socialHandlesSchema,
+  type SocialHandles,
+
   // Entity list query
   entityListQuerySchema,
   type EntityListQuery,

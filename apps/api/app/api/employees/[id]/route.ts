@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const { id } = params;
     
     const employeeService = new EmployeeService();
@@ -59,7 +59,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const { id } = params;
     const body = await request.json() as any;
     
@@ -115,7 +115,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const { id } = params;
     
     const employeeService = new EmployeeService();
