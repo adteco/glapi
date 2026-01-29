@@ -1,11 +1,16 @@
 import { BaseService } from './base-service';
 import { ServiceContext, ServiceError, PaginatedResult } from '../types';
-import { 
+import {
   PaymentRepository,
   InvoiceRepository,
   type Payment,
-  type NewPayment
+  type NewPayment,
+  type ContextualDatabase
 } from '@glapi/database';
+
+export interface PaymentServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export interface CreatePaymentData extends Omit<NewPayment, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> {
   organizationId?: string;
@@ -25,10 +30,11 @@ export class PaymentService extends BaseService {
   private paymentRepository: PaymentRepository;
   private invoiceRepository: InvoiceRepository;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: PaymentServiceOptions = {}) {
     super(context);
-    this.paymentRepository = new PaymentRepository();
-    this.invoiceRepository = new InvoiceRepository();
+    // Pass the contextual db to the repositories for RLS support
+    this.paymentRepository = new PaymentRepository(options.db);
+    this.invoiceRepository = new InvoiceRepository(options.db);
   }
 
   async listPayments(input: ListPaymentsInput = {}): Promise<PaginatedResult<Payment>> {

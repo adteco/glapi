@@ -12,7 +12,12 @@ import {
   type SubscriptionWithItems as RepoSubscriptionWithItems,
   type SubscriptionVersion,
   type NewSubscriptionVersion,
+  type ContextualDatabase,
 } from '@glapi/database';
+
+export interface SubscriptionServiceOptions {
+  db?: ContextualDatabase;
+}
 
 // Valid subscription status transitions
 const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -71,11 +76,12 @@ export class SubscriptionService extends BaseService {
   private subscriptionItemRepository: SubscriptionItemRepository;
   private subscriptionVersionRepository: SubscriptionVersionRepository;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: SubscriptionServiceOptions = {}) {
     super(context);
-    this.subscriptionRepository = new SubscriptionRepository();
-    this.subscriptionItemRepository = new SubscriptionItemRepository();
-    this.subscriptionVersionRepository = new SubscriptionVersionRepository();
+    // Pass the contextual db to all repositories for RLS support
+    this.subscriptionRepository = new SubscriptionRepository(options.db);
+    this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
+    this.subscriptionVersionRepository = new SubscriptionVersionRepository(options.db);
   }
 
   // ============================================================================

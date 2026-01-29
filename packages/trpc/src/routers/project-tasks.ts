@@ -42,7 +42,7 @@ export const projectTasksRouter = router({
   listMilestones: authenticatedProcedure
     .input(projectMilestoneListInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.listMilestones(
         { page: input?.page, limit: input?.limit },
         input?.filters || {},
@@ -57,7 +57,7 @@ export const projectTasksRouter = router({
   getMilestone: authenticatedProcedure
     .input(byIdInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       const milestone = await service.getMilestoneById(input.id);
 
       if (!milestone) {
@@ -76,7 +76,7 @@ export const projectTasksRouter = router({
   getMilestonesByProject: authenticatedProcedure
     .input(z.object({ projectId: uuidSchema }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getMilestonesByProject(input.projectId);
     }),
 
@@ -86,7 +86,7 @@ export const projectTasksRouter = router({
   createMilestone: authenticatedProcedure
     .input(createProjectMilestoneSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.createMilestone(input);
     }),
 
@@ -101,7 +101,7 @@ export const projectTasksRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.updateMilestone(input.id, input.data);
       } catch (error: any) {
@@ -121,7 +121,7 @@ export const projectTasksRouter = router({
   deleteMilestone: authenticatedProcedure
     .input(byIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       await service.deleteMilestone(input.id);
       return { success: true };
     }),
@@ -132,7 +132,7 @@ export const projectTasksRouter = router({
   getMilestoneProgress: authenticatedProcedure
     .input(z.object({ projectId: uuidSchema }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getMilestoneProgress(input.projectId);
     }),
 
@@ -146,7 +146,7 @@ export const projectTasksRouter = router({
   listTaskTemplates: authenticatedProcedure
     .input(projectTaskTemplateListInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.listTaskTemplates(
         { page: input?.page, limit: input?.limit },
         input?.filters || {},
@@ -161,7 +161,7 @@ export const projectTasksRouter = router({
   getTaskTemplate: authenticatedProcedure
     .input(byIdInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       const template = await service.getTaskTemplateById(input.id);
 
       if (!template) {
@@ -180,7 +180,7 @@ export const projectTasksRouter = router({
   getTaskTemplateByCode: authenticatedProcedure
     .input(z.object({ templateCode: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       const template = await service.getTaskTemplateByCode(input.templateCode);
 
       if (!template) {
@@ -199,7 +199,7 @@ export const projectTasksRouter = router({
   createTaskTemplate: authenticatedProcedure
     .input(createProjectTaskTemplateSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.createTaskTemplate(input);
       } catch (error: any) {
@@ -224,7 +224,7 @@ export const projectTasksRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.updateTaskTemplate(input.id, input.data);
       } catch (error: any) {
@@ -250,7 +250,7 @@ export const projectTasksRouter = router({
   deleteTaskTemplate: authenticatedProcedure
     .input(byIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       await service.deleteTaskTemplate(input.id);
       return { success: true };
     }),
@@ -265,7 +265,7 @@ export const projectTasksRouter = router({
   listTasks: authenticatedProcedure
     .input(projectTaskListInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.listTasks(
         { page: input?.page, limit: input?.limit },
         input?.filters || {},
@@ -280,7 +280,7 @@ export const projectTasksRouter = router({
   getTask: authenticatedProcedure
     .input(byIdInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       const task = await service.getTaskById(input.id);
 
       if (!task) {
@@ -299,7 +299,7 @@ export const projectTasksRouter = router({
   getTasksByProject: authenticatedProcedure
     .input(z.object({ projectId: uuidSchema }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getTasksByProject(input.projectId);
     }),
 
@@ -309,7 +309,7 @@ export const projectTasksRouter = router({
   getTasksByMilestone: authenticatedProcedure
     .input(z.object({ milestoneId: uuidSchema }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getTasksByMilestone(input.milestoneId);
     }),
 
@@ -324,7 +324,7 @@ export const projectTasksRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getTasksByAssignee(input.assigneeId, { status: input.status });
     }),
 
@@ -341,7 +341,7 @@ export const projectTasksRouter = router({
         })
     )
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getTasksByAssignee(input.assigneeId, { status: input?.status });
     }),
 
@@ -351,7 +351,7 @@ export const projectTasksRouter = router({
   getChildTasks: authenticatedProcedure
     .input(z.object({ parentTaskId: uuidSchema }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getChildTasks(input.parentTaskId);
     }),
 
@@ -359,7 +359,7 @@ export const projectTasksRouter = router({
    * Get overdue tasks
    */
   getOverdueTasks: authenticatedProcedure.query(async ({ ctx }) => {
-    const service = new ProjectTaskService(ctx.serviceContext);
+    const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
     return service.getOverdueTasks();
   }),
 
@@ -369,7 +369,7 @@ export const projectTasksRouter = router({
   createTask: authenticatedProcedure
     .input(createProjectTaskSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.createTask(input);
       } catch (error: any) {
@@ -394,7 +394,7 @@ export const projectTasksRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.updateTask(input.id, input.data);
       } catch (error: any) {
@@ -425,7 +425,7 @@ export const projectTasksRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.updateTaskStatus(input.id, input.data.status, input.data.blockedReason);
       } catch (error: any) {
@@ -451,7 +451,7 @@ export const projectTasksRouter = router({
   deleteTask: authenticatedProcedure
     .input(byIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       await service.deleteTask(input.id);
       return { success: true };
     }),
@@ -462,7 +462,7 @@ export const projectTasksRouter = router({
   bulkUpdateTaskStatus: authenticatedProcedure
     .input(projectTaskBulkStatusUpdateSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.bulkUpdateTaskStatus(input);
     }),
 
@@ -472,7 +472,7 @@ export const projectTasksRouter = router({
   getProjectTaskSummary: authenticatedProcedure
     .input(z.object({ projectId: uuidSchema }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getProjectTaskSummary(input.projectId);
     }),
 
@@ -486,7 +486,7 @@ export const projectTasksRouter = router({
   listProjectTemplates: authenticatedProcedure
     .input(projectTemplateListInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.listProjectTemplates(
         { page: input?.page, limit: input?.limit },
         input?.filters || {},
@@ -501,7 +501,7 @@ export const projectTasksRouter = router({
   getProjectTemplate: authenticatedProcedure
     .input(byIdInputSchema)
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       const template = await service.getProjectTemplateById(input.id);
 
       if (!template) {
@@ -520,7 +520,7 @@ export const projectTasksRouter = router({
   getProjectTemplateByCode: authenticatedProcedure
     .input(z.object({ templateCode: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       const template = await service.getProjectTemplateByCode(input.templateCode);
 
       if (!template) {
@@ -539,7 +539,7 @@ export const projectTasksRouter = router({
   createProjectTemplate: authenticatedProcedure
     .input(createProjectTemplateSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.createProjectTemplate(input);
       } catch (error: any) {
@@ -564,7 +564,7 @@ export const projectTasksRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.updateProjectTemplate(input.id, input.data);
       } catch (error: any) {
@@ -590,7 +590,7 @@ export const projectTasksRouter = router({
   deleteProjectTemplate: authenticatedProcedure
     .input(byIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       await service.deleteProjectTemplate(input.id);
       return { success: true };
     }),
@@ -605,7 +605,7 @@ export const projectTasksRouter = router({
   getProjectTemplateTasks: authenticatedProcedure
     .input(z.object({ projectTemplateId: uuidSchema }))
     .query(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getProjectTemplateTasks(input.projectTemplateId);
     }),
 
@@ -615,7 +615,7 @@ export const projectTasksRouter = router({
   addTaskToProjectTemplate: authenticatedProcedure
     .input(createProjectTemplateTaskSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.addTaskToProjectTemplate(input);
     }),
 
@@ -625,7 +625,7 @@ export const projectTasksRouter = router({
   removeTaskFromProjectTemplate: authenticatedProcedure
     .input(byIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       await service.removeTaskFromProjectTemplate(input.id);
       return { success: true };
     }),
@@ -640,7 +640,7 @@ export const projectTasksRouter = router({
   generateTasksFromTemplates: authenticatedProcedure
     .input(projectTaskGenerateFromTemplatesSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.generateTasksFromTemplates(input);
       } catch (error: any) {
@@ -661,7 +661,7 @@ export const projectTasksRouter = router({
   instantiateProjectFromTemplate: authenticatedProcedure
     .input(instantiateProjectFromTemplateSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ProjectTaskService(ctx.serviceContext);
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       try {
         return await service.instantiateProjectFromTemplate(input);
       } catch (error: any) {

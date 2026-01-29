@@ -22,7 +22,7 @@ test.describe('Smoke Tests - Authentication', () => {
     await page.context().clearCookies();
 
     // Navigate to a protected route
-    await page.goto('/lists/customers');
+    await page.goto('/relationships/customers');
 
     // Should redirect to sign-in
     await expect(page).toHaveURL(/\/sign-in/);
@@ -36,7 +36,7 @@ test.describe('Smoke Tests - Authentication', () => {
     await authAssertions.expectAuthenticated(page);
 
     // Navigate to another page
-    await page.goto('/lists/customers');
+    await page.goto('/relationships/customers');
     await page.waitForLoadState('networkidle');
 
     // Should still be authenticated
@@ -79,7 +79,8 @@ test.describe('Smoke Tests - Dashboard', () => {
 
 test.describe('Smoke Tests - Key List Pages', () => {
   test('should load customers list', async ({ page }) => {
-    await page.goto('/lists/customers');
+    // Customers are under relationships, not lists
+    await page.goto('/relationships/customers');
     await page.waitForLoadState('networkidle');
 
     // Verify page loaded

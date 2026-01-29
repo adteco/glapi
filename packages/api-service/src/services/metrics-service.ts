@@ -29,7 +29,12 @@ import {
   GlReportingRepository,
   MetricsRepository,
   AccountingPeriodRepository,
+  type ContextualDatabase,
 } from '@glapi/database';
+
+export interface MetricsServiceOptions {
+  db?: ContextualDatabase;
+}
 
 // ==========================================
 // Built-in Metric Definitions
@@ -194,11 +199,12 @@ export class MetricsService extends BaseService {
   private metricsRepository: MetricsRepository;
   private periodRepository: AccountingPeriodRepository;
 
-  constructor(context: { organizationId?: string } = {}) {
+  constructor(context: { organizationId?: string } = {}, options: MetricsServiceOptions = {}) {
     super(context);
-    this.reportingRepository = new GlReportingRepository();
-    this.metricsRepository = new MetricsRepository();
-    this.periodRepository = new AccountingPeriodRepository();
+    // Pass the contextual db to all repositories for RLS support
+    this.reportingRepository = new GlReportingRepository(options.db);
+    this.metricsRepository = new MetricsRepository(options.db);
+    this.periodRepository = new AccountingPeriodRepository(options.db);
   }
 
   // ==========================================

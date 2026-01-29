@@ -9,7 +9,12 @@ import {
   type NewBillingScheduleLine,
   type BillingScheduleWithLines,
   type SubscriptionWithItems,
+  type ContextualDatabase,
 } from '@glapi/database';
+
+export interface BillingScheduleServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export type BillingFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'custom';
 
@@ -42,10 +47,11 @@ export class BillingScheduleService extends BaseService {
   private billingScheduleRepository: BillingScheduleRepository;
   private subscriptionRepository: SubscriptionRepository;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: BillingScheduleServiceOptions = {}) {
     super(context);
-    this.billingScheduleRepository = new BillingScheduleRepository();
-    this.subscriptionRepository = new SubscriptionRepository();
+    // Pass the contextual db to both repositories for RLS support
+    this.billingScheduleRepository = new BillingScheduleRepository(options.db);
+    this.subscriptionRepository = new SubscriptionRepository(options.db);
   }
 
   // ============================================================================

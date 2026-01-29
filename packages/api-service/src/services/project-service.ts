@@ -1,6 +1,6 @@
 import { BaseService } from './base-service';
 import { ServiceError } from '../types/common.types';
-import { ProjectRepository } from '@glapi/database';
+import { ProjectRepository, type ContextualDatabase } from '@glapi/database';
 
 export interface Project {
   id: string;
@@ -95,12 +95,17 @@ export interface UpdateParticipantInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface ProjectServiceOptions {
+  db?: ContextualDatabase;
+}
+
 export class ProjectService extends BaseService {
   private projectRepository: ProjectRepository;
 
-  constructor(context = {}) {
+  constructor(context = {}, options: ProjectServiceOptions = {}) {
     super(context);
-    this.projectRepository = new ProjectRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.projectRepository = new ProjectRepository(options.db);
   }
 
   /**

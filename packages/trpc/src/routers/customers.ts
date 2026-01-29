@@ -37,7 +37,7 @@ export const customersRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new CustomerService(ctx.serviceContext);
+      const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
       const result = await service.listCustomers(
         { page: 1, limit: 100 },
         'companyName',
@@ -49,7 +49,7 @@ export const customersRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new CustomerService(ctx.serviceContext);
+      const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
       const customer = await service.getCustomerById(input.id);
       
       if (!customer) {
@@ -65,7 +65,7 @@ export const customersRouter = router({
   create: authenticatedProcedure
     .input(customerSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new CustomerService(ctx.serviceContext);
+      const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
       const { shippingAddress, taxId, paymentTerms, creditLimit, ...customerData } = input;
       
       return service.createCustomer({
@@ -86,7 +86,7 @@ export const customersRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new CustomerService(ctx.serviceContext);
+      const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
       const { shippingAddress, taxId, paymentTerms, creditLimit, ...customerData } = input.data;
       
       const dataToUpdate = {
@@ -112,7 +112,7 @@ export const customersRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new CustomerService(ctx.serviceContext);
+      const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
       await service.deleteCustomer(input.id);
       return { success: true };
     }),
@@ -120,7 +120,7 @@ export const customersRouter = router({
   getChildren: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new CustomerService(ctx.serviceContext);
+      const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
       const customer = await service.getCustomerById(input.id);
       
       if (!customer) {
@@ -137,7 +137,7 @@ export const customersRouter = router({
   getWarehouseAssignments: authenticatedProcedure
     .input(z.object({ customerId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new CustomerService(ctx.serviceContext);
+      const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
       // TODO: Implement warehouse assignments
       return [];
     }),

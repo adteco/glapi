@@ -31,7 +31,7 @@ export const accountsRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input = {} }) => {
-      const service = new AccountService(ctx.serviceContext);
+      const service = new AccountService(ctx.serviceContext, { db: ctx.db });
       
       const result = await service.listAccounts(
         { page: input.page || 1, limit: input.limit || 50 },
@@ -49,14 +49,14 @@ export const accountsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new AccountService(ctx.serviceContext);
+      const service = new AccountService(ctx.serviceContext, { db: ctx.db });
       return service.getAccountById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(accountSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountService(ctx.serviceContext);
+      const service = new AccountService(ctx.serviceContext, { db: ctx.db });
       return service.createAccount({
         ...input,
         organizationId: ctx.serviceContext.organizationId
@@ -71,14 +71,14 @@ export const accountsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountService(ctx.serviceContext);
+      const service = new AccountService(ctx.serviceContext, { db: ctx.db });
       return service.updateAccount(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountService(ctx.serviceContext);
+      const service = new AccountService(ctx.serviceContext, { db: ctx.db });
       await service.deleteAccount(input.id);
       return { success: true };
     }),
@@ -95,7 +95,7 @@ export const accountsRouter = router({
       }))
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new AccountService(ctx.serviceContext);
+      const service = new AccountService(ctx.serviceContext, { db: ctx.db });
       return service.seedDefaultAccounts(input.map(account => ({
         accountNumber: account.accountNumber,
         accountName: account.accountName,

@@ -1,4 +1,4 @@
-import { EntityService } from './entity-service';
+import { EntityService, EntityServiceOptions } from './entity-service';
 import {
   CreateEntityInput,
   UpdateEntityInput,
@@ -11,8 +11,8 @@ import { ServiceContext } from '../types';
 
 export class VendorService extends EntityService {
 
-  constructor(context: ServiceContext = {}) {
-    super(context);
+  constructor(context: ServiceContext = {}, options: EntityServiceOptions = {}) {
+    super(context, options);
   }
 
   /**
@@ -83,5 +83,6 @@ export class VendorService extends EntityService {
   }
 }
 
-// Note: Prefer creating new instances with serviceContext rather than using singleton
+// DEPRECATED: Prefer creating new instances with serviceContext and db for RLS support
+// This singleton does NOT have RLS context set
 export const vendorService = new VendorService();

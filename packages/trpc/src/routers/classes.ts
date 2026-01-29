@@ -19,7 +19,7 @@ export const classesRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const service = new ClassService(ctx.serviceContext);
+      const service = new ClassService(ctx.serviceContext, { db: ctx.db });
       const result = await service.listClasses(
         { page: 1, limit: 100 },
         'name',
@@ -31,7 +31,7 @@ export const classesRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new ClassService(ctx.serviceContext);
+      const service = new ClassService(ctx.serviceContext, { db: ctx.db });
       const classItem = await service.getClassById(input.id);
       
       if (!classItem) {
@@ -47,7 +47,7 @@ export const classesRouter = router({
   create: authenticatedProcedure
     .input(classSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new ClassService(ctx.serviceContext);
+      const service = new ClassService(ctx.serviceContext, { db: ctx.db });
       return service.createClass({
         ...input,
         organizationId: ctx.serviceContext!.organizationId,
@@ -64,7 +64,7 @@ export const classesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const service = new ClassService(ctx.serviceContext);
+      const service = new ClassService(ctx.serviceContext, { db: ctx.db });
       const updated = await service.updateClass(input.id, input.data);
       
       if (!updated) {
@@ -80,7 +80,7 @@ export const classesRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new ClassService(ctx.serviceContext);
+      const service = new ClassService(ctx.serviceContext, { db: ctx.db });
       await service.deleteClass(input.id);
       return { success: true };
     }),

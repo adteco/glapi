@@ -6,7 +6,9 @@
  * @module project-task-repository
  */
 
-import { db } from '../index';
+import { db as globalDb } from '../index';
+import type { ContextualDatabase } from '../context';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   projectMilestones,
   projectTaskTemplates,
@@ -37,6 +39,11 @@ type UpdateProjectTemplateData = Partial<Omit<CreateProjectTemplateData, 'id' | 
 type CreateProjectTemplateTaskData = typeof projectTemplateTasks.$inferInsert;
 
 export class ProjectTaskRepository {
+  private db: NodePgDatabase<any>;
+
+  constructor(db?: ContextualDatabase | NodePgDatabase<any>) {
+    this.db = db ?? globalDb;
+  }
   // ============================================================================
   // Project Milestones
   // ============================================================================
@@ -84,13 +91,13 @@ export class ProjectTaskRepository {
     const orderFn = orderDirection === 'desc' ? desc : asc;
 
     const [milestones, countResult] = await Promise.all([
-      db.select()
+      this.db.select()
         .from(projectMilestones)
         .where(and(...conditions))
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)` })
+      this.db.select({ count: sql<number>`count(*)` })
         .from(projectMilestones)
         .where(and(...conditions)),
     ]);
@@ -105,7 +112,7 @@ export class ProjectTaskRepository {
   }
 
   async findMilestoneById(id: string, organizationId: string) {
-    const [milestone] = await db.select()
+    const [milestone] = await this.db.select()
       .from(projectMilestones)
       .where(and(
         eq(projectMilestones.id, id),
@@ -116,7 +123,7 @@ export class ProjectTaskRepository {
   }
 
   async findMilestonesByProject(projectId: string, organizationId: string) {
-    return db.select()
+    return this.db.select()
       .from(projectMilestones)
       .where(and(
         eq(projectMilestones.projectId, projectId),
@@ -126,17 +133,17 @@ export class ProjectTaskRepository {
   }
 
   async createMilestone(data: CreateMilestoneData) {
-    const [milestone] = await db.insert(projectMilestones).values(data).returning();
+    const [milestone] = await this.db.insert(projectMilestones).values(data).returning();
     return milestone;
   }
 
   async createMilestonesBulk(data: CreateMilestoneData[]) {
     if (data.length === 0) return [];
-    return db.insert(projectMilestones).values(data).returning();
+    return this.db.insert(projectMilestones).values(data).returning();
   }
 
   async updateMilestone(id: string, organizationId: string, data: UpdateMilestoneData) {
-    const [milestone] = await db.update(projectMilestones)
+    const [milestone] = await this.db.update(projectMilestones)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectMilestones.id, id),
@@ -147,7 +154,7 @@ export class ProjectTaskRepository {
   }
 
   async deleteMilestone(id: string, organizationId: string) {
-    await db.delete(projectMilestones)
+    await this.db.delete(projectMilestones)
       .where(and(
         eq(projectMilestones.id, id),
         eq(projectMilestones.organizationId, organizationId)
@@ -206,13 +213,13 @@ export class ProjectTaskRepository {
     const orderFn = orderDirection === 'desc' ? desc : asc;
 
     const [templates, countResult] = await Promise.all([
-      db.select()
+      this.db.select()
         .from(projectTaskTemplates)
         .where(and(...conditions))
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)` })
+      this.db.select({ count: sql<number>`count(*)` })
         .from(projectTaskTemplates)
         .where(and(...conditions)),
     ]);
@@ -227,7 +234,7 @@ export class ProjectTaskRepository {
   }
 
   async findTaskTemplateById(id: string, organizationId: string) {
-    const [template] = await db.select()
+    const [template] = await this.db.select()
       .from(projectTaskTemplates)
       .where(and(
         eq(projectTaskTemplates.id, id),
@@ -238,7 +245,7 @@ export class ProjectTaskRepository {
   }
 
   async findTaskTemplateByCode(templateCode: string, organizationId: string) {
-    const [template] = await db.select()
+    const [template] = await this.db.select()
       .from(projectTaskTemplates)
       .where(and(
         eq(projectTaskTemplates.templateCode, templateCode),
@@ -249,12 +256,12 @@ export class ProjectTaskRepository {
   }
 
   async createTaskTemplate(data: CreateTaskTemplateData) {
-    const [template] = await db.insert(projectTaskTemplates).values(data).returning();
+    const [template] = await this.db.insert(projectTaskTemplates).values(data).returning();
     return template;
   }
 
   async updateTaskTemplate(id: string, organizationId: string, data: UpdateTaskTemplateData) {
-    const [template] = await db.update(projectTaskTemplates)
+    const [template] = await this.db.update(projectTaskTemplates)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectTaskTemplates.id, id),
@@ -266,7 +273,7 @@ export class ProjectTaskRepository {
 
   async deleteTaskTemplate(id: string, organizationId: string) {
     // Soft delete by setting isActive to false
-    await db.update(projectTaskTemplates)
+    await this.db.update(projectTaskTemplates)
       .set({ isActive: false, updatedAt: new Date() })
       .where(and(
         eq(projectTaskTemplates.id, id),
@@ -359,13 +366,13 @@ export class ProjectTaskRepository {
     const orderFn = orderDirection === 'desc' ? desc : asc;
 
     const [tasks, countResult] = await Promise.all([
-      db.select()
+      this.db.select()
         .from(projectTasks)
         .where(and(...conditions))
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)` })
+      this.db.select({ count: sql<number>`count(*)` })
         .from(projectTasks)
         .where(and(...conditions)),
     ]);
@@ -380,7 +387,7 @@ export class ProjectTaskRepository {
   }
 
   async findTaskById(id: string, organizationId: string) {
-    const [task] = await db.select()
+    const [task] = await this.db.select()
       .from(projectTasks)
       .where(and(
         eq(projectTasks.id, id),
@@ -391,7 +398,7 @@ export class ProjectTaskRepository {
   }
 
   async findTasksByProject(projectId: string, organizationId: string) {
-    return db.select()
+    return this.db.select()
       .from(projectTasks)
       .where(and(
         eq(projectTasks.projectId, projectId),
@@ -401,7 +408,7 @@ export class ProjectTaskRepository {
   }
 
   async findTasksByMilestone(milestoneId: string) {
-    return db.select()
+    return this.db.select()
       .from(projectTasks)
       .where(eq(projectTasks.milestoneId, milestoneId))
       .orderBy(asc(projectTasks.sortOrder));
@@ -421,14 +428,14 @@ export class ProjectTaskRepository {
       }
     }
 
-    return db.select()
+    return this.db.select()
       .from(projectTasks)
       .where(and(...conditions))
       .orderBy(asc(projectTasks.dueDate));
   }
 
   async findChildTasks(parentTaskId: string) {
-    return db.select()
+    return this.db.select()
       .from(projectTasks)
       .where(eq(projectTasks.parentTaskId, parentTaskId))
       .orderBy(asc(projectTasks.sortOrder));
@@ -436,7 +443,7 @@ export class ProjectTaskRepository {
 
   async findOverdueTasks(organizationId: string) {
     const now = new Date();
-    return db.select()
+    return this.db.select()
       .from(projectTasks)
       .where(and(
         eq(projectTasks.organizationId, organizationId),
@@ -447,17 +454,17 @@ export class ProjectTaskRepository {
   }
 
   async createTask(data: CreateTaskData) {
-    const [task] = await db.insert(projectTasks).values(data).returning();
+    const [task] = await this.db.insert(projectTasks).values(data).returning();
     return task;
   }
 
   async createTasksBulk(data: CreateTaskData[]) {
     if (data.length === 0) return [];
-    return db.insert(projectTasks).values(data).returning();
+    return this.db.insert(projectTasks).values(data).returning();
   }
 
   async updateTask(id: string, organizationId: string, data: UpdateTaskData) {
-    const [task] = await db.update(projectTasks)
+    const [task] = await this.db.update(projectTasks)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectTasks.id, id),
@@ -479,7 +486,7 @@ export class ProjectTaskRepository {
       updates.completedAt = new Date();
     }
 
-    const [task] = await db.update(projectTasks)
+    const [task] = await this.db.update(projectTasks)
       .set(updates)
       .where(and(
         eq(projectTasks.id, id),
@@ -490,7 +497,7 @@ export class ProjectTaskRepository {
   }
 
   async deleteTask(id: string, organizationId: string) {
-    await db.delete(projectTasks)
+    await this.db.delete(projectTasks)
       .where(and(
         eq(projectTasks.id, id),
         eq(projectTasks.organizationId, organizationId)
@@ -498,7 +505,7 @@ export class ProjectTaskRepository {
   }
 
   async getTaskSummaryByProject(projectId: string, organizationId: string) {
-    const result = await db.select({
+    const result = await this.db.select({
       total: sql<number>`count(*)`,
       completed: sql<number>`sum(case when status = 'COMPLETED' then 1 else 0 end)`,
       inProgress: sql<number>`sum(case when status = 'IN_PROGRESS' then 1 else 0 end)`,
@@ -569,13 +576,13 @@ export class ProjectTaskRepository {
     const orderFn = orderDirection === 'desc' ? desc : asc;
 
     const [templates, countResult] = await Promise.all([
-      db.select()
+      this.db.select()
         .from(projectTemplates)
         .where(and(...conditions))
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)` })
+      this.db.select({ count: sql<number>`count(*)` })
         .from(projectTemplates)
         .where(and(...conditions)),
     ]);
@@ -590,7 +597,7 @@ export class ProjectTaskRepository {
   }
 
   async findProjectTemplateById(id: string, organizationId: string) {
-    const [template] = await db.select()
+    const [template] = await this.db.select()
       .from(projectTemplates)
       .where(and(
         eq(projectTemplates.id, id),
@@ -601,7 +608,7 @@ export class ProjectTaskRepository {
   }
 
   async findProjectTemplateByCode(templateCode: string, organizationId: string) {
-    const [template] = await db.select()
+    const [template] = await this.db.select()
       .from(projectTemplates)
       .where(and(
         eq(projectTemplates.templateCode, templateCode),
@@ -612,12 +619,12 @@ export class ProjectTaskRepository {
   }
 
   async createProjectTemplate(data: CreateProjectTemplateData) {
-    const [template] = await db.insert(projectTemplates).values(data).returning();
+    const [template] = await this.db.insert(projectTemplates).values(data).returning();
     return template;
   }
 
   async updateProjectTemplate(id: string, organizationId: string, data: UpdateProjectTemplateData) {
-    const [template] = await db.update(projectTemplates)
+    const [template] = await this.db.update(projectTemplates)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectTemplates.id, id),
@@ -629,7 +636,7 @@ export class ProjectTaskRepository {
 
   async deleteProjectTemplate(id: string, organizationId: string) {
     // Soft delete by setting isActive to false
-    await db.update(projectTemplates)
+    await this.db.update(projectTemplates)
       .set({ isActive: false, updatedAt: new Date() })
       .where(and(
         eq(projectTemplates.id, id),
@@ -642,14 +649,14 @@ export class ProjectTaskRepository {
   // ============================================================================
 
   async findTemplateTasksByProjectTemplate(projectTemplateId: string) {
-    return db.select()
+    return this.db.select()
       .from(projectTemplateTasks)
       .where(eq(projectTemplateTasks.projectTemplateId, projectTemplateId))
       .orderBy(asc(projectTemplateTasks.sortOrder));
   }
 
   async findTemplateTasksWithDetails(projectTemplateId: string) {
-    return db.select({
+    return this.db.select({
       templateTask: projectTemplateTasks,
       taskTemplate: projectTaskTemplates,
     })
@@ -660,22 +667,22 @@ export class ProjectTaskRepository {
   }
 
   async createProjectTemplateTask(data: CreateProjectTemplateTaskData) {
-    const [templateTask] = await db.insert(projectTemplateTasks).values(data).returning();
+    const [templateTask] = await this.db.insert(projectTemplateTasks).values(data).returning();
     return templateTask;
   }
 
   async createProjectTemplateTasksBulk(data: CreateProjectTemplateTaskData[]) {
     if (data.length === 0) return [];
-    return db.insert(projectTemplateTasks).values(data).returning();
+    return this.db.insert(projectTemplateTasks).values(data).returning();
   }
 
   async deleteProjectTemplateTask(id: string) {
-    await db.delete(projectTemplateTasks)
+    await this.db.delete(projectTemplateTasks)
       .where(eq(projectTemplateTasks.id, id));
   }
 
   async deleteProjectTemplateTasksByTemplate(projectTemplateId: string) {
-    await db.delete(projectTemplateTasks)
+    await this.db.delete(projectTemplateTasks)
       .where(eq(projectTemplateTasks.projectTemplateId, projectTemplateId));
   }
 }

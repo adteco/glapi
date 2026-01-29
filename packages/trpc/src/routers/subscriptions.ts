@@ -51,7 +51,7 @@ export const subscriptionsRouter = router({
       limit: z.number().min(1).max(100).default(50)
     }).optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       return service.listSubscriptions(input);
     }),
 
@@ -59,7 +59,7 @@ export const subscriptionsRouter = router({
   get: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       const subscription = await service.getSubscriptionById(input.id);
       
       if (!subscription) {
@@ -76,7 +76,7 @@ export const subscriptionsRouter = router({
   create: authenticatedProcedure
     .input(subscriptionSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       // Convert nullable fields to undefined for service
       const dataForService = {
@@ -102,7 +102,7 @@ export const subscriptionsRouter = router({
       data: subscriptionSchema.partial()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       // Convert nullable fields to undefined for service
       const dataForService = {
@@ -135,7 +135,7 @@ export const subscriptionsRouter = router({
   delete: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       // First check if subscription exists
       const subscription = await service.getSubscriptionById(input.id);
@@ -155,7 +155,7 @@ export const subscriptionsRouter = router({
   activate: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.activateSubscription(input.id);
@@ -184,7 +184,7 @@ export const subscriptionsRouter = router({
       reason: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.cancelSubscription(
@@ -216,7 +216,7 @@ export const subscriptionsRouter = router({
       reason: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.suspendSubscription(input.id, input.reason);
@@ -229,7 +229,7 @@ export const subscriptionsRouter = router({
   resume: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.resumeSubscription(input.id);
@@ -246,7 +246,7 @@ export const subscriptionsRouter = router({
       newEndDate: z.coerce.date()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.renewSubscription(
@@ -268,7 +268,7 @@ export const subscriptionsRouter = router({
       changes: subscriptionSchema.partial()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
 
       try {
         // Convert nullable fields to undefined for service
@@ -305,7 +305,7 @@ export const subscriptionsRouter = router({
       limit: z.number().min(1).max(100).default(50)
     }))
     .query(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
 
       try {
         return await service.getVersionHistory(input.id, {
@@ -324,7 +324,7 @@ export const subscriptionsRouter = router({
       versionNumber: z.number().positive()
     }))
     .query(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
 
       try {
         const version = await service.getVersion(input.id, input.versionNumber);
@@ -351,7 +351,7 @@ export const subscriptionsRouter = router({
       effectiveDate: z.coerce.date()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.calculateRevenue(
@@ -374,7 +374,7 @@ export const subscriptionsRouter = router({
   getRevenueSchedule: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.getRevenueSchedule(input.id);
@@ -396,7 +396,7 @@ export const subscriptionsRouter = router({
       endDate: z.coerce.date().optional()
     }).optional())
     .query(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext);
+      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       
       // TODO: Implement metrics calculation
       // This would aggregate subscription data for reporting

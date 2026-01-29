@@ -1,20 +1,25 @@
 import { BaseService } from './base-service';
-import { 
-  Subsidiary, 
-  CreateSubsidiaryInput, 
-  UpdateSubsidiaryInput, 
-  PaginationParams, 
+import {
+  Subsidiary,
+  CreateSubsidiaryInput,
+  UpdateSubsidiaryInput,
+  PaginationParams,
   PaginatedResult,
   ServiceError
 } from '../types';
-import { SubsidiaryRepository } from '@glapi/database';
+import { SubsidiaryRepository, type ContextualDatabase } from '@glapi/database';
+
+export interface SubsidiaryServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export class SubsidiaryService extends BaseService {
   private subsidiaryRepository: SubsidiaryRepository;
-  
-  constructor(context = {}) {
+
+  constructor(context = {}, options: SubsidiaryServiceOptions = {}) {
     super(context);
-    this.subsidiaryRepository = new SubsidiaryRepository();
+    // Pass the contextual db to the repository for RLS support
+    this.subsidiaryRepository = new SubsidiaryRepository(options.db);
   }
   
   /**
