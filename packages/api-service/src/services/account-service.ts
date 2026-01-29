@@ -101,16 +101,14 @@ export class AccountService extends BaseService {
    */
   async getAccountByNumber(accountNumber: string): Promise<Account | null> {
     const organizationId = this.requireOrganizationContext();
-    
-    // TODO: Temporarily disabled due to webpack caching issue
-    // const account = await this.accountRepository.findByAccountNumber(accountNumber, organizationId);
-    
-    // if (!account) {
-    //   return null;
-    // }
-    
-    // return this.transformAccount(account);
-    return null;
+
+    const account = await this.accountRepository.findByAccountNumber(accountNumber, organizationId);
+
+    if (!account) {
+      return null;
+    }
+
+    return this.transformAccount(account);
   }
   
   /**
@@ -129,15 +127,14 @@ export class AccountService extends BaseService {
     }
     
     // Check if account number already exists
-    // TODO: Temporarily disabled due to webpack caching issue
-    // const existing = await this.accountRepository.findByAccountNumber(input.accountNumber, organizationId);
-    // if (existing) {
-    //   throw new ServiceError(
-    //     `Account with number ${input.accountNumber} already exists`,
-    //     'ACCOUNT_NUMBER_EXISTS',
-    //     409
-    //   );
-    // }
+    const existing = await this.accountRepository.findByAccountNumber(input.accountNumber, organizationId);
+    if (existing) {
+      throw new ServiceError(
+        `Account with number ${input.accountNumber} already exists`,
+        'ACCOUNT_NUMBER_EXISTS',
+        409
+      );
+    }
     
     const accountData = {
       organizationId,
@@ -177,17 +174,16 @@ export class AccountService extends BaseService {
     }
     
     // If changing account number, check if new number already exists
-    // TODO: Temporarily disabled due to webpack caching issue
-    // if (input.accountNumber && input.accountNumber !== existingAccount.accountNumber) {
-    //   const duplicate = await this.accountRepository.findByAccountNumber(input.accountNumber, organizationId);
-    //   if (duplicate) {
-    //     throw new ServiceError(
-    //       `Account with number ${input.accountNumber} already exists`,
-    //       'ACCOUNT_NUMBER_EXISTS',
-    //       409
-    //     );
-    //   }
-    // }
+    if (input.accountNumber && input.accountNumber !== existingAccount.accountNumber) {
+      const duplicate = await this.accountRepository.findByAccountNumber(input.accountNumber, organizationId);
+      if (duplicate) {
+        throw new ServiceError(
+          `Account with number ${input.accountNumber} already exists`,
+          'ACCOUNT_NUMBER_EXISTS',
+          409
+        );
+      }
+    }
     
     const updatedAccount = await this.accountRepository.update(accountId, organizationId, input);
     

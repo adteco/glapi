@@ -1,5 +1,5 @@
 import { Counter, Gauge, Histogram } from 'prom-client';
-import { metricsRegistry } from './metrics.js';
+import { metricsRegistry } from './metrics';
 
 // Audit processor metrics
 export const auditMetrics = {

@@ -1,4 +1,4 @@
-import { setupClerkTestingToken } from '@clerk/testing/playwright';
+import { clerk } from '@clerk/testing/playwright';
 import { test as setup, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -69,25 +69,6 @@ function ensureAuthDir(): void {
  * @see https://clerk.com/docs/guides/development/testing/playwright/overview
  */
 setup('authenticate with Clerk', async ({ page }) => {
-  // Check if we can reuse existing auth
-  if (isAuthValid()) {
-    console.log('Skipping authentication - reusing valid cached session');
-    return;
-  }
-
-  ensureAuthDir();
-
-  // Setup Clerk testing token - this bypasses bot detection and enables test auth
-  await setupClerkTestingToken({ page });
-
-  // Navigate to sign-in page (correct route - not /auth/sign-in)
-  await page.goto('/sign-in');
-
-  // Wait for Clerk sign-in form to load
-  await page.waitForSelector('[name="identifier"], input[type="email"]', {
-    timeout: 15000,
-  });
-
   // Get test credentials from environment
   const email = process.env.TEST_USER_EMAIL;
   const password = process.env.TEST_USER_PASSWORD;
@@ -103,40 +84,41 @@ setup('authenticate with Clerk', async ({ page }) => {
     return;
   }
 
-  console.log('Authenticating test user:', email);
+  ensureAuthDir();
 
-  // Enter email address
-  const emailInput = page.locator('[name="identifier"], input[type="email"]').first();
-  await emailInput.fill(email);
+  // Quick validation of cached auth by hitting a protected route.
+  if (isAuthValid()) {
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    const redirectedToSignIn = /sign-in/.test(page.url());
+    if (!redirectedToSignIn) {
+      console.log('Skipping authentication - reusing valid cached session');
+      return;
+    }
+  }
 
-  // Click continue
-  const continueButton = page.locator(
-    'button:has-text("Continue"), button:has-text("Sign in"), button[type="submit"]'
-  ).first();
-  await continueButton.click();
+  console.log('Authenticating test user via Clerk test helpers:', email);
 
-  // Wait for password field
-  await page.waitForSelector('[name="password"], input[type="password"]', {
-    timeout: 10000,
+  // Navigate to an unprotected page that loads Clerk
+  await page.goto('/sign-in');
+
+  await clerk.signIn({
+    page,
+    signInParams: {
+      strategy: 'password',
+      identifier: email,
+      password,
+    },
   });
 
-  // Enter password
-  const passwordInput = page.locator('[name="password"], input[type="password"]').first();
-  await passwordInput.fill(password);
-
-  // Submit
-  const signInButton = page.locator(
-    'button:has-text("Sign in"), button:has-text("Continue"), button[type="submit"]'
-  ).first();
-  await signInButton.click();
-
-  // Wait for redirect to authenticated page (dashboard, home, or lists)
-  await page.waitForURL(/\/(dashboard|home|lists)?$/, { timeout: 20000 });
+  // Navigate to a protected page to verify auth
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  await expect(page).not.toHaveURL(/sign-in/);
 
   // Verify logged in by checking for user button
-  await expect(
-    page.locator('[data-clerk-user-button], [aria-label*="user"], .cl-userButton-root')
-  ).toBeVisible({ timeout: 10000 });
+  const userButton = page.locator(
+    '[data-clerk-user-button], [aria-label*="user"], .cl-userButton-root'
+  ).first();
+  await expect(userButton).toBeVisible({ timeout: 10000 });
 
   // Save state
   await page.context().storageState({ path: authFile });

@@ -1,12 +1,12 @@
 import { eq, and, lt, lte, sql, asc } from 'drizzle-orm';
 import { db } from '@glapi/database';
 import { eventOutbox, type EventOutboxRecord } from '@glapi/database/schema';
-import type { EventPublisher, PublishableEvent } from '../publishers/event-publisher.js';
-import { toPublishableEvent } from '../publishers/event-publisher.js';
-import { OutboxProcessorConfig } from '../config.js';
-import { createChildLogger, type Logger } from '../utils/logger.js';
-import { outboxMetrics } from '../utils/metrics.js';
-import { registerHealthCheck, type HealthCheck } from '../utils/health.js';
+import type { EventPublisher, PublishableEvent } from '../publishers/event-publisher';
+import { toPublishableEvent } from '../publishers/event-publisher';
+import { OutboxProcessorConfig } from '../config';
+import { createChildLogger, type Logger } from '../utils/logger';
+import { outboxMetrics } from '../utils/metrics';
+import { registerHealthCheck, type HealthCheck } from '../utils/health';
 
 interface ProcessorState {
   running: boolean;
