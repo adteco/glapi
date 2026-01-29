@@ -9,7 +9,7 @@ import { getServiceContext } from '../utils/auth';
  */
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const warehousePricingService = new WarehousePricingService(context);
 
     const searchParams = request.nextUrl.searchParams;
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const warehousePricingService = new WarehousePricingService(context);
 
     const body = await request.json() as any;

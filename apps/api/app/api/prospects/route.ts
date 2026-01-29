@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // POST /api/prospects - Create a new prospect
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating prospect with context:', context);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 // GET /api/prospects - List all prospects with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const prospectService = new ProspectService();
     
     // Parse query parameters

@@ -15,7 +15,7 @@ export async function GET(_request: NextRequest) {
     
     // This is a sample implementation - in a real app, we'd query the database
     // For now we'll just return organization by ID
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const organization = await orgService.getOrganizationById(context.organizationId);
     
     const organizations = organization ? [organization] : [];

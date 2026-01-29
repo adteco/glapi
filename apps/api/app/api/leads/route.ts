@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // POST /api/leads - Create a new lead
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating lead with context:', context);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 // GET /api/leads - List all leads with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const leadService = new LeadService();
     
     // Parse query parameters
