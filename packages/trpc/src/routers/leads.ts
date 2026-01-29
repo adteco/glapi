@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { LeadService } from '@glapi/api-service';
+import { leadProspectMetadataSchema } from '@glapi/types';
 
 const leadSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  displayName: z.string().optional(),
   entityId: z.string().optional(),
   isActive: z.boolean().default(true),
   legalName: z.string().optional(),
@@ -12,13 +14,7 @@ const leadSchema = z.object({
   phone: z.string().optional(),
   website: z.string().url().optional().or(z.literal('')),
   notes: z.string().optional(),
-  metadata: z.object({
-    lead_source: z.string().optional(),
-    lead_status: z.string().optional(),
-    estimated_value: z.number().optional(),
-    probability: z.number().min(0).max(100).optional(),
-    expected_close_date: z.string().optional(),
-  }).optional(),
+  metadata: leadProspectMetadataSchema.optional(),
 });
 
 const updateLeadSchema = leadSchema.partial();
