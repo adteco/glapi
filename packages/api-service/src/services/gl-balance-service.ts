@@ -8,8 +8,13 @@
  */
 
 import { BaseService } from './base-service';
-import { ServiceError } from '../types';
-import { db, glAccountBalances, eq, and, sql } from '@glapi/database';
+import { ServiceError, ServiceContext } from '../types';
+import { db as globalDb, type ContextualDatabase, glAccountBalances } from '@glapi/database';
+import { eq, and, sql } from 'drizzle-orm';
+
+export interface GlBalanceServiceOptions {
+  db?: ContextualDatabase;
+}
 
 // ============================================================================
 // Types
@@ -100,8 +105,11 @@ export interface BalanceComparisonResult {
 // ============================================================================
 
 export class GlBalanceService extends BaseService {
-  constructor(context = {}) {
+  private db: ContextualDatabase;
+
+  constructor(context: ServiceContext = {}, options: GlBalanceServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
   }
 
   /**
@@ -142,7 +150,7 @@ export class GlBalanceService extends BaseService {
         conditions.push(eq(glAccountBalances.currencyCode, query.currencyCode));
       }
 
-      const result = await db
+      const result = await this.db
         .select()
         .from(glAccountBalances)
         .where(and(...conditions))
@@ -190,7 +198,7 @@ export class GlBalanceService extends BaseService {
         conditions.push(eq(glAccountBalances.currencyCode, query.currencyCode));
       }
 
-      const results = await db
+      const results = await this.db
         .select()
         .from(glAccountBalances)
         .where(and(...conditions))
@@ -238,7 +246,7 @@ export class GlBalanceService extends BaseService {
       }
 
       // Aggregate balances by account
-      const results = await db
+      const results = await this.db
         .select({
           accountId: glAccountBalances.accountId,
           totalDebit: sql<string>`SUM(${glAccountBalances.endingBalanceDebit})`,
@@ -376,7 +384,7 @@ export class GlBalanceService extends BaseService {
 
     try {
       // Get the latest balance update time for this organization
-      const latestBalance = await db
+      const latestBalance = await this.db
         .select({
           lastUpdated: sql<Date>`MAX(${glAccountBalances.lastUpdated})`,
         })

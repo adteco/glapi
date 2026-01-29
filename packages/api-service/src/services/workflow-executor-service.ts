@@ -12,7 +12,7 @@
  */
 
 import {
-  db,
+  db as globalDb,
   eq,
   and,
   communicationWorkflows,
@@ -21,6 +21,7 @@ import {
   communicationWorkflowStepHistory,
   communicationEvents,
   emailTemplates,
+  type ContextualDatabase,
 } from '@glapi/database';
 import type {
   CommunicationWorkflow,
@@ -70,15 +71,22 @@ export interface EmailProviderInterface {
   }>;
 }
 
+export interface WorkflowExecutorServiceOptions {
+  db?: ContextualDatabase;
+  emailProvider?: EmailProviderInterface;
+}
+
 // =============================================================================
 // Workflow Executor Service
 // =============================================================================
 
 export class WorkflowExecutorService {
+  private db: ContextualDatabase;
   private emailProvider?: EmailProviderInterface;
 
-  constructor(emailProvider?: EmailProviderInterface) {
-    this.emailProvider = emailProvider;
+  constructor(options: WorkflowExecutorServiceOptions = {}) {
+    this.db = options.db ?? globalDb;
+    this.emailProvider = options.emailProvider;
   }
 
   /**
@@ -88,7 +96,7 @@ export class WorkflowExecutorService {
     const { workflowId, organizationId, entityType, entityId, context, triggeredBy } = input;
 
     // Get workflow and verify it's active
-    const workflow = await db.query.communicationWorkflows.findFirst({
+    const workflow = await this.db.query.communicationWorkflows.findFirst({
       where: and(
         eq(communicationWorkflows.id, workflowId),
         eq(communicationWorkflows.organizationId, organizationId),
@@ -101,13 +109,13 @@ export class WorkflowExecutorService {
     }
 
     // Get first step
-    const firstStep = await db.query.communicationWorkflowSteps.findFirst({
+    const firstStep = await this.db.query.communicationWorkflowSteps.findFirst({
       where: eq(communicationWorkflowSteps.workflowId, workflowId),
       orderBy: (steps, { asc }) => [asc(steps.sortOrder)],
     });
 
     // Create execution record
-    const [execution] = await db
+    const [execution] = await this.db
       .insert(communicationWorkflowExecutions)
       .values({
         organizationId,
@@ -124,7 +132,7 @@ export class WorkflowExecutorService {
       .returning();
 
     // Update workflow statistics
-    await db
+    await this.db
       .update(communicationWorkflows)
       .set({
         totalExecutions: (workflow.totalExecutions ?? 0) + 1,
@@ -149,7 +157,7 @@ export class WorkflowExecutorService {
     const startedAt = new Date();
 
     // Record step start in history
-    const [history] = await db
+    const [history] = await this.db
       .insert(communicationWorkflowStepHistory)
       .values({
         executionId: execution.id,
@@ -189,7 +197,7 @@ export class WorkflowExecutorService {
       }
 
       // Update history with result
-      await db
+      await this.db
         .update(communicationWorkflowStepHistory)
         .set({
           status: result.success ? 'completed' : 'failed',
@@ -229,7 +237,7 @@ export class WorkflowExecutorService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       // Update history with error
-      await db
+      await this.db
         .update(communicationWorkflowStepHistory)
         .set({
           status: 'failed',
@@ -258,7 +266,7 @@ export class WorkflowExecutorService {
     }
 
     // Get template
-    const template = await db.query.emailTemplates.findFirst({
+    const template = await this.db.query.emailTemplates.findFirst({
       where: and(
         eq(emailTemplates.id, config.templateId),
         eq(emailTemplates.organizationId, execution.organizationId)
@@ -291,7 +299,7 @@ export class WorkflowExecutorService {
       : undefined;
 
     // Create communication event
-    const [event] = await db
+    const [event] = await this.db
       .insert(communicationEvents)
       .values({
         organizationId: execution.organizationId,
@@ -329,7 +337,7 @@ export class WorkflowExecutorService {
         });
 
         // Update event status
-        await db
+        await this.db
           .update(communicationEvents)
           .set({
             status: 'sent',
@@ -346,7 +354,7 @@ export class WorkflowExecutorService {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Email send failed';
 
-        await db
+        await this.db
           .update(communicationEvents)
           .set({
             status: 'failed',
@@ -571,13 +579,13 @@ export class WorkflowExecutorService {
     nextStepId?: string | null
   ): Promise<CommunicationWorkflowStep | null> {
     if (nextStepId) {
-      return db.query.communicationWorkflowSteps.findFirst({
+      return this.db.query.communicationWorkflowSteps.findFirst({
         where: eq(communicationWorkflowSteps.id, nextStepId),
       });
     }
 
     // Get next step by sort order
-    const nextStep = await db.query.communicationWorkflowSteps.findFirst({
+    const nextStep = await this.db.query.communicationWorkflowSteps.findFirst({
       where: and(
         eq(communicationWorkflowSteps.workflowId, currentStep.workflowId),
         eq(communicationWorkflowSteps.sortOrder, currentStep.sortOrder + 1)
@@ -595,7 +603,7 @@ export class WorkflowExecutorService {
     stepId: string,
     waitUntil: Date
   ): Promise<void> {
-    await db
+    await this.db
       .update(communicationWorkflowExecutions)
       .set({
         status: 'waiting',
@@ -619,7 +627,7 @@ export class WorkflowExecutorService {
       ? { ...context, lastStepOutput: output }
       : context;
 
-    await db
+    await this.db
       .update(communicationWorkflowExecutions)
       .set({
         status: 'running',
@@ -638,7 +646,7 @@ export class WorkflowExecutorService {
     execution: CommunicationWorkflowExecution,
     success: boolean
   ): Promise<void> {
-    await db
+    await this.db
       .update(communicationWorkflowExecutions)
       .set({
         status: 'completed',
@@ -650,7 +658,7 @@ export class WorkflowExecutorService {
 
     // Update workflow statistics
     if (success) {
-      await db
+      await this.db
         .update(communicationWorkflows)
         .set({
           successfulExecutions: (execution.workflowId as unknown as number) + 1, // This will be fixed in next update
@@ -667,7 +675,7 @@ export class WorkflowExecutorService {
     stepId: string,
     errorMessage?: string
   ): Promise<void> {
-    await db
+    await this.db
       .update(communicationWorkflowExecutions)
       .set({
         status: 'failed',
@@ -679,7 +687,7 @@ export class WorkflowExecutorService {
       .where(eq(communicationWorkflowExecutions.id, execution.id));
 
     // Update workflow statistics
-    await db
+    await this.db
       .update(communicationWorkflows)
       .set({
         failedExecutions: (execution.workflowId as unknown as number) + 1, // This will be fixed in next update
@@ -712,7 +720,7 @@ export class WorkflowExecutorService {
     const now = new Date();
 
     // Find executions ready to resume
-    const waitingExecutions = await db.query.communicationWorkflowExecutions.findMany({
+    const waitingExecutions = await this.db.query.communicationWorkflowExecutions.findMany({
       where: and(
         eq(communicationWorkflowExecutions.status, 'waiting'),
         // nextStepAt <= now
@@ -725,7 +733,7 @@ export class WorkflowExecutorService {
       if (execution.nextStepAt && execution.nextStepAt <= now) {
         // Get the current step
         if (execution.currentStepId) {
-          const step = await db.query.communicationWorkflowSteps.findFirst({
+          const step = await this.db.query.communicationWorkflowSteps.findFirst({
             where: eq(communicationWorkflowSteps.id, execution.currentStepId),
           });
 

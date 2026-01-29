@@ -42,7 +42,7 @@ import {
   VALID_PURCHASE_ORDER_TRANSITIONS,
   type POApprovalActionTypeValue,
 } from '@glapi/database/schema';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   purchaseOrders,
   purchaseOrderLines,
@@ -56,15 +56,21 @@ import {
 import { eq, and, desc, asc, sql, inArray, gte, lte, or, ilike, lt } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 
+export interface PurchaseOrderServiceOptions {
+  db?: ContextualDatabase;
+}
+
 // ============================================================================
 // Purchase Order Service
 // ============================================================================
 
 export class PurchaseOrderService extends BaseService {
+  private db: ContextualDatabase;
   private eventService: EventService;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: PurchaseOrderServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
     this.eventService = new EventService(context);
   }
 
@@ -126,14 +132,14 @@ export class PurchaseOrderService extends BaseService {
     }
 
     // Count total
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(purchaseOrders)
       .where(and(...conditions));
     const total = Number(countResult[0]?.count || 0);
 
     // Fetch orders
-    const orders = await db
+    const orders = await this.db
       .select()
       .from(purchaseOrders)
       .where(and(...conditions))
@@ -155,7 +161,7 @@ export class PurchaseOrderService extends BaseService {
   async getPurchaseOrderById(id: string): Promise<PurchaseOrderWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const order = await db
+    const order = await this.db
       .select()
       .from(purchaseOrders)
       .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId)))
@@ -176,7 +182,7 @@ export class PurchaseOrderService extends BaseService {
     const userId = this.requireUserContext();
 
     // Validate vendor exists
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, input.vendorId))
@@ -195,7 +201,7 @@ export class PurchaseOrderService extends BaseService {
     const totalAmount = new Decimal(subtotal).plus(taxTotal).plus(shippingAmount).toFixed(2);
 
     // Create PO
-    const [po] = await db
+    const [po] = await this.db
       .insert(purchaseOrders)
       .values({
         organizationId,
@@ -232,7 +238,7 @@ export class PurchaseOrderService extends BaseService {
       const line = lines[i];
       const lineNumber = line.lineNumber || i + 1;
 
-      await db.insert(purchaseOrderLines).values({
+      await this.db.insert(purchaseOrderLines).values({
         purchaseOrderId: po.id,
         lineNumber,
         itemId: line.itemId,
@@ -302,7 +308,7 @@ export class PurchaseOrderService extends BaseService {
     }
 
     // Update PO
-    await db
+    await this.db
       .update(purchaseOrders)
       .set({
         expectedDeliveryDate: input.expectedDeliveryDate
@@ -338,10 +344,10 @@ export class PurchaseOrderService extends BaseService {
     }
 
     // Delete lines first (cascade should handle this, but be explicit)
-    await db.delete(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, id));
+    await this.db.delete(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, id));
 
     // Delete PO
-    await db
+    await this.db
       .delete(purchaseOrders)
       .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId)));
 
@@ -375,7 +381,7 @@ export class PurchaseOrderService extends BaseService {
     this.validateStatusTransition(po.status, PurchaseOrderStatus.SUBMITTED);
 
     // Update status
-    await db
+    await this.db
       .update(purchaseOrders)
       .set({
         status: PurchaseOrderStatus.SUBMITTED,
@@ -462,7 +468,7 @@ export class PurchaseOrderService extends BaseService {
       updateData.approvedBy = userId;
     }
 
-    await db
+    await this.db
       .update(purchaseOrders)
       .set(updateData)
       .where(and(
@@ -508,7 +514,7 @@ export class PurchaseOrderService extends BaseService {
     this.validateStatusTransition(po.status, PurchaseOrderStatus.CANCELLED);
 
     // Update status
-    await db
+    await this.db
       .update(purchaseOrders)
       .set({
         status: PurchaseOrderStatus.CANCELLED,
@@ -600,7 +606,7 @@ export class PurchaseOrderService extends BaseService {
     }
 
     // Create receipt
-    const [receipt] = await db
+    const [receipt] = await this.db
       .insert(purchaseOrderReceipts)
       .values({
         organizationId,
@@ -624,7 +630,7 @@ export class PurchaseOrderService extends BaseService {
       const line = input.lines[i];
       const poLine = poLineMap.get(line.purchaseOrderLineId)!;
 
-      await db.insert(purchaseOrderReceiptLines).values({
+      await this.db.insert(purchaseOrderReceiptLines).values({
         receiptId: receipt.id,
         purchaseOrderLineId: line.purchaseOrderLineId,
         lineNumber: i + 1,
@@ -679,7 +685,7 @@ export class PurchaseOrderService extends BaseService {
     // Update PO line quantities
     for (const line of receipt.lines || []) {
       // Update PO line received quantity
-      await db.execute(sql`
+      await this.db.execute(sql`
         UPDATE purchase_order_lines
         SET quantity_received = quantity_received + ${line.quantityReceived}::decimal,
             updated_at = NOW()
@@ -688,7 +694,7 @@ export class PurchaseOrderService extends BaseService {
     }
 
     // Update PO received amount
-    await db.execute(sql`
+    await this.db.execute(sql`
       UPDATE purchase_orders
       SET received_amount = received_amount + ${receipt.totalReceivedValue}::decimal,
           updated_at = NOW()
@@ -696,7 +702,7 @@ export class PurchaseOrderService extends BaseService {
     `);
 
     // Post the receipt
-    await db
+    await this.db
       .update(purchaseOrderReceipts)
       .set({
         status: ReceiptStatus.POSTED,
@@ -731,7 +737,7 @@ export class PurchaseOrderService extends BaseService {
   async getReceiptById(id: string): Promise<ReceiptWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const receipt = await db
+    const receipt = await this.db
       .select()
       .from(purchaseOrderReceipts)
       .where(and(
@@ -780,14 +786,14 @@ export class PurchaseOrderService extends BaseService {
     }
 
     // Count
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(purchaseOrderReceipts)
       .where(and(...conditions));
     const total = Number(countResult[0]?.count || 0);
 
     // Fetch
-    const receipts = await db
+    const receipts = await this.db
       .select()
       .from(purchaseOrderReceipts)
       .where(and(...conditions))
@@ -817,7 +823,7 @@ export class PurchaseOrderService extends BaseService {
       conditions.push(eq(purchaseOrders.subsidiaryId, subsidiaryId));
     }
 
-    const result = await db
+    const result = await this.db
       .select({
         status: purchaseOrders.status,
         count: sql<number>`count(*)`,
@@ -894,7 +900,7 @@ export class PurchaseOrderService extends BaseService {
 
   private async generatePONumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const result = await db.execute(sql`
+    const result = await this.db.execute(sql`
       SELECT COUNT(*) + 1 as seq
       FROM purchase_orders
       WHERE po_number LIKE ${`PO-${year}-%`}
@@ -905,7 +911,7 @@ export class PurchaseOrderService extends BaseService {
 
   private async generateReceiptNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const result = await db.execute(sql`
+    const result = await this.db.execute(sql`
       SELECT COUNT(*) + 1 as seq
       FROM purchase_order_receipts
       WHERE receipt_number LIKE ${`RCV-${year}-%`}
@@ -966,7 +972,7 @@ export class PurchaseOrderService extends BaseService {
     userId: string,
     comments?: string
   ): Promise<void> {
-    await db.insert(purchaseOrderApprovalHistory).values({
+    await this.db.insert(purchaseOrderApprovalHistory).values({
       purchaseOrderId,
       action,
       fromStatus,
@@ -977,7 +983,7 @@ export class PurchaseOrderService extends BaseService {
   }
 
   private async updatePOReceiptStatus(purchaseOrderId: string): Promise<void> {
-    const po = await db
+    const po = await this.db
       .select({
         id: purchaseOrders.id,
         status: purchaseOrders.status,
@@ -1002,7 +1008,7 @@ export class PurchaseOrderService extends BaseService {
     }
 
     if (newStatus && newStatus !== po[0].status) {
-      await db
+      await this.db
         .update(purchaseOrders)
         .set({ status: newStatus, updatedAt: new Date() })
         .where(eq(purchaseOrders.id, purchaseOrderId));
@@ -1014,14 +1020,14 @@ export class PurchaseOrderService extends BaseService {
     includeAll = false
   ): Promise<PurchaseOrderWithDetails> {
     // Get vendor
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, po.vendorId))
       .limit(1);
 
     // Get lines
-    const lines = await db
+    const lines = await this.db
       .select()
       .from(purchaseOrderLines)
       .where(eq(purchaseOrderLines.purchaseOrderId, po.id))
@@ -1029,7 +1035,7 @@ export class PurchaseOrderService extends BaseService {
 
     // Get receipts summary
     const receiptsSummary: ReceiptSummary[] = includeAll
-      ? await db
+      ? await this.db
           .select({
             id: purchaseOrderReceipts.id,
             receiptNumber: purchaseOrderReceipts.receiptNumber,
@@ -1044,7 +1050,7 @@ export class PurchaseOrderService extends BaseService {
 
     // Get approval history
     const approvalHistory = includeAll
-      ? await db
+      ? await this.db
           .select()
           .from(purchaseOrderApprovalHistory)
           .where(eq(purchaseOrderApprovalHistory.purchaseOrderId, po.id))
@@ -1130,14 +1136,14 @@ export class PurchaseOrderService extends BaseService {
     receipt: typeof purchaseOrderReceipts.$inferSelect
   ): Promise<ReceiptWithDetails> {
     // Get PO info
-    const po = await db
+    const po = await this.db
       .select({ id: purchaseOrders.id, poNumber: purchaseOrders.poNumber, vendorId: purchaseOrders.vendorId })
       .from(purchaseOrders)
       .where(eq(purchaseOrders.id, receipt.purchaseOrderId))
       .limit(1);
 
     // Get vendor
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, receipt.vendorId))
@@ -1145,7 +1151,7 @@ export class PurchaseOrderService extends BaseService {
 
     // Get location
     const location = receipt.locationId
-      ? await db
+      ? await this.db
           .select({ id: locations.id, name: locations.name })
           .from(locations)
           .where(eq(locations.id, receipt.locationId))
@@ -1153,7 +1159,7 @@ export class PurchaseOrderService extends BaseService {
       : [];
 
     // Get lines
-    const lines = await db
+    const lines = await this.db
       .select()
       .from(purchaseOrderReceiptLines)
       .where(eq(purchaseOrderReceiptLines.receiptId, receipt.id))

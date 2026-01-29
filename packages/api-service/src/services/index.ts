@@ -1,4 +1,5 @@
 export * from './base-service';
+export * from './service-factory';
 export * from './customer-service';
 export * from './organization-service';
 export * from './subsidiary-service';
