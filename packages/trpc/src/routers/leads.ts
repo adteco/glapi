@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
-import { LeadService } from '@glapi/api-service';
+import { createServiceFactory } from '@glapi/api-service';
 import { leadProspectMetadataSchema } from '@glapi/types';
 
 const leadSchema = z.object({
@@ -30,10 +30,10 @@ export const leadsRouter = router({
   list: authenticatedProcedure
     .input(leadQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
-      const service = new LeadService(ctx.serviceContext, { db: ctx.db });
+      const services = createServiceFactory(ctx);
       const { page = 1, limit = 10, search, isActive } = input;
 
-      return await service.listLeads({
+      return await services.lead.listLeads({
         page,
         limit,
         orderBy: 'name' as const,
@@ -46,23 +46,23 @@ export const leadsRouter = router({
   getById: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new LeadService(ctx.serviceContext, { db: ctx.db });
-      return await service.findById(input.id);
+      const services = createServiceFactory(ctx);
+      return await services.lead.findById(input.id);
     }),
 
   // Alias for getById (some components use get)
   get: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const service = new LeadService(ctx.serviceContext, { db: ctx.db });
-      return await service.findById(input.id);
+      const services = createServiceFactory(ctx);
+      return await services.lead.findById(input.id);
     }),
 
   create: authenticatedProcedure
     .input(leadSchema)
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService(ctx.serviceContext, { db: ctx.db });
-      return await service.createLead({
+      const services = createServiceFactory(ctx);
+      return await services.lead.createLead({
         ...input,
         status: 'active' as const,
         entityTypes: ['Lead'] as const,
@@ -75,21 +75,21 @@ export const leadsRouter = router({
       data: updateLeadSchema,
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService(ctx.serviceContext, { db: ctx.db });
-      return await service.updateLead(input.id, input.data);
+      const services = createServiceFactory(ctx);
+      return await services.lead.updateLead(input.id, input.data);
     }),
 
   delete: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService(ctx.serviceContext, { db: ctx.db });
-      return await service.delete(input.id);
+      const services = createServiceFactory(ctx);
+      return await services.lead.delete(input.id);
     }),
 
   convertToCustomer: authenticatedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const service = new LeadService(ctx.serviceContext, { db: ctx.db });
-      return await service.convertToCustomer(input.id);
+      const services = createServiceFactory(ctx);
+      return await services.lead.convertToCustomer(input.id);
     }),
 });

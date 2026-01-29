@@ -3,7 +3,7 @@ import { BaseService } from './base-service';
 import { ServiceError, type PaginatedResult, type PaginationParams } from '../types';
 import { EventService } from './event-service';
 import { AccountingPeriodService } from './accounting-period-service';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   bankDeposits,
   customerPayments,
@@ -16,6 +16,10 @@ import {
   type NewBankDeposit,
   type NewBankReconciliationException,
 } from '@glapi/database/schema';
+
+export interface BankDepositServiceOptions {
+  db?: ContextualDatabase;
+}
 import type {
   CreateBankDepositInput,
   AddPaymentsToDepositInput,
@@ -100,13 +104,15 @@ export interface DepositPostingValidation {
  * - Track reconciliation exceptions
  */
 export class BankDepositService extends BaseService {
+  private db: ContextualDatabase;
   private eventService: EventService;
   private periodService: AccountingPeriodService;
 
-  constructor(context: { organizationId?: string; userId?: string } = {}) {
+  constructor(context: { organizationId?: string; userId?: string } = {}, options: BankDepositServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
     this.eventService = new EventService(context);
-    this.periodService = new AccountingPeriodService(context);
+    this.periodService = new AccountingPeriodService(context, { db: options.db });
   }
 
   // ==========================================================================
@@ -118,7 +124,7 @@ export class BankDepositService extends BaseService {
     const year = new Date().getFullYear();
     const prefix = `DEP-${year}-`;
 
-    const [result] = await db
+    const [result] = await this.db
       .select({
         maxNumber: sql<string>`MAX(${bankDeposits.depositNumber})`,
       })
@@ -158,7 +164,7 @@ export class BankDepositService extends BaseService {
     // Get bank account name if not provided
     let bankAccountName = input.bankAccountName;
     if (!bankAccountName && input.bankAccountId) {
-      const [account] = await db
+      const [account] = await this.db
         .select({ name: accounts.accountName })
         .from(accounts)
         .where(eq(accounts.id, input.bankAccountId))
@@ -187,7 +193,7 @@ export class BankDepositService extends BaseService {
       createdBy: userId,
     };
 
-    const [deposit] = await db.insert(bankDeposits).values(depositData).returning();
+    const [deposit] = await this.db.insert(bankDeposits).values(depositData).returning();
 
     // Emit event
     await this.eventService.emit({
@@ -239,7 +245,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Validate payments
-    const payments = await db
+    const payments = await this.db
       .select()
       .from(customerPayments)
       .where(
@@ -277,7 +283,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Assign payments to deposit
-    await db
+    await this.db
       .update(customerPayments)
       .set({
         bankDepositId: input.depositId,
@@ -328,7 +334,7 @@ export class BankDepositService extends BaseService {
 
     // Remove payments from deposit
     for (const paymentId of paymentIds) {
-      const [payment] = await db
+      const [payment] = await this.db
         .select()
         .from(customerPayments)
         .where(
@@ -354,7 +360,7 @@ export class BankDepositService extends BaseService {
         newStatus = 'PARTIALLY_APPLIED';
       }
 
-      await db
+      await this.db
         .update(customerPayments)
         .set({
           bankDepositId: null,
@@ -400,7 +406,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Update status
-    await db
+    await this.db
       .update(bankDeposits)
       .set({
         status: 'SUBMITTED',
@@ -453,7 +459,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Remove all payments from deposit first
-    const payments = await db
+    const payments = await this.db
       .select()
       .from(customerPayments)
       .where(eq(customerPayments.bankDepositId, depositId));
@@ -466,7 +472,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Cancel the deposit
-    await db
+    await this.db
       .update(bankDeposits)
       .set({
         status: 'CANCELLED',
@@ -538,7 +544,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Update deposit as reconciled
-    await db
+    await this.db
       .update(bankDeposits)
       .set({
         status: 'RECONCILED',
@@ -555,7 +561,7 @@ export class BankDepositService extends BaseService {
       .where(eq(bankDeposits.id, input.depositId));
 
     // Update all payments in deposit to reconciled status
-    await db
+    await this.db
       .update(customerPayments)
       .set({
         status: 'RECONCILED',
@@ -624,14 +630,14 @@ export class BankDepositService extends BaseService {
       createdBy: userId,
     };
 
-    const [exception] = await db
+    const [exception] = await this.db
       .insert(bankReconciliationExceptions)
       .values(exceptionData)
       .returning();
 
     // Update deposit reconciliation status if linked
     if (input.bankDepositId) {
-      await db
+      await this.db
         .update(bankDeposits)
         .set({
           reconciliationStatus: 'EXCEPTION',
@@ -673,7 +679,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Resolve the exception
-    await db
+    await this.db
       .update(bankReconciliationExceptions)
       .set({
         status: 'RESOLVED',
@@ -685,7 +691,7 @@ export class BankDepositService extends BaseService {
 
     // Check if deposit has any more unresolved exceptions
     if (exception.bankDepositId) {
-      const [unresolved] = await db
+      const [unresolved] = await this.db
         .select({ count: sql<number>`COUNT(*)::int` })
         .from(bankReconciliationExceptions)
         .where(
@@ -696,7 +702,7 @@ export class BankDepositService extends BaseService {
         );
 
       if (unresolved.count === 0) {
-        await db
+        await this.db
           .update(bankDeposits)
           .set({
             reconciliationStatus: 'MATCHED',
@@ -734,7 +740,7 @@ export class BankDepositService extends BaseService {
     const warnings: string[] = [];
 
     // Get deposit
-    const [deposit] = await db
+    const [deposit] = await this.db
       .select()
       .from(bankDeposits)
       .where(
@@ -814,7 +820,7 @@ export class BankDepositService extends BaseService {
     }
 
     // Get deposit details
-    const [deposit] = await db
+    const [deposit] = await this.db
       .select()
       .from(bankDeposits)
       .where(
@@ -874,7 +880,7 @@ export class BankDepositService extends BaseService {
     const glTransactionId = `gl-dep-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Update deposit with GL reference
-    await db
+    await this.db
       .update(bankDeposits)
       .set({
         glTransactionId,
@@ -969,7 +975,7 @@ export class BankDepositService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const accountIds = entries.map((e) => e.accountId);
 
-    const accountsData = await db
+    const accountsData = await this.db
       .select({
         id: accounts.id,
         accountNumber: accounts.accountNumber,
@@ -996,7 +1002,7 @@ export class BankDepositService extends BaseService {
 
   private async updateDepositTotals(depositId: string): Promise<void> {
     // Calculate totals from assigned payments
-    const [totals] = await db
+    const [totals] = await this.db
       .select({
         totalAmount: sql<string>`COALESCE(SUM(CAST(${customerPayments.paymentAmount} AS NUMERIC)), 0)::text`,
         paymentCount: sql<number>`COUNT(*)::int`,
@@ -1004,7 +1010,7 @@ export class BankDepositService extends BaseService {
       .from(customerPayments)
       .where(eq(customerPayments.bankDepositId, depositId));
 
-    await db
+    await this.db
       .update(bankDeposits)
       .set({
         totalAmount: parseFloat(totals?.totalAmount || '0').toFixed(2),
@@ -1024,7 +1030,7 @@ export class BankDepositService extends BaseService {
   async getDepositById(id: string): Promise<BankDepositWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const [result] = await db
+    const [result] = await this.db
       .select({
         deposit: bankDeposits,
         bankAccount: {
@@ -1045,7 +1051,7 @@ export class BankDepositService extends BaseService {
     if (!result) return null;
 
     // Get payments in this deposit
-    const payments = await db
+    const payments = await this.db
       .select({
         payment: customerPayments,
         entity: {
@@ -1111,13 +1117,13 @@ export class BankDepositService extends BaseService {
     const whereClause = and(...conditions);
 
     // Get total count
-    const [{ count }] = await db
+    const [{ count }] = await this.db
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(bankDeposits)
       .where(whereClause);
 
     // Get paginated results
-    const results = await db
+    const results = await this.db
       .select()
       .from(bankDeposits)
       .where(whereClause)
@@ -1145,7 +1151,7 @@ export class BankDepositService extends BaseService {
       conditions.push(eq(bankDeposits.subsidiaryId, subsidiaryId));
     }
 
-    const results = await db
+    const results = await this.db
       .select()
       .from(bankDeposits)
       .where(and(...conditions))
@@ -1165,7 +1171,7 @@ export class BankDepositService extends BaseService {
       : eq(bankDeposits.organizationId, organizationId);
 
     // Get counts and totals by status
-    const [summary] = await db
+    const [summary] = await this.db
       .select({
         openDeposits: sql<number>`COUNT(*) FILTER (WHERE ${bankDeposits.status} = 'OPEN')::int`,
         submittedDeposits: sql<number>`COUNT(*) FILTER (WHERE ${bankDeposits.status} = 'SUBMITTED')::int`,
@@ -1193,7 +1199,7 @@ export class BankDepositService extends BaseService {
   async getUnassignedPayments(subsidiaryId: string): Promise<CustomerPaymentWithDetails[]> {
     const organizationId = this.requireOrganizationContext();
 
-    const payments = await db
+    const payments = await this.db
       .select({
         payment: customerPayments,
         entity: {
@@ -1223,7 +1229,7 @@ export class BankDepositService extends BaseService {
   async getExceptionById(id: string): Promise<ReconciliationExceptionWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const [result] = await db
+    const [result] = await this.db
       .select()
       .from(bankReconciliationExceptions)
       .where(
@@ -1262,13 +1268,13 @@ export class BankDepositService extends BaseService {
     const whereClause = and(...conditions);
 
     // Get total count
-    const [{ count }] = await db
+    const [{ count }] = await this.db
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(bankReconciliationExceptions)
       .where(whereClause);
 
     // Get paginated results
-    const results = await db
+    const results = await this.db
       .select()
       .from(bankReconciliationExceptions)
       .where(whereClause)

@@ -11,10 +11,14 @@ import { GlPostingEngine, PostingContext } from './gl-posting-engine';
 import { AccountingPeriodService } from './accounting-period-service';
 import { EventService, EventCategory, InvoiceEvents } from './event-service';
 import { InvoiceService, InvoiceWithLineItems } from './invoice-service';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import { approvalInstances, approvalActions } from '@glapi/database/schema';
 import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+
+export interface InvoicePostingServiceOptions {
+  db?: ContextualDatabase;
+}
 
 // ============================================================================
 // Types
@@ -91,17 +95,19 @@ export interface InvoicePostingResult {
  * 7. Emit events for audit trail
  */
 export class InvoicePostingService extends BaseService {
+  private db: ContextualDatabase;
   private glPostingEngine: GlPostingEngine;
   private periodService: AccountingPeriodService;
   private eventService: EventService;
   private invoiceService: InvoiceService;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: InvoicePostingServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
     this.glPostingEngine = new GlPostingEngine(context);
-    this.periodService = new AccountingPeriodService(context);
+    this.periodService = new AccountingPeriodService(context, { db: options.db });
     this.eventService = new EventService(context);
-    this.invoiceService = new InvoiceService(context);
+    this.invoiceService = new InvoiceService(context, { db: options.db });
   }
 
   /**
@@ -182,7 +188,7 @@ export class InvoicePostingService extends BaseService {
     }
 
     // Get pending approval instance
-    const [approvalInstance] = await db
+    const [approvalInstance] = await this.db
       .select()
       .from(approvalInstances)
       .where(
@@ -204,7 +210,7 @@ export class InvoicePostingService extends BaseService {
     }
 
     // Record the approval action
-    await db.insert(approvalActions).values({
+    await this.db.insert(approvalActions).values({
       approvalInstanceId: approvalInstance.id,
       actionType: request.action,
       actorId: userId,
@@ -214,7 +220,7 @@ export class InvoicePostingService extends BaseService {
 
     if (request.action === 'APPROVE') {
       // Update approval instance status
-      await db
+      await this.db
         .update(approvalInstances)
         .set({
           status: 'approved',
@@ -251,7 +257,7 @@ export class InvoicePostingService extends BaseService {
       };
     } else if (request.action === 'REJECT') {
       // Update approval instance status
-      await db
+      await this.db
         .update(approvalInstances)
         .set({
           status: 'rejected',
@@ -303,7 +309,7 @@ export class InvoicePostingService extends BaseService {
   }> {
     const organizationId = this.requireOrganizationContext();
 
-    const [approvalInstance] = await db
+    const [approvalInstance] = await this.db
       .select()
       .from(approvalInstances)
       .where(
@@ -324,7 +330,7 @@ export class InvoicePostingService extends BaseService {
       };
     }
 
-    const actions = await db
+    const actions = await this.db
       .select({
         actionType: approvalActions.actionType,
         actorId: approvalActions.actorId,
@@ -474,7 +480,7 @@ export class InvoicePostingService extends BaseService {
   ): Promise<string> {
     const approvalInstanceId = uuidv4();
 
-    await db.insert(approvalInstances).values({
+    await this.db.insert(approvalInstances).values({
       id: approvalInstanceId,
       organizationId,
       workflowType: 'INVOICE_POSTING',

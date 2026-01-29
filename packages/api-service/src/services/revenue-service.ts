@@ -1,12 +1,11 @@
 import { BaseService } from './base-service';
 import { ServiceContext, ServiceError, PaginatedResult } from '../types';
-import { 
+import {
   SubscriptionRepository,
   SubscriptionItemRepository,
   InvoiceRepository,
-  db
-} from '@glapi/database';
-import { 
+  db as globalDb,
+  type ContextualDatabase,
   performanceObligations,
   revenueSchedules,
   contractSspAllocations,
@@ -18,6 +17,10 @@ import {
 } from '@glapi/database';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import { RevenueCalculationEngine, type CalculationResult } from '@glapi/business';
+
+export interface RevenueServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export interface CalculateRevenueOptions {
   forceRecalculation?: boolean;
@@ -74,16 +77,20 @@ export interface RevenueWaterfallInput {
 }
 
 export class RevenueService extends BaseService {
+  private db: ContextualDatabase;
   private subscriptionRepository: SubscriptionRepository;
   private subscriptionItemRepository: SubscriptionItemRepository;
   private invoiceRepository: InvoiceRepository;
   private calculationEngine: RevenueCalculationEngine;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: RevenueServiceOptions = {}) {
     super(context);
-    this.subscriptionRepository = new SubscriptionRepository();
-    this.subscriptionItemRepository = new SubscriptionItemRepository();
-    this.invoiceRepository = new InvoiceRepository();
+    // Use contextual db for RLS support, fall back to global
+    this.db = options.db ?? globalDb;
+    // Pass the contextual db to repositories for RLS support
+    this.subscriptionRepository = new SubscriptionRepository(options.db);
+    this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
+    this.invoiceRepository = new InvoiceRepository(options.db);
     this.calculationEngine = new RevenueCalculationEngine();
   }
 
@@ -157,13 +164,13 @@ export class RevenueService extends BaseService {
     const whereClause = and(...conditions);
     
     const [data, totalResult] = await Promise.all([
-      db.select()
+      this.db.select()
         .from(performanceObligations)
         .where(whereClause)
         .orderBy(desc(performanceObligations.createdAt))
         .limit(take)
         .offset(skip),
-      db.select({ count: sql`count(*)::int`.mapWith(Number) })
+      this.db.select({ count: sql`count(*)::int`.mapWith(Number) })
         .from(performanceObligations)
         .where(whereClause)
     ]);
@@ -174,7 +181,7 @@ export class RevenueService extends BaseService {
   async getPerformanceObligationById(id: string): Promise<PerformanceObligation | null> {
     const organizationId = this.requireOrganizationContext();
     
-    const [result] = await db.select()
+    const [result] = await this.db.select()
       .from(performanceObligations)
       .where(
         and(
@@ -204,7 +211,7 @@ export class RevenueService extends BaseService {
     }
     
     // Update obligation status
-    const [updated] = await db.update(performanceObligations)
+    const [updated] = await this.db.update(performanceObligations)
       .set({
         status: 'satisfied',
         endDate: typeof satisfactionDate === 'string' ? satisfactionDate : satisfactionDate.toISOString().split('T')[0],
@@ -248,13 +255,13 @@ export class RevenueService extends BaseService {
     const whereClause = and(...conditions);
     
     const [data, totalResult] = await Promise.all([
-      db.select()
+      this.db.select()
         .from(revenueSchedules)
         .where(whereClause)
         .orderBy(revenueSchedules.periodStartDate)
         .limit(take)
         .offset(skip),
-      db.select({ count: sql`count(*)::int`.mapWith(Number) })
+      this.db.select({ count: sql`count(*)::int`.mapWith(Number) })
         .from(revenueSchedules)
         .where(whereClause)
     ]);
@@ -265,7 +272,7 @@ export class RevenueService extends BaseService {
   async getRevenueScheduleById(id: string): Promise<RevenueSchedule | null> {
     const organizationId = this.requireOrganizationContext();
     
-    const [result] = await db.select()
+    const [result] = await this.db.select()
       .from(revenueSchedules)
       .where(
         and(
@@ -286,7 +293,7 @@ export class RevenueService extends BaseService {
       throw new ServiceError('Revenue schedule not found', 'NOT_FOUND', 404);
     }
     
-    const [updated] = await db.update(revenueSchedules)
+    const [updated] = await this.db.update(revenueSchedules)
       .set({
         ...data,
         updatedAt: new Date()
@@ -317,7 +324,7 @@ export class RevenueService extends BaseService {
       conditions.push(sql`${revenueSchedules.id} = ANY(${scheduleIds})`);
     }
     
-    const schedulesToRecognize = await db.select()
+    const schedulesToRecognize = await this.db.select()
       .from(revenueSchedules)
       .where(and(...conditions));
     
@@ -334,7 +341,7 @@ export class RevenueService extends BaseService {
     const results = [];
     for (const schedule of schedulesToRecognize) {
       // Update schedule status
-      await db.update(revenueSchedules)
+      await this.db.update(revenueSchedules)
         .set({
           status: 'recognized',
           recognizedAmount: schedule.scheduledAmount,
@@ -344,7 +351,7 @@ export class RevenueService extends BaseService {
         .where(eq(revenueSchedules.id, schedule.id));
       
       // Create journal entry
-      await db.insert(revenueJournalEntries).values({
+      await this.db.insert(revenueJournalEntries).values({
         organizationId,
         revenueScheduleId: schedule.id,
         entryDate: periodDateStr,
@@ -372,7 +379,7 @@ export class RevenueService extends BaseService {
     const dateTrunc = groupBy === 'year' ? 'year' : groupBy === 'quarter' ? 'quarter' : 'month';
 
     // Aggregate recognized revenue by period
-    const recognizedByPeriod = await db.select({
+    const recognizedByPeriod = await this.db.select({
       period: sql`date_trunc(${dateTrunc}, ${revenueSchedules.recognitionDate}::date)::date`.as('period'),
       amount: sql`COALESCE(SUM(${revenueSchedules.recognizedAmount}), 0)::numeric`.mapWith(Number)
     })
@@ -389,7 +396,7 @@ export class RevenueService extends BaseService {
       .orderBy(sql`date_trunc(${dateTrunc}, ${revenueSchedules.recognitionDate}::date)`);
 
     // Get scheduled revenue by period
-    const scheduledByPeriod = await db.select({
+    const scheduledByPeriod = await this.db.select({
       period: sql`date_trunc(${dateTrunc}, ${revenueSchedules.periodStartDate}::date)::date`.as('period'),
       amount: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount}), 0)::numeric`.mapWith(Number)
     })
@@ -406,7 +413,7 @@ export class RevenueService extends BaseService {
       .orderBy(sql`date_trunc(${dateTrunc}, ${revenueSchedules.periodStartDate}::date)`);
 
     // Calculate deferred balance at end of period
-    const [deferredResult] = await db.select({
+    const [deferredResult] = await this.db.select({
       total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount} - COALESCE(${revenueSchedules.recognizedAmount}, 0)), 0)::numeric`.mapWith(Number)
     })
       .from(revenueSchedules)
@@ -467,7 +474,7 @@ export class RevenueService extends BaseService {
     const dateStr = typeof asOfDate === 'string' ? asOfDate : asOfDate.toISOString().split('T')[0];
     
     // Calculate deferred revenue balance
-    const [result] = await db.select({
+    const [result] = await this.db.select({
       total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount} - ${revenueSchedules.recognizedAmount}), 0)::text`.mapWith(String)
     })
       .from(revenueSchedules)
@@ -661,7 +668,7 @@ export class RevenueService extends BaseService {
 
     // Calculate beginning balance (deferred revenue as of start date)
     // This is scheduled revenue that hasn't been recognized yet as of startDate
-    const [beginningBalanceResult] = await db.select({
+    const [beginningBalanceResult] = await this.db.select({
       total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount} - COALESCE(${revenueSchedules.recognizedAmount}, 0)), 0)::numeric`.mapWith(Number)
     })
       .from(revenueSchedules)
@@ -674,7 +681,7 @@ export class RevenueService extends BaseService {
       );
 
     // Calculate new deferrals (revenue scheduled during the period)
-    const [newDeferralsResult] = await db.select({
+    const [newDeferralsResult] = await this.db.select({
       total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount}), 0)::numeric`.mapWith(Number)
     })
       .from(revenueSchedules)
@@ -687,7 +694,7 @@ export class RevenueService extends BaseService {
       );
 
     // Calculate revenue recognized during the period
-    const [recognizedResult] = await db.select({
+    const [recognizedResult] = await this.db.select({
       total: sql`COALESCE(SUM(${revenueSchedules.recognizedAmount}), 0)::numeric`.mapWith(Number)
     })
       .from(revenueSchedules)
@@ -701,7 +708,7 @@ export class RevenueService extends BaseService {
       );
 
     // Calculate ending balance (deferred revenue as of end date)
-    const [endingBalanceResult] = await db.select({
+    const [endingBalanceResult] = await this.db.select({
       total: sql`COALESCE(SUM(${revenueSchedules.scheduledAmount} - COALESCE(${revenueSchedules.recognizedAmount}, 0)), 0)::numeric`.mapWith(Number)
     })
       .from(revenueSchedules)
@@ -719,7 +726,7 @@ export class RevenueService extends BaseService {
     const endingBalance = endingBalanceResult.total || 0;
 
     // Get monthly breakdown for the period
-    const monthlyBreakdown = await db.select({
+    const monthlyBreakdown = await this.db.select({
       month: sql`date_trunc('month', ${revenueSchedules.recognitionDate}::date)::date`.as('month'),
       recognizedAmount: sql`COALESCE(SUM(${revenueSchedules.recognizedAmount}), 0)::numeric`.mapWith(Number)
     })
@@ -834,7 +841,7 @@ export class RevenueService extends BaseService {
     const whereClause = and(...conditions);
     
     const [data, totalResult] = await Promise.all([
-      db.select({
+      this.db.select({
         id: revenueJournalEntries.id,
         entryDate: revenueJournalEntries.entryDate,
         recognizedAmount: revenueJournalEntries.recognizedRevenueAmount,
@@ -848,7 +855,7 @@ export class RevenueService extends BaseService {
         .orderBy(desc(revenueJournalEntries.entryDate), desc(revenueJournalEntries.createdAt))
         .limit(take)
         .offset(skip),
-      db.select({ count: sql`count(*)::int`.mapWith(Number) })
+      this.db.select({ count: sql`count(*)::int`.mapWith(Number) })
         .from(revenueJournalEntries)
         .where(whereClause)
     ]);
@@ -856,7 +863,7 @@ export class RevenueService extends BaseService {
     // Transform the data to include additional context
     const enrichedData = await Promise.all(data.map(async (entry) => {
       // Get schedule details
-      const [schedule] = await db.select({
+      const [schedule] = await this.db.select({
         periodStart: revenueSchedules.periodStartDate,
         periodEnd: revenueSchedules.periodEndDate,
         performanceObligationId: revenueSchedules.performanceObligationId
@@ -867,7 +874,7 @@ export class RevenueService extends BaseService {
       
       let subscriptionInfo = null;
       if (schedule?.performanceObligationId) {
-        const [obligation] = await db.select({
+        const [obligation] = await this.db.select({
           subscriptionId: performanceObligations.subscriptionId,
           itemId: performanceObligations.itemId,
           obligationType: performanceObligations.obligationType
@@ -1087,7 +1094,7 @@ export class RevenueService extends BaseService {
     const dateStr = typeof recognitionDate === 'string' ? recognitionDate : recognitionDate.toISOString().split('T')[0];
     
     // Update all schedules for this obligation to recognized
-    await db.update(revenueSchedules)
+    await this.db.update(revenueSchedules)
       .set({
         status: 'recognized',
         recognizedAmount: revenueSchedules.scheduledAmount,

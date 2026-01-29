@@ -1,13 +1,18 @@
 import { BaseService } from './base-service';
 import { ServiceContext, ServiceError, PaginatedResult } from '../types';
-import { db } from '@glapi/database';
-import { 
+import {
+  db as globalDb,
+  type ContextualDatabase,
   sspEvidence,
   items,
   type SSPEvidence,
   type NewSSPEvidence
 } from '@glapi/database';
 import { eq, and, desc, sql } from 'drizzle-orm';
+
+export interface SSPServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export interface CreateSSPData {
   organizationId?: string;
@@ -39,8 +44,12 @@ export interface CurrentSSPResult {
 }
 
 export class SSPService extends BaseService {
-  constructor(context: ServiceContext = {}) {
+  private db: ContextualDatabase;
+
+  constructor(context: ServiceContext = {}, options: SSPServiceOptions = {}) {
     super(context);
+    // Use contextual db for RLS support, fall back to global (with warning in dev)
+    this.db = options.db ?? globalDb;
   }
 
   async getSSPEvidence(input: ListSSPEvidenceInput = {}): Promise<PaginatedResult<SSPEvidence>> {
@@ -64,13 +73,13 @@ export class SSPService extends BaseService {
     const whereClause = and(...conditions);
     
     const [data, totalResult] = await Promise.all([
-      db.select()
+      this.db.select()
         .from(sspEvidence)
         .where(whereClause)
         .orderBy(desc(sspEvidence.evidenceDate), desc(sspEvidence.createdAt))
         .limit(take)
         .offset(skip),
-      db.select({ count: sql`count(*)::int`.mapWith(Number) })
+      this.db.select({ count: sql`count(*)::int`.mapWith(Number) })
         .from(sspEvidence)
         .where(whereClause)
     ]);
@@ -82,7 +91,7 @@ export class SSPService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     // Validate item exists
-    const [item] = await db.select()
+    const [item] = await this.db.select()
       .from(items)
       .where(
         and(
@@ -109,7 +118,7 @@ export class SSPService extends BaseService {
       isActive: true
     };
     
-    const [created] = await db.insert(sspEvidence)
+    const [created] = await this.db.insert(sspEvidence)
       .values(evidenceToCreate)
       .returning();
     
@@ -123,7 +132,7 @@ export class SSPService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     // Get all active SSP evidence for the item
-    const evidenceList = await db.select()
+    const evidenceList = await this.db.select()
       .from(sspEvidence)
       .where(
         and(
@@ -172,7 +181,7 @@ export class SSPService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     // Verify evidence exists and belongs to organization
-    const [existing] = await db.select()
+    const [existing] = await this.db.select()
       .from(sspEvidence)
       .where(
         and(
@@ -186,7 +195,7 @@ export class SSPService extends BaseService {
       throw new ServiceError('SSP evidence not found', 'NOT_FOUND', 404);
     }
     
-    const [updated] = await db.update(sspEvidence)
+    const [updated] = await this.db.update(sspEvidence)
       .set(data)
       .where(eq(sspEvidence.id, id))
       .returning();
@@ -202,7 +211,7 @@ export class SSPService extends BaseService {
   async deactivateSSPEvidence(id: string): Promise<SSPEvidence | null> {
     const organizationId = this.requireOrganizationContext();
     
-    const [existing] = await db.select()
+    const [existing] = await this.db.select()
       .from(sspEvidence)
       .where(
         and(
@@ -216,7 +225,7 @@ export class SSPService extends BaseService {
       throw new ServiceError('SSP evidence not found', 'NOT_FOUND', 404);
     }
     
-    const [updated] = await db.update(sspEvidence)
+    const [updated] = await this.db.update(sspEvidence)
       .set({ isActive: false })
       .where(eq(sspEvidence.id, id))
       .returning();
@@ -239,7 +248,7 @@ export class SSPService extends BaseService {
       conditions.push(sql`${sspEvidence.itemId} = ANY(${itemIds})`);
     }
     
-    const summary = await db.select({
+    const summary = await this.db.select({
       itemId: sspEvidence.itemId,
       evidenceCount: sql`count(*)::int`.mapWith(Number),
       avgSSP: sql`avg(${sspEvidence.sspAmount})::text`.mapWith(String),
@@ -266,7 +275,7 @@ export class SSPService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     // Get all active evidence
-    const evidence = await db.select()
+    const evidence = await this.db.select()
       .from(sspEvidence)
       .where(
         and(

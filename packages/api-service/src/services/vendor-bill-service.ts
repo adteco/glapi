@@ -40,7 +40,7 @@ import {
   BillApprovalActionType,
   VALID_VENDOR_BILL_TRANSITIONS,
 } from '@glapi/database/schema';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   vendorBills,
   vendorBillLines,
@@ -55,19 +55,25 @@ import {
 import { eq, and, desc, asc, sql, inArray, gte, lte, or, ilike, lt, isNull } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 
+export interface VendorBillServiceOptions {
+  db?: ContextualDatabase;
+}
+
 // ============================================================================
 // Vendor Bill Service
 // ============================================================================
 
 export class VendorBillService extends BaseService {
+  private db: ContextualDatabase;
   private eventService: EventService;
 
   // Tolerance thresholds for 3-way match
   private readonly QUANTITY_TOLERANCE_PERCENT = 0; // 0% tolerance - must match exactly
   private readonly PRICE_TOLERANCE_PERCENT = 0.01; // 1% tolerance for price variances
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: VendorBillServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
     this.eventService = new EventService(context);
   }
 
@@ -142,14 +148,14 @@ export class VendorBillService extends BaseService {
     }
 
     // Count total
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(vendorBills)
       .where(and(...conditions));
     const total = Number(countResult[0]?.count || 0);
 
     // Fetch bills
-    const bills = await db
+    const bills = await this.db
       .select()
       .from(vendorBills)
       .where(and(...conditions))
@@ -171,7 +177,7 @@ export class VendorBillService extends BaseService {
   async getVendorBillById(id: string): Promise<VendorBillWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const bill = await db
+    const bill = await this.db
       .select()
       .from(vendorBills)
       .where(and(eq(vendorBills.id, id), eq(vendorBills.organizationId, organizationId)))
@@ -192,7 +198,7 @@ export class VendorBillService extends BaseService {
     const userId = this.requireUserContext();
 
     // Validate vendor exists
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, input.vendorId))
@@ -216,7 +222,7 @@ export class VendorBillService extends BaseService {
       : ThreeWayMatchStatus.NOT_REQUIRED;
 
     // Create bill
-    const [bill] = await db
+    const [bill] = await this.db
       .insert(vendorBills)
       .values({
         organizationId,
@@ -257,7 +263,7 @@ export class VendorBillService extends BaseService {
       const line = lines[i];
       const lineNumber = line.lineNumber || i + 1;
 
-      await db.insert(vendorBillLines).values({
+      await this.db.insert(vendorBillLines).values({
         vendorBillId: bill.id,
         lineNumber,
         purchaseOrderLineId: line.purchaseOrderLineId,
@@ -309,7 +315,7 @@ export class VendorBillService extends BaseService {
     const userId = this.requireUserContext();
 
     // Get PO
-    const po = await db
+    const po = await this.db
       .select()
       .from(purchaseOrders)
       .where(and(
@@ -332,7 +338,7 @@ export class VendorBillService extends BaseService {
     }
 
     // Get PO lines
-    const poLines = await db
+    const poLines = await this.db
       .select()
       .from(purchaseOrderLines)
       .where(eq(purchaseOrderLines.purchaseOrderId, input.purchaseOrderId))
@@ -433,7 +439,7 @@ export class VendorBillService extends BaseService {
 
       if (billLine.purchaseOrderLineId) {
         // Get PO line
-        const poLine = await db
+        const poLine = await this.db
           .select()
           .from(purchaseOrderLines)
           .where(eq(purchaseOrderLines.id, billLine.purchaseOrderLineId))
@@ -444,7 +450,7 @@ export class VendorBillService extends BaseService {
           lineResult.poUnitPrice = poLine[0].unitPrice;
 
           // Get received quantity for this PO line
-          const receivedResult = await db
+          const receivedResult = await this.db
             .select({ total: sql<string>`sum(quantity_received)` })
             .from(purchaseOrderReceiptLines)
             .where(eq(purchaseOrderReceiptLines.purchaseOrderLineId, billLine.purchaseOrderLineId));
@@ -501,7 +507,7 @@ export class VendorBillService extends BaseService {
       }
 
       // Update line match status in DB
-      await db
+      await this.db
         .update(vendorBillLines)
         .set({
           poQuantity: lineResult.poQuantity,
@@ -522,7 +528,7 @@ export class VendorBillService extends BaseService {
       ? ThreeWayMatchStatus.EXCEPTION
       : ThreeWayMatchStatus.MATCHED;
 
-    await db
+    await this.db
       .update(vendorBills)
       .set({
         threeWayMatchStatus: overallStatus,
@@ -571,7 +577,7 @@ export class VendorBillService extends BaseService {
     }
 
     // Update match status to override
-    await db
+    await this.db
       .update(vendorBills)
       .set({
         threeWayMatchStatus: ThreeWayMatchStatus.OVERRIDE,
@@ -634,7 +640,7 @@ export class VendorBillService extends BaseService {
     }
 
     // Update status
-    await db
+    await this.db
       .update(vendorBills)
       .set({
         status: VendorBillStatus.PENDING_APPROVAL,
@@ -721,7 +727,7 @@ export class VendorBillService extends BaseService {
       updateData.approvedBy = userId;
     }
 
-    await db
+    await this.db
       .update(vendorBills)
       .set(updateData)
       .where(and(
@@ -779,7 +785,7 @@ export class VendorBillService extends BaseService {
     }
 
     // Update status
-    await db
+    await this.db
       .update(vendorBills)
       .set({
         status: VendorBillStatus.VOIDED,
@@ -851,7 +857,7 @@ export class VendorBillService extends BaseService {
       newStatus = VendorBillStatus.PARTIALLY_PAID;
     }
 
-    await db
+    await this.db
       .update(vendorBills)
       .set({
         paidAmount: newPaid.toFixed(2),
@@ -874,7 +880,7 @@ export class VendorBillService extends BaseService {
     const organizationId = this.requireOrganizationContext();
 
     // Get vendor info
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, vendorId))
@@ -885,7 +891,7 @@ export class VendorBillService extends BaseService {
     }
 
     // Get bill totals
-    const billStats = await db
+    const billStats = await this.db
       .select({
         totalOutstanding: sql<string>`sum(balance_due::decimal)`,
         totalOverdue: sql<string>`sum(case when due_date < current_date and balance_due::decimal > 0 then balance_due::decimal else 0 end)`,
@@ -939,7 +945,7 @@ export class VendorBillService extends BaseService {
       conditions.push(eq(vendorBills.subsidiaryId, subsidiaryId));
     }
 
-    const agingResult = await db
+    const agingResult = await this.db
       .select({
         current: sql<string>`sum(case when due_date >= current_date then balance_due::decimal else 0 end)`,
         days1to30: sql<string>`sum(case when due_date < current_date and due_date >= current_date - interval '30 days' then balance_due::decimal else 0 end)`,
@@ -967,7 +973,7 @@ export class VendorBillService extends BaseService {
 
   private async generateBillNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const result = await db.execute(sql`
+    const result = await this.db.execute(sql`
       SELECT COUNT(*) + 1 as seq
       FROM vendor_bills
       WHERE bill_number LIKE ${`BILL-${year}-%`}
@@ -1014,7 +1020,7 @@ export class VendorBillService extends BaseService {
     userId: string,
     comments?: string
   ): Promise<void> {
-    await db.insert(vendorBillApprovalHistory).values({
+    await this.db.insert(vendorBillApprovalHistory).values({
       vendorBillId,
       action,
       fromStatus,
@@ -1025,14 +1031,14 @@ export class VendorBillService extends BaseService {
   }
 
   private async updatePOBilledAmounts(billId: string): Promise<void> {
-    const lines = await db
+    const lines = await this.db
       .select()
       .from(vendorBillLines)
       .where(eq(vendorBillLines.vendorBillId, billId));
 
     for (const line of lines) {
       if (line.purchaseOrderLineId) {
-        await db.execute(sql`
+        await this.db.execute(sql`
           UPDATE purchase_order_lines
           SET quantity_billed = quantity_billed + ${line.quantity}::decimal,
               updated_at = NOW()
@@ -1042,14 +1048,14 @@ export class VendorBillService extends BaseService {
     }
 
     // Update PO header billed amount
-    const bill = await db
+    const bill = await this.db
       .select({ purchaseOrderId: vendorBills.purchaseOrderId, totalAmount: vendorBills.totalAmount })
       .from(vendorBills)
       .where(eq(vendorBills.id, billId))
       .limit(1);
 
     if (bill[0]?.purchaseOrderId) {
-      await db.execute(sql`
+      await this.db.execute(sql`
         UPDATE purchase_orders
         SET billed_amount = billed_amount + ${bill[0].totalAmount}::decimal,
             status = CASE
@@ -1063,14 +1069,14 @@ export class VendorBillService extends BaseService {
   }
 
   private async reversePOBilledAmounts(billId: string): Promise<void> {
-    const lines = await db
+    const lines = await this.db
       .select()
       .from(vendorBillLines)
       .where(eq(vendorBillLines.vendorBillId, billId));
 
     for (const line of lines) {
       if (line.purchaseOrderLineId) {
-        await db.execute(sql`
+        await this.db.execute(sql`
           UPDATE purchase_order_lines
           SET quantity_billed = GREATEST(0, quantity_billed - ${line.quantity}::decimal),
               updated_at = NOW()
@@ -1080,14 +1086,14 @@ export class VendorBillService extends BaseService {
     }
 
     // Update PO header billed amount
-    const bill = await db
+    const bill = await this.db
       .select({ purchaseOrderId: vendorBills.purchaseOrderId, totalAmount: vendorBills.totalAmount })
       .from(vendorBills)
       .where(eq(vendorBills.id, billId))
       .limit(1);
 
     if (bill[0]?.purchaseOrderId) {
-      await db.execute(sql`
+      await this.db.execute(sql`
         UPDATE purchase_orders
         SET billed_amount = GREATEST(0, billed_amount - ${bill[0].totalAmount}::decimal),
             status = CASE
@@ -1105,7 +1111,7 @@ export class VendorBillService extends BaseService {
     includeAll = false
   ): Promise<VendorBillWithDetails> {
     // Get vendor
-    const vendor = await db
+    const vendor = await this.db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(eq(entities.id, bill.vendorId))
@@ -1113,7 +1119,7 @@ export class VendorBillService extends BaseService {
 
     // Get PO if linked
     const po = bill.purchaseOrderId
-      ? await db
+      ? await this.db
           .select({ id: purchaseOrders.id, poNumber: purchaseOrders.poNumber })
           .from(purchaseOrders)
           .where(eq(purchaseOrders.id, bill.purchaseOrderId))
@@ -1121,7 +1127,7 @@ export class VendorBillService extends BaseService {
       : [];
 
     // Get lines
-    const lines = await db
+    const lines = await this.db
       .select()
       .from(vendorBillLines)
       .where(eq(vendorBillLines.vendorBillId, bill.id))
@@ -1129,7 +1135,7 @@ export class VendorBillService extends BaseService {
 
     // Get payment applications if requested
     const paymentApps = includeAll
-      ? await db
+      ? await this.db
           .select()
           .from(billPaymentApplications)
           .where(and(
@@ -1140,7 +1146,7 @@ export class VendorBillService extends BaseService {
 
     // Get approval history if requested
     const approvalHistory = includeAll
-      ? await db
+      ? await this.db
           .select()
           .from(vendorBillApprovalHistory)
           .where(eq(vendorBillApprovalHistory.vendorBillId, bill.id))

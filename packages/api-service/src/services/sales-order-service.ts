@@ -28,7 +28,7 @@ import {
   ApprovalActionType,
   VALID_SALES_ORDER_TRANSITIONS,
 } from '@glapi/database/schema';
-import { db } from '@glapi/database';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import {
   salesOrders,
   salesOrderLines,
@@ -37,21 +37,27 @@ import {
 } from '@glapi/database/schema';
 import { eq, and, desc, asc, sql, inArray, gte, lte, or, ilike } from 'drizzle-orm';
 
+export interface SalesOrderServiceOptions {
+  db?: ContextualDatabase;
+}
+
 // ============================================================================
 // Sales Order Service
 // ============================================================================
 
 export class SalesOrderService extends BaseService {
+  private db: ContextualDatabase;
   private invoiceService: InvoiceService;
   private postingEngine: GlPostingEngine;
   private periodService: AccountingPeriodService;
   private eventService: EventService;
 
-  constructor(context: ServiceContext = {}) {
+  constructor(context: ServiceContext = {}, options: SalesOrderServiceOptions = {}) {
     super(context);
-    this.invoiceService = new InvoiceService(context);
+    this.db = options.db ?? globalDb;
+    this.invoiceService = new InvoiceService(context, { db: options.db });
     this.postingEngine = new GlPostingEngine(context);
-    this.periodService = new AccountingPeriodService(context);
+    this.periodService = new AccountingPeriodService(context, { db: options.db });
     this.eventService = new EventService(context);
   }
 
@@ -121,14 +127,14 @@ export class SalesOrderService extends BaseService {
     }
 
     // Count total
-    const countResult = await db
+    const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(salesOrders)
       .where(and(...conditions));
     const total = Number(countResult[0]?.count || 0);
 
     // Fetch orders
-    const orders = await db
+    const orders = await this.db
       .select()
       .from(salesOrders)
       .where(and(...conditions))
@@ -150,7 +156,7 @@ export class SalesOrderService extends BaseService {
   async getSalesOrderById(id: string): Promise<SalesOrderWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const order = await db
+    const order = await this.db
       .select()
       .from(salesOrders)
       .where(and(eq(salesOrders.id, id), eq(salesOrders.organizationId, organizationId)))
@@ -185,7 +191,7 @@ export class SalesOrderService extends BaseService {
       (input.approvalThreshold && totalAmount >= Number(input.approvalThreshold));
 
     // Create order
-    const [order] = await db
+    const [order] = await this.db
       .insert(salesOrders)
       .values({
         organizationId,
@@ -332,7 +338,7 @@ export class SalesOrderService extends BaseService {
       updateData.previousStatus = SalesOrderStatus.REJECTED;
     }
 
-    await db
+    await this.db
       .update(salesOrders)
       .set(updateData)
       .where(and(eq(salesOrders.id, id), eq(salesOrders.organizationId, organizationId)));
@@ -394,7 +400,7 @@ export class SalesOrderService extends BaseService {
     }
 
     // Update status
-    await db
+    await this.db
       .update(salesOrders)
       .set({
         status: SalesOrderStatus.SUBMITTED,
@@ -481,7 +487,7 @@ export class SalesOrderService extends BaseService {
       updateData.approvedBy = userId;
     }
 
-    await db.update(salesOrders).set(updateData).where(eq(salesOrders.id, id));
+    await this.db.update(salesOrders).set(updateData).where(eq(salesOrders.id, id));
 
     // Record approval history
     await this.recordApprovalAction(id, {
@@ -526,7 +532,7 @@ export class SalesOrderService extends BaseService {
       throw new ServiceError(transition.reason!, 'INVALID_STATUS_TRANSITION', 400);
     }
 
-    await db
+    await this.db
       .update(salesOrders)
       .set({
         status: SalesOrderStatus.ON_HOLD,
@@ -566,7 +572,7 @@ export class SalesOrderService extends BaseService {
     // Return to previous status
     const targetStatus = order.previousStatus || SalesOrderStatus.APPROVED;
 
-    await db
+    await this.db
       .update(salesOrders)
       .set({
         status: targetStatus,
@@ -603,7 +609,7 @@ export class SalesOrderService extends BaseService {
       throw new ServiceError(transition.reason!, 'INVALID_STATUS_TRANSITION', 400);
     }
 
-    await db
+    await this.db
       .update(salesOrders)
       .set({
         status: SalesOrderStatus.CANCELLED,
@@ -643,7 +649,7 @@ export class SalesOrderService extends BaseService {
       throw new ServiceError(transition.reason!, 'INVALID_STATUS_TRANSITION', 400);
     }
 
-    await db
+    await this.db
       .update(salesOrders)
       .set({
         status: SalesOrderStatus.CLOSED,
@@ -751,7 +757,7 @@ export class SalesOrderService extends BaseService {
     });
 
     // Link invoice to order
-    await db.insert(salesOrderInvoices).values({
+    await this.db.insert(salesOrderInvoices).values({
       salesOrderId: order.id,
       invoiceId: invoice.id,
       invoicedAmount: String(totalAmount),
@@ -767,7 +773,7 @@ export class SalesOrderService extends BaseService {
       const newInvoicedQty = Number(line.invoicedQuantity) + invoicedQty;
       const newRemainingQty = Number(line.quantity) - newInvoicedQty;
 
-      await db
+      await this.db
         .update(salesOrderLines)
         .set({
           invoicedQuantity: String(newInvoicedQty),
@@ -788,7 +794,7 @@ export class SalesOrderService extends BaseService {
       ? SalesOrderStatus.FULFILLED
       : SalesOrderStatus.PARTIALLY_FULFILLED;
 
-    await db
+    await this.db
       .update(salesOrders)
       .set({
         invoicedAmount: String(newInvoicedAmount),
@@ -841,21 +847,21 @@ export class SalesOrderService extends BaseService {
    */
   private async enrichOrderWithDetails(order: any): Promise<SalesOrderWithDetails> {
     // Fetch lines
-    const lines = await db
+    const lines = await this.db
       .select()
       .from(salesOrderLines)
       .where(eq(salesOrderLines.salesOrderId, order.id))
       .orderBy(asc(salesOrderLines.lineNumber));
 
     // Fetch approval history
-    const history = await db
+    const history = await this.db
       .select()
       .from(salesOrderApprovalHistory)
       .where(eq(salesOrderApprovalHistory.salesOrderId, order.id))
       .orderBy(desc(salesOrderApprovalHistory.createdAt));
 
     // Fetch invoice links
-    const invoiceLinks = await db
+    const invoiceLinks = await this.db
       .select()
       .from(salesOrderInvoices)
       .where(eq(salesOrderInvoices.salesOrderId, order.id))
@@ -986,7 +992,7 @@ export class SalesOrderService extends BaseService {
 
   private async createOrderLines(orderId: string, lines: any[]): Promise<void> {
     for (const line of lines) {
-      await db.insert(salesOrderLines).values({
+      await this.db.insert(salesOrderLines).values({
         salesOrderId: orderId,
         lineNumber: line.lineNumber,
         itemId: line.itemId,
@@ -1027,14 +1033,14 @@ export class SalesOrderService extends BaseService {
     // Delete lines marked for deletion
     const linesToDelete = inputLines.filter((l) => l._delete && l.id);
     for (const line of linesToDelete) {
-      await db.delete(salesOrderLines).where(eq(salesOrderLines.id, line.id));
+      await this.db.delete(salesOrderLines).where(eq(salesOrderLines.id, line.id));
     }
 
     // Update or create remaining lines
     for (const line of calculatedLines) {
       if (line.id) {
         // Update existing
-        await db
+        await this.db
           .update(salesOrderLines)
           .set({
             lineNumber: line.lineNumber,
@@ -1055,7 +1061,7 @@ export class SalesOrderService extends BaseService {
           .where(eq(salesOrderLines.id, line.id));
       } else {
         // Create new
-        await db.insert(salesOrderLines).values({
+        await this.db.insert(salesOrderLines).values({
           salesOrderId: orderId,
           lineNumber: line.lineNumber,
           itemId: line.itemId,
@@ -1088,7 +1094,7 @@ export class SalesOrderService extends BaseService {
       approvalLevel?: number;
     }
   ): Promise<void> {
-    await db.insert(salesOrderApprovalHistory).values({
+    await this.db.insert(salesOrderApprovalHistory).values({
       salesOrderId: orderId,
       action: data.action,
       fromStatus: data.fromStatus,
