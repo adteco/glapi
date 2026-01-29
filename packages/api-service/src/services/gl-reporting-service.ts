@@ -1,18 +1,23 @@
 import { BaseService } from './base-service';
-import { 
+import {
   GlTransaction,
   GlTransactionLine,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResult,
-  ServiceError
+  ServiceError,
+  ServiceContext,
 } from '../types';
-import { glReportingRepository } from '@glapi/database';
-import type { 
-  GlTransactionPaginationParams, 
+import { db as globalDb, type ContextualDatabase, GlReportingRepository } from '@glapi/database';
+import type {
+  GlTransactionPaginationParams,
   GlTransactionFilters,
   AccountActivityFilters,
-  TrialBalanceFilters 
+  TrialBalanceFilters
 } from '@glapi/database';
+
+export interface GlReportingServiceOptions {
+  db?: ContextualDatabase;
+}
 
 export interface TrialBalanceRequest {
   subsidiaryId?: string;
@@ -106,9 +111,13 @@ export interface GeneralLedgerEntry {
 }
 
 export class GlReportingService extends BaseService {
-  
-  constructor(context = {}) {
+  private db: ContextualDatabase;
+  private repository: GlReportingRepository;
+
+  constructor(context: ServiceContext = {}, options: GlReportingServiceOptions = {}) {
     super(context);
+    this.db = options.db ?? globalDb;
+    this.repository = new GlReportingRepository(this.db);
   }
 
   /**
@@ -164,7 +173,7 @@ export class GlReportingService extends BaseService {
         locationId: request.locationId,
       };
       
-      const result = await glReportingRepository.getTrialBalance(filters, organizationId);
+      const result = await this.repository.getTrialBalance(filters, organizationId);
       
       return {
         periodName: result.periodName,
@@ -219,7 +228,7 @@ export class GlReportingService extends BaseService {
         locationId: request.locationId,
       };
       
-      const result = await glReportingRepository.getAccountActivity(
+      const result = await this.repository.getAccountActivity(
         filters,
         organizationId,
         {
@@ -274,7 +283,7 @@ export class GlReportingService extends BaseService {
         groupBy: request.groupBy,
       };
       
-      const result = await glReportingRepository.getGeneralLedger(
+      const result = await this.repository.getGeneralLedger(
         filters,
         organizationId,
         {
@@ -322,7 +331,7 @@ export class GlReportingService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     try {
-      const result = await glReportingRepository.findGlTransactionById(id, organizationId);
+      const result = await this.repository.findGlTransactionById(id, organizationId);
       
       if (!result) {
         return null;
@@ -345,7 +354,7 @@ export class GlReportingService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     
     try {
-      const result = await glReportingRepository.getGlTransactionLines(transactionId, organizationId);
+      const result = await this.repository.getGlTransactionLines(transactionId, organizationId);
       
       return result.map(line => ({
         id: line.id,
@@ -413,7 +422,7 @@ export class GlReportingService extends BaseService {
         sourceTransactionId: filters.sourceTransactionId,
       };
       
-      const result = await glReportingRepository.findAllGlTransactions(
+      const result = await this.repository.findAllGlTransactions(
         organizationId,
         paginationParams,
         glFilters

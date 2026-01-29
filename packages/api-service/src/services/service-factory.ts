@@ -46,6 +46,12 @@ import { VendorService } from '../entity/vendor-service';
 import { EmployeeService } from '../entity/employee-service';
 import { EntityService } from '../entity/entity-service';
 
+// GL Services (RLS-enabled)
+import { GlTransactionService } from './gl-transaction-service';
+import { GlReportingService } from './gl-reporting-service';
+import { GlPostingEngine } from './gl-posting-engine';
+import { GlBalanceService } from './gl-balance-service';
+
 // Services that don't need RLS context (work at org level)
 import { OrganizationService } from './organization-service';
 import { RevenueService } from './revenue-service';
@@ -102,6 +108,12 @@ export class ServiceFactory {
   private _vendor?: VendorService;
   private _employee?: EmployeeService;
   private _entity?: EntityService;
+
+  // GL services
+  private _glTransaction?: GlTransactionService;
+  private _glReporting?: GlReportingService;
+  private _glPostingEngine?: GlPostingEngine;
+  private _glBalance?: GlBalanceService;
 
   // Non-RLS services
   private _organization?: OrganizationService;
@@ -179,6 +191,38 @@ export class ServiceFactory {
       this._accountingPeriod = new AccountingPeriodService(this.context, { db: this.db });
     }
     return this._accountingPeriod;
+  }
+
+  // ============================================================================
+  // General Ledger Services (RLS-enabled)
+  // ============================================================================
+
+  get glTransaction(): GlTransactionService {
+    if (!this._glTransaction) {
+      this._glTransaction = new GlTransactionService(this.context, { db: this.db });
+    }
+    return this._glTransaction;
+  }
+
+  get glReporting(): GlReportingService {
+    if (!this._glReporting) {
+      this._glReporting = new GlReportingService(this.context, { db: this.db });
+    }
+    return this._glReporting;
+  }
+
+  get glPostingEngine(): GlPostingEngine {
+    if (!this._glPostingEngine) {
+      this._glPostingEngine = new GlPostingEngine(this.context, { db: this.db });
+    }
+    return this._glPostingEngine;
+  }
+
+  get glBalance(): GlBalanceService {
+    if (!this._glBalance) {
+      this._glBalance = new GlBalanceService(this.context, { db: this.db });
+    }
+    return this._glBalance;
   }
 
   // ============================================================================

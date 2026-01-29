@@ -8,6 +8,7 @@ import {
   type CreateGlTransactionInput,
   type CreateGlTransactionLineInput,
   ServiceError,
+  ServiceContext,
   // Double-entry and FX types
   type DoubleEntryValidationResult,
   type DoubleEntryValidationOptions,
@@ -19,7 +20,12 @@ import {
   type GlPostingResult,
   type AccountBalanceUpdate,
 } from '../types';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
 import { AccountingPeriodService } from './accounting-period-service';
+
+export interface GlPostingEngineOptions {
+  db?: ContextualDatabase;
+}
 
 // Re-export for backwards compatibility
 export type { AccountBalanceUpdate, GlPostingResult as PostingResult } from '../types';
@@ -37,6 +43,7 @@ export interface PostingContext {
 }
 
 export class GlPostingEngine extends BaseService {
+  private db: ContextualDatabase;
   private periodService: AccountingPeriodService;
 
   /** Default validation options */
@@ -49,9 +56,10 @@ export class GlPostingEngine extends BaseService {
     checkPeriodStatus: true,
   };
 
-  constructor(context = {}) {
+  constructor(context: ServiceContext = {}, options: GlPostingEngineOptions = {}) {
     super(context);
-    this.periodService = new AccountingPeriodService(context);
+    this.db = options.db ?? globalDb;
+    this.periodService = new AccountingPeriodService(context, { db: options.db });
   }
 
   /**
