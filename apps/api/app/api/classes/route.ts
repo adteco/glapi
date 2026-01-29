@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // POST /api/classes - Create a new class
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating class with context:', context);
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 // GET /api/classes - List all classes with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const classService = new ClassService(context);
     
     // Parse query parameters

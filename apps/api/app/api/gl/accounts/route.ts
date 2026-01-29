@@ -6,7 +6,7 @@ import { isServiceError } from '../../utils/errors';
 // GET /api/gl/accounts - Get all GL accounts
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const accountService = new AccountService(context);
     
     const searchParams = request.nextUrl.searchParams;
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 // POST /api/gl/accounts - Create a new GL account
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     // Validate request body against schema

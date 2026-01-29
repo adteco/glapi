@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 // GET /api/gl/reports/trial-balance
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const reportingService = new GlReportingService(context);
     
     const searchParams = request.nextUrl.searchParams;

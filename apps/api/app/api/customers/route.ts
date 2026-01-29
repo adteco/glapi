@@ -6,7 +6,7 @@ import { handleApiError } from '../utils/errors';
 // POST /api/customers - Create a new customer
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating customer with context:', context);
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 // GET /api/customers - List all customers with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const customerService = new CustomerService(context);
     
     // Parse query parameters

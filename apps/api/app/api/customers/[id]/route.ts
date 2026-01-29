@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const { id } = params;
     
     console.log('CustomerRoutes:getById - Request parameters:', {
@@ -74,7 +74,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const { id } = params;
     const body = await request.json() as any;
     
@@ -130,7 +130,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const { id } = params;
     
     const customerService = new CustomerService(context);

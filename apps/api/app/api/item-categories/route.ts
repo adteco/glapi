@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // GET /api/item-categories - List all item categories
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemCategoriesService(context);
     
     // Parse query parameters

@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // POST /api/employees - Create a new employee
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating employee with context:', context);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 // GET /api/employees - List all employees with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const employeeService = new EmployeeService();
     
     // Parse query parameters

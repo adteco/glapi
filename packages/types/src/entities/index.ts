@@ -222,6 +222,24 @@ export const employeeMetadataSchema = z.object({
 export type EmployeeMetadata = z.infer<typeof employeeMetadataSchema>;
 
 // ============================================================================
+// Social Handles (shared across entity types)
+// ============================================================================
+
+/**
+ * Social handles schema for storing social media profiles
+ */
+export const socialHandlesSchema = z.object({
+  x: z.string().optional(),           // X (formerly Twitter) handle
+  linkedin: z.string().optional(),    // LinkedIn profile URL or username
+  facebook: z.string().optional(),    // Facebook profile
+  instagram: z.string().optional(),   // Instagram handle
+  github: z.string().optional(),      // GitHub username
+  other: z.record(z.string()).optional(), // Other social platforms
+});
+
+export type SocialHandles = z.infer<typeof socialHandlesSchema>;
+
+// ============================================================================
 // Contact Types
 // ============================================================================
 
@@ -241,6 +259,7 @@ export const contactMetadataSchema = z.object({
   mobilePhone: z.string().optional(),
   workPhone: z.string().optional(),
   preferredContactMethod: PreferredContactMethodEnum.optional(),
+  socialHandles: socialHandlesSchema.optional(),
 });
 
 export type ContactMetadata = z.infer<typeof contactMetadataSchema>;
@@ -261,6 +280,7 @@ export const leadProspectMetadataSchema = z.object({
   assignedTo: uuidSchema.optional(),
   convertedDate: z.string().datetime().optional(),
   convertedToId: uuidSchema.optional(),
+  socialHandles: socialHandlesSchema.optional(),
 });
 
 export type LeadProspectMetadata = z.infer<typeof leadProspectMetadataSchema>;

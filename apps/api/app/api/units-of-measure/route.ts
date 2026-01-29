@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // GET /api/units-of-measure - List all units of measure
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new UnitsOfMeasureService(context);
     
     // Parse query parameters
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 // POST /api/units-of-measure - Create a new unit of measure
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     const service = new UnitsOfMeasureService(context);

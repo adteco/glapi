@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemCategoriesService(context);
     
     const result = await service.getCategory(params.id);
@@ -49,7 +49,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     const service = new ItemCategoriesService(context);
@@ -90,7 +90,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemCategoriesService(context);
     
     await service.deleteCategory(params.id);

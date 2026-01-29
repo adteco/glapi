@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemsService(context);
     
     const result = await service.getItemVariants(params.id);
@@ -49,7 +49,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     const service = new ItemsService(context);

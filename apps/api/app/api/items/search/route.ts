@@ -6,7 +6,7 @@ import { isServiceError } from '../../utils/errors';
 // GET /api/items/search - Advanced search for items
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new ItemsService(context);
     
     // Parse query parameters

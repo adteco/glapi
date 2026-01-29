@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // POST /api/vendors - Create a new vendor
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating vendor with context:', context);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 // GET /api/vendors - List all vendors with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const vendorService = new VendorService();
     
     // Parse query parameters

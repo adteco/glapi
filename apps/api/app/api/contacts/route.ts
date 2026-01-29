@@ -6,7 +6,7 @@ import { isServiceError } from '../utils/errors';
 // POST /api/contacts - Create a new contact
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const body = await request.json() as any;
     
     console.log('Creating contact with context:', context);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 // GET /api/contacts - List all contacts with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const contactService = new ContactService();
     
     // Parse query parameters

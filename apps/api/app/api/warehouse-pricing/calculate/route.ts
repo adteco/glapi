@@ -9,7 +9,7 @@ import { getServiceContext } from '../../utils/auth';
  */
 export async function POST(request: NextRequest) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     if (!context) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

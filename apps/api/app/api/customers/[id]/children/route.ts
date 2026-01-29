@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const customerService = new CustomerService(context);
     
     const children = await customerService.getChildCustomers(params.id);

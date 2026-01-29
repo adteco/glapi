@@ -9,7 +9,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new PricingService(context);
     
     const body = await request.json() as any;
@@ -27,7 +27,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const context = getServiceContext();
+    const context = await getServiceContext();
     const service = new PricingService(context);
     
     await service.deleteItemPricing(params.id);
