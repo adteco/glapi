@@ -52,6 +52,7 @@ export const projects = pgTable('projects', {
   projectType: text('project_type'),
   budgetRevenue: numeric('budget_revenue', { precision: 18, scale: 4 }),
   budgetCost: numeric('budget_cost', { precision: 18, scale: 4 }),
+  percentComplete: numeric('percent_complete', { precision: 5, scale: 2 }).default('0'),
   retainagePercent: numeric('retainage_percent', { precision: 5, scale: 2 }).default('0').notNull(),
   currencyCode: text('currency_code'),
   description: text('description'),
