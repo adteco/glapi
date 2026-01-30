@@ -62,6 +62,7 @@ export * from './audit-log-repository';
 
 // Export project repositories
 export * from './project-repository';
+export * from './project-type-repository';
 export * from './project-cost-code-repository';
 export * from './project-budget-repository';
 // TODO: Create project-expense-repository
@@ -147,6 +148,7 @@ import { PermissionRepository } from './permission-repository';
 import { AuditLogRepository } from './audit-log-repository';
 import { EventProjectionRepository } from './event-projection-repository';
 import { ProjectRepository } from './project-repository';
+import { ProjectTypeRepository } from './project-type-repository';
 import { ProjectCostCodeRepository } from './project-cost-code-repository';
 import { ProjectBudgetRepository } from './project-budget-repository';
 import { TimeEntryRepository } from './time-entry-repository';
@@ -201,6 +203,7 @@ export const permissionRepository: PermissionRepository = new PermissionReposito
 export const auditLogRepository: AuditLogRepository = new AuditLogRepository();
 export const eventProjectionRepository: EventProjectionRepository = new EventProjectionRepository();
 export const projectRepository: ProjectRepository = new ProjectRepository();
+export const projectTypeRepository: ProjectTypeRepository = new ProjectTypeRepository();
 export const projectCostCodeRepository: ProjectCostCodeRepository = new ProjectCostCodeRepository();
 export const projectBudgetRepository: ProjectBudgetRepository = new ProjectBudgetRepository();
 export const timeEntryRepository: TimeEntryRepository = new TimeEntryRepository();

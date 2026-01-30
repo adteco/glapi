@@ -14,6 +14,7 @@ const projectStatusEnum = z.enum([
 
 const createProjectSchema = z.object({
   subsidiaryId: z.string().uuid().optional(),
+  customerId: z.string().uuid().optional(),
   projectCode: z.string().min(1).max(50),
   name: z.string().min(1).max(200),
   status: projectStatusEnum.optional(),
@@ -21,6 +22,8 @@ const createProjectSchema = z.object({
   endDate: z.string().optional(),
   jobNumber: z.string().max(50).optional(),
   projectType: z.string().max(50).optional(),
+  budgetRevenue: z.string().optional(),
+  budgetCost: z.string().optional(),
   retainagePercent: z.string().optional(),
   currencyCode: z.string().max(10).optional(),
   description: z.string().max(2000).optional(),
@@ -30,6 +33,7 @@ const createProjectSchema = z.object({
 
 const updateProjectSchema = z.object({
   subsidiaryId: z.string().uuid().optional(),
+  customerId: z.string().uuid().nullable().optional(),
   projectCode: z.string().min(1).max(50).optional(),
   name: z.string().min(1).max(200).optional(),
   status: projectStatusEnum.optional(),
@@ -37,6 +41,8 @@ const updateProjectSchema = z.object({
   endDate: z.string().nullable().optional(),
   jobNumber: z.string().max(50).nullable().optional(),
   projectType: z.string().max(50).nullable().optional(),
+  budgetRevenue: z.string().nullable().optional(),
+  budgetCost: z.string().nullable().optional(),
   retainagePercent: z.string().optional(),
   currencyCode: z.string().max(10).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
@@ -47,6 +53,7 @@ const updateProjectSchema = z.object({
 const projectFiltersSchema = z
   .object({
     subsidiaryId: z.string().uuid().optional(),
+    customerId: z.string().uuid().optional(),
     status: z.union([projectStatusEnum, z.array(projectStatusEnum)]).optional(),
     projectType: z.string().optional(),
     search: z.string().optional(),
@@ -152,11 +159,14 @@ export const projectsRouter = router({
           projectCode: input.projectCode,
           name: input.name,
           subsidiaryId: input.subsidiaryId,
+          customerId: input.customerId,
           status: input.status,
           startDate: input.startDate,
           endDate: input.endDate,
           jobNumber: input.jobNumber,
           projectType: input.projectType,
+          budgetRevenue: input.budgetRevenue,
+          budgetCost: input.budgetCost,
           retainagePercent: input.retainagePercent,
           currencyCode: input.currencyCode,
           description: input.description,

@@ -19,6 +19,7 @@ import * as accounts from './accounts';
 import * as entities from './entities';
 import * as addresses from './addresses';
 import * as projects from './projects';
+import * as projectTypes from './project-types';
 import * as projectProgress from './project-progress';
 import * as transactionTypes from './transaction-types';
 import * as glTransactions from './gl-transactions';
@@ -177,6 +178,7 @@ export const schema = {
   ...entities,
   ...addresses,
   ...projects,
+  ...projectTypes,
   ...projectProgress,
   ...testGl,
   // Items system schemas
@@ -693,6 +695,8 @@ export { departments } from './departments';
 export { classes } from './classes';
 export { subsidiaries } from './subsidiaries';
 export { projects } from './projects';
+export { projectTypes } from './project-types';
+export type { ProjectType, NewProjectType } from './project-types';
 export { organizations } from './organizations';
 
 // Re-export Purchase Order schemas (Procure-to-Pay)
