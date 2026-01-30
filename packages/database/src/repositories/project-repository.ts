@@ -11,6 +11,7 @@ export interface ProjectPaginationParams {
 
 export interface ProjectFilters {
   subsidiaryId?: string;
+  customerId?: string;
   status?: string | string[];
   projectType?: string;
   search?: string;
@@ -21,6 +22,7 @@ export interface ProjectFilters {
 export interface CreateProjectData {
   organizationId: string;
   subsidiaryId?: string;
+  customerId?: string;
   projectCode: string;
   name: string;
   status?: string;
@@ -28,6 +30,8 @@ export interface CreateProjectData {
   endDate?: string;
   jobNumber?: string;
   projectType?: string;
+  budgetRevenue?: string;
+  budgetCost?: string;
   retainagePercent?: string;
   currencyCode?: string;
   description?: string;
@@ -37,6 +41,7 @@ export interface CreateProjectData {
 
 export interface UpdateProjectData {
   subsidiaryId?: string;
+  customerId?: string | null;
   projectCode?: string;
   name?: string;
   status?: string;
@@ -44,6 +49,8 @@ export interface UpdateProjectData {
   endDate?: string | null;
   jobNumber?: string | null;
   projectType?: string | null;
+  budgetRevenue?: string | null;
+  budgetCost?: string | null;
   retainagePercent?: string;
   currencyCode?: string | null;
   description?: string | null;
@@ -109,6 +116,10 @@ export class ProjectRepository extends BaseRepository {
 
     if (filters.subsidiaryId) {
       whereConditions.push(eq(projects.subsidiaryId, filters.subsidiaryId));
+    }
+
+    if (filters.customerId) {
+      whereConditions.push(eq(projects.customerId, filters.customerId));
     }
 
     if (filters.status) {

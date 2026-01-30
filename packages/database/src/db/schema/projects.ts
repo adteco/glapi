@@ -41,6 +41,7 @@ export const projects = pgTable('projects', {
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
   subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
+  customerId: uuid('customer_id').references(() => entities.id),
   projectCode: text('project_code').notNull(),
   name: text('name').notNull(),
   status: text('status').default('planning').notNull(),
@@ -49,6 +50,8 @@ export const projects = pgTable('projects', {
   externalSource: text('external_source'),
   jobNumber: text('job_number'),
   projectType: text('project_type'),
+  budgetRevenue: numeric('budget_revenue', { precision: 18, scale: 4 }),
+  budgetCost: numeric('budget_cost', { precision: 18, scale: 4 }),
   retainagePercent: numeric('retainage_percent', { precision: 5, scale: 2 }).default('0').notNull(),
   currencyCode: text('currency_code'),
   description: text('description'),
@@ -57,6 +60,7 @@ export const projects = pgTable('projects', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   projectCodeIdx: uniqueIndex('idx_projects_org_code').on(table.organizationId, table.projectCode),
+  customerIdx: index('idx_projects_customer').on(table.customerId),
 }));
 
 export const projectParticipants = pgTable('project_participants', {
@@ -202,6 +206,10 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   subsidiary: one(subsidiaries, {
     fields: [projects.subsidiaryId],
     references: [subsidiaries.id],
+  }),
+  customer: one(entities, {
+    fields: [projects.customerId],
+    references: [entities.id],
   }),
   projectParticipants: many(projectParticipants),
   projectCostCodes: many(projectCostCodes),

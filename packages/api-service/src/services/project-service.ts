@@ -6,6 +6,7 @@ export interface Project {
   id: string;
   organizationId: string;
   subsidiaryId: string | null;
+  customerId: string | null;
   projectCode: string;
   name: string;
   status: string;
@@ -13,6 +14,8 @@ export interface Project {
   endDate: string | null;
   jobNumber: string | null;
   projectType: string | null;
+  budgetRevenue: string | null;
+  budgetCost: string | null;
   retainagePercent: string;
   currencyCode: string | null;
   description: string | null;
@@ -42,6 +45,7 @@ export interface ProjectListParams {
 
 export interface ProjectFilters {
   subsidiaryId?: string;
+  customerId?: string;
   status?: string | string[];
   projectType?: string;
   search?: string;
@@ -51,6 +55,7 @@ export interface ProjectFilters {
 
 export interface CreateProjectInput {
   subsidiaryId?: string;
+  customerId?: string;
   projectCode: string;
   name: string;
   status?: string;
@@ -58,6 +63,8 @@ export interface CreateProjectInput {
   endDate?: string;
   jobNumber?: string;
   projectType?: string;
+  budgetRevenue?: string;
+  budgetCost?: string;
   retainagePercent?: string;
   currencyCode?: string;
   description?: string;
@@ -67,6 +74,7 @@ export interface CreateProjectInput {
 
 export interface UpdateProjectInput {
   subsidiaryId?: string;
+  customerId?: string | null;
   projectCode?: string;
   name?: string;
   status?: string;
@@ -74,6 +82,8 @@ export interface UpdateProjectInput {
   endDate?: string | null;
   jobNumber?: string | null;
   projectType?: string | null;
+  budgetRevenue?: string | null;
+  budgetCost?: string | null;
   retainagePercent?: string;
   currencyCode?: string | null;
   description?: string | null;
@@ -352,6 +362,7 @@ export class ProjectService extends BaseService {
       id: row.id,
       organizationId: row.organizationId,
       subsidiaryId: row.subsidiaryId,
+      customerId: row.customerId,
       projectCode: row.projectCode,
       name: row.name,
       status: row.status,
@@ -359,6 +370,8 @@ export class ProjectService extends BaseService {
       endDate: row.endDate,
       jobNumber: row.jobNumber,
       projectType: row.projectType,
+      budgetRevenue: row.budgetRevenue,
+      budgetCost: row.budgetCost,
       retainagePercent: row.retainagePercent,
       currencyCode: row.currencyCode,
       description: row.description,
