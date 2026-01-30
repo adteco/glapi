@@ -41,6 +41,9 @@ const projectSchema = z.object({
   endDate: z.string().optional(),
   jobNumber: z.string().max(50).optional(),
   projectType: z.string().max(50).optional(),
+  customerId: z.string().uuid().optional().nullable(),
+  budgetRevenue: z.string().optional(),
+  budgetCost: z.string().optional(),
   description: z.string().max(2000).optional(),
   currencyCode: z.string().max(10).optional(),
   retainagePercent: z.string().optional(),
@@ -74,11 +77,20 @@ export default function EditProjectPage() {
       endDate: '',
       jobNumber: '',
       projectType: '',
+      customerId: null,
+      budgetRevenue: '',
+      budgetCost: '',
       description: '',
       currencyCode: '',
       retainagePercent: '',
     },
   });
+
+  // Fetch customers for selection
+  const { data: customers = [] } = trpc.customers.list.useQuery(
+    {},
+    { enabled: !!orgId }
+  );
 
   // Fetch project data
   const { data: project, isLoading: projectLoading } = trpc.projects.get.useQuery(
@@ -117,6 +129,9 @@ export default function EditProjectPage() {
         endDate: formatDateForInput(project.endDate),
         jobNumber: project.jobNumber || '',
         projectType: project.projectType || '',
+        customerId: project.customerId || null,
+        budgetRevenue: project.budgetRevenue || '',
+        budgetCost: project.budgetCost || '',
         description: project.description || '',
         currencyCode: project.currencyCode || '',
         retainagePercent: project.retainagePercent || '',
@@ -137,6 +152,9 @@ export default function EditProjectPage() {
           endDate: values.endDate || null,
           jobNumber: values.jobNumber || null,
           projectType: values.projectType || null,
+          customerId: values.customerId || null,
+          budgetRevenue: values.budgetRevenue || null,
+          budgetCost: values.budgetCost || null,
           description: values.description || null,
           currencyCode: values.currencyCode || null,
           retainagePercent: values.retainagePercent || undefined,
@@ -276,6 +294,65 @@ export default function EditProjectPage() {
                       <FormControl>
                         <Input {...field} placeholder="e.g., Construction, Consulting" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="customerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
+                        value={field.value || 'none'}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a customer" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No Customer</SelectItem>
+                          {customers.filter(c => c.id).map(customer => (
+                            <SelectItem key={customer.id} value={customer.id!}>
+                              {customer.companyName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="budgetRevenue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Budget Revenue</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" step="0.01" placeholder="0.00" />
+                      </FormControl>
+                      <FormDescription>Total budgeted revenue for the project</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="budgetCost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Budget Cost</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" step="0.01" placeholder="0.00" />
+                      </FormControl>
+                      <FormDescription>Total budgeted cost for the project</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

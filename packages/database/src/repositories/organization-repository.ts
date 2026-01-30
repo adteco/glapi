@@ -60,12 +60,12 @@ export class OrganizationRepository extends BaseRepository {
    */
   async create(data: any) {
     // Prepare settings as jsonb if present
-    const settings = data.settings ? 
-      (typeof data.settings === 'string' ? 
-        data.settings : 
-        JSON.stringify(data.settings)) : 
+    const settings = data.settings ?
+      (typeof data.settings === 'string' ?
+        data.settings :
+        JSON.stringify(data.settings)) :
       null;
-    
+
     // Create the organization
     const [result] = await this.db
       .insert(organizations)
@@ -74,7 +74,41 @@ export class OrganizationRepository extends BaseRepository {
         settings,
       })
       .returning();
-    
+
+    // Format the result
+    return this.formatOrganization(result);
+  }
+
+  /**
+   * Create a new organization from Clerk
+   * This handles the case where stytch_org_id may have a NOT NULL constraint
+   * by providing a placeholder value for legacy compatibility.
+   */
+  async createFromClerk(data: {
+    clerkOrgId: string;
+    name: string;
+    slug: string;
+    settings?: Record<string, unknown>;
+  }) {
+    // Prepare settings as jsonb if present
+    const settings = data.settings ?
+      (typeof data.settings === 'string' ?
+        data.settings :
+        JSON.stringify(data.settings)) :
+      null;
+
+    // Create the organization with a placeholder stytch_org_id for legacy compatibility
+    const [result] = await this.db
+      .insert(organizations)
+      .values({
+        clerkOrgId: data.clerkOrgId,
+        stytchOrgId: `clerk_migration_${data.clerkOrgId}`, // Placeholder for NOT NULL constraint
+        name: data.name,
+        slug: data.slug,
+        settings,
+      })
+      .returning();
+
     // Format the result
     return this.formatOrganization(result);
   }

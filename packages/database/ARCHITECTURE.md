@@ -121,9 +121,91 @@ All of the following tables have RLS enabled with FORCE and appropriate policies
 
 **DO NOT** disable RLS on any multi-tenant table. If a table has RLS enabled but no policies, queries will return no rows (fail-safe). This is by design - always create appropriate policies rather than disabling RLS.
 
+## Database Migrations
+
+### Migration Strategy
+
+**IMPORTANT: Drizzle Kit migrations (`pnpm db:migrate`) are unreliable in this codebase. Always use direct `psql` execution for migrations.**
+
+### Running Migrations
+
+All migrations are stored in `packages/database/drizzle/` as numbered SQL files (e.g., `0059_project_budget_customer_fields.sql`).
+
+**Required: Use the admin database URL for DDL operations:**
+
+```bash
+# Source the environment variables
+source /path/to/glapi/.env
+
+# Run a migration with admin privileges
+psql "$DATABASE_ADMIN_URL" -f packages/database/drizzle/0059_migration_name.sql
+```
+
+**Why admin URL?**
+- `DATABASE_URL` connects as `glapiuser` which has limited permissions
+- `DATABASE_ADMIN_URL` connects as `postgres` with full DDL privileges
+- Only use admin URL for schema changes (CREATE TABLE, ALTER TABLE, CREATE POLICY, etc.)
+
+### Migration File Naming Convention
+
+Migrations use sequential numbering:
+```
+0059_project_budget_customer_fields.sql
+0060_project_types_lookup.sql
+```
+
+### Writing Migrations
+
+1. **Always use IF NOT EXISTS / IF EXISTS** for idempotency:
+   ```sql
+   CREATE TABLE IF NOT EXISTS "my_table" (...);
+   ALTER TABLE "my_table" ADD COLUMN IF NOT EXISTS "new_column" text;
+   DROP POLICY IF EXISTS "policy_name" ON "my_table";
+   ```
+
+2. **Include RLS policies** for any new table with `organization_id`:
+   ```sql
+   -- Enable RLS
+   ALTER TABLE "my_table" ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE "my_table" FORCE ROW LEVEL SECURITY;
+
+   -- Create policies
+   CREATE POLICY "org_isolation_select_my_table" ON "my_table"
+     FOR SELECT USING (
+       organization_id::text = current_setting('app.current_organization_id', true)
+     );
+   -- ... INSERT, UPDATE, DELETE policies
+   ```
+
+3. **Update schema TypeScript files** in `src/db/schema/` to match the migration
+
+4. **Export new schemas** from `src/db/schema/index.ts`
+
+### Environment Variables
+
+```bash
+# Standard user connection (for application queries)
+DATABASE_URL=postgresql://glapiuser:password@host:5432/glapi?sslmode=require
+
+# Admin connection (for DDL/migrations)
+DATABASE_ADMIN_URL=postgresql://postgres:password@host:5432/glapi?sslmode=require
+```
+
+### Troubleshooting
+
+**"permission denied for schema public"** or **"must be owner of table"**
+- You're using `DATABASE_URL` instead of `DATABASE_ADMIN_URL`
+
+**"relation does not exist"**
+- Run migrations in order (dependencies)
+- Check if previous migrations failed
+
+**RLS policy errors after migration**
+- Ensure policies are created for all CRUD operations
+- Verify the `organization_id` column exists and is the correct type
+
 ## Future Considerations
 - Connection pooling configuration
 - Read replicas support
-- Migration automation
 - Backup strategies
 - Audit logging for sensitive operations

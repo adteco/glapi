@@ -631,7 +631,7 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                         </Link>
                       </li>
                       <li>
-                        <Link href="/construction/projects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/construction/projects') ? activeLinkClass : inactiveLinkClass}`}>
+                        <Link href="/projects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/projects') ? activeLinkClass : inactiveLinkClass}`}>
                           <HardHatIcon className={`h-3 w-3 opacity-75`} />
                           <span>Projects</span>
                         </Link>
