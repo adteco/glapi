@@ -232,6 +232,49 @@
                 ]
             }
         },
+        "database-migrations": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Database schema changes, migrations, and table modifications. Use psql directly (NOT Drizzle Kit) with DATABASE_ADMIN_URL.",
+            "promptTriggers": {
+                "keywords": [
+                    "migration",
+                    "schema change",
+                    "add column",
+                    "create table",
+                    "alter table",
+                    "database change",
+                    "new table",
+                    "add field",
+                    "drizzle migration",
+                    "db:migrate",
+                    "psql"
+                ],
+                "intentPatterns": [
+                    "(create|add|modify|change|update).*?(table|column|field|schema|migration)",
+                    "(run|execute|apply).*?migration",
+                    "(how to|best practice).*?(migration|schema change|add column)",
+                    "database.*?(change|update|modify)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "packages/database/drizzle/*.sql",
+                    "packages/database/src/db/schema/*.ts"
+                ],
+                "contentPatterns": [
+                    "CREATE TABLE",
+                    "ALTER TABLE",
+                    "ADD COLUMN",
+                    "CREATE INDEX",
+                    "CREATE POLICY",
+                    "pgTable\\(",
+                    "\\$inferSelect",
+                    "\\$inferInsert"
+                ]
+            }
+        },
         "error-tracking": {
             "type": "domain",
             "enforcement": "suggest",

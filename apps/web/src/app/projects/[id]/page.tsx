@@ -81,6 +81,12 @@ export default function ProjectDetailPage() {
   );
   const employees = employeesData?.data || [];
 
+  // Fetch customer if project has customerId
+  const { data: customer } = trpc.customers.get.useQuery(
+    { id: project?.customerId as string },
+    { enabled: !!orgId && !!project?.customerId }
+  );
+
   // Create employee lookup map
   const employeeMap = new Map(employees.map((e) => [e.id, e.name]));
 
@@ -249,6 +255,14 @@ export default function ProjectDetailPage() {
     });
   };
 
+  const formatCurrency = (amount: string | null | undefined) => {
+    if (!amount) return 'N/A';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: project?.currencyCode || 'USD',
+    }).format(parseFloat(amount));
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'active':
@@ -327,6 +341,22 @@ export default function ProjectDetailPage() {
               <div>
                 <dt className="text-sm font-medium text-gray-500">Job Number</dt>
                 <dd className="mt-1 text-sm text-gray-900">{project.jobNumber || 'N/A'}</dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-sm font-medium text-gray-500">Customer</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {project.customerId ? (
+                    customer ? customer.companyName : 'Loading...'
+                  ) : 'N/A'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Budget Revenue</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatCurrency(project.budgetRevenue)}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Budget Cost</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatCurrency(project.budgetCost)}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">Status</dt>

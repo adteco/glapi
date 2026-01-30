@@ -278,6 +278,18 @@ export default function ProjectsPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const formatCurrency = (value: string | null | undefined) => {
+    if (!value) return '-';
+    const num = parseFloat(value);
+    if (isNaN(num)) return '-';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(num);
+  };
+
   const getStatusBadgeVariant = (status: ProjectStatus): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (status) {
       case 'active':
@@ -293,16 +305,16 @@ export default function ProjectsPage() {
   };
 
   if (isLoading) {
-    return <div className="container mx-auto py-10"><p>Loading projects...</p></div>;
+    return <div className="h-full p-6"><p>Loading projects...</p></div>;
   }
 
   if (!orgId) {
-    return <div className="container mx-auto py-10"><p>Please select an organization to view projects.</p></div>;
+    return <div className="h-full p-6"><p>Please select an organization to view projects.</p></div>;
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <Card>
+    <div className="h-full p-6 flex flex-col">
+      <Card className="flex-1 flex flex-col overflow-hidden">
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
@@ -336,68 +348,74 @@ export default function ProjectsPage() {
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {projects.map((project) => (
-                <TableRow key={project.id}>
-                  <TableCell className="font-medium">{project.projectCode}</TableCell>
-                  <TableCell>{project.name}</TableCell>
-                  <TableCell>{project.projectType || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(project.status)}>
-                      {statusOptions.find(s => s.value === project.status)?.label || project.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(project.startDate)}</TableCell>
-                  <TableCell>{formatDate(project.endDate)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.push(`/projects/${project.id}`)}
-                        title="View details"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span className="sr-only">View</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(project)}
-                        title="Edit project"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(project.id)}
-                        title="Delete project"
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete</span>
-                      </Button>
-                    </div>
-                  </TableCell>
+        <CardContent className="flex-1 overflow-auto">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Budget Revenue</TableHead>
+                  <TableHead className="text-right">Budget Cost</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>End Date</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {projects.map((project) => (
+                  <TableRow key={project.id}>
+                    <TableCell className="font-medium">{project.projectCode}</TableCell>
+                    <TableCell>{project.name}</TableCell>
+                    <TableCell>{project.projectType || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(project.status)}>
+                        {statusOptions.find(s => s.value === project.status)?.label || project.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(project.budgetRevenue)}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(project.budgetCost)}</TableCell>
+                    <TableCell>{formatDate(project.startDate)}</TableCell>
+                    <TableCell>{formatDate(project.endDate)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => router.push(`/projects/${project.id}`)}
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(project)}
+                          title="Edit project"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(project.id)}
+                          title="Delete project"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
           {projects.length === 0 && (
             <div className="text-center py-10 text-gray-500">
