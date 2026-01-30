@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import {
   Table,
@@ -99,12 +100,15 @@ const entryTypes = [
 
 export default function ProjectTimePage() {
   const { orgId } = useAuth();
+  const searchParams = useSearchParams();
+  const initialProjectId = searchParams.get('projectId');
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<TimeEntry | null>(null);
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
-  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>(initialProjectId || 'all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Get current week dates

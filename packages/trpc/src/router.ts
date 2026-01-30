@@ -28,6 +28,7 @@ import { projectBudgetsRouter } from './routers/project-budgets';
 import { projectsRouter } from './routers/projects';
 import { projectTypesRouter } from './routers/project-types';
 import { projectReportingRouter } from './routers/project-reporting';
+import { projectAnalyticsRouter } from './routers/project-analytics';
 import { timeEntriesRouter } from './routers/time-entries';
 import { expenseEntriesRouter } from './routers/expense-entries';
 import { closeManagementRouter } from './routers/close-management';
@@ -87,6 +88,7 @@ export const appRouter = router({
   projectCostCodes: projectCostCodesRouter,
   projectBudgets: projectBudgetsRouter,
   projectReporting: projectReportingRouter,
+  projectAnalytics: projectAnalyticsRouter,
   timeEntries: timeEntriesRouter,
   expenseEntries: expenseEntriesRouter,
   closeManagement: closeManagementRouter,
