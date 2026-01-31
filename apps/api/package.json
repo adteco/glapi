@@ -16,6 +16,7 @@
     "@clerk/backend": "^2.17.2",
     "@glapi/api-service": "workspace:*",
     "@glapi/database": "workspace:*",
+    "@glapi/shared-types": "workspace:*",
     "@glapi/trpc": "workspace:*",
     "@tanstack/react-query": "^5.81.5",
     "@trpc/client": "^11.4.3",
