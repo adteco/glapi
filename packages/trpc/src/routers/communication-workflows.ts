@@ -369,8 +369,8 @@ export const communicationWorkflowsRouter = router({
           filterConditions: input.filterConditions as FilterConditions | undefined,
           isTemplate: input.isTemplate,
           isActive: false,
-          createdBy: ctx.user?.id,
-          updatedBy: ctx.user?.id,
+          createdBy: ctx.user?.entityId ?? null,
+          updatedBy: ctx.user?.entityId ?? null,
         })
         .returning();
 
@@ -483,8 +483,8 @@ export const communicationWorkflowsRouter = router({
           filterConditions: original.filterConditions,
           isTemplate: false,
           isActive: false,
-          createdBy: ctx.user?.id,
-          updatedBy: ctx.user?.id,
+          createdBy: ctx.user?.entityId ?? null,
+          updatedBy: ctx.user?.entityId ?? null,
         })
         .returning();
 

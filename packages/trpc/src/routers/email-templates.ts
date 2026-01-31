@@ -329,8 +329,8 @@ export const emailTemplatesRouter = router({
           fromName: input.fromName,
           fromEmail: input.fromEmail,
           replyTo: input.replyTo,
-          createdBy: ctx.user?.id,
-          updatedBy: ctx.user?.id,
+          createdBy: ctx.user?.entityId ?? null,
+          updatedBy: ctx.user?.entityId ?? null,
         })
         .returning();
 
@@ -446,8 +446,8 @@ export const emailTemplatesRouter = router({
           fromName: original.fromName,
           fromEmail: original.fromEmail,
           replyTo: original.replyTo,
-          createdBy: ctx.user?.id,
-          updatedBy: ctx.user?.id,
+          createdBy: ctx.user?.entityId ?? null,
+          updatedBy: ctx.user?.entityId ?? null,
         })
         .returning();
 

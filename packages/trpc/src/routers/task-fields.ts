@@ -277,7 +277,7 @@ export const taskFieldsRouter = router({
           placeholder: input.placeholder ?? null,
           helpText: input.helpText ?? null,
           displayOrder: input.displayOrder,
-          createdBy: ctx.user?.id ?? null,
+          createdBy: ctx.user?.entityId ?? null,
         })
         .returning();
 
