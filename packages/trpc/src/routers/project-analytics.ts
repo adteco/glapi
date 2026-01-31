@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { db as globalDb } from '@glapi/database';
-import { projects, timeEntries, entities } from '@glapi/database/schema';
-import { eq, and, sql, inArray, isNotNull } from 'drizzle-orm';
+import { projects, timeEntries, entities, businessTransactions, transactionTypes } from '@glapi/database/schema';
+import { eq, and, sql, inArray, isNotNull, ne } from 'drizzle-orm';
 
 /**
  * Project Analytics Router
@@ -67,8 +67,8 @@ export const projectAnalyticsRouter = router({
       .groupBy(timeEntries.projectId);
 
     // Create lookup maps
-    const billedMap = new Map(billedByProject.map(b => [b.projectId, parseFloat(b.totalBilled) || 0]));
-    const pendingMap = new Map(pendingByProject.map(p => [p.projectId, parseFloat(p.totalPending) || 0]));
+    const billedMap = new Map<string | null, number>(billedByProject.map(b => [b.projectId, parseFloat(b.totalBilled) || 0]));
+    const pendingMap = new Map<string | null, number>(pendingByProject.map(p => [p.projectId, parseFloat(p.totalPending) || 0]));
 
     // Aggregate by customer
     const customerBacklog = new Map<string, { customerId: string; customerName: string; backlogValue: number; projectCount: number }>();
@@ -196,6 +196,139 @@ export const projectAnalyticsRouter = router({
 
     return {
       data: results,
+    };
+  }),
+
+  /**
+   * Get unfulfilled sales orders by customer
+   * Unfulfilled = total sales order amount - total invoiced amount (where invoice.parentTransactionId = salesOrder.id)
+   */
+  getUnfulfilledSalesOrdersByCustomer: authenticatedProcedure.query(async ({ ctx }) => {
+    const db = ctx.db || globalDb;
+
+    // Get SALES_ORDER transaction type ID
+    const salesOrderType = await db
+      .select({ id: transactionTypes.id })
+      .from(transactionTypes)
+      .where(eq(transactionTypes.typeCode, 'SALES_ORDER'))
+      .limit(1);
+
+    if (!salesOrderType.length) {
+      return { data: [], total: 0 };
+    }
+
+    // Get INVOICE transaction type ID
+    const invoiceType = await db
+      .select({ id: transactionTypes.id })
+      .from(transactionTypes)
+      .where(eq(transactionTypes.typeCode, 'INVOICE'))
+      .limit(1);
+
+    const salesOrderTypeId = salesOrderType[0].id;
+    const invoiceTypeId = invoiceType[0]?.id;
+
+    // Get all open sales orders with their total amounts
+    const salesOrders = await db
+      .select({
+        id: businessTransactions.id,
+        entityId: businessTransactions.entityId,
+        totalAmount: businessTransactions.totalAmount,
+        status: businessTransactions.status,
+      })
+      .from(businessTransactions)
+      .where(
+        and(
+          eq(businessTransactions.transactionTypeId, salesOrderTypeId),
+          eq(businessTransactions.subsidiaryId, ctx.organizationId),
+          ne(businessTransactions.status, 'CANCELLED'),
+          ne(businessTransactions.status, 'CLOSED')
+        )
+      );
+
+    if (!salesOrders.length) {
+      return { data: [], total: 0 };
+    }
+
+    // Get invoiced amounts for each sales order (invoices linked via parentTransactionId)
+    const invoicedAmounts = invoiceTypeId ? await db
+      .select({
+        parentId: businessTransactions.parentTransactionId,
+        invoicedAmount: sql<string>`SUM(${businessTransactions.totalAmount})`.as('invoicedAmount'),
+      })
+      .from(businessTransactions)
+      .where(
+        and(
+          eq(businessTransactions.transactionTypeId, invoiceTypeId),
+          ne(businessTransactions.status, 'CANCELLED'),
+          inArray(
+            businessTransactions.parentTransactionId,
+            salesOrders.map(so => so.id)
+          )
+        )
+      )
+      .groupBy(businessTransactions.parentTransactionId) : [];
+
+    // Create lookup map for invoiced amounts
+    const invoicedMap = new Map<string, number>(
+      invoicedAmounts
+        .filter(inv => inv.parentId)
+        .map(inv => [inv.parentId!, parseFloat(inv.invoicedAmount) || 0])
+    );
+
+    // Get entity names
+    const entityIds = [...new Set(salesOrders.map(so => so.entityId).filter(Boolean))];
+    const entityList = entityIds.length > 0 ? await db
+      .select({ id: entities.id, name: entities.name })
+      .from(entities)
+      .where(inArray(entities.id, entityIds as string[])) : [];
+
+    const entityMap = new Map<string, string | null>(entityList.map(e => [e.id, e.name]));
+
+    // Aggregate by customer
+    const customerData = new Map<string, {
+      customerId: string;
+      customerName: string;
+      orderCount: number;
+      totalOrdered: number;
+      totalInvoiced: number;
+      unfulfilledAmount: number;
+    }>();
+
+    for (const so of salesOrders) {
+      if (!so.entityId) continue;
+
+      const ordered = parseFloat(so.totalAmount || '0') || 0;
+      const invoiced = invoicedMap.get(so.id) || 0;
+      const unfulfilled = ordered - invoiced;
+
+      if (unfulfilled <= 0) continue; // Skip fully invoiced orders
+
+      const existing = customerData.get(so.entityId);
+      if (existing) {
+        existing.orderCount += 1;
+        existing.totalOrdered += ordered;
+        existing.totalInvoiced += invoiced;
+        existing.unfulfilledAmount += unfulfilled;
+      } else {
+        customerData.set(so.entityId, {
+          customerId: so.entityId,
+          customerName: entityMap.get(so.entityId) || 'Unknown',
+          orderCount: 1,
+          totalOrdered: ordered,
+          totalInvoiced: invoiced,
+          unfulfilledAmount: unfulfilled,
+        });
+      }
+    }
+
+    const results = Array.from(customerData.values())
+      .sort((a, b) => b.unfulfilledAmount - a.unfulfilledAmount);
+
+    const total = results.reduce((sum, c) => sum + c.unfulfilledAmount, 0);
+
+    return {
+      data: results,
+      total,
     };
   }),
 });

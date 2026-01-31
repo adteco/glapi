@@ -20,13 +20,21 @@
 -- ============================================================================
 
 -- Check price_list organization ownership
+-- NOTE: Uses ::text cast because get_current_organization_id() returns TEXT
 CREATE OR REPLACE FUNCTION check_price_list_org(pl_id UUID)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM price_lists
     WHERE id = pl_id
-    AND organization_id = get_current_organization_id()
+    AND organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -34,11 +42,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Check accounting_list organization ownership
 CREATE OR REPLACE FUNCTION check_accounting_list_org(al_id UUID)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM accounting_lists
     WHERE id = al_id
-    AND organization_id = get_current_organization_id()
+    AND organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -46,11 +61,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Check contract_modification organization ownership
 CREATE OR REPLACE FUNCTION check_contract_modification_org(cm_id TEXT)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM contract_modifications
     WHERE id = cm_id
-    AND organization_id = get_current_organization_id()
+    AND organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -58,11 +80,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Check entity organization ownership
 CREATE OR REPLACE FUNCTION check_entity_org(e_id UUID)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM entities
     WHERE id = e_id
-    AND organization_id = get_current_organization_id()
+    AND organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -70,11 +99,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Check warehouse organization ownership
 CREATE OR REPLACE FUNCTION check_warehouse_org(w_id UUID)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM warehouses
     WHERE id = w_id
-    AND organization_id = get_current_organization_id()
+    AND organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -82,12 +118,19 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Check business_transaction organization ownership (via entity)
 CREATE OR REPLACE FUNCTION check_business_transaction_org(bt_id UUID)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM business_transactions bt
     JOIN entities e ON bt.entity_id = e.id
     WHERE bt.id = bt_id
-    AND e.organization_id = get_current_organization_id()
+    AND e.organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

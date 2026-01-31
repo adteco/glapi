@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 import type { RouterOutputs } from '@glapi/trpc';
-import { Eye, Pencil, Trash2, Plus, Clock, Check, X } from 'lucide-react';
+import { Eye, Pencil, Trash2, Plus, Clock, Check, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Use TRPC inferred types to prevent type drift
@@ -702,6 +702,15 @@ export default function ProjectsPage() {
                         >
                           <Clock className="h-4 w-4" />
                           <span className="sr-only">Time</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => router.push(`/transactions/sales/estimates?projectId=${project.id}`)}
+                          title="View estimates"
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span className="sr-only">Estimates</span>
                         </Button>
                         <Button
                           variant="ghost"
