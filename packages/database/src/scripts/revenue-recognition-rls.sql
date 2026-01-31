@@ -31,13 +31,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Check performance_obligation organization via contract_line_items -> contracts
 CREATE OR REPLACE FUNCTION check_performance_obligation_organization(po_id TEXT)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM performance_obligations po
     JOIN contract_line_items cli ON po.contract_line_item_id = cli.id
     JOIN contracts c ON cli.contract_id = c.id
     WHERE po.id = po_id
-    AND c.organization_id = get_current_organization_id()
+    AND c.organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -45,14 +52,21 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Check revenue_schedule organization via performance_obligations chain
 CREATE OR REPLACE FUNCTION check_revenue_schedule_organization(rs_id TEXT)
 RETURNS BOOLEAN AS $$
+DECLARE
+  org_id_text TEXT;
 BEGIN
+  org_id_text := get_current_organization_id();
+  IF org_id_text IS NULL OR org_id_text = '' THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM revenue_schedules rs
     JOIN performance_obligations po ON rs.performance_obligation_id = po.id
     JOIN contract_line_items cli ON po.contract_line_item_id = cli.id
     JOIN contracts c ON cli.contract_id = c.id
     WHERE rs.id = rs_id
-    AND c.organization_id = get_current_organization_id()
+    AND c.organization_id::text = org_id_text
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
