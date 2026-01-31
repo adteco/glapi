@@ -2,7 +2,7 @@ import { pgTable, text, boolean, timestamp, uniqueIndex, date, uuid, integer, de
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
-import { users } from './users';
+import { entities } from './entities';
 
 /**
  * Period status lifecycle:
@@ -87,30 +87,30 @@ export const accountingPeriodsRelations = relations(accountingPeriods, ({ one })
     fields: [accountingPeriods.subsidiaryId],
     references: [subsidiaries.id],
   }),
-  softClosedByUser: one(users, {
+  softClosedByEntity: one(entities, {
     fields: [accountingPeriods.softClosedBy],
-    references: [users.id],
-    relationName: 'softClosedByUser',
+    references: [entities.id],
+    relationName: 'softClosedByEntity',
   }),
-  closedByUser: one(users, {
+  closedByEntity: one(entities, {
     fields: [accountingPeriods.closedBy],
-    references: [users.id],
-    relationName: 'closedByUser',
+    references: [entities.id],
+    relationName: 'closedByEntity',
   }),
-  lockedByUser: one(users, {
+  lockedByEntity: one(entities, {
     fields: [accountingPeriods.lockedBy],
-    references: [users.id],
-    relationName: 'lockedByUser',
+    references: [entities.id],
+    relationName: 'lockedByEntity',
   }),
-  createdByUser: one(users, {
+  createdByEntity: one(entities, {
     fields: [accountingPeriods.createdBy],
-    references: [users.id],
-    relationName: 'periodCreatedByUser',
+    references: [entities.id],
+    relationName: 'periodCreatedByEntity',
   }),
-  modifiedByUser: one(users, {
+  modifiedByEntity: one(entities, {
     fields: [accountingPeriods.modifiedBy],
-    references: [users.id],
-    relationName: 'periodModifiedByUser',
+    references: [entities.id],
+    relationName: 'periodModifiedByEntity',
   }),
   // glTransactions and glAccountBalances relations should be defined in their respective files
 }));
