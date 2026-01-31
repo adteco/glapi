@@ -433,7 +433,7 @@ export const communicationEventsRouter = router({
           status: input.scheduledAt ? 'pending' : 'queued',
           scheduledAt: input.scheduledAt,
           queuedAt: input.scheduledAt ? null : new Date(),
-          createdBy: ctx.user?.id,
+          createdBy: ctx.user?.entityId ?? null,
         })
         .returning();
 

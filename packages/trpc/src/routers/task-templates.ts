@@ -315,7 +315,7 @@ export const taskTemplatesRouter = router({
           entityTypes: input.entityTypes,
           templateData: toTaskTemplateData(input.templateData),
           category: input.category,
-          createdBy: ctx.user?.id ?? null,
+          createdBy: ctx.user?.entityId ?? null,
         })
         .returning();
 
@@ -459,7 +459,7 @@ export const taskTemplatesRouter = router({
           category: sourceTemplate.category,
           isActive: true,
           usageCount: 0,
-          createdBy: ctx.user?.id ?? null,
+          createdBy: ctx.user?.entityId ?? null,
         })
         .returning();
 
@@ -550,7 +550,7 @@ export const taskTemplatesRouter = router({
             sortOrder: templateTask.sortOrder,
             customFieldValues: templateTask.customFieldValues ?? {},
             assigneeId: input.assigneeId,
-            createdBy: ctx.user?.id ?? null,
+            createdBy: ctx.user?.entityId ?? null,
           })
           .returning();
 
