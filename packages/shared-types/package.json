@@ -1,0 +1,32 @@
+{
+  "name": "@glapi/shared-types",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared type definitions for GLAPI - branded types for type-safe ID handling",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./ids": {
+      "types": "./src/ids.ts",
+      "import": "./dist/ids.js",
+      "require": "./dist/ids.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
+  }
+}
