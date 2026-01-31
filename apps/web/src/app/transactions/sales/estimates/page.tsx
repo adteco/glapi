@@ -400,7 +400,14 @@ function EstimatesPageContent() {
           ) : (
             estimates.map((estimate: Estimate) => (
               <TableRow key={estimate.id}>
-                <TableCell className="font-medium">{estimate.transactionNumber}</TableCell>
+                <TableCell className="font-medium">
+                <button
+                  onClick={() => router.push(`/transactions/sales/estimates/${estimate.id}`)}
+                  className="text-primary hover:underline cursor-pointer"
+                >
+                  {estimate.transactionNumber}
+                </button>
+              </TableCell>
                 <TableCell>{estimate.customerName || 'Unknown'}</TableCell>
                 <TableCell>{formatDate(estimate.transactionDate)}</TableCell>
                 <TableCell>{formatDate(estimate.estimateValidUntil)}</TableCell>
