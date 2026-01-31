@@ -68,6 +68,9 @@ importers:
       '@glapi/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@glapi/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       '@glapi/trpc':
         specifier: workspace:*
         version: link:../../packages/trpc
@@ -813,6 +816,9 @@ importers:
       '@glapi/database':
         specifier: workspace:*
         version: link:../database
+      '@glapi/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
       '@glapi/types':
         specifier: workspace:*
         version: link:../types
