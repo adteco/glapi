@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
@@ -71,6 +72,7 @@ const salesOrderFormSchema = z.object({
 type SalesOrderFormValues = z.infer<typeof salesOrderFormSchema>;
 
 export default function SalesOrdersPage() {
+  const router = useRouter();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -298,7 +300,14 @@ export default function SalesOrdersPage() {
             ) : (
               salesOrders.map((order: any) => (
                 <TableRow key={order.id} data-testid={`sales-order-row-${order.orderNumber}`}>
-                  <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                  <TableCell className="font-medium">
+                    <button
+                      onClick={() => router.push(`/transactions/sales/sales-orders/${order.id}`)}
+                      className="text-primary hover:underline cursor-pointer"
+                    >
+                      {order.orderNumber}
+                    </button>
+                  </TableCell>
                   <TableCell>{order.customerName || order.entityId}</TableCell>
                   <TableCell>{new Date(order.orderDate).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
@@ -698,7 +707,7 @@ export default function SalesOrdersPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Customer</label>
-                  <p className="text-sm">{selectedOrder.customerName || selectedOrder.entityId}</p>
+                  <p className="text-sm">{selectedOrder.entity?.name || selectedOrder.entityId}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Order Date</label>
@@ -740,7 +749,7 @@ export default function SalesOrdersPage() {
                   </Table>
                 </div>
               )}
-              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+              <div className="flex justify-between items-center bg-muted p-4 rounded-lg">
                 <span className="text-lg font-semibold">Total Amount</span>
                 <span className="text-lg font-bold">
                   ${parseFloat(selectedOrder.totalAmount || '0').toFixed(2)}

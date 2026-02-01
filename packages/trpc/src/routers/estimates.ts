@@ -1162,4 +1162,170 @@ export const estimatesRouter = router({
 
       return invoice;
     }),
+
+  /**
+   * Get child transactions (e.g., sales orders converted from this estimate, invoices from sales order)
+   */
+  getChildTransactions: authenticatedProcedure
+    .input(z.object({
+      parentId: z.string().uuid(),
+      typeCode: z.string().optional(), // Optional filter by type code
+    }))
+    .query(async ({ ctx, input }) => {
+      const { db, serviceContext } = ctx;
+
+      if (!serviceContext?.organizationId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Organization context required',
+        });
+      }
+
+      const whereConditions = [
+        eq(businessTransactions.parentTransactionId, input.parentId),
+        eq(businessTransactions.subsidiaryId, serviceContext.organizationId),
+      ];
+
+      // If type code filter is provided, add it
+      if (input.typeCode) {
+        const transType = await db
+          .select({ id: transactionTypes.id })
+          .from(transactionTypes)
+          .where(eq(transactionTypes.typeCode, input.typeCode))
+          .limit(1);
+
+        if (transType[0]) {
+          whereConditions.push(eq(businessTransactions.transactionTypeId, transType[0].id));
+        }
+      }
+
+      const children = await db
+        .select({
+          id: businessTransactions.id,
+          transactionNumber: businessTransactions.transactionNumber,
+          transactionDate: businessTransactions.transactionDate,
+          totalAmount: businessTransactions.totalAmount,
+          status: businessTransactions.status,
+          typeCode: transactionTypes.typeCode,
+          typeName: transactionTypes.name,
+          entityName: entities.name,
+        })
+        .from(businessTransactions)
+        .leftJoin(transactionTypes, eq(businessTransactions.transactionTypeId, transactionTypes.id))
+        .leftJoin(entities, eq(businessTransactions.entityId, entities.id))
+        .where(and(...whereConditions))
+        .orderBy(desc(businessTransactions.transactionDate));
+
+      return children;
+    }),
+
+  /**
+   * Get parent transaction (e.g., estimate that was converted to this sales order)
+   */
+  getParentTransaction: authenticatedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { db, serviceContext } = ctx;
+
+      if (!serviceContext?.organizationId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Organization context required',
+        });
+      }
+
+      // First get the transaction to find its parent
+      const transaction = await db
+        .select({ parentTransactionId: businessTransactions.parentTransactionId })
+        .from(businessTransactions)
+        .where(
+          and(
+            eq(businessTransactions.id, input.id),
+            eq(businessTransactions.subsidiaryId, serviceContext.organizationId)
+          )
+        )
+        .limit(1);
+
+      if (!transaction[0]?.parentTransactionId) {
+        return null;
+      }
+
+      const parent = await db
+        .select({
+          id: businessTransactions.id,
+          transactionNumber: businessTransactions.transactionNumber,
+          transactionDate: businessTransactions.transactionDate,
+          totalAmount: businessTransactions.totalAmount,
+          status: businessTransactions.status,
+          typeCode: transactionTypes.typeCode,
+          typeName: transactionTypes.name,
+          entityName: entities.name,
+        })
+        .from(businessTransactions)
+        .leftJoin(transactionTypes, eq(businessTransactions.transactionTypeId, transactionTypes.id))
+        .leftJoin(entities, eq(businessTransactions.entityId, entities.id))
+        .where(eq(businessTransactions.id, transaction[0].parentTransactionId))
+        .limit(1);
+
+      return parent[0] || null;
+    }),
+
+  /**
+   * List transactions by project (estimates and sales orders)
+   */
+  listByProject: authenticatedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      typeCodes: z.array(z.string()).optional(), // Optional filter by type codes
+    }))
+    .query(async ({ ctx, input }) => {
+      const { db, serviceContext } = ctx;
+
+      if (!serviceContext?.organizationId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Organization context required',
+        });
+      }
+
+      const whereConditions = [
+        eq(businessTransactions.projectId, input.projectId),
+        eq(businessTransactions.subsidiaryId, serviceContext.organizationId),
+      ];
+
+      // If type codes filter is provided, add it
+      if (input.typeCodes && input.typeCodes.length > 0) {
+        const transTypes = await db
+          .select({ id: transactionTypes.id })
+          .from(transactionTypes)
+          .where(or(...input.typeCodes.map(tc => eq(transactionTypes.typeCode, tc))));
+
+        if (transTypes.length > 0) {
+          whereConditions.push(
+            or(...transTypes.map(t => eq(businessTransactions.transactionTypeId, t.id)))!
+          );
+        }
+      }
+
+      const transactions = await db
+        .select({
+          id: businessTransactions.id,
+          transactionNumber: businessTransactions.transactionNumber,
+          transactionDate: businessTransactions.transactionDate,
+          totalAmount: businessTransactions.totalAmount,
+          status: businessTransactions.status,
+          typeCode: transactionTypes.typeCode,
+          typeName: transactionTypes.name,
+          entityName: entities.name,
+          projectName: projects.name,
+        })
+        .from(businessTransactions)
+        .leftJoin(transactionTypes, eq(businessTransactions.transactionTypeId, transactionTypes.id))
+        .leftJoin(entities, eq(businessTransactions.entityId, entities.id))
+        .leftJoin(projects, eq(businessTransactions.projectId, projects.id))
+        .where(and(...whereConditions))
+        .orderBy(desc(businessTransactions.transactionDate));
+
+      return transactions;
+    }),
 });

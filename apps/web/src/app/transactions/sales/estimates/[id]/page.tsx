@@ -4,7 +4,7 @@ import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
-import { ArrowLeft, Send, Check, X, Copy, Users, Mail, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, Check, X, Copy, Users, Mail, FileText, Trash2, ShoppingCart, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +46,12 @@ export default function EstimateDetailPage({ params }: PageProps) {
 
   const { data: estimate, isLoading, refetch } = trpc.estimates.get.useQuery(
     { id },
+    { enabled: !!orgId && !!id }
+  );
+
+  // Get child transactions (converted sales orders)
+  const { data: childTransactions } = trpc.estimates.getChildTransactions.useQuery(
+    { parentId: id },
     { enabled: !!orgId && !!id }
   );
 
@@ -396,6 +402,40 @@ export default function EstimateDetailPage({ params }: PageProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Related Transactions */}
+          {childTransactions && childTransactions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Related Transactions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {childTransactions.map((txn: { id: string; transactionNumber: string | null; typeCode: string | null; typeName: string | null }) => (
+                  <button
+                    key={txn.id}
+                    onClick={() => {
+                      if (txn.typeCode === 'SALES_ORDER') {
+                        router.push(`/transactions/sales/sales-orders/${txn.id}`);
+                      } else if (txn.typeCode === 'INVOICE') {
+                        router.push(`/transactions/sales/invoices/${txn.id}`);
+                      }
+                    }}
+                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      {txn.typeCode === 'SALES_ORDER' && <ShoppingCart className="h-4 w-4 text-muted-foreground" />}
+                      {txn.typeCode === 'INVOICE' && <FileText className="h-4 w-4 text-muted-foreground" />}
+                      <div>
+                        <p className="text-sm font-medium text-primary">{txn.transactionNumber}</p>
+                        <p className="text-xs text-muted-foreground">{txn.typeName}</p>
+                      </div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
