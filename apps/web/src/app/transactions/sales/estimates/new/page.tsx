@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -69,7 +69,7 @@ const salesStageOptions = [
   { value: 'CLOSED_LOST', label: 'Closed Lost' },
 ];
 
-export default function NewEstimatePage() {
+function NewEstimatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { orgId } = useAuth();
@@ -667,5 +667,14 @@ export default function NewEstimatePage() {
         </form>
       </Form>
     </div>
+  );
+}
+
+// Wrap in Suspense for useSearchParams() compatibility with Next.js 15 static generation
+export default function NewEstimatePage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto py-6">Loading...</div>}>
+      <NewEstimatePageContent />
+    </Suspense>
   );
 }
