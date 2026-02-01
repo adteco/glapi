@@ -58,6 +58,7 @@ import { savedReportConfigsRouter } from './routers/saved-report-configs';
 import { emailTemplatesRouter } from './routers/email-templates';
 import { communicationEventsRouter } from './routers/communication-events';
 import { communicationWorkflowsRouter } from './routers/communication-workflows';
+import { entityContactsRouter } from './routers/entity-contacts';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -118,6 +119,7 @@ export const appRouter = router({
   emailTemplates: emailTemplatesRouter,
   communicationEvents: communicationEventsRouter,
   communicationWorkflows: communicationWorkflowsRouter,
+  entityContacts: entityContactsRouter,
 });
 
 export type AppRouter = typeof appRouter;
