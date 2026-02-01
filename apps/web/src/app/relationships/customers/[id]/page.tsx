@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TaskList } from '@/components/tasks';
+import { EntityContactsList } from '@/components/contacts';
 
 interface Customer {
   id: string;
@@ -67,14 +68,14 @@ export default function CustomerDetailPage() {
     }
   );
 
-  // Contacts for this customer (filter by parentEntityId)
-  const { data: contactsData, isLoading: contactsLoading } = trpc.contacts.list.useQuery(
-    { page: 1, limit: 50, parentEntityId: id },
+  // Contacts associated with this customer (many-to-many via entityContacts)
+  const { data: entityContactsData, isLoading: contactsLoading } = trpc.entityContacts.listContacts.useQuery(
+    { entityId: id },
     { enabled: !!orgId && !!id }
   );
 
-  // Contacts associated with this customer
-  const customerContacts = contactsData?.data ?? [];
+  // Contact count for badge
+  const contactCount = entityContactsData?.length ?? 0;
 
   // Invoices for this customer
   const { data: invoicesData, isLoading: invoicesLoading } = trpc.invoices.list.useQuery(
@@ -247,9 +248,9 @@ export default function CustomerDetailPage() {
             <TabsTrigger value="contacts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Users className="h-4 w-4 mr-2" />
               Contacts
-              {customerContacts.length > 0 && (
+              {contactCount > 0 && (
                 <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
-                  {customerContacts.length}
+                  {contactCount}
                 </Badge>
               )}
             </TabsTrigger>
@@ -407,100 +408,12 @@ export default function CustomerDetailPage() {
 
           {/* Contacts Tab */}
           <TabsContent value="contacts" className="space-y-6">
-            <Card className="border-border shadow-sm">
-              <CardHeader className="border-b border-border bg-muted/50">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-base font-medium">Contacts</CardTitle>
-                    <CardDescription>People associated with this customer</CardDescription>
-                  </div>
-                  <Button size="sm" onClick={() => router.push(`/relationships/contacts/new?entityId=${id}`)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Contact
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {contactsLoading ? (
-                  <div className="p-8 space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-4">
-                        <Skeleton className="h-10 w-10 rounded-full" />
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-3 w-48" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : customerContacts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground mb-4">No contacts yet</p>
-                    <Button size="sm" variant="outline" onClick={() => router.push(`/relationships/contacts/new?entityId=${id}`)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add First Contact
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {customerContacts.map((contact: any) => (
-                      <div
-                        key={contact.id}
-                        className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => router.push(`/relationships/contacts/${contact.id}`)}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              {getInitials(contact.name)}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{contact.name}</p>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              {contact.metadata?.title && <span>{contact.metadata.title}</span>}
-                              {contact.email && (
-                                <span className="flex items-center gap-1">
-                                  <Mail className="h-3 w-3" />
-                                  {contact.email}
-                                </span>
-                              )}
-                              {contact.phone && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {contact.phone}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/relationships/contacts/${contact.id}`)}>
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/relationships/contacts/${contact.id}/edit`)}>
-                              Edit Contact
-                            </DropdownMenuItem>
-                            {contact.email && (
-                              <DropdownMenuItem onClick={() => window.location.href = `mailto:${contact.email}`}>
-                                Send Email
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <EntityContactsList
+              entityId={id}
+              entityName="customer"
+              showHeader={true}
+              allowCreate={true}
+            />
           </TabsContent>
 
           {/* Transactions/Invoices Tab */}

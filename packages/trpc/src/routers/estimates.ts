@@ -492,6 +492,26 @@ export const estimatesRouter = router({
 
       const lines = await db.insert(businessTransactionLines).values(lineData).returning();
 
+      // Auto-promote entity to Prospect if currently a Lead
+      if (input.entityId) {
+        const entity = await db
+          .select()
+          .from(entities)
+          .where(eq(entities.id, input.entityId))
+          .limit(1);
+
+        if (entity[0] && entity[0].entityTypes.includes('Lead') && !entity[0].entityTypes.includes('Prospect')) {
+          const newTypes = entity[0].entityTypes.filter((t: string) => t !== 'Lead');
+          newTypes.push('Prospect');
+          await db.update(entities)
+            .set({
+              entityTypes: newTypes,
+              updatedAt: new Date(),
+            })
+            .where(eq(entities.id, input.entityId));
+        }
+      }
+
       return {
         ...estimate,
         lines,
@@ -983,6 +1003,27 @@ export const estimatesRouter = router({
           modifiedBy: user?.entityId ?? null,
         })
         .where(eq(businessTransactions.id, input.id));
+
+      // Auto-promote entity to Customer
+      if (estimate[0].entityId) {
+        const entity = await db
+          .select()
+          .from(entities)
+          .where(eq(entities.id, estimate[0].entityId))
+          .limit(1);
+
+        if (entity[0] && !entity[0].entityTypes.includes('Customer')) {
+          // Remove Lead/Prospect if present, add Customer
+          const newTypes = entity[0].entityTypes.filter((t: string) => t !== 'Lead' && t !== 'Prospect');
+          newTypes.push('Customer');
+          await db.update(entities)
+            .set({
+              entityTypes: newTypes,
+              updatedAt: new Date(),
+            })
+            .where(eq(entities.id, estimate[0].entityId));
+        }
+      }
 
       return salesOrder;
     }),

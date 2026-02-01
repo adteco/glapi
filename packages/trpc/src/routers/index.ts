@@ -41,3 +41,4 @@ export * from './project-tasks';
 export * from './email-templates';
 export * from './communication-events';
 export * from './communication-workflows';
+export * from './entity-contacts';

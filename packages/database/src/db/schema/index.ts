@@ -151,6 +151,9 @@ import * as communicationEventsSchemas from './communication-events';
 import * as communicationWorkflowsSchemas from './communication-workflows';
 import * as emailTrackingSchemas from './email-tracking';
 
+// Entity Contacts junction table (many-to-many contacts)
+import * as entityContactsSchemas from './entity-contacts';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -279,6 +282,8 @@ export const schema = {
   ...communicationEventsSchemas,
   ...communicationWorkflowsSchemas,
   ...emailTrackingSchemas,
+  // Entity Contacts junction table (many-to-many contacts)
+  ...entityContactsSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -1160,3 +1165,15 @@ export type {
   EmailUnsubscribeReason,
   BouncedRecipient,
 } from './email-tracking';
+
+// Re-export Entity Contacts schemas
+export {
+  entityContacts,
+  CONTACT_ROLES,
+} from './entity-contacts';
+export type {
+  EntityContact,
+  NewEntityContact,
+  UpdateEntityContact,
+  ContactRole,
+} from './entity-contacts';
