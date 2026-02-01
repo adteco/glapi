@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import {
@@ -98,7 +98,7 @@ const entryTypes = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-export default function ProjectTimePage() {
+function ProjectTimePageContent() {
   const { orgId } = useAuth();
   const searchParams = useSearchParams();
   const initialProjectId = searchParams.get('projectId');
@@ -860,5 +860,22 @@ export default function ProjectTimePage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// Wrap in Suspense for useSearchParams() compatibility with Next.js 15 static generation
+export default function ProjectTimePage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-6 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    }>
+      <ProjectTimePageContent />
+    </Suspense>
   );
 }
