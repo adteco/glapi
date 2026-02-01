@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Edit, Plus, Users, Trash2, Pencil, ListChecks } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Users, Trash2, Pencil, ListChecks, FileText, ShoppingCart } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from '@/components/tasks';
 import {
@@ -85,6 +85,12 @@ export default function ProjectDetailPage() {
   const { data: customer } = trpc.customers.get.useQuery(
     { id: project?.customerId as string },
     { enabled: !!orgId && !!project?.customerId }
+  );
+
+  // Fetch transactions (estimates and sales orders) for this project
+  const { data: projectTransactions, isLoading: transactionsLoading } = trpc.estimates.listByProject.useQuery(
+    { projectId: id, typeCodes: ['ESTIMATE', 'SALES_ORDER', 'INVOICE'] },
+    { enabled: !!orgId && !!id }
   );
 
   // Create employee lookup map
@@ -309,6 +315,10 @@ export default function ProjectDetailPage() {
       <Tabs defaultValue="details" className="w-full">
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="transactions" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Transactions
+          </TabsTrigger>
           <TabsTrigger value="participants" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Participants
@@ -396,6 +406,99 @@ export default function ProjectDetailPage() {
                 <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
                 <dd className="mt-1 text-sm text-gray-900">{formatDateTime(project.updatedAt)}</dd>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="transactions" className="mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Project Transactions
+                  </CardTitle>
+                  <CardDescription>Estimates, sales orders, and invoices for this project</CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => router.push(`/transactions/sales/estimates/new?projectId=${id}`)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Estimate
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {transactionsLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Loading transactions...</p>
+              ) : !projectTransactions || projectTransactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No transactions for this project</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Number</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projectTransactions.map((txn: { id: string; transactionNumber: string | null; typeCode: string | null; typeName: string | null; totalAmount: string | null; status: string | null; entityName: string | null; transactionDate: string | null }) => (
+                      <TableRow key={txn.id}>
+                        <TableCell>
+                          <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                            {txn.typeCode === 'ESTIMATE' && <FileText className="h-3 w-3" />}
+                            {txn.typeCode === 'SALES_ORDER' && <ShoppingCart className="h-3 w-3" />}
+                            {txn.typeCode === 'INVOICE' && <FileText className="h-3 w-3" />}
+                            {txn.typeName || txn.typeCode}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => {
+                              if (txn.typeCode === 'ESTIMATE') {
+                                router.push(`/transactions/sales/estimates/${txn.id}`);
+                              } else if (txn.typeCode === 'SALES_ORDER') {
+                                router.push(`/transactions/sales/sales-orders/${txn.id}`);
+                              } else if (txn.typeCode === 'INVOICE') {
+                                router.push(`/transactions/sales/invoices/${txn.id}`);
+                              }
+                            }}
+                            className="text-primary hover:underline cursor-pointer"
+                          >
+                            {txn.transactionNumber}
+                          </button>
+                        </TableCell>
+                        <TableCell>{txn.entityName || 'Unknown'}</TableCell>
+                        <TableCell>
+                          {txn.transactionDate ? new Date(txn.transactionDate).toLocaleDateString() : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                            parseFloat(String(txn.totalAmount || 0))
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            txn.status === 'DRAFT' ? 'outline' :
+                            txn.status === 'CONVERTED' || txn.status === 'CLOSED' ? 'secondary' :
+                            txn.status === 'CANCELLED' || txn.status === 'DECLINED' ? 'destructive' :
+                            'default'
+                          }>
+                            {txn.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

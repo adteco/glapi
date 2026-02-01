@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
@@ -114,8 +114,10 @@ const salesStageOptions = [
   { value: 'CLOSED_LOST', label: 'Closed Lost' },
 ];
 
-export default function EstimatesPage() {
+function EstimatesPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const projectIdFilter = searchParams.get('projectId');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -124,7 +126,11 @@ export default function EstimatesPage() {
 
   // TRPC queries
   const { data: estimatesData, isLoading, refetch } = trpc.estimates.list.useQuery(
-    { page: 1, limit: 50 },
+    {
+      page: 1,
+      limit: 50,
+      filters: projectIdFilter ? { projectId: projectIdFilter } : undefined
+    },
     { enabled: !!orgId }
   );
 
@@ -329,12 +335,39 @@ export default function EstimatesPage() {
     return <div className="container mx-auto py-10"><p>Loading estimates...</p></div>;
   }
 
+  // Get project name for filter display
+  const filteredProject = projectIdFilter
+    ? projects.find(p => p.id === projectIdFilter)
+    : null;
+
   return (
     <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Sales Estimates</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Sales Estimates</h1>
+          {filteredProject && (
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="secondary">
+                Project: {filteredProject.name}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push('/transactions/sales/estimates')}
+                className="h-6 px-2"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Clear filter
+              </Button>
+            </div>
+          )}
+        </div>
         <Button onClick={() => {
           form.reset();
+          // Pre-select the project if filtering by project
+          if (projectIdFilter) {
+            form.setValue('projectId', projectIdFilter);
+          }
           setIsAddDialogOpen(true);
         }}>
           <Plus className="mr-2 h-4 w-4" />
@@ -360,14 +393,21 @@ export default function EstimatesPage() {
         <TableBody>
           {estimates.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                 No estimates found. Create your first estimate to get started.
               </TableCell>
             </TableRow>
           ) : (
             estimates.map((estimate: Estimate) => (
               <TableRow key={estimate.id}>
-                <TableCell className="font-medium">{estimate.transactionNumber}</TableCell>
+                <TableCell className="font-medium">
+                <button
+                  onClick={() => router.push(`/transactions/sales/estimates/${estimate.id}`)}
+                  className="text-primary hover:underline cursor-pointer"
+                >
+                  {estimate.transactionNumber}
+                </button>
+              </TableCell>
                 <TableCell>{estimate.customerName || 'Unknown'}</TableCell>
                 <TableCell>{formatDate(estimate.transactionDate)}</TableCell>
                 <TableCell>{formatDate(estimate.estimateValidUntil)}</TableCell>
@@ -501,14 +541,17 @@ export default function EstimatesPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Project</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <Select
+                        onValueChange={(val) => field.onChange(val === '__none__' ? '' : val)}
+                        value={field.value || '__none__'}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select project (optional)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">No Project</SelectItem>
+                          <SelectItem value="__none__">No Project</SelectItem>
                           {projects.map((project) => (
                             <SelectItem key={project.id} value={project.id}>
                               {project.name}
@@ -646,15 +689,18 @@ export default function EstimatesPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Item</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <Select
+                              onValueChange={(val) => field.onChange(val === '__custom__' ? '' : val)}
+                              value={field.value || '__custom__'}
+                            >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select item" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">Custom Item</SelectItem>
-                                {items.map((item: Item) => (
+                                <SelectItem value="__custom__">Custom Item</SelectItem>
+                                {items.map((item: { id: string; name: string }) => (
                                   <SelectItem key={item.id} value={item.id}>
                                     {item.name}
                                   </SelectItem>
@@ -835,7 +881,7 @@ export default function EstimatesPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+              <div className="flex justify-between items-center bg-muted p-4 rounded-lg">
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal:</span>
@@ -888,5 +934,13 @@ export default function EstimatesPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function EstimatesPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto py-10"><p>Loading estimates...</p></div>}>
+      <EstimatesPageContent />
+    </Suspense>
   );
 }

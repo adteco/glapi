@@ -8,12 +8,16 @@ const handler = async (req: NextRequest) => {
   // Get the organization context from headers (set by middleware)
   const context = await getServiceContext();
 
-  // Create a user object compatible with the API service types
+  // Create a user object compatible with the tRPC context types
+  // Uses branded types from @glapi/shared-types for type safety
   const user = {
-    id: context.userId,
+    clerkId: context.clerkUserId,
+    entityId: context.entityId,
     organizationId: context.organizationId,
     email: null, // Would come from Clerk/auth provider
     role: 'user' as const,
+    // Deprecated alias - kept for backward compatibility
+    id: context.clerkUserId,
   };
 
   return fetchRequestHandler({

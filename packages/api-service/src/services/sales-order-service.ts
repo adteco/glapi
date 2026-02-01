@@ -34,6 +34,7 @@ import {
   salesOrderLines,
   salesOrderApprovalHistory,
   salesOrderInvoices,
+  entities,
 } from '@glapi/database/schema';
 import { eq, and, desc, asc, sql, inArray, gte, lte, or, ilike } from 'drizzle-orm';
 
@@ -235,6 +236,27 @@ export class SalesOrderService extends BaseService {
 
     // Create lines
     await this.createOrderLines(order.id, lines);
+
+    // Auto-promote entity to Customer when sales order is created
+    if (input.entityId) {
+      const entity = await this.db
+        .select()
+        .from(entities)
+        .where(eq(entities.id, input.entityId))
+        .limit(1);
+
+      if (entity[0] && !entity[0].entityTypes.includes('Customer')) {
+        // Remove Lead/Prospect if present, add Customer
+        const newTypes = entity[0].entityTypes.filter((t: string) => t !== 'Lead' && t !== 'Prospect');
+        newTypes.push('Customer');
+        await this.db.update(entities)
+          .set({
+            entityTypes: newTypes,
+            updatedAt: new Date(),
+          })
+          .where(eq(entities.id, input.entityId));
+      }
+    }
 
     // Emit event
     await this.eventService.emit({

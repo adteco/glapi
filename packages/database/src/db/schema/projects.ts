@@ -52,6 +52,7 @@ export const projects = pgTable('projects', {
   projectType: text('project_type'),
   budgetRevenue: numeric('budget_revenue', { precision: 18, scale: 4 }),
   budgetCost: numeric('budget_cost', { precision: 18, scale: 4 }),
+  percentComplete: numeric('percent_complete', { precision: 5, scale: 2 }).default('0'),
   retainagePercent: numeric('retainage_percent', { precision: 5, scale: 2 }).default('0').notNull(),
   currencyCode: text('currency_code'),
   description: text('description'),
@@ -97,7 +98,7 @@ export const projectCostCodes = pgTable('project_cost_codes', {
   costAccountId: uuid('cost_account_id'),
   wipAccountId: uuid('wip_account_id'),
   metadata: jsonb('metadata'),
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -125,7 +126,7 @@ export const projectBudgetVersions = pgTable('project_budget_versions', {
   totalSubcontractAmount: numeric('total_subcontract_amount', { precision: 18, scale: 4 }).default('0').notNull(),
   totalOtherAmount: numeric('total_other_amount', { precision: 18, scale: 4 }).default('0').notNull(),
   // Workflow tracking
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   submittedBy: uuid('submitted_by').references(() => users.id),
   submittedDate: timestamp('submitted_date', { withTimezone: true }),
   approvedBy: uuid('approved_by').references(() => users.id),
@@ -244,9 +245,9 @@ export const projectCostCodesRelations = relations(projectCostCodes, ({ one, man
     fields: [projectCostCodes.activityCodeId],
     references: [activityCodes.id],
   }),
-  createdByUser: one(users, {
+  createdByEntity: one(entities, {
     fields: [projectCostCodes.createdBy],
-    references: [users.id],
+    references: [entities.id],
   }),
   projectBudgetLines: many(projectBudgetLines),
 }));
@@ -256,24 +257,24 @@ export const projectBudgetVersionsRelations = relations(projectBudgetVersions, (
     fields: [projectBudgetVersions.projectId],
     references: [projects.id],
   }),
-  createdByUser: one(users, {
+  createdByEntity: one(entities, {
     fields: [projectBudgetVersions.createdBy],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'budgetVersionCreatedBy',
   }),
-  submittedByUser: one(users, {
+  submittedByEntity: one(entities, {
     fields: [projectBudgetVersions.submittedBy],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'budgetVersionSubmittedBy',
   }),
-  approvedByUser: one(users, {
+  approvedByEntity: one(entities, {
     fields: [projectBudgetVersions.approvedBy],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'budgetVersionApprovedBy',
   }),
-  lockedByUser: one(users, {
+  lockedByEntity: one(entities, {
     fields: [projectBudgetVersions.lockedBy],
-    references: [users.id],
+    references: [entities.id],
     relationName: 'budgetVersionLockedBy',
   }),
   projectBudgetLines: many(projectBudgetLines),

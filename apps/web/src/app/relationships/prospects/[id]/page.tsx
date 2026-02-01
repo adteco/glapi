@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { trpc } from '@/lib/trpc';
 import { ArrowLeft, Pencil, Trash2, ArrowRight, Globe, Mail, Phone, Calendar, Building } from 'lucide-react';
 import { toast } from 'sonner';
+import { EntityContactsList } from '@/components/contacts';
 
 export default function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -268,6 +269,12 @@ export default function ProspectDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </CardContent>
         </Card>
+
+        {/* Contacts associated with this prospect */}
+        <EntityContactsList
+          entityId={prospect.id}
+          entityName="prospect"
+        />
       </div>
     </div>
   );

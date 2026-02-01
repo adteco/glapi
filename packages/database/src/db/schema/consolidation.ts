@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm';
 import { subsidiaries } from './subsidiaries';
 import { accounts } from './accounts';
 import { accountingPeriods } from './accounting-periods';
-import { users } from './users';
+import { entities } from './entities';
 import { currencies } from './currencies';
 import { organizations } from './organizations';
 
@@ -52,7 +52,7 @@ export const consolidationGroups = pgTable('consolidation_groups', {
   isActive: boolean('is_active').default(true).notNull(),
   effectiveDate: date('effective_date').notNull(),
   endDate: date('end_date'),
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -68,9 +68,9 @@ export const consolidationGroupsRelations = relations(consolidationGroups, ({ on
     fields: [consolidationGroups.consolidationCurrencyId],
     references: [currencies.id],
   }),
-  createdByUser: one(users, {
+  createdByEntity: one(entities, {
     fields: [consolidationGroups.createdBy],
-    references: [users.id],
+    references: [entities.id],
   }),
   members: many(consolidationGroupMembers),
   eliminationRules: many(eliminationRules),
@@ -142,7 +142,7 @@ export const eliminationRules = pgTable('elimination_rules', {
   isActive: boolean('is_active').default(true).notNull(),
   effectiveDate: date('effective_date').notNull(),
   endDate: date('end_date'),
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -184,9 +184,9 @@ export const eliminationRulesRelations = relations(eliminationRules, ({ one }) =
     references: [accounts.id],
     relationName: 'eliminationCreditAccount',
   }),
-  createdByUser: one(users, {
+  createdByEntity: one(entities, {
     fields: [eliminationRules.createdBy],
-    references: [users.id],
+    references: [entities.id],
   }),
 }));
 
@@ -234,7 +234,7 @@ export const consolidationExchangeRates = pgTable('consolidation_exchange_rates'
   rate: decimal('rate', { precision: 18, scale: 8 }).notNull(),
   rateDate: date('rate_date').notNull(),
   source: text('source'), // 'MANUAL', 'IMPORTED', 'API'
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -261,9 +261,9 @@ export const consolidationExchangeRatesRelations = relations(consolidationExchan
     fields: [consolidationExchangeRates.periodId],
     references: [accountingPeriods.id],
   }),
-  createdByUser: one(users, {
+  createdByEntity: one(entities, {
     fields: [consolidationExchangeRates.createdBy],
-    references: [users.id],
+    references: [entities.id],
   }),
 }));
 
@@ -293,7 +293,7 @@ export const consolidationRuns = pgTable('consolidation_runs', {
   reversedByRunId: uuid('reversed_by_run_id'),
 
   // Audit
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -309,9 +309,9 @@ export const consolidationRunsRelations = relations(consolidationRuns, ({ one, m
     fields: [consolidationRuns.periodId],
     references: [accountingPeriods.id],
   }),
-  createdByUser: one(users, {
+  createdByEntity: one(entities, {
     fields: [consolidationRuns.createdBy],
-    references: [users.id],
+    references: [entities.id],
   }),
   adjustments: many(consolidationAdjustments),
 }));

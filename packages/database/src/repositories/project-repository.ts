@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, sql, or } from 'drizzle-orm';
 import { BaseRepository } from './base-repository';
 import { projects, projectParticipants } from '../db/schema/projects';
+import { entities } from '../db/schema/entities';
 
 export interface ProjectPaginationParams {
   page?: number;
@@ -51,6 +52,7 @@ export interface UpdateProjectData {
   projectType?: string | null;
   budgetRevenue?: string | null;
   budgetCost?: string | null;
+  percentComplete?: string | null;
   retainagePercent?: string;
   currencyCode?: string | null;
   description?: string | null;
@@ -187,8 +189,32 @@ export class ProjectRepository extends BaseRepository {
     const orderFunc = orderDirection === 'asc' ? asc : desc;
 
     const results = await this.db
-      .select()
+      .select({
+        id: projects.id,
+        organizationId: projects.organizationId,
+        subsidiaryId: projects.subsidiaryId,
+        customerId: projects.customerId,
+        projectCode: projects.projectCode,
+        name: projects.name,
+        status: projects.status,
+        startDate: projects.startDate,
+        endDate: projects.endDate,
+        externalSource: projects.externalSource,
+        jobNumber: projects.jobNumber,
+        projectType: projects.projectType,
+        budgetRevenue: projects.budgetRevenue,
+        budgetCost: projects.budgetCost,
+        percentComplete: projects.percentComplete,
+        retainagePercent: projects.retainagePercent,
+        currencyCode: projects.currencyCode,
+        description: projects.description,
+        metadata: projects.metadata,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+        customerName: entities.name,
+      })
       .from(projects)
+      .leftJoin(entities, eq(projects.customerId, entities.id))
       .where(whereClause)
       .orderBy(orderFunc(orderColumn))
       .limit(limit)

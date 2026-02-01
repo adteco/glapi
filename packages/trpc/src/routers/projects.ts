@@ -43,6 +43,7 @@ const updateProjectSchema = z.object({
   projectType: z.string().max(50).nullable().optional(),
   budgetRevenue: z.string().nullable().optional(),
   budgetCost: z.string().nullable().optional(),
+  percentComplete: z.string().nullable().optional(),
   retainagePercent: z.string().optional(),
   currencyCode: z.string().max(10).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),

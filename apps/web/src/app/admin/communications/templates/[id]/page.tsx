@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -125,7 +125,7 @@ const VARIABLE_TYPE_OPTIONS = [
   { value: 'email', label: 'Email' },
 ];
 
-export default function TemplateEditorPage() {
+function TemplateEditorPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -832,6 +832,15 @@ export default function TemplateEditorPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// Wrap in Suspense for useSearchParams() compatibility with Next.js 15 static generation
+export default function TemplateEditorPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto py-6">Loading...</div>}>
+      <TemplateEditorPageContent />
+    </Suspense>
   );
 }
 
