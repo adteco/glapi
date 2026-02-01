@@ -8,6 +8,7 @@ import { ArrowLeft, Edit, Mail, Phone, Globe, TrendingUp, DollarSign, Users, Arr
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { EntityContactsList } from '@/components/contacts';
 
 export default function LeadDetailPage() {
   const params = useParams();
@@ -300,6 +301,12 @@ export default function LeadDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Contacts associated with this lead */}
+        <EntityContactsList
+          entityId={lead.id}
+          entityName="lead"
+        />
       </div>
     </div>
   );

@@ -4,24 +4,32 @@ import React from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Activity, 
-  DollarSign, 
-  FileText, 
-  Calendar, 
+import {
+  BarChart3,
+  TrendingUp,
+  Activity,
+  DollarSign,
+  FileText,
+  Calendar,
   Plus,
   ArrowRight,
   Target,
   Users,
   Package,
-  ShoppingCart
+  ShoppingCart,
+  Clock,
+  Briefcase
 } from 'lucide-react';
 import Link from 'next/link';
+import { trpc } from '@/lib/trpc';
 
 const DashboardPage = () => {
   const { orgId } = useAuth();
+
+  // Fetch project analytics
+  const { data: backlogData, isLoading: backlogLoading } = trpc.projectAnalytics.getBacklogByCustomer.useQuery();
+  const { data: unbilledData, isLoading: unbilledLoading } = trpc.projectAnalytics.getUnbilledTimeByCustomer.useQuery();
+  const { data: unfulfilledData, isLoading: unfulfilledLoading } = trpc.projectAnalytics.getUnfulfilledSalesOrdersByCustomer.useQuery();
 
   if (!orgId) {
     return (
@@ -343,6 +351,158 @@ const DashboardPage = () => {
               <p className="text-sm text-red-600">-25.0%</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Project Analytics by Customer */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Backlog by Customer */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  Backlog by Customer
+                </CardTitle>
+                <CardDescription>
+                  Remaining budget to complete (Budget - Pending - Billed)
+                </CardDescription>
+              </div>
+              <Link href="/projects">
+                <Button variant="outline" size="sm">
+                  View Projects
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {backlogLoading ? (
+              <div className="text-center py-4 text-muted-foreground">Loading...</div>
+            ) : backlogData?.data && backlogData.data.length > 0 ? (
+              <div className="space-y-3">
+                {backlogData.data.slice(0, 5).map((item) => (
+                  <div key={item.customerId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{item.customerName}</p>
+                      <p className="text-xs text-muted-foreground">{item.projectCount} project{item.projectCount !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-blue-600">{formatCurrency(item.backlogValue)}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border-t-2 border-blue-200">
+                  <p className="font-bold">Total Backlog</p>
+                  <p className="text-xl font-bold text-blue-600">{formatCurrency(backlogData.total)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">No backlog data available</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Unbilled Time by Customer */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Unbilled Time by Customer
+                </CardTitle>
+                <CardDescription>
+                  Approved time entries pending billing
+                </CardDescription>
+              </div>
+              <Link href="/projects/time">
+                <Button variant="outline" size="sm">
+                  View Time
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {unbilledLoading ? (
+              <div className="text-center py-4 text-muted-foreground">Loading...</div>
+            ) : unbilledData?.data && unbilledData.data.length > 0 ? (
+              <div className="space-y-3">
+                {unbilledData.data.slice(0, 5).map((item) => (
+                  <div key={item.customerId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{item.customerName}</p>
+                      <p className="text-xs text-muted-foreground">{item.unbilledHours.toFixed(1)} hours</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-green-600">{formatCurrency(item.unbilledAmount)}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border-t-2 border-green-200">
+                  <div>
+                    <p className="font-bold">Total Unbilled</p>
+                    <p className="text-xs text-muted-foreground">{unbilledData.totalHours.toFixed(1)} hours</p>
+                  </div>
+                  <p className="text-xl font-bold text-green-600">{formatCurrency(unbilledData.total)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">No unbilled time available</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Unfulfilled Sales Orders by Customer */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5" />
+                Unfulfilled Sales Orders by Customer
+              </CardTitle>
+              <CardDescription>
+                Open sales orders pending invoicing
+              </CardDescription>
+            </div>
+            <Link href="/transactions/sales/sales-orders">
+              <Button variant="outline" size="sm">
+                View Sales Orders
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {unfulfilledLoading ? (
+            <div className="text-center py-4 text-muted-foreground">Loading...</div>
+          ) : unfulfilledData?.data && unfulfilledData.data.length > 0 ? (
+            <div className="space-y-3">
+              {unfulfilledData.data.slice(0, 5).map((item) => (
+                <div key={item.customerId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium">{item.customerName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.orderCount} order{item.orderCount !== 1 ? 's' : ''} • {formatCurrency(item.totalInvoiced)} invoiced
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-orange-600">{formatCurrency(item.unfulfilledAmount)}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border-t-2 border-orange-200">
+                <p className="font-bold">Total Unfulfilled</p>
+                <p className="text-xl font-bold text-orange-600">{formatCurrency(unfulfilledData.total)}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">No unfulfilled sales orders</div>
+          )}
         </CardContent>
       </Card>
     </div>

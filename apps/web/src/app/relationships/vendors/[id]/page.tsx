@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, Edit, Plus, Mail, Phone, Globe } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
+import { EntityContactsList } from '@/components/contacts';
 
 export default function VendorDetailPage() {
   const params = useParams();
@@ -277,6 +278,12 @@ export default function VendorDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Contacts associated with this vendor */}
+        <EntityContactsList
+          entityId={vendor.id}
+          entityName="vendor"
+        />
       </div>
     </div>
   );

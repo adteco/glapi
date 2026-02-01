@@ -7,6 +7,7 @@ export interface Project {
   organizationId: string;
   subsidiaryId: string | null;
   customerId: string | null;
+  customerName: string | null;
   projectCode: string;
   name: string;
   status: string;
@@ -16,6 +17,7 @@ export interface Project {
   projectType: string | null;
   budgetRevenue: string | null;
   budgetCost: string | null;
+  percentComplete: string | null;
   retainagePercent: string;
   currencyCode: string | null;
   description: string | null;
@@ -84,6 +86,7 @@ export interface UpdateProjectInput {
   projectType?: string | null;
   budgetRevenue?: string | null;
   budgetCost?: string | null;
+  percentComplete?: string | null;
   retainagePercent?: string;
   currencyCode?: string | null;
   description?: string | null;
@@ -363,6 +366,7 @@ export class ProjectService extends BaseService {
       organizationId: row.organizationId,
       subsidiaryId: row.subsidiaryId,
       customerId: row.customerId,
+      customerName: row.customerName ?? null,
       projectCode: row.projectCode,
       name: row.name,
       status: row.status,
@@ -372,6 +376,7 @@ export class ProjectService extends BaseService {
       projectType: row.projectType,
       budgetRevenue: row.budgetRevenue,
       budgetCost: row.budgetCost,
+      percentComplete: row.percentComplete ?? null,
       retainagePercent: row.retainagePercent,
       currencyCode: row.currencyCode,
       description: row.description,

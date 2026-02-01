@@ -1,7 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+import { useEffect, Suspense } from 'react';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -68,9 +69,13 @@ const salesStageOptions = [
   { value: 'CLOSED_LOST', label: 'Closed Lost' },
 ];
 
-export default function NewEstimatePage() {
+function NewEstimatePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { orgId } = useAuth();
+
+  // Get projectId from URL params
+  const projectIdParam = searchParams.get('projectId');
 
   // TRPC for customers (clients) list
   const { data: clientsData } = trpc.customers.list.useQuery(
@@ -88,6 +93,12 @@ export default function NewEstimatePage() {
   const { data: itemsData } = trpc.items.list.useQuery(
     {},
     { enabled: !!orgId }
+  );
+
+  // If projectId is provided, fetch project details to get customer
+  const { data: selectedProject } = trpc.projects.get.useQuery(
+    { id: projectIdParam! },
+    { enabled: !!orgId && !!projectIdParam }
   );
 
   // Mutations
@@ -125,6 +136,19 @@ export default function NewEstimatePage() {
     control: form.control,
     name: "lines",
   });
+
+  // Pre-select project and customer from URL params
+  useEffect(() => {
+    if (selectedProject) {
+      form.setValue('projectId', selectedProject.id);
+      if (selectedProject.customerId) {
+        form.setValue('entityId', selectedProject.customerId);
+      }
+    } else if (projectIdParam) {
+      // Set projectId even before project details load
+      form.setValue('projectId', projectIdParam);
+    }
+  }, [selectedProject, projectIdParam, form]);
 
   const handleSubmit = async (values: EstimateFormValues) => {
     createMutation.mutate({
@@ -643,5 +667,14 @@ export default function NewEstimatePage() {
         </form>
       </Form>
     </div>
+  );
+}
+
+// Wrap in Suspense for useSearchParams() compatibility with Next.js 15 static generation
+export default function NewEstimatePage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto py-6">Loading...</div>}>
+      <NewEstimatePageContent />
+    </Suspense>
   );
 }

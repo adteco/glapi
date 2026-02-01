@@ -28,6 +28,7 @@ import { projectBudgetsRouter } from './routers/project-budgets';
 import { projectsRouter } from './routers/projects';
 import { projectTypesRouter } from './routers/project-types';
 import { projectReportingRouter } from './routers/project-reporting';
+import { projectAnalyticsRouter } from './routers/project-analytics';
 import { timeEntriesRouter } from './routers/time-entries';
 import { expenseEntriesRouter } from './routers/expense-entries';
 import { closeManagementRouter } from './routers/close-management';
@@ -57,6 +58,7 @@ import { savedReportConfigsRouter } from './routers/saved-report-configs';
 import { emailTemplatesRouter } from './routers/email-templates';
 import { communicationEventsRouter } from './routers/communication-events';
 import { communicationWorkflowsRouter } from './routers/communication-workflows';
+import { entityContactsRouter } from './routers/entity-contacts';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -87,6 +89,7 @@ export const appRouter = router({
   projectCostCodes: projectCostCodesRouter,
   projectBudgets: projectBudgetsRouter,
   projectReporting: projectReportingRouter,
+  projectAnalytics: projectAnalyticsRouter,
   timeEntries: timeEntriesRouter,
   expenseEntries: expenseEntriesRouter,
   closeManagement: closeManagementRouter,
@@ -116,6 +119,7 @@ export const appRouter = router({
   emailTemplates: emailTemplatesRouter,
   communicationEvents: communicationEventsRouter,
   communicationWorkflows: communicationWorkflowsRouter,
+  entityContacts: entityContactsRouter,
 });
 
 export type AppRouter = typeof appRouter;

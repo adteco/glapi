@@ -454,8 +454,8 @@ export const estimatesRouter = router({
         competitor: input.competitor,
         status: 'DRAFT',
         ...totals,
-        createdBy: user?.id,
-        modifiedBy: user?.id,
+        createdBy: user?.entityId ?? null,
+        modifiedBy: user?.entityId ?? null,
       }).returning();
 
       // Create lines
@@ -491,6 +491,26 @@ export const estimatesRouter = router({
       });
 
       const lines = await db.insert(businessTransactionLines).values(lineData).returning();
+
+      // Auto-promote entity to Prospect if currently a Lead
+      if (input.entityId) {
+        const entity = await db
+          .select()
+          .from(entities)
+          .where(eq(entities.id, input.entityId))
+          .limit(1);
+
+        if (entity[0] && entity[0].entityTypes.includes('Lead') && !entity[0].entityTypes.includes('Prospect')) {
+          const newTypes = entity[0].entityTypes.filter((t: string) => t !== 'Lead');
+          newTypes.push('Prospect');
+          await db.update(entities)
+            .set({
+              entityTypes: newTypes,
+              updatedAt: new Date(),
+            })
+            .where(eq(entities.id, input.entityId));
+        }
+      }
 
       return {
         ...estimate,
@@ -548,7 +568,7 @@ export const estimatesRouter = router({
       // Build update data
       const updateData: Record<string, any> = {
         modifiedDate: new Date(),
-        modifiedBy: user?.id,
+        modifiedBy: user?.entityId ?? null,
       };
 
       if (input.data.entityId !== undefined) updateData.entityId = input.data.entityId;
@@ -660,7 +680,7 @@ export const estimatesRouter = router({
         .set({
           status: 'CANCELLED',
           modifiedDate: new Date(),
-          modifiedBy: user?.id,
+          modifiedBy: user?.entityId ?? null,
         })
         .where(eq(businessTransactions.id, input.id));
 
@@ -717,7 +737,7 @@ export const estimatesRouter = router({
         .set({
           status: 'SENT',
           modifiedDate: new Date(),
-          modifiedBy: user?.id,
+          modifiedBy: user?.entityId ?? null,
         })
         .where(eq(businessTransactions.id, input.id))
         .returning();
@@ -773,7 +793,7 @@ export const estimatesRouter = router({
           salesStage: 'CLOSED_WON',
           probability: '100',
           modifiedDate: new Date(),
-          modifiedBy: user?.id,
+          modifiedBy: user?.entityId ?? null,
         })
         .where(eq(businessTransactions.id, input.id))
         .returning();
@@ -833,7 +853,7 @@ export const estimatesRouter = router({
           probability: '0',
           memo: input.reason ? `${existing[0].memo || ''}\nDecline reason: ${input.reason}`.trim() : existing[0].memo,
           modifiedDate: new Date(),
-          modifiedBy: user?.id,
+          modifiedBy: user?.entityId ?? null,
         })
         .where(eq(businessTransactions.id, input.id))
         .returning();
@@ -943,8 +963,8 @@ export const estimatesRouter = router({
         baseTotalAmount: estimate[0].baseTotalAmount,
         status: 'DRAFT',
         parentTransactionId: estimate[0].id,
-        createdBy: user?.id,
-        modifiedBy: user?.id,
+        createdBy: user?.entityId ?? null,
+        modifiedBy: user?.entityId ?? null,
       }).returning();
 
       // Copy lines
@@ -980,10 +1000,373 @@ export const estimatesRouter = router({
           salesStage: 'CLOSED_WON',
           probability: '100',
           modifiedDate: new Date(),
-          modifiedBy: user?.id,
+          modifiedBy: user?.entityId ?? null,
         })
         .where(eq(businessTransactions.id, input.id));
 
+      // Auto-promote entity to Customer
+      if (estimate[0].entityId) {
+        const entity = await db
+          .select()
+          .from(entities)
+          .where(eq(entities.id, estimate[0].entityId))
+          .limit(1);
+
+        if (entity[0] && !entity[0].entityTypes.includes('Customer')) {
+          // Remove Lead/Prospect if present, add Customer
+          const newTypes = entity[0].entityTypes.filter((t: string) => t !== 'Lead' && t !== 'Prospect');
+          newTypes.push('Customer');
+          await db.update(entities)
+            .set({
+              entityTypes: newTypes,
+              updatedAt: new Date(),
+            })
+            .where(eq(entities.id, estimate[0].entityId));
+        }
+      }
+
       return salesOrder;
+    }),
+
+  /**
+   * Create invoice from sales order
+   */
+  createInvoiceFromSalesOrder: authenticatedProcedure
+    .input(z.object({
+      salesOrderId: z.string().uuid(),
+      invoiceDate: z.coerce.date().optional(),
+      lineIds: z.array(z.string().uuid()).optional(), // Optional: specific lines to invoice
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, serviceContext, user } = ctx;
+
+      if (!serviceContext?.organizationId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Organization context required',
+        });
+      }
+
+      // Get or ensure SALES_ORDER transaction type exists
+      let salesOrderType = await db
+        .select()
+        .from(transactionTypes)
+        .where(eq(transactionTypes.typeCode, 'SALES_ORDER'))
+        .limit(1);
+
+      if (!salesOrderType.length) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Sales Order transaction type not found',
+        });
+      }
+
+      // Get the sales order
+      const salesOrder = await db
+        .select()
+        .from(businessTransactions)
+        .where(and(
+          eq(businessTransactions.id, input.salesOrderId),
+          eq(businessTransactions.subsidiaryId, serviceContext.organizationId),
+          eq(businessTransactions.transactionTypeId, salesOrderType[0].id)
+        ))
+        .limit(1);
+
+      if (!salesOrder.length) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Sales order not found',
+        });
+      }
+
+      if (salesOrder[0].status === 'CANCELLED') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot create invoice from cancelled sales order',
+        });
+      }
+
+      // Get sales order lines
+      const salesOrderLines = await db
+        .select()
+        .from(businessTransactionLines)
+        .where(eq(businessTransactionLines.businessTransactionId, input.salesOrderId))
+        .orderBy(asc(businessTransactionLines.lineNumber));
+
+      // Filter lines if specific lineIds provided
+      const linesToInvoice = input.lineIds
+        ? salesOrderLines.filter((line: typeof salesOrderLines[number]) => input.lineIds!.includes(line.id))
+        : salesOrderLines;
+
+      if (linesToInvoice.length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No lines to invoice',
+        });
+      }
+
+      // Get or create INVOICE transaction type
+      let invoiceType = await db
+        .select()
+        .from(transactionTypes)
+        .where(eq(transactionTypes.typeCode, 'INVOICE'))
+        .limit(1);
+
+      if (!invoiceType.length) {
+        [invoiceType[0]] = await db.insert(transactionTypes).values({
+          typeCode: 'INVOICE',
+          typeName: 'Sales Invoice',
+          typeCategory: 'SALES',
+          generatesGl: true,
+          requiresApproval: false,
+          canBeReversed: true,
+          numberingSequence: 'INV-{YYYY}-{####}',
+          isActive: true,
+          sortOrder: 30,
+        }).returning();
+      }
+
+      // Generate invoice number
+      const year = new Date().getFullYear();
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const invoiceNumber = `INV-${year}-${random}`;
+
+      // Calculate totals for lines being invoiced
+      const totals = calculateTotals(linesToInvoice.map(line => ({
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountPercent: line.discountPercent,
+        discountAmount: line.discountAmount,
+        taxAmount: line.taxAmount,
+      })));
+
+      // Create invoice
+      const [invoice] = await db.insert(businessTransactions).values({
+        transactionNumber: invoiceNumber,
+        transactionTypeId: invoiceType[0].id,
+        subsidiaryId: serviceContext.organizationId,
+        entityId: salesOrder[0].entityId,
+        entityType: 'CUSTOMER',
+        projectId: salesOrder[0].projectId, // Preserve project reference
+        transactionDate: (input.invoiceDate || new Date()).toISOString().split('T')[0],
+        externalReference: salesOrder[0].externalReference,
+        currencyCode: salesOrder[0].currencyCode,
+        exchangeRate: salesOrder[0].exchangeRate,
+        memo: salesOrder[0].memo,
+        ...totals,
+        status: 'DRAFT',
+        parentTransactionId: salesOrder[0].id, // Link back to sales order
+        createdBy: user?.entityId ?? null,
+        modifiedBy: user?.entityId ?? null,
+      }).returning();
+
+      // Copy lines
+      const invoiceLines = linesToInvoice.map((line: typeof linesToInvoice[number], index: number) => ({
+        businessTransactionId: invoice.id,
+        lineNumber: index + 1,
+        lineType: line.lineType,
+        itemId: line.itemId,
+        description: line.description,
+        quantity: line.quantity,
+        unitOfMeasure: line.unitOfMeasure,
+        unitPrice: line.unitPrice,
+        discountPercent: line.discountPercent,
+        discountAmount: line.discountAmount,
+        lineAmount: line.lineAmount,
+        taxAmount: line.taxAmount,
+        totalLineAmount: line.totalLineAmount,
+        departmentId: line.departmentId,
+        locationId: line.locationId,
+        classId: line.classId,
+        projectId: line.projectId, // Preserve line-level project reference
+        notes: line.notes,
+        parentLineId: line.id,
+      }));
+
+      await db.insert(businessTransactionLines).values(invoiceLines);
+
+      // Check if all lines have been invoiced to update sales order status
+      const allLineIds = salesOrderLines.map((l: typeof salesOrderLines[number]) => l.id);
+      const invoicedLineIds = linesToInvoice.map((l: typeof linesToInvoice[number]) => l.id);
+      const fullyInvoiced = allLineIds.every((id: string) => invoicedLineIds.includes(id));
+
+      if (fullyInvoiced) {
+        await db
+          .update(businessTransactions)
+          .set({
+            status: 'CLOSED',
+            modifiedDate: new Date(),
+            modifiedBy: user?.entityId ?? null,
+          })
+          .where(eq(businessTransactions.id, input.salesOrderId));
+      }
+
+      return invoice;
+    }),
+
+  /**
+   * Get child transactions (e.g., sales orders converted from this estimate, invoices from sales order)
+   */
+  getChildTransactions: authenticatedProcedure
+    .input(z.object({
+      parentId: z.string().uuid(),
+      typeCode: z.string().optional(), // Optional filter by type code
+    }))
+    .query(async ({ ctx, input }) => {
+      const { db, serviceContext } = ctx;
+
+      if (!serviceContext?.organizationId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Organization context required',
+        });
+      }
+
+      const whereConditions = [
+        eq(businessTransactions.parentTransactionId, input.parentId),
+        eq(businessTransactions.subsidiaryId, serviceContext.organizationId),
+      ];
+
+      // If type code filter is provided, add it
+      if (input.typeCode) {
+        const transType = await db
+          .select({ id: transactionTypes.id })
+          .from(transactionTypes)
+          .where(eq(transactionTypes.typeCode, input.typeCode))
+          .limit(1);
+
+        if (transType[0]) {
+          whereConditions.push(eq(businessTransactions.transactionTypeId, transType[0].id));
+        }
+      }
+
+      const children = await db
+        .select({
+          id: businessTransactions.id,
+          transactionNumber: businessTransactions.transactionNumber,
+          transactionDate: businessTransactions.transactionDate,
+          totalAmount: businessTransactions.totalAmount,
+          status: businessTransactions.status,
+          typeCode: transactionTypes.typeCode,
+          typeName: transactionTypes.name,
+          entityName: entities.name,
+        })
+        .from(businessTransactions)
+        .leftJoin(transactionTypes, eq(businessTransactions.transactionTypeId, transactionTypes.id))
+        .leftJoin(entities, eq(businessTransactions.entityId, entities.id))
+        .where(and(...whereConditions))
+        .orderBy(desc(businessTransactions.transactionDate));
+
+      return children;
+    }),
+
+  /**
+   * Get parent transaction (e.g., estimate that was converted to this sales order)
+   */
+  getParentTransaction: authenticatedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { db, serviceContext } = ctx;
+
+      if (!serviceContext?.organizationId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Organization context required',
+        });
+      }
+
+      // First get the transaction to find its parent
+      const transaction = await db
+        .select({ parentTransactionId: businessTransactions.parentTransactionId })
+        .from(businessTransactions)
+        .where(
+          and(
+            eq(businessTransactions.id, input.id),
+            eq(businessTransactions.subsidiaryId, serviceContext.organizationId)
+          )
+        )
+        .limit(1);
+
+      if (!transaction[0]?.parentTransactionId) {
+        return null;
+      }
+
+      const parent = await db
+        .select({
+          id: businessTransactions.id,
+          transactionNumber: businessTransactions.transactionNumber,
+          transactionDate: businessTransactions.transactionDate,
+          totalAmount: businessTransactions.totalAmount,
+          status: businessTransactions.status,
+          typeCode: transactionTypes.typeCode,
+          typeName: transactionTypes.name,
+          entityName: entities.name,
+        })
+        .from(businessTransactions)
+        .leftJoin(transactionTypes, eq(businessTransactions.transactionTypeId, transactionTypes.id))
+        .leftJoin(entities, eq(businessTransactions.entityId, entities.id))
+        .where(eq(businessTransactions.id, transaction[0].parentTransactionId))
+        .limit(1);
+
+      return parent[0] || null;
+    }),
+
+  /**
+   * List transactions by project (estimates and sales orders)
+   */
+  listByProject: authenticatedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      typeCodes: z.array(z.string()).optional(), // Optional filter by type codes
+    }))
+    .query(async ({ ctx, input }) => {
+      const { db, serviceContext } = ctx;
+
+      if (!serviceContext?.organizationId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Organization context required',
+        });
+      }
+
+      const whereConditions = [
+        eq(businessTransactions.projectId, input.projectId),
+        eq(businessTransactions.subsidiaryId, serviceContext.organizationId),
+      ];
+
+      // If type codes filter is provided, add it
+      if (input.typeCodes && input.typeCodes.length > 0) {
+        const transTypes = await db
+          .select({ id: transactionTypes.id })
+          .from(transactionTypes)
+          .where(or(...input.typeCodes.map(tc => eq(transactionTypes.typeCode, tc))));
+
+        if (transTypes.length > 0) {
+          whereConditions.push(
+            or(...transTypes.map(t => eq(businessTransactions.transactionTypeId, t.id)))!
+          );
+        }
+      }
+
+      const transactions = await db
+        .select({
+          id: businessTransactions.id,
+          transactionNumber: businessTransactions.transactionNumber,
+          transactionDate: businessTransactions.transactionDate,
+          totalAmount: businessTransactions.totalAmount,
+          status: businessTransactions.status,
+          typeCode: transactionTypes.typeCode,
+          typeName: transactionTypes.name,
+          entityName: entities.name,
+          projectName: projects.name,
+        })
+        .from(businessTransactions)
+        .leftJoin(transactionTypes, eq(businessTransactions.transactionTypeId, transactionTypes.id))
+        .leftJoin(entities, eq(businessTransactions.entityId, entities.id))
+        .leftJoin(projects, eq(businessTransactions.projectId, projects.id))
+        .where(and(...whereConditions))
+        .orderBy(desc(businessTransactions.transactionDate));
+
+      return transactions;
     }),
 });

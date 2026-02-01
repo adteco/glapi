@@ -160,7 +160,7 @@ export const expenseEntries = pgTable('expense_entries', {
   metadata: jsonb('metadata'),
 
   // Audit fields
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -295,7 +295,7 @@ export const expenseReports = pgTable('expense_reports', {
   metadata: jsonb('metadata'),
 
   // Audit fields
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -376,7 +376,7 @@ export const expensePolicies = pgTable('expense_policies', {
   metadata: jsonb('metadata'),
 
   // Audit fields
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => entities.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({

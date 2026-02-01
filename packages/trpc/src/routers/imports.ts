@@ -134,7 +134,7 @@ export const importsRouter = router({
     .mutation(async ({ input, ctx }) => {
       return importService.createBatch({
         organizationId: ctx.organizationId,
-        userId: ctx.user.id,
+        userId: ctx.user.entityId ?? ctx.user.id,
         name: input.name,
         description: input.description,
         sourceSystem: input.sourceSystem,
