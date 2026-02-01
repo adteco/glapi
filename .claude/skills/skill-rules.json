@@ -311,6 +311,44 @@
                     "captureMessage"
                 ]
             }
+        },
+        "pre-deploy-checklist": {
+            "type": "workflow",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Pre-deployment quality checklist for commits and PRs. Validates TypeScript, linting, build, OpenAPI specs, tests, changelog, and security.",
+            "promptTriggers": {
+                "keywords": [
+                    "ship",
+                    "deploy",
+                    "pre-deploy",
+                    "checklist",
+                    "commit",
+                    "PR",
+                    "pull request",
+                    "ready to ship",
+                    "ready to deploy",
+                    "quality check",
+                    "pre-commit",
+                    "OpenAPI",
+                    "API spec",
+                    "changelog"
+                ],
+                "intentPatterns": [
+                    "(ship|deploy|commit|push|PR|pull request).*?(code|changes|feature)",
+                    "(ready|prepare).*?(deploy|ship|commit|PR)",
+                    "(run|execute).*?(checklist|checks|validation)",
+                    "(check|validate|verify).*?(before|pre).*?(commit|deploy|ship)",
+                    "(update|regenerate).*?(OpenAPI|API spec|docs)",
+                    "(is|are).*?(OpenAPI|spec|docs).*?(up.?to.?date|current|updated)"
+                ]
+            },
+            "slashCommands": [
+                "/ship",
+                "/pre-deploy",
+                "/checklist",
+                "/quality-check"
+            ]
         }
     },
     "notes": {
