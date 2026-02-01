@@ -121,3 +121,12 @@ export * from './onboarding-service';
 
 // Accounting Lists
 export * from './accounting-list-service';
+
+// Magic Inbox
+export * from './magic-inbox-service';
+
+// Pending Documents
+export * from './pending-documents-service';
+
+// Document Conversion
+export * from './document-conversion-service';
