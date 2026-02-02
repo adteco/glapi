@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import crypto from 'crypto';
 import { z } from 'zod';
-import { magicInboxService } from '@glapi/api-service';
+import { magicInboxService, magicInboxConfigService } from '@glapi/api-service';
 import type { MagicInboxWebhookPayload } from '@glapi/api-service';
 
 // ============================================================================
@@ -129,7 +129,7 @@ const webhookPayloadSchema = z.object({
 // ============================================================================
 
 /**
- * Verify the HMAC signature of the webhook payload
+ * Verify the HMAC signature of the webhook payload using a plain secret
  */
 function verifySignature(
   payload: string,
@@ -163,6 +163,30 @@ function verifySignature(
   }
 }
 
+/**
+ * Verify signature against organization-specific secret (bcrypt hashed)
+ * The Lambda sends the original signature created with the plain secret,
+ * and we verify by checking if the secret matches the stored hash
+ */
+async function verifyOrgSignature(
+  payload: string,
+  signature: string | null,
+  orgId: string
+): Promise<boolean> {
+  if (!signature) {
+    return false;
+  }
+
+  // Expected format: "sha256=<hex-digest>:<secret>"
+  // The Lambda includes the secret it used to sign, so we can verify against our hash
+  // Alternative: Lambda sends just signature, we recompute with stored secret
+
+  // For now, use the organization lookup to verify
+  // The lookup returns the hash, and we need the Lambda to send the original secret
+  const isValid = await magicInboxConfigService.verifyWebhookSecret(orgId, signature);
+  return isValid;
+}
+
 // ============================================================================
 // Webhook Handler
 // ============================================================================
@@ -175,27 +199,59 @@ export async function POST(req: Request) {
     // Get the raw body for signature verification
     const body = await req.text();
 
-    // Verify webhook secret is configured
-    if (!WEBHOOK_SECRET) {
-      console.error(
-        `[MagicInbox Webhook] ${requestId} - MAGIC_INBOX_WEBHOOK_SECRET not configured`
-      );
+    // Get headers for signature verification
+    const headersList = await headers();
+    const signature = headersList.get('x-magic-inbox-signature');
+    const orgIdHeader = headersList.get('x-organization-id');
+
+    // Signature verification strategy:
+    // 1. If org-specific secret header is present, verify against org's stored hash
+    // 2. Otherwise, fall back to global WEBHOOK_SECRET for backward compatibility
+    let signatureVerified = false;
+
+    if (orgIdHeader) {
+      // Try org-specific verification first
+      // The Lambda should send the webhook secret in a header for verification
+      const webhookSecretHeader = headersList.get('x-webhook-secret');
+      if (webhookSecretHeader) {
+        signatureVerified = await magicInboxConfigService.verifyWebhookSecret(
+          orgIdHeader,
+          webhookSecretHeader
+        );
+        if (signatureVerified) {
+          console.log(
+            `[MagicInbox Webhook] ${requestId} - Verified with org-specific secret`
+          );
+        }
+      }
+    }
+
+    // Fall back to global secret if org verification failed or wasn't attempted
+    if (!signatureVerified && WEBHOOK_SECRET) {
+      signatureVerified = verifySignature(body, signature, WEBHOOK_SECRET);
+      if (signatureVerified) {
+        console.log(
+          `[MagicInbox Webhook] ${requestId} - Verified with global secret`
+        );
+      }
+    }
+
+    // Handle verification failure
+    if (!signatureVerified) {
       // In development, allow requests without signature
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          `[MagicInbox Webhook] ${requestId} - Skipping signature verification in development`
+        );
+      } else if (!WEBHOOK_SECRET) {
+        console.error(
+          `[MagicInbox Webhook] ${requestId} - No webhook secret configured`
+        );
         return NextResponse.json(
           { error: 'Webhook secret not configured' },
           { status: 500 }
         );
-      }
-      console.warn(
-        `[MagicInbox Webhook] ${requestId} - Skipping signature verification in development`
-      );
-    } else {
-      // Verify signature
-      const headersList = await headers();
-      const signature = headersList.get('x-magic-inbox-signature');
-
-      if (!verifySignature(body, signature, WEBHOOK_SECRET)) {
+      } else {
         console.error(
           `[MagicInbox Webhook] ${requestId} - Invalid signature`
         );

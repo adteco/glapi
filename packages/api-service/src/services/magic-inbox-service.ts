@@ -20,6 +20,7 @@ import {
   mapExtractedEntities,
   mapExtractedInvoice,
 } from '../types/magic-inbox.types';
+import { MagicInboxUsageService } from './magic-inbox-usage-service';
 
 // ============================================================================
 // Service Functions
@@ -106,6 +107,16 @@ export async function processMagicInboxWebhook(
     .returning();
 
   console.log(`[MagicInbox] Created pending document ${document.id} for org ${organizationId}`);
+
+  // Track usage for billing
+  try {
+    const usageService = new MagicInboxUsageService({ organizationId });
+    await usageService.recordDocumentProcessed(document.id);
+    console.log(`[MagicInbox] Recorded usage for document ${document.id}`);
+  } catch (usageError) {
+    // Log but don't fail the webhook - usage tracking is not critical path
+    console.error(`[MagicInbox] Failed to record usage for document ${document.id}:`, usageError);
+  }
 
   return {
     received: true,
