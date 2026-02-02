@@ -1,0 +1,308 @@
+---
+title: Magic Inbox
+description: Receive vendor invoices via email for AI-powered processing and automatic conversion to vendor bills.
+---
+
+# Magic Inbox
+
+Magic Inbox enables your organization to receive vendor invoices via email. Invoices are automatically analyzed by AI, extracting key information like vendor details, amounts, line items, and due dates. Documents appear in your Pending Documents queue for review before conversion to vendor bills.
+
+## How It Works
+
+```
+Vendor sends invoice to your Magic Inbox email
+                    ↓
+      AI analyzes and extracts data
+                    ↓
+   Document appears in Pending queue
+                    ↓
+  Review → Approve → Vendor Bill created
+```
+
+1. **Receive** - Vendors forward invoices to your dedicated Magic Inbox email address
+2. **Process** - AI extracts vendor info, invoice number, amounts, line items, and due dates
+3. **Review** - Documents appear in your Pending Documents queue with extracted data
+4. **Convert** - Approve to create a vendor bill, or reject with a reason
+
+## Getting Started
+
+### Enable Magic Inbox
+
+1. Go to **Admin Settings** in your dashboard
+2. Find the **Magic Inbox** card
+3. Choose your email option:
+   - **Shared Domain** - Get an email like `yourcompany@inbox.adteco.app`
+   - **Custom Domain** - Use your own domain like `invoices@yourcompany.com`
+
+### Option 1: Shared Domain (Recommended)
+
+The fastest way to get started:
+
+1. Enter your preferred prefix (e.g., `acme-corp`)
+2. Click **Check Availability** to verify it's available
+3. Click **Enable Magic Inbox**
+4. Your email address is ready: `acme-corp@inbox.adteco.app`
+
+<Callout type="info">
+Prefixes must be at least 3 characters and can contain letters, numbers, and hyphens.
+</Callout>
+
+### Option 2: Custom Domain
+
+Use your own domain for a professional appearance:
+
+1. Enter your domain (e.g., `inbox.yourcompany.com`)
+2. Click **Set Up Custom Domain**
+3. Add the required DNS records to your domain registrar:
+
+| Type | Host | Value | Priority |
+|------|------|-------|----------|
+| MX | inbox | `inbound-smtp.us-east-1.amazonaws.com` | 10 |
+| TXT | _magic-inbox.inbox | `magic-inbox-verify=<token>` | - |
+
+4. Click **Verify Domain** once records are propagated (usually 15-60 minutes)
+5. Once verified, your email is active
+
+<Callout type="warning">
+DNS propagation can take up to 48 hours in some cases. Use a DNS checker tool to verify your records are visible before clicking Verify.
+</Callout>
+
+## Using Magic Inbox
+
+### Forwarding Invoices
+
+Once enabled, vendors can send invoices directly to your Magic Inbox email, or you can forward invoices from your regular inbox.
+
+**Supported formats:**
+- PDF attachments
+- Image attachments (PNG, JPG)
+- Inline email content
+- Multiple attachments per email
+
+### Reviewing Pending Documents
+
+1. Go to **Pending Documents** in your dashboard
+2. Documents from Magic Inbox show the source email and extracted data
+3. For each document, you can:
+   - **View** - See the original email and extracted information
+   - **Edit** - Correct any extraction errors before approval
+   - **Approve** - Convert to a vendor bill
+   - **Reject** - Mark as rejected with a reason (spam, duplicate, etc.)
+
+### Extracted Information
+
+Magic Inbox AI extracts:
+
+| Field | Description |
+|-------|-------------|
+| Vendor Name | Company name from invoice |
+| Vendor Email | Sender's email address |
+| Invoice Number | Invoice/reference number |
+| Invoice Date | Date on the invoice |
+| Due Date | Payment due date |
+| PO Number | Purchase order reference |
+| Subtotal | Pre-tax amount |
+| Tax Amount | Tax/VAT amount |
+| Total Amount | Total due |
+| Line Items | Individual line items with descriptions, quantities, and amounts |
+| Currency | Detected currency |
+
+## Testing Your Setup
+
+### Send a Test Email
+
+1. Go to **Admin Settings** > **Magic Inbox**
+2. Click **Send Test Email**
+3. A sample invoice will be sent to your Magic Inbox
+4. Check **Pending Documents** to verify it arrived
+
+This helps confirm your setup is working before sharing the email with vendors.
+
+## Security
+
+### Webhook Secret
+
+When Magic Inbox is enabled, a webhook secret is generated for secure communication. This secret is shown only once when you first enable the feature.
+
+**To regenerate the secret:**
+1. Go to **Admin Settings** > **Magic Inbox**
+2. Click **Regenerate Secret**
+3. Copy and save the new secret immediately
+
+<Callout type="error">
+Regenerating the secret will invalidate the previous one. If you're using the webhook secret in external integrations, update them immediately.
+</Callout>
+
+### Email Security
+
+All incoming emails are scanned for:
+- Spam detection
+- Virus scanning
+- SPF/DKIM/DMARC verification
+
+Security results are stored with each document for audit purposes.
+
+## Pricing
+
+Magic Inbox uses usage-based pricing:
+
+| Metric | Price |
+|--------|-------|
+| Per document processed | $0.10 |
+
+**What counts as a document?**
+- Each email received counts as one document
+- Multiple attachments in one email = one document
+- Rejected/spam emails are not charged
+
+### Viewing Usage
+
+1. Go to **Admin Settings** > **Magic Inbox**
+2. View your current billing period stats:
+   - Documents Received
+   - Converted to Bills
+   - Estimated Monthly Cost
+
+### Billing History
+
+Usage is billed monthly with your subscription. View detailed billing history in your **Billing** settings.
+
+## API Reference
+
+Magic Inbox configuration can also be managed via API.
+
+### Get Configuration
+
+```http
+GET /api/admin/magic-inbox/config
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "emailAddress": "acme@inbox.adteco.app",
+  "emailType": "prefix",
+  "prefix": "acme",
+  "webhookUrl": "https://api.adteco.app/api/webhooks/magic-inbox",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:30:00Z"
+}
+```
+
+### Enable Magic Inbox
+
+```http
+POST /api/admin/magic-inbox/config
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "emailType": "prefix",
+  "prefix": "acme"
+}
+```
+
+Or for custom domain:
+
+```json
+{
+  "emailType": "custom_domain",
+  "customDomain": "inbox.yourcompany.com"
+}
+```
+
+### Check Prefix Availability
+
+```http
+POST /api/admin/magic-inbox/check-prefix
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "prefix": "acme"
+}
+```
+
+**Response:**
+```json
+{
+  "available": true
+}
+```
+
+Or if unavailable:
+```json
+{
+  "available": false,
+  "suggestions": ["acme-corp", "acme-inc", "acme-co"]
+}
+```
+
+### Get Usage
+
+```http
+GET /api/admin/magic-inbox/usage
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "billingPeriodStart": "2024-01-01",
+  "billingPeriodEnd": "2024-01-31",
+  "documentsProcessed": 47,
+  "documentsConverted": 42,
+  "documentsRejected": 5,
+  "unitPrice": "0.10",
+  "totalAmount": "4.70",
+  "isBilled": false
+}
+```
+
+### Disable Magic Inbox
+
+```http
+DELETE /api/admin/magic-inbox/config
+Authorization: Bearer <token>
+```
+
+## Troubleshooting
+
+### Emails Not Arriving
+
+1. **Check spam folder** - Ensure test emails aren't being filtered
+2. **Verify DNS records** (custom domain) - Use `dig` or online tools to check MX records
+3. **Wait for propagation** - DNS changes can take up to 48 hours
+4. **Check email address** - Ensure vendors are using the correct address
+
+### Extraction Errors
+
+If the AI extracts incorrect information:
+1. Edit the document in Pending Documents before approval
+2. Common issues include:
+   - Unusual invoice formats
+   - Handwritten amounts
+   - Poor image quality
+
+### Custom Domain Verification Failed
+
+1. Ensure both MX and TXT records are added
+2. Check for typos in the record values
+3. Verify records are on the correct subdomain
+4. Wait for full DNS propagation and retry
+
+## Best Practices
+
+1. **Start with test emails** - Verify everything works before telling vendors
+2. **Set up forwarding rules** - Automatically forward invoices from your main inbox
+3. **Review regularly** - Check Pending Documents daily to avoid delays
+4. **Train your vendors** - Share your Magic Inbox email for direct submissions
+5. **Monitor usage** - Keep an eye on document counts for budgeting
+
+## Next Steps
+
+- [Pending Documents](/docs/features/pending-documents) - Learn about the review workflow
+- [Vendor Bills](/docs/api/endpoints/vendor-bills) - API reference for vendor bills
+- [Admin Settings](/docs/features/admin-settings) - Other admin configuration options
