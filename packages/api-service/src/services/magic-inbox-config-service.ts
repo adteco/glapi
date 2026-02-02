@@ -11,7 +11,8 @@
 
 import * as crypto from 'crypto';
 import {
-  db,
+  withOrganizationContext,
+  withoutRLS,
   magicInboxEmailRegistry,
   magicInboxTestEmails,
   organizations,
@@ -96,18 +97,20 @@ export class MagicInboxConfigService extends BaseService {
   async getConfig(): Promise<MagicInboxConfig | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const registry = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.organizationId, organizationId),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.organizationId, organizationId),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
+
+      if (!registry) {
+        return null;
+      }
+
+      return this.registryToConfig(registry);
     });
-
-    if (!registry) {
-      return null;
-    }
-
-    return this.registryToConfig(registry);
   }
 
   /**
@@ -116,99 +119,101 @@ export class MagicInboxConfigService extends BaseService {
   async enableMagicInbox(input: EnableMagicInboxInput): Promise<MagicInboxConfig> {
     const organizationId = this.requireOrganizationContext();
 
-    // Check if already enabled
-    const existing = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.organizationId, organizationId),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
-    });
-
-    if (existing) {
-      throw new ServiceError(
-        'Magic Inbox is already enabled for this organization',
-        'MAGIC_INBOX_ALREADY_ENABLED',
-        409
-      );
-    }
-
-    // Generate webhook secret
+    // Generate webhook secret outside context (doesn't need DB)
     const webhookSecret = this.generateWebhookSecret();
     const webhookSecretHash = this.hashSecret(webhookSecret);
 
-    let emailAddress: string;
-    let prefix: string | undefined;
-    let customDomain: string | undefined;
-    let verificationStatus: 'pending' | 'verified' | undefined;
-    let dnsRecords: DNSRecord[] | undefined;
-    let verificationToken: string | undefined;
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      // Check if already enabled
+      const existing = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.organizationId, organizationId),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
 
-    if (input.emailType === 'prefix') {
-      if (!input.prefix) {
+      if (existing) {
         throw new ServiceError(
-          'Prefix is required for prefix-based email',
-          'PREFIX_REQUIRED',
-          400
-        );
-      }
-
-      // Validate and claim prefix
-      const availability = await this.checkPrefixAvailability(input.prefix);
-      if (!availability.available) {
-        throw new ServiceError(
-          availability.reason || 'Prefix is not available',
-          'PREFIX_NOT_AVAILABLE',
+          'Magic Inbox is already enabled for this organization',
+          'MAGIC_INBOX_ALREADY_ENABLED',
           409
         );
       }
 
-      prefix = input.prefix.toLowerCase();
-      emailAddress = `${prefix}@${MAGIC_INBOX_DOMAIN}`;
-      verificationStatus = 'verified'; // Prefix-based doesn't need verification
-    } else {
-      if (!input.customDomain) {
-        throw new ServiceError(
-          'Custom domain is required for custom domain email',
-          'CUSTOM_DOMAIN_REQUIRED',
-          400
-        );
+      let emailAddress: string;
+      let prefix: string | undefined;
+      let customDomain: string | undefined;
+      let verificationStatus: 'pending' | 'verified' | undefined;
+      let dnsRecords: DNSRecord[] | undefined;
+      let verificationToken: string | undefined;
+
+      if (input.emailType === 'prefix') {
+        if (!input.prefix) {
+          throw new ServiceError(
+            'Prefix is required for prefix-based email',
+            'PREFIX_REQUIRED',
+            400
+          );
+        }
+
+        // Validate and claim prefix (uses its own context)
+        const availability = await this.checkPrefixAvailabilityInternal(contextDb, input.prefix);
+        if (!availability.available) {
+          throw new ServiceError(
+            availability.reason || 'Prefix is not available',
+            'PREFIX_NOT_AVAILABLE',
+            409
+          );
+        }
+
+        prefix = input.prefix.toLowerCase();
+        emailAddress = `${prefix}@${MAGIC_INBOX_DOMAIN}`;
+        verificationStatus = 'verified'; // Prefix-based doesn't need verification
+      } else {
+        if (!input.customDomain) {
+          throw new ServiceError(
+            'Custom domain is required for custom domain email',
+            'CUSTOM_DOMAIN_REQUIRED',
+            400
+          );
+        }
+
+        customDomain = input.customDomain.toLowerCase();
+        emailAddress = `inbox@${customDomain}`;
+        verificationStatus = 'pending';
+        verificationToken = this.generateVerificationToken();
+        dnsRecords = this.generateDnsRecords(customDomain, verificationToken);
       }
 
-      customDomain = input.customDomain.toLowerCase();
-      emailAddress = `inbox@${customDomain}`;
-      verificationStatus = 'pending';
-      verificationToken = this.generateVerificationToken();
-      dnsRecords = this.generateDnsRecords(customDomain, verificationToken);
-    }
+      // Build webhook URL (relative to API base)
+      const webhookUrl = `/api/webhooks/magic-inbox`;
 
-    // Build webhook URL (relative to API base)
-    const webhookUrl = `/api/webhooks/magic-inbox`;
+      // Create registry record
+      const newRegistry: NewMagicInboxEmailRegistryRecord = {
+        organizationId,
+        emailAddress,
+        emailType: input.emailType,
+        prefix,
+        customDomain,
+        isActive: true,
+        verificationStatus,
+        verificationToken,
+        dnsRecords,
+        webhookUrl,
+        webhookSecretHash,
+      };
 
-    // Create registry record
-    const newRegistry: NewMagicInboxEmailRegistryRecord = {
-      organizationId,
-      emailAddress,
-      emailType: input.emailType,
-      prefix,
-      customDomain,
-      isActive: true,
-      verificationStatus,
-      verificationToken,
-      dnsRecords,
-      webhookUrl,
-      webhookSecretHash,
-    };
+      const [registry] = await contextDb
+        .insert(magicInboxEmailRegistry)
+        .values(newRegistry)
+        .returning();
 
-    const [registry] = await db
-      .insert(magicInboxEmailRegistry)
-      .values(newRegistry)
-      .returning();
-
-    // Return config with the plain webhook secret (only time it's exposed)
-    return {
-      ...this.registryToConfig(registry),
-      webhookSecret,
-    };
+      // Return config with the plain webhook secret (only time it's exposed)
+      return {
+        ...this.registryToConfig(registry),
+        webhookSecret,
+      };
+    });
   }
 
   /**
@@ -217,34 +222,37 @@ export class MagicInboxConfigService extends BaseService {
   async disableMagicInbox(): Promise<void> {
     const organizationId = this.requireOrganizationContext();
 
-    const registry = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.organizationId, organizationId),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.organizationId, organizationId),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
+
+      if (!registry) {
+        throw new ServiceError(
+          'Magic Inbox is not enabled for this organization',
+          'MAGIC_INBOX_NOT_ENABLED',
+          404
+        );
+      }
+
+      await contextDb
+        .update(magicInboxEmailRegistry)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(magicInboxEmailRegistry.id, registry.id));
     });
-
-    if (!registry) {
-      throw new ServiceError(
-        'Magic Inbox is not enabled for this organization',
-        'MAGIC_INBOX_NOT_ENABLED',
-        404
-      );
-    }
-
-    await db
-      .update(magicInboxEmailRegistry)
-      .set({
-        isActive: false,
-        updatedAt: new Date(),
-      })
-      .where(eq(magicInboxEmailRegistry.id, registry.id));
   }
 
   /**
-   * Check if an email prefix is available
+   * Internal prefix availability check using provided db context
    */
-  async checkPrefixAvailability(prefix: string): Promise<PrefixAvailabilityResult> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async checkPrefixAvailabilityInternal(contextDb: any, prefix: string): Promise<PrefixAvailabilityResult> {
     const normalized = prefix.toLowerCase().trim();
 
     // Validate format
@@ -279,7 +287,7 @@ export class MagicInboxConfigService extends BaseService {
     }
 
     // Check if already taken
-    const existing = await db.query.magicInboxEmailRegistry.findFirst({
+    const existing = await contextDb.query.magicInboxEmailRegistry.findFirst({
       where: and(
         eq(magicInboxEmailRegistry.prefix, normalized),
         eq(magicInboxEmailRegistry.isActive, true)
@@ -298,6 +306,17 @@ export class MagicInboxConfigService extends BaseService {
   }
 
   /**
+   * Check if an email prefix is available
+   */
+  async checkPrefixAvailability(prefix: string): Promise<PrefixAvailabilityResult> {
+    const organizationId = this.requireOrganizationContext();
+
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      return this.checkPrefixAvailabilityInternal(contextDb, prefix);
+    });
+  }
+
+  /**
    * Initiate custom domain setup
    */
   async initiateCustomDomain(domain: string): Promise<CustomDomainSetupResult> {
@@ -313,29 +332,31 @@ export class MagicInboxConfigService extends BaseService {
       );
     }
 
-    // Check if domain is already in use
-    const existing = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.customDomain, domain.toLowerCase()),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      // Check if domain is already in use
+      const existing = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.customDomain, domain.toLowerCase()),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
+
+      if (existing && existing.organizationId !== organizationId) {
+        throw new ServiceError(
+          'This domain is already in use by another organization',
+          'DOMAIN_ALREADY_IN_USE',
+          409
+        );
+      }
+
+      const verificationToken = this.generateVerificationToken();
+      const dnsRecords = this.generateDnsRecords(domain.toLowerCase(), verificationToken);
+
+      return {
+        dnsRecords,
+        verificationToken,
+      };
     });
-
-    if (existing && existing.organizationId !== organizationId) {
-      throw new ServiceError(
-        'This domain is already in use by another organization',
-        'DOMAIN_ALREADY_IN_USE',
-        409
-      );
-    }
-
-    const verificationToken = this.generateVerificationToken();
-    const dnsRecords = this.generateDnsRecords(domain.toLowerCase(), verificationToken);
-
-    return {
-      dnsRecords,
-      verificationToken,
-    };
   }
 
   /**
@@ -344,43 +365,45 @@ export class MagicInboxConfigService extends BaseService {
   async verifyCustomDomain(): Promise<DomainVerificationResult> {
     const organizationId = this.requireOrganizationContext();
 
-    const registry = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.organizationId, organizationId),
-        eq(magicInboxEmailRegistry.isActive, true),
-        eq(magicInboxEmailRegistry.emailType, 'custom_domain')
-      ),
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.organizationId, organizationId),
+          eq(magicInboxEmailRegistry.isActive, true),
+          eq(magicInboxEmailRegistry.emailType, 'custom_domain')
+        ),
+      });
+
+      if (!registry) {
+        throw new ServiceError(
+          'No custom domain configuration found',
+          'NO_CUSTOM_DOMAIN_CONFIG',
+          404
+        );
+      }
+
+      if (registry.verificationStatus === 'verified') {
+        return { verified: true };
+      }
+
+      // In production, this would make actual DNS queries
+      // For now, we'll simulate DNS verification
+      const dnsRecords = registry.dnsRecords as DNSRecord[] | null;
+      if (!dnsRecords || dnsRecords.length === 0) {
+        throw new ServiceError(
+          'No DNS records to verify',
+          'NO_DNS_RECORDS',
+          400
+        );
+      }
+
+      // TODO: Implement actual DNS verification using DNS lookup
+      // For now, return pending status
+      return {
+        verified: false,
+        error: 'DNS verification pending - please ensure records are configured correctly',
+      };
     });
-
-    if (!registry) {
-      throw new ServiceError(
-        'No custom domain configuration found',
-        'NO_CUSTOM_DOMAIN_CONFIG',
-        404
-      );
-    }
-
-    if (registry.verificationStatus === 'verified') {
-      return { verified: true };
-    }
-
-    // In production, this would make actual DNS queries
-    // For now, we'll simulate DNS verification
-    const dnsRecords = registry.dnsRecords as DNSRecord[] | null;
-    if (!dnsRecords || dnsRecords.length === 0) {
-      throw new ServiceError(
-        'No DNS records to verify',
-        'NO_DNS_RECORDS',
-        400
-      );
-    }
-
-    // TODO: Implement actual DNS verification using DNS lookup
-    // For now, return pending status
-    return {
-      verified: false,
-      error: 'DNS verification pending - please ensure records are configured correctly',
-    };
   }
 
   /**
@@ -389,33 +412,35 @@ export class MagicInboxConfigService extends BaseService {
   async regenerateWebhookSecret(): Promise<string> {
     const organizationId = this.requireOrganizationContext();
 
-    const registry = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.organizationId, organizationId),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
-    });
-
-    if (!registry) {
-      throw new ServiceError(
-        'Magic Inbox is not enabled for this organization',
-        'MAGIC_INBOX_NOT_ENABLED',
-        404
-      );
-    }
-
     const newSecret = this.generateWebhookSecret();
     const newSecretHash = this.hashSecret(newSecret);
 
-    await db
-      .update(magicInboxEmailRegistry)
-      .set({
-        webhookSecretHash: newSecretHash,
-        updatedAt: new Date(),
-      })
-      .where(eq(magicInboxEmailRegistry.id, registry.id));
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.organizationId, organizationId),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
 
-    return newSecret;
+      if (!registry) {
+        throw new ServiceError(
+          'Magic Inbox is not enabled for this organization',
+          'MAGIC_INBOX_NOT_ENABLED',
+          404
+        );
+      }
+
+      await contextDb
+        .update(magicInboxEmailRegistry)
+        .set({
+          webhookSecretHash: newSecretHash,
+          updatedAt: new Date(),
+        })
+        .where(eq(magicInboxEmailRegistry.id, registry.id));
+
+      return newSecret;
+    });
   }
 
   /**
@@ -424,37 +449,39 @@ export class MagicInboxConfigService extends BaseService {
   async sendTestEmail(): Promise<{ testId: string }> {
     const organizationId = this.requireOrganizationContext();
 
-    const registry = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.organizationId, organizationId),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.organizationId, organizationId),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
+
+      if (!registry) {
+        throw new ServiceError(
+          'Magic Inbox is not enabled for this organization',
+          'MAGIC_INBOX_NOT_ENABLED',
+          404
+        );
+      }
+
+      // Create test email record
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      const [testEmail] = await contextDb
+        .insert(magicInboxTestEmails)
+        .values({
+          organizationId,
+          sentTo: registry.emailAddress,
+          expiresAt,
+        })
+        .returning();
+
+      // TODO: Actually send a test email via SES
+      // For now, just create the tracking record
+
+      return { testId: testEmail.id };
     });
-
-    if (!registry) {
-      throw new ServiceError(
-        'Magic Inbox is not enabled for this organization',
-        'MAGIC_INBOX_NOT_ENABLED',
-        404
-      );
-    }
-
-    // Create test email record
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    const [testEmail] = await db
-      .insert(magicInboxTestEmails)
-      .values({
-        organizationId,
-        sentTo: registry.emailAddress,
-        expiresAt,
-      })
-      .returning();
-
-    // TODO: Actually send a test email via SES
-    // For now, just create the tracking record
-
-    return { testId: testEmail.id };
   }
 
   /**
@@ -463,77 +490,86 @@ export class MagicInboxConfigService extends BaseService {
   async getTestResult(testId: string): Promise<MagicInboxTestResult> {
     const organizationId = this.requireOrganizationContext();
 
-    const testEmail = await db.query.magicInboxTestEmails.findFirst({
-      where: and(
-        eq(magicInboxTestEmails.id, testId),
-        eq(magicInboxTestEmails.organizationId, organizationId)
-      ),
+    return withOrganizationContext({ organizationId }, async (contextDb) => {
+      const testEmail = await contextDb.query.magicInboxTestEmails.findFirst({
+        where: and(
+          eq(magicInboxTestEmails.id, testId),
+          eq(magicInboxTestEmails.organizationId, organizationId)
+        ),
+      });
+
+      if (!testEmail) {
+        throw new ServiceError(
+          'Test email not found',
+          'TEST_EMAIL_NOT_FOUND',
+          404
+        );
+      }
+
+      return this.testEmailToResult(testEmail);
     });
-
-    if (!testEmail) {
-      throw new ServiceError(
-        'Test email not found',
-        'TEST_EMAIL_NOT_FOUND',
-        404
-      );
-    }
-
-    return this.testEmailToResult(testEmail);
   }
 
   /**
    * Look up email registry by email address (for Lambda lookup)
-   * This is a static method that doesn't require organization context
+   * This is a static method that doesn't require organization context.
+   * Uses withoutRLS because it needs to search across all organizations.
    */
   static async lookupByEmail(emailAddress: string): Promise<{
     organizationId: string;
     webhookUrl: string;
     webhookSecretHash: string;
   } | null> {
-    const registry = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.emailAddress, emailAddress.toLowerCase()),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
+    return withoutRLS(async (contextDb) => {
+      const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.emailAddress, emailAddress.toLowerCase()),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
+
+      if (!registry) {
+        return null;
+      }
+
+      return {
+        organizationId: registry.organizationId,
+        webhookUrl: registry.webhookUrl,
+        webhookSecretHash: registry.webhookSecretHash,
+      };
     });
-
-    if (!registry) {
-      return null;
-    }
-
-    return {
-      organizationId: registry.organizationId,
-      webhookUrl: registry.webhookUrl,
-      webhookSecretHash: registry.webhookSecretHash,
-    };
   }
 
   /**
    * Verify webhook secret (for webhook handler)
-   * Returns true if the provided secret matches the stored hash
+   * Returns true if the provided secret matches the stored hash.
+   * Uses withoutRLS because webhook verification happens before
+   * organization context is established.
    */
   static async verifyWebhookSecret(organizationId: string, secret: string): Promise<boolean> {
-    const registry = await db.query.magicInboxEmailRegistry.findFirst({
-      where: and(
-        eq(magicInboxEmailRegistry.organizationId, organizationId),
-        eq(magicInboxEmailRegistry.isActive, true)
-      ),
+    return withoutRLS(async (contextDb) => {
+      const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
+        where: and(
+          eq(magicInboxEmailRegistry.organizationId, organizationId),
+          eq(magicInboxEmailRegistry.isActive, true)
+        ),
+      });
+
+      if (!registry) {
+        return false;
+      }
+
+      // Use timing-safe comparison
+      const providedHash = crypto.createHash('sha256').update(secret).digest('hex');
+      try {
+        return crypto.timingSafeEqual(
+          Buffer.from(providedHash),
+          Buffer.from(registry.webhookSecretHash)
+        );
+      } catch {
+        return false;
+      }
     });
-
-    if (!registry) {
-      return false;
-    }
-
-    // Use timing-safe comparison
-    const providedHash = crypto.createHash('sha256').update(secret).digest('hex');
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(providedHash),
-        Buffer.from(registry.webhookSecretHash)
-      );
-    } catch {
-      return false;
-    }
   }
 
   // ============================================================================
