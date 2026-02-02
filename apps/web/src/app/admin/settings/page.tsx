@@ -4,6 +4,7 @@ import { OrganizationProfile, useAuth, useUser } from '@clerk/nextjs';
 
 import { SeedAccountsButton } from '@/components/SeedAccountsButton';
 import { StripePaymentMethods } from '@/components/billing/stripe-payment-methods';
+import { MagicInboxSettings } from '@/components/admin/magic-inbox-settings';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -564,6 +565,9 @@ export default function AdminSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Magic Inbox Settings */}
+      {isAdmin && <MagicInboxSettings />}
 
       <Card className="w-full md:w-1/2">
         <CardHeader>

@@ -154,6 +154,12 @@ import * as emailTrackingSchemas from './email-tracking';
 // Entity Contacts junction table (many-to-many contacts)
 import * as entityContactsSchemas from './entity-contacts';
 
+// Pending Documents schemas (Magic Inbox integration)
+import * as pendingDocumentsSchemas from './pending-documents';
+
+// Magic Inbox Configuration schemas
+import * as magicInboxConfigSchemas from './magic-inbox-config';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -284,6 +290,10 @@ export const schema = {
   ...emailTrackingSchemas,
   // Entity Contacts junction table (many-to-many contacts)
   ...entityContactsSchemas,
+  // Pending Documents schemas (Magic Inbox integration)
+  ...pendingDocumentsSchemas,
+  // Magic Inbox Configuration schemas
+  ...magicInboxConfigSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -1177,3 +1187,66 @@ export type {
   UpdateEntityContact,
   ContactRole,
 } from './entity-contacts';
+
+// Re-export Pending Documents schemas (Magic Inbox integration)
+export {
+  pendingDocuments,
+  pendingDocumentReviewHistory,
+  pendingDocumentSourceEnum,
+  pendingDocumentTypeEnum,
+  pendingDocumentStatusEnum,
+  pendingDocumentPriorityEnum,
+  conversionTargetTypeEnum,
+  PendingDocumentSource,
+  PendingDocumentType,
+  PendingDocumentStatus,
+  PendingDocumentPriority,
+  ConversionTargetType,
+  VALID_PENDING_DOCUMENT_TRANSITIONS,
+} from './pending-documents';
+export type {
+  PendingDocument,
+  NewPendingDocument,
+  UpdatePendingDocument,
+  PendingDocumentReviewHistoryRecord,
+  NewPendingDocumentReviewHistoryRecord,
+  PendingDocumentWithRelations,
+  PendingDocumentSourceValue,
+  PendingDocumentTypeValue,
+  PendingDocumentStatusValue,
+  PendingDocumentPriorityValue,
+  ConversionTargetTypeValue,
+  ExtractedEntities,
+  ExtractedInvoiceData,
+  ExtractedData,
+  PendingDocumentMetadata,
+} from './pending-documents';
+
+// Re-export Magic Inbox Configuration schemas
+export {
+  magicInboxEmailRegistry,
+  magicInboxUsage,
+  magicInboxTestEmails,
+  magicInboxEmailTypeEnum,
+  magicInboxVerificationStatusEnum,
+  MagicInboxEmailType,
+  MagicInboxVerificationStatus,
+} from './magic-inbox-config';
+export type {
+  MagicInboxEmailRegistryRecord,
+  NewMagicInboxEmailRegistryRecord,
+  UpdateMagicInboxEmailRegistryRecord,
+  MagicInboxUsageRecord,
+  NewMagicInboxUsageRecord,
+  UpdateMagicInboxUsageRecord,
+  MagicInboxTestEmailRecord,
+  NewMagicInboxTestEmailRecord,
+  UpdateMagicInboxTestEmailRecord,
+  MagicInboxEmailTypeValue,
+  MagicInboxVerificationStatusValue,
+  DNSRecord,
+  MagicInboxSettings,
+  MagicInboxUsageSummary,
+  MagicInboxBillingRecord,
+  MagicInboxTestResult,
+} from './magic-inbox-config';
