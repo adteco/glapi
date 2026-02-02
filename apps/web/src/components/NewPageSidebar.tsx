@@ -55,6 +55,7 @@ import {
   Loader2 as Loader2Icon,
   FolderOpen as FolderOpenIcon,
   SlidersHorizontal as SlidersHorizontalIcon,
+  Inbox as InboxIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -115,6 +116,7 @@ const iconMap: Record<string, React.ElementType> = {
   home: HomeIcon,
   workflow: WorkflowIcon,
   'folder-open': FolderOpenIcon,
+  inbox: InboxIcon,
 };
 
 // Helper function to get icon component by name
@@ -310,6 +312,9 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
             </li>
             <li>
               <CollapsedLinkWrapper href="/reports" icon={FileTextIcon} label="Reports" isItemActive={isActive('/reports')} isCollapsed={showCollapsed} />
+            </li>
+            <li>
+              <CollapsedLinkWrapper href="/pending-documents" icon={InboxIcon} label="Magic Inbox" isItemActive={isActive('/pending-documents')} isCollapsed={showCollapsed} />
             </li>
           </ul>
         </div>
