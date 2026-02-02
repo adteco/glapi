@@ -1,0 +1,31 @@
+{
+  "name": "@glapi/magic-inbox-processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/*",
+    "build:zip": "pnpm build && cd dist && zip -r ../function.zip .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit",
+    "tf:init": "cd terraform && terraform init",
+    "tf:plan": "pnpm build:zip && cd terraform && terraform plan",
+    "tf:apply": "pnpm build:zip && cd terraform && terraform apply",
+    "tf:destroy": "cd terraform && terraform destroy",
+    "deploy": "pnpm build:zip && cd terraform && terraform apply -auto-approve",
+    "deploy:code": "pnpm build:zip && aws lambda update-function-code --function-name magic-inbox-processor-prod --zip-file fileb://function.zip"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.500.0",
+    "mailparser": "^3.6.5"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.131",
+    "@types/mailparser": "^3.4.4",
+    "@types/node": "^20.12.12",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

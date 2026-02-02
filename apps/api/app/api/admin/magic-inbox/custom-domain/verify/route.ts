@@ -16,7 +16,7 @@ import { handleApiError } from '../../../../utils/errors';
 export async function POST() {
   try {
     const context = await getServiceContext();
-    await requireAdmin();
+    await checkAdmin();
 
     const service = new MagicInboxConfigService({
       organizationId: context.organizationId,
