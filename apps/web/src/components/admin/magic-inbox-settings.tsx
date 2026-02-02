@@ -8,6 +8,9 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+
+// API base URL for admin endpoints
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 import {
   Card,
   CardContent,
@@ -68,7 +71,7 @@ export function MagicInboxSettings() {
   async function loadConfig() {
     try {
       const token = await getToken();
-      const response = await fetch('/api/admin/magic-inbox/config', {
+      const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -88,7 +91,7 @@ export function MagicInboxSettings() {
   async function loadUsage() {
     try {
       const token = await getToken();
-      const response = await fetch('/api/admin/magic-inbox/usage', {
+      const response = await fetch(`${API_URL}/api/admin/magic-inbox/usage`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -109,7 +112,7 @@ export function MagicInboxSettings() {
 
     try {
       const token = await getToken();
-      const response = await fetch('/api/admin/magic-inbox/check-prefix', {
+      const response = await fetch(`${API_URL}/api/admin/magic-inbox/check-prefix`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,7 +139,7 @@ export function MagicInboxSettings() {
 
     try {
       const token = await getToken();
-      const response = await fetch('/api/admin/magic-inbox/config', {
+      const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +179,7 @@ export function MagicInboxSettings() {
 
     try {
       const token = await getToken();
-      const response = await fetch('/api/admin/magic-inbox/config', {
+      const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -195,7 +198,7 @@ export function MagicInboxSettings() {
   async function regenerateSecret() {
     try {
       const token = await getToken();
-      const response = await fetch('/api/admin/magic-inbox/webhook-secret', {
+      const response = await fetch(`${API_URL}/api/admin/magic-inbox/webhook-secret`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -217,7 +220,7 @@ export function MagicInboxSettings() {
   async function sendTestEmail() {
     try {
       const token = await getToken();
-      const response = await fetch('/api/admin/magic-inbox/test', {
+      const response = await fetch(`${API_URL}/api/admin/magic-inbox/test`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
