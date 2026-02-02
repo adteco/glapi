@@ -67,8 +67,8 @@ export const projectAnalyticsRouter = router({
       .groupBy(timeEntries.projectId);
 
     // Create lookup maps
-    const billedMap = new Map<string | null, number>(billedByProject.map(b => [b.projectId, parseFloat(b.totalBilled) || 0]));
-    const pendingMap = new Map<string | null, number>(pendingByProject.map(p => [p.projectId, parseFloat(p.totalPending) || 0]));
+    const billedMap = new Map<string | null, number>(billedByProject.map((b: { projectId: string | null; totalBilled: string }) => [b.projectId, parseFloat(b.totalBilled) || 0]));
+    const pendingMap = new Map<string | null, number>(pendingByProject.map((p: { projectId: string | null; totalPending: string }) => [p.projectId, parseFloat(p.totalPending) || 0]));
 
     // Aggregate by customer
     const customerBacklog = new Map<string, { customerId: string; customerName: string; backlogValue: number; projectCount: number }>();
@@ -134,19 +134,22 @@ export const projectAnalyticsRouter = router({
       )
       .groupBy(projects.customerId, entities.name);
 
+    type UnbilledEntry = { customerId: string | null; customerName: string | null; unbilledAmount: string; unbilledHours: string };
+    type ResultEntry = { customerId: string; customerName: string; unbilledAmount: number; unbilledHours: number };
+
     const results = unbilledEntries
-      .filter(e => e.customerId)
-      .map(e => ({
+      .filter((e: UnbilledEntry) => e.customerId)
+      .map((e: UnbilledEntry) => ({
         customerId: e.customerId!,
         customerName: e.customerName || 'Unknown',
         unbilledAmount: parseFloat(e.unbilledAmount) || 0,
         unbilledHours: parseFloat(e.unbilledHours) || 0,
       }))
-      .filter(e => e.unbilledAmount > 0)
-      .sort((a, b) => b.unbilledAmount - a.unbilledAmount);
+      .filter((e: ResultEntry) => e.unbilledAmount > 0)
+      .sort((a: ResultEntry, b: ResultEntry) => b.unbilledAmount - a.unbilledAmount);
 
-    const total = results.reduce((sum, c) => sum + c.unbilledAmount, 0);
-    const totalHours = results.reduce((sum, c) => sum + c.unbilledHours, 0);
+    const total = results.reduce((sum: number, c: ResultEntry) => sum + c.unbilledAmount, 0);
+    const totalHours = results.reduce((sum: number, c: ResultEntry) => sum + c.unbilledHours, 0);
 
     return {
       data: results,
@@ -182,9 +185,12 @@ export const projectAnalyticsRouter = router({
       )
       .groupBy(projects.customerId, entities.name);
 
+    type SummaryEntry = { customerId: string | null; customerName: string | null; totalBudgetRevenue: string; totalBudgetCost: string; projectCount: string; avgPercentComplete: string };
+    type SummaryResult = { customerId: string; customerName: string; totalBudgetRevenue: number; totalBudgetCost: number; projectCount: number; avgPercentComplete: number };
+
     const results = projectSummary
-      .filter(s => s.customerId)
-      .map(s => ({
+      .filter((s: SummaryEntry) => s.customerId)
+      .map((s: SummaryEntry) => ({
         customerId: s.customerId!,
         customerName: s.customerName || 'Unknown',
         totalBudgetRevenue: parseFloat(s.totalBudgetRevenue) || 0,
@@ -192,7 +198,7 @@ export const projectAnalyticsRouter = router({
         projectCount: parseInt(s.projectCount) || 0,
         avgPercentComplete: parseFloat(s.avgPercentComplete) || 0,
       }))
-      .sort((a, b) => b.totalBudgetRevenue - a.totalBudgetRevenue);
+      .sort((a: SummaryResult, b: SummaryResult) => b.totalBudgetRevenue - a.totalBudgetRevenue);
 
     return {
       data: results,
@@ -262,27 +268,29 @@ export const projectAnalyticsRouter = router({
           ne(businessTransactions.status, 'CANCELLED'),
           inArray(
             businessTransactions.parentTransactionId,
-            salesOrders.map(so => so.id)
+            salesOrders.map((so: { id: string }) => so.id)
           )
         )
       )
       .groupBy(businessTransactions.parentTransactionId) : [];
 
     // Create lookup map for invoiced amounts
+    type InvoicedAmount = { parentId: string | null; invoicedAmount: string };
     const invoicedMap = new Map<string, number>(
       invoicedAmounts
-        .filter(inv => inv.parentId)
-        .map(inv => [inv.parentId!, parseFloat(inv.invoicedAmount) || 0])
+        .filter((inv: InvoicedAmount) => inv.parentId)
+        .map((inv: InvoicedAmount) => [inv.parentId!, parseFloat(inv.invoicedAmount) || 0])
     );
 
     // Get entity names
-    const entityIds = [...new Set(salesOrders.map(so => so.entityId).filter(Boolean))];
+    type SalesOrder = { id: string; entityId: string | null; totalAmount: string | null };
+    const entityIds = [...new Set(salesOrders.map((so: SalesOrder) => so.entityId).filter(Boolean))];
     const entityList = entityIds.length > 0 ? await db
       .select({ id: entities.id, name: entities.name })
       .from(entities)
       .where(inArray(entities.id, entityIds as string[])) : [];
 
-    const entityMap = new Map<string, string | null>(entityList.map(e => [e.id, e.name]));
+    const entityMap = new Map<string, string | null>(entityList.map((e: { id: string; name: string | null }) => [e.id, e.name]));
 
     // Aggregate by customer
     const customerData = new Map<string, {

@@ -324,8 +324,8 @@ export const pendingDocumentsRouter = router({
                   lineNumber: z.number().optional(),
                   itemName: z.string(),
                   itemDescription: z.string().optional(),
-                  quantity: z.union([z.string(), z.number()]).optional(),
-                  unitPrice: z.union([z.string(), z.number()]).optional(),
+                  quantity: z.union([z.string(), z.number()]),
+                  unitPrice: z.union([z.string(), z.number()]),
                 })
               )
               .optional(),

@@ -829,10 +829,11 @@ export const workflowsRouter = router({
 
       // Copy groups
       if (template.groups.length > 0) {
+        type GroupType = { id: string; name: string; displayOrder: number | null };
         const newGroups = await ctx.db
           .insert(workflowGroups)
           .values(
-            template.groups.map((group) => ({
+            template.groups.map((group: GroupType) => ({
               workflowId: newWorkflow.id,
               name: group.name,
               displayOrder: group.displayOrder,
@@ -841,15 +842,16 @@ export const workflowsRouter = router({
           .returning();
 
         // Build the ID mapping
-        template.groups.forEach((oldGroup, index) => {
+        template.groups.forEach((oldGroup: GroupType, index: number) => {
           groupIdMap.set(oldGroup.id, newGroups[index].id);
         });
       }
 
       // Copy components
       if (template.components.length > 0) {
+        type ComponentType = { groupId: string | null; componentType: string; componentKey: string; displayName: string; icon: string | null; route: string | null; displayOrder: number | null; isEnabled: boolean | null };
         await ctx.db.insert(workflowComponents).values(
-          template.components.map((component) => ({
+          template.components.map((component: ComponentType) => ({
             workflowId: newWorkflow.id,
             groupId: component.groupId
               ? groupIdMap.get(component.groupId) ?? null

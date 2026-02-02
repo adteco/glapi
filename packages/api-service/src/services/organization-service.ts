@@ -49,7 +49,7 @@ export class OrganizationService extends BaseService {
    */
   async createOrganization(data: CreateOrganizationInput): Promise<Organization> {
     // Check if organization with this Stytch ID already exists
-    const existing = await this.organizationRepository.findByStytchId(data.stytchOrgId);
+    const existing = data.stytchOrgId ? await this.organizationRepository.findByStytchId(data.stytchOrgId) : null;
     if (existing) {
       throw new ServiceError(
         `Organization with Stytch ID "${data.stytchOrgId}" already exists`,
