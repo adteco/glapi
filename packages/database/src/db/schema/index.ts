@@ -157,6 +157,9 @@ import * as entityContactsSchemas from './entity-contacts';
 // Pending Documents schemas (Magic Inbox integration)
 import * as pendingDocumentsSchemas from './pending-documents';
 
+// Magic Inbox Configuration schemas
+import * as magicInboxConfigSchemas from './magic-inbox-config';
+
 // Temporarily comment out GL tables to test
 import * as testGl from './test-gl';
 
@@ -289,6 +292,8 @@ export const schema = {
   ...entityContactsSchemas,
   // Pending Documents schemas (Magic Inbox integration)
   ...pendingDocumentsSchemas,
+  // Magic Inbox Configuration schemas
+  ...magicInboxConfigSchemas,
 };
 
 // Re-export specific types from new schemas
@@ -1216,3 +1221,32 @@ export type {
   ExtractedData,
   PendingDocumentMetadata,
 } from './pending-documents';
+
+// Re-export Magic Inbox Configuration schemas
+export {
+  magicInboxEmailRegistry,
+  magicInboxUsage,
+  magicInboxTestEmails,
+  magicInboxEmailTypeEnum,
+  magicInboxVerificationStatusEnum,
+  MagicInboxEmailType,
+  MagicInboxVerificationStatus,
+} from './magic-inbox-config';
+export type {
+  MagicInboxEmailRegistryRecord,
+  NewMagicInboxEmailRegistryRecord,
+  UpdateMagicInboxEmailRegistryRecord,
+  MagicInboxUsageRecord,
+  NewMagicInboxUsageRecord,
+  UpdateMagicInboxUsageRecord,
+  MagicInboxTestEmailRecord,
+  NewMagicInboxTestEmailRecord,
+  UpdateMagicInboxTestEmailRecord,
+  MagicInboxEmailTypeValue,
+  MagicInboxVerificationStatusValue,
+  DNSRecord,
+  MagicInboxSettings,
+  MagicInboxUsageSummary,
+  MagicInboxBillingRecord,
+  MagicInboxTestResult,
+} from './magic-inbox-config';

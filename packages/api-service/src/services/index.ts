@@ -124,6 +124,8 @@ export * from './accounting-list-service';
 
 // Magic Inbox
 export * from './magic-inbox-service';
+export * from './magic-inbox-config-service';
+export * from './magic-inbox-usage-service';
 
 // Pending Documents
 export * from './pending-documents-service';
