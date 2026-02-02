@@ -208,7 +208,7 @@ export function registerLeadTools(server: MCPServer): void {
           notes: args.notes,
           isActive: true,
           metadata: {
-            lead_source: args.source,
+            source: args.source,
           },
         });
         

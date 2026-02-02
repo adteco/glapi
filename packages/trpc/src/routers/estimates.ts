@@ -1132,7 +1132,7 @@ export const estimatesRouter = router({
       const invoiceNumber = `INV-${year}-${random}`;
 
       // Calculate totals for lines being invoiced
-      const totals = calculateTotals(linesToInvoice.map(line => ({
+      const totals = calculateTotals(linesToInvoice.map((line: typeof linesToInvoice[number]) => ({
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         discountPercent: line.discountPercent,
@@ -1248,7 +1248,7 @@ export const estimatesRouter = router({
           totalAmount: businessTransactions.totalAmount,
           status: businessTransactions.status,
           typeCode: transactionTypes.typeCode,
-          typeName: transactionTypes.name,
+          typeName: transactionTypes.typeName,
           entityName: entities.name,
         })
         .from(businessTransactions)
@@ -1299,7 +1299,7 @@ export const estimatesRouter = router({
           totalAmount: businessTransactions.totalAmount,
           status: businessTransactions.status,
           typeCode: transactionTypes.typeCode,
-          typeName: transactionTypes.name,
+          typeName: transactionTypes.typeName,
           entityName: entities.name,
         })
         .from(businessTransactions)
@@ -1343,7 +1343,7 @@ export const estimatesRouter = router({
 
         if (transTypes.length > 0) {
           whereConditions.push(
-            or(...transTypes.map(t => eq(businessTransactions.transactionTypeId, t.id)))!
+            or(...transTypes.map((t: { id: string }) => eq(businessTransactions.transactionTypeId, t.id)))!
           );
         }
       }
@@ -1356,7 +1356,7 @@ export const estimatesRouter = router({
           totalAmount: businessTransactions.totalAmount,
           status: businessTransactions.status,
           typeCode: transactionTypes.typeCode,
-          typeName: transactionTypes.name,
+          typeName: transactionTypes.typeName,
           entityName: entities.name,
           projectName: projects.name,
         })

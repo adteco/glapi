@@ -74,7 +74,7 @@ export class AccountingListService extends BaseService {
    * List payment terms
    */
   async listPaymentTerms(
-    params: AccountingListQueryInput = {}
+    params: Partial<AccountingListQueryInput> = {}
   ): Promise<PaginatedResult<PaymentTerms>> {
     const organizationId = this.requireOrganizationContext();
     const { page = 1, limit = 50, activeOnly, search } = params;
@@ -265,7 +265,7 @@ export class AccountingListService extends BaseService {
    * List payment methods
    */
   async listPaymentMethods(
-    params: AccountingListQueryInput = {}
+    params: Partial<AccountingListQueryInput> = {}
   ): Promise<PaginatedResult<PaymentMethod>> {
     const organizationId = this.requireOrganizationContext();
     const { page = 1, limit = 50, activeOnly, search } = params;
@@ -477,7 +477,7 @@ export class AccountingListService extends BaseService {
    * List charge types
    */
   async listChargeTypes(
-    params: AccountingListQueryInput = {}
+    params: Partial<AccountingListQueryInput> = {}
   ): Promise<PaginatedResult<ChargeType>> {
     const organizationId = this.requireOrganizationContext();
     const { page = 1, limit = 50, activeOnly, search } = params;
