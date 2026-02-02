@@ -219,3 +219,44 @@ export async function verifyRLSContext(client: PoolClient): Promise<{
     userId: userId,
   };
 }
+
+/**
+ * Execute database operations that bypass RLS.
+ *
+ * WARNING: This should ONLY be used for internal system operations that need
+ * cross-tenant access, such as:
+ * - Email lookup to find which organization owns an email address
+ * - Webhook signature verification before organization context is known
+ * - System-level administrative tasks
+ *
+ * NEVER use this for user-facing operations. Regular user operations must
+ * use withOrganizationContext to ensure proper tenant isolation.
+ *
+ * This works by setting a PostgreSQL session variable that indicates the
+ * query should bypass RLS policies. The RLS policies must be updated to
+ * check for this bypass flag.
+ *
+ * @param operation - The database operation to execute without RLS filtering
+ * @returns The result of the operation
+ */
+export async function withoutRLS<T>(
+  operation: (db: ContextualDatabase) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+
+  try {
+    // Set the bypass flag that RLS policies can check
+    // This allows internal system queries to access all rows
+    await client.query(
+      "SELECT set_config('app.rls_bypass', 'true', false)"
+    );
+
+    // Create a Drizzle instance bound to this client
+    const contextualDb = drizzle(client, { schema });
+
+    return await operation(contextualDb);
+  } finally {
+    // Always release the connection
+    client.release();
+  }
+}

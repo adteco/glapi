@@ -11,6 +11,7 @@ export {
   withOrganizationContextTransaction,
   createContextualDb,
   verifyRLSContext,
+  withoutRLS,
 } from './context';
 export type { OrganizationContext, ContextualDatabase } from './context';
 

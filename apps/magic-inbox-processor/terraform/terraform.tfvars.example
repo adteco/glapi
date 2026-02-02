@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars and fill in the values
+
+aws_region   = "us-east-1"
+environment  = "prod"
+
+# SNS topic that receives SES email notifications
+sns_topic_arn = "arn:aws:sns:us-east-1:340173080692:adteco-magic-email-sns"
+
+# S3 bucket where SES stores emails
+email_bucket_name   = "adteco-magic-inbox"
+email_bucket_prefix = "emails/"
+
+# GLAPI configuration
+glapi_base_url       = "https://api.glapi.net"
+glapi_internal_token = "your-internal-api-token-here"
+
+# AI extraction (optional)
+enable_ai_extraction = false
+anthropic_api_key    = ""
+
+# Lambda configuration
+lambda_memory_size = 512
+lambda_timeout     = 60
+log_retention_days = 14
