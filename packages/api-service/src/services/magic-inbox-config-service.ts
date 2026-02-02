@@ -34,7 +34,7 @@ import { ServiceError } from '../types';
 // Constants
 // ============================================================================
 
-const MAGIC_INBOX_DOMAIN = 'inbox.adteco.app';
+const MAGIC_INBOX_DOMAIN = 'adteco.app';
 const WEBHOOK_SECRET_LENGTH = 32;
 const PREFIX_MIN_LENGTH = 3;
 const PREFIX_MAX_LENGTH = 50;

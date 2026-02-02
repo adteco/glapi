@@ -391,11 +391,11 @@ export function MagicInboxSettings() {
                       )}
                     </div>
                     <span className="flex items-center text-muted-foreground">
-                      @inbox.adteco.app
+                      @adteco.app
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Your email will be: {prefix || 'your-company'}@inbox.adteco.app
+                    Your email will be: {prefix || 'your-company'}@adteco.app
                   </p>
                 </div>
 

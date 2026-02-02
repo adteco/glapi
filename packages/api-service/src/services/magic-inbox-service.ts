@@ -128,7 +128,7 @@ export async function processMagicInboxWebhook(
  * Resolve an orgId to a database organization ID
  * The orgId could be:
  * - An actual UUID organization ID
- * - An email prefix (e.g., "acme" from "acme@inbox.adteco.app")
+ * - An email prefix (e.g., "acme" from "acme@adteco.app")
  * - A Clerk organization ID
  */
 async function resolveOrganizationId(orgId: string): Promise<string | null> {

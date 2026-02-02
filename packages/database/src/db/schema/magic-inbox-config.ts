@@ -35,7 +35,7 @@ import { pendingDocuments } from './pending-documents';
  * Email configuration type
  */
 export const magicInboxEmailTypeEnum = pgEnum('magic_inbox_email_type', [
-  'prefix',        // Uses shared domain: {prefix}@inbox.adteco.app
+  'prefix',        // Uses shared domain: {prefix}@adteco.app
   'custom_domain', // Uses custom domain: inbox@{custom-domain}
 ]);
 
@@ -118,7 +118,7 @@ export const magicInboxEmailRegistry = pgTable('magic_inbox_email_registry', {
   // Email configuration
   emailAddress: varchar('email_address', { length: 255 }).notNull().unique(),
   emailType: magicInboxEmailTypeEnum('email_type').notNull().default('prefix'),
-  prefix: varchar('prefix', { length: 100 }), // e.g., "acme" for acme@inbox.adteco.app
+  prefix: varchar('prefix', { length: 100 }), // e.g., "acme" for acme@adteco.app
   customDomain: varchar('custom_domain', { length: 255 }), // e.g., "inbox.acme.com"
 
   // Status
