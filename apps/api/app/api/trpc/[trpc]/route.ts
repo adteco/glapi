@@ -8,9 +8,12 @@ const handler = async (req: NextRequest) => {
   // Get the organization context from headers (set by middleware)
   const context = await getServiceContext();
 
-  // Create a user object compatible with the API service types
+  // Create a user object compatible with the tRPC User interface
+  // Must include clerkId and entityId for proper serviceContext creation
   const user = {
     id: context.userId,
+    clerkId: context.clerkUserId,
+    entityId: context.entityId,
     organizationId: context.organizationId,
     email: null, // Would come from Clerk/auth provider
     role: 'user' as const,
