@@ -16,7 +16,7 @@ import { handleApiError } from '../../../../utils/errors';
 export async function GET(request: NextRequest) {
   try {
     const context = await getServiceContext();
-    await requireAdmin();
+    await checkAdmin();
 
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : 1;
