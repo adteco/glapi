@@ -1,3 +1,17 @@
 1770064488:/Users/fredpope/Development/glapi/packages/api-service/src/services/magic-inbox-config-service.ts:packages/api-service
 1770064504:/Users/fredpope/Development/glapi/packages/database/src/db/schema/magic-inbox-config.ts:packages/database
 1770064517:/Users/fredpope/Development/glapi/packages/api-service/src/services/magic-inbox-service.ts:packages/api-service
+1770067456:/Users/fredpope/Development/glapi/packages/trpc/src/routers/project-analytics.ts:packages/trpc
+1770067464:/Users/fredpope/Development/glapi/packages/trpc/src/routers/project-analytics.ts:packages/trpc
+1770067472:/Users/fredpope/Development/glapi/packages/trpc/src/routers/project-analytics.ts:packages/trpc
+1770067481:/Users/fredpope/Development/glapi/packages/trpc/src/routers/project-analytics.ts:packages/trpc
+1770067489:/Users/fredpope/Development/glapi/packages/trpc/src/routers/project-analytics.ts:packages/trpc
+1770067507:/Users/fredpope/Development/glapi/packages/trpc/src/routers/workflows.ts:packages/trpc
+1770067519:/Users/fredpope/Development/glapi/packages/trpc/src/routers/workflows.ts:packages/trpc
+1770067732:/Users/fredpope/Development/glapi/packages/api-service/src/services/accounting-list-service.ts:packages/api-service
+1770067756:/Users/fredpope/Development/glapi/packages/trpc/src/routers/estimates.ts:packages/trpc
+1770067773:/Users/fredpope/Development/glapi/packages/trpc/src/routers/estimates.ts:packages/trpc
+1770067784:/Users/fredpope/Development/glapi/packages/trpc/src/routers/estimates.ts:packages/trpc
+1770067804:/Users/fredpope/Development/glapi/packages/api-service/src/services/organization-service.ts:packages/api-service
+1770067836:/Users/fredpope/Development/glapi/packages/mcp-server/src/tools/leads.ts:packages/mcp-server
+1770067863:/Users/fredpope/Development/glapi/packages/trpc/src/routers/pending-documents.ts:packages/trpc

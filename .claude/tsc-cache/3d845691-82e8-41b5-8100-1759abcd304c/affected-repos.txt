@@ -1,2 +1,4 @@
 packages/api-service
 packages/database
+packages/trpc
+packages/mcp-server
