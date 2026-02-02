@@ -53,7 +53,7 @@ async function verifyInternalAuth(): Promise<boolean> {
  * POST /api/internal/magic-inbox/lookup
  * Look up the webhook configuration for an email address
  *
- * Request body: { email: "acme@inbox.adteco.app" }
+ * Request body: { email: "acme@adteco.app" }
  * Response: { organizationId, webhookUrl, found: true } or { found: false }
  *
  * Note: We don't return the webhook secret hash directly. The Lambda should
