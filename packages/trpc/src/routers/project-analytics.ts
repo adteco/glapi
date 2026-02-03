@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { db as globalDb } from '@glapi/database';
+import { createReadOnlyAIMeta } from '../ai-meta';
 import { projects, timeEntries, entities, businessTransactions, transactionTypes } from '@glapi/database/schema';
 import { eq, and, sql, inArray, isNotNull, ne } from 'drizzle-orm';
 
@@ -15,7 +16,12 @@ export const projectAnalyticsRouter = router({
    * - pendingBilling = APPROVED time entries (billable hours * billing rate)
    * - actualBilled = POSTED time entries (billable hours * billing rate)
    */
-  getBacklogByCustomer: authenticatedProcedure.query(async ({ ctx }) => {
+  getBacklogByCustomer: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_backlog_by_customer', 'Get project backlog by customer (budgetRevenue - pendingBilling - actualBilled)', {
+      scopes: ['project-analytics', 'reporting', 'customers'],
+      permissions: ['read:project-analytics'],
+    }) })
+    .query(async ({ ctx }) => {
     const db = ctx.db || globalDb;
 
     // Get all projects with budget revenue and customer info
@@ -111,7 +117,12 @@ export const projectAnalyticsRouter = router({
    * Get unbilled time by customer
    * Unbilled = APPROVED time entries that have not been POSTED (billed)
    */
-  getUnbilledTimeByCustomer: authenticatedProcedure.query(async ({ ctx }) => {
+  getUnbilledTimeByCustomer: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_unbilled_time_by_customer', 'Get unbilled time by customer (APPROVED time entries not yet POSTED)', {
+      scopes: ['project-analytics', 'reporting', 'customers'],
+      permissions: ['read:project-analytics'],
+    }) })
+    .query(async ({ ctx }) => {
     const db = ctx.db || globalDb;
 
     // Get unbilled (APPROVED but not POSTED) time entries with project and customer info
@@ -162,7 +173,12 @@ export const projectAnalyticsRouter = router({
    * Get project summary by customer
    * Shows total budget, billed, unbilled, and backlog per customer
    */
-  getProjectSummaryByCustomer: authenticatedProcedure.query(async ({ ctx }) => {
+  getProjectSummaryByCustomer: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_project_summary_by_customer', 'Get project summary by customer (budget, billed, unbilled, backlog)', {
+      scopes: ['project-analytics', 'reporting', 'customers'],
+      permissions: ['read:project-analytics'],
+    }) })
+    .query(async ({ ctx }) => {
     const db = ctx.db || globalDb;
 
     // Get projects grouped by customer with their budgets
@@ -209,7 +225,12 @@ export const projectAnalyticsRouter = router({
    * Get unfulfilled sales orders by customer
    * Unfulfilled = total sales order amount - total invoiced amount (where invoice.parentTransactionId = salesOrder.id)
    */
-  getUnfulfilledSalesOrdersByCustomer: authenticatedProcedure.query(async ({ ctx }) => {
+  getUnfulfilledSalesOrdersByCustomer: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_unfulfilled_sales_orders_by_customer', 'Get unfulfilled sales orders by customer (total order - total invoiced)', {
+      scopes: ['project-analytics', 'reporting', 'customers', 'sales-orders'],
+      permissions: ['read:project-analytics'],
+    }) })
+    .query(async ({ ctx }) => {
     const db = ctx.db || globalDb;
 
     // Get SALES_ORDER transaction type ID
