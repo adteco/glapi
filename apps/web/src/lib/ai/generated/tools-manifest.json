@@ -1,0 +1,953 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-02-03T13:48:26.816Z",
+  "contentHash": "b73979cf8327",
+  "toolCount": 105,
+  "tools": [
+    {
+      "name": "list_customers",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_customer",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_customer",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_customer",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_customer",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_organizations",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_organization",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_organization",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_organization",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_organization",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_subsidiaries",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_subsidiarie",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_subsidiarie",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_subsidiarie",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_subsidiarie",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_departments",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_department",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_department",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_department",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_department",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_locations",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_location",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_location",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_location",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_location",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_classes",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_classe",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_classe",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_classe",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_classe",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_items",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_item",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_item",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_item",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_item",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_priceLists",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_priceList",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_priceList",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_priceList",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_priceList",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_warehouses",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_warehouse",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_warehouse",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_warehouse",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_warehouse",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_vendors",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_vendor",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_vendor",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_vendor",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_vendor",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_accounts",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_account",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_account",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_account",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_account",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_leads",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_lead",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_lead",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_lead",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_lead",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_employees",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_employee",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_employee",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_employee",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_employee",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_prospects",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_prospect",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_prospect",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_prospect",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_prospect",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_contacts",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_contact",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_contact",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_contact",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_contact",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_unitsOfMeasure",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_unitsOfMeasure",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_unitsOfMeasure",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_unitsOfMeasure",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_unitsOfMeasure",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_businessTransactions",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_businessTransaction",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_businessTransaction",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_businessTransaction",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_businessTransaction",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_subscriptions",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_subscription",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_subscription",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_subscription",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_subscription",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_invoices",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_invoice",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_invoice",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_invoice",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_invoice",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_payments",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_payment",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_payment",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_payment",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_payment",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "list_revenue",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "create_revenue",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "get_revenue",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "LOW",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "update_revenue",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "MEDIUM",
+      "scopes": [
+        "global"
+      ]
+    },
+    {
+      "name": "delete_revenue",
+      "version": 1,
+      "stability": "stable",
+      "riskLevel": "HIGH",
+      "scopes": [
+        "global"
+      ]
+    }
+  ]
+}
