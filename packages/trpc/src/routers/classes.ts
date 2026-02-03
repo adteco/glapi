@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { ClassService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const classSchema = z.object({
   name: z.string().min(1),
@@ -13,6 +14,10 @@ const classSchema = z.object({
 
 export const classesRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_classes', 'Search and list accounting classes', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:classes'],
+    }) })
     .input(
       z.object({
         includeInactive: z.boolean().optional(),
@@ -29,6 +34,10 @@ export const classesRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_class', 'Get a single accounting class by ID', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:classes'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ClassService(ctx.serviceContext, { db: ctx.db });
@@ -45,6 +54,11 @@ export const classesRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_class', 'Create a new accounting class', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:classes'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(classSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ClassService(ctx.serviceContext, { db: ctx.db });
@@ -57,6 +71,11 @@ export const classesRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_class', 'Update an existing accounting class', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:classes'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -78,6 +97,11 @@ export const classesRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_class', 'Delete an accounting class', {
+      scopes: ['accounting'],
+      permissions: ['delete:classes'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ClassService(ctx.serviceContext, { db: ctx.db });

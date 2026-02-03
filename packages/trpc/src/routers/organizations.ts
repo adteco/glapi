@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, publicProcedure, router } from '../trpc';
 import { OrganizationService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 const organizationSchema = z.object({
   name: z.string().min(1),
@@ -11,20 +12,34 @@ const organizationSchema = z.object({
 });
 
 export const organizationsRouter = router({
-  list: authenticatedProcedure.query(async ({ ctx }) => {
+  list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_organizations', 'List all organizations', {
+      scopes: ['organizations', 'admin', 'global'],
+      permissions: ['read:organizations'],
+    }) })
+    .query(async ({ ctx }) => {
     const service = new OrganizationService(ctx.serviceContext);
     // TODO: Implement list organizations
     return [];
   }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_organization', 'Get a single organization by ID', {
+      scopes: ['organizations', 'admin', 'global'],
+      permissions: ['read:organizations'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new OrganizationService(ctx.serviceContext);
       return service.getOrganizationById(input.id);
     }),
 
-  getDefault: authenticatedProcedure.query(async ({ ctx }) => {
+  getDefault: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_default_organization', 'Get the current users default organization', {
+      scopes: ['organizations', 'global'],
+      permissions: ['read:organizations'],
+    }) })
+    .query(async ({ ctx }) => {
     // Return the current user's organization
     return {
       id: ctx.organizationId,
@@ -34,6 +49,12 @@ export const organizationsRouter = router({
   }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_organization', 'Create a new organization', {
+      scopes: ['organizations', 'admin'],
+      permissions: ['write:organizations'],
+      riskLevel: 'HIGH',
+      minimumRole: 'admin',
+    }) })
     .input(organizationSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new OrganizationService(ctx.serviceContext);
@@ -41,6 +62,12 @@ export const organizationsRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_organization', 'Update an existing organization', {
+      scopes: ['organizations', 'admin'],
+      permissions: ['write:organizations'],
+      riskLevel: 'HIGH',
+      minimumRole: 'admin',
+    }) })
     .input(
       z.object({
         id: z.string(),
