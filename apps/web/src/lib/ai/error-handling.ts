@@ -307,6 +307,47 @@ const GUARDRAIL_ERROR_MAP: Record<GuardrailErrorCode, Partial<AIError>> = {
     ],
     retryable: false,
   },
+  // Policy enforcement errors (from x-ai-policy)
+  POLICY_TIER_NOT_ALLOWED: {
+    category: 'permission',
+    message: 'Your subscription tier does not have access to this feature.',
+    suggestions: [
+      'Upgrade your subscription to access this feature',
+      'Contact your administrator about tier upgrades',
+      'Try a different operation that matches your current tier',
+    ],
+    retryable: false,
+  },
+  POLICY_MFA_REQUIRED: {
+    category: 'permission',
+    message: 'Multi-factor authentication is required for this action.',
+    suggestions: [
+      'Complete multi-factor authentication to continue',
+      'Check your authenticator app for a verification code',
+      'If you cannot access MFA, contact support',
+    ],
+    retryable: true,
+  },
+  POLICY_ROW_SCOPE_VIOLATION: {
+    category: 'permission',
+    message: 'You do not have access to the requested resource.',
+    suggestions: [
+      'Verify you have access to the requested resource',
+      'Check that you are working with your own organization\'s data',
+      'Contact your administrator if you need broader access',
+    ],
+    retryable: false,
+  },
+  POLICY_MAX_RECORDS_EXCEEDED: {
+    category: 'validation',
+    message: 'This operation would affect too many records.',
+    suggestions: [
+      'Reduce the number of records in your request',
+      'Use filters to narrow down the affected records',
+      'Process records in smaller batches',
+    ],
+    retryable: true,
+  },
 };
 
 // =============================================================================

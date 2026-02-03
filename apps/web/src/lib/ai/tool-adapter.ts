@@ -22,6 +22,7 @@ import {
   type IntentCategory,
   INTENT_CATALOG,
 } from './intents';
+import type { AIPolicy } from './policy-evaluator';
 
 // =============================================================================
 // Types
@@ -63,6 +64,8 @@ export interface UnifiedToolInfo {
   generatedTool?: GeneratedAITool;
   /** Original intent (if from legacy) */
   legacyIntent?: Intent;
+  /** x-ai-policy rules for tier/MFA/row-scope enforcement */
+  policy?: AIPolicy;
 }
 
 // =============================================================================
@@ -145,6 +148,8 @@ export function generatedToolToUnified(tool: GeneratedAITool): UnifiedToolInfo {
     scopes: metadata.scopes,
     source: 'generated',
     generatedTool: tool,
+    // x-ai-policy extension (will be populated when generator is updated)
+    policy: (metadata as AIToolMetadata & { policy?: AIPolicy }).policy,
   };
 }
 
