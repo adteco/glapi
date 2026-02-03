@@ -5,6 +5,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
+import { waitForPageReady } from '../../utils/test-helpers';
 
 test.describe('Authentication', () => {
   test.describe('Sign In Page', () => {
@@ -78,7 +79,7 @@ test.describe('Authenticated User', () => {
     await page.goto('/dashboard');
 
     // Wait for page to load
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Should show user menu/button
     const userButton = page.locator(
@@ -91,7 +92,7 @@ test.describe('Authenticated User', () => {
 
   test('should display organization switcher', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Look for organization switcher
     const orgSwitcher = page.locator(

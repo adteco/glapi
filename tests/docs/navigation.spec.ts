@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForPageReady } from '../utils/test-helpers';
 
 test.describe('Documentation Site', () => {
   // Note: Docs site may be on a different port/subdomain
@@ -83,7 +84,7 @@ test.describe('Documentation Site', () => {
       const nestedLink = page.locator('nav a').nth(3);
       if (await nestedLink.isVisible()) {
         await nestedLink.click();
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         const breadcrumb = page.locator(
           '[aria-label="breadcrumb"], .breadcrumb, nav:has-text("/")'
@@ -151,7 +152,7 @@ test.describe('Documentation Site', () => {
       const apiLink = page.locator('a:has-text("API")').first();
       if (await apiLink.isVisible()) {
         await apiLink.click();
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         const codeBlock = page.locator('pre, code, .code-block');
         // Code blocks may or may not be on this page
@@ -330,7 +331,7 @@ test.describe('Documentation Site', () => {
       if (await link.isVisible()) {
         const startTime = Date.now();
         await link.click();
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
         const navTime = Date.now() - startTime;
 
         // Navigation should be quick

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ListPage, FormPage, DialogPage } from '../pages';
+import { waitForPageReady } from '../utils/test-helpers';
 
 /**
  * Tests for the Project → Estimate → Sales Order workflow
@@ -55,7 +56,7 @@ test.describe('Project to Estimate Workflow', () => {
   test.describe('Estimates Page Project Filter', () => {
     test('should load estimates page without filter', async ({ page }) => {
       await page.goto('/transactions/sales/estimates');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await expect(page.locator('h1:has-text("Sales Estimates")')).toBeVisible();
       // Should not show project filter badge
@@ -66,7 +67,7 @@ test.describe('Project to Estimate Workflow', () => {
       // Navigate to estimates page with a dummy projectId
       // The filter badge should show if valid, or page loads without filter if invalid
       await page.goto('/transactions/sales/estimates?projectId=00000000-0000-0000-0000-000000000000');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await expect(page.locator('h1:has-text("Sales Estimates")')).toBeVisible();
     });
@@ -74,7 +75,7 @@ test.describe('Project to Estimate Workflow', () => {
     test('should clear project filter when clicking Clear filter button', async ({ page }) => {
       // Navigate with filter
       await page.goto('/transactions/sales/estimates?projectId=00000000-0000-0000-0000-000000000000');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       const clearButton = page.locator('button:has-text("Clear filter")');
       if (await clearButton.isVisible()) {
@@ -89,7 +90,7 @@ test.describe('Project to Estimate Workflow', () => {
     test('should pre-select project when creating new estimate with filter active', async ({ page }) => {
       // First get a real project ID from the projects page
       await page.goto('/projects');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       const projectRow = page.locator('table tbody tr').first();
       if (!(await projectRow.isVisible())) {
@@ -101,7 +102,7 @@ test.describe('Project to Estimate Workflow', () => {
       const estimatesButton = projectRow.locator('button[title*="estimate" i], button:has(svg.lucide-file-text)');
       if (await estimatesButton.isVisible()) {
         await estimatesButton.click();
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         // Click New Estimate button
         const newEstimateButton = page.locator('button:has-text("New Estimate")');
@@ -121,7 +122,7 @@ test.describe('Project to Estimate Workflow', () => {
   test.describe('Unfulfilled Sales Orders Dashboard Card', () => {
     test('should display Unfulfilled Sales Orders by Customer card', async ({ page }) => {
       await page.goto('/dashboard');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Look for the card title with case-insensitive partial match
       const card = page.getByText(/Unfulfilled Sales Orders/i);
@@ -130,7 +131,7 @@ test.describe('Project to Estimate Workflow', () => {
 
     test('should display card description', async ({ page }) => {
       await page.goto('/dashboard');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Look for description text
       const description = page.getByText(/pending invoicing|sales orders/i);
@@ -139,7 +140,7 @@ test.describe('Project to Estimate Workflow', () => {
 
     test('should have View Sales Orders link', async ({ page }) => {
       await page.goto('/dashboard');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Look for any link/button that goes to sales orders
       const viewButton = page.locator('[href*="sales-orders"], button:has-text("Sales Orders")').first();
@@ -148,7 +149,7 @@ test.describe('Project to Estimate Workflow', () => {
 
     test('should navigate to sales orders page when clicking View Sales Orders', async ({ page }) => {
       await page.goto('/dashboard');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       const viewButton = page.locator('[href*="sales-orders"]').first();
       if (await viewButton.isVisible()) {
@@ -159,7 +160,7 @@ test.describe('Project to Estimate Workflow', () => {
 
     test('should display loading state or data', async ({ page }) => {
       await page.goto('/dashboard');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Give time for dashboard to load
       await page.waitForTimeout(2000);
@@ -175,7 +176,7 @@ test.describe('Project to Estimate Workflow', () => {
 
     test('should display total unfulfilled amount when data exists', async ({ page }) => {
       await page.goto('/dashboard');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Find the card and look for Total Unfulfilled
       const totalSection = page.getByText(/Total Unfulfilled/i);
@@ -226,7 +227,7 @@ test.describe('Project to Estimate Workflow', () => {
           await convertButton.click();
 
           // Wait for success toast or status change
-          await page.waitForLoadState('networkidle');
+          await waitForPageReady(page);
 
           // Estimate status should change to CONVERTED or success toast should appear
           const toast = page.locator('[data-sonner-toast], [role="alert"]').filter({ hasText: /converted|sales order/i });
@@ -247,7 +248,7 @@ test.describe('Project to Estimate Workflow', () => {
     test.beforeEach(async ({ page }) => {
       listPage = new ListPage(page);
       await page.goto('/transactions/sales/sales-orders');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
     });
 
     test('should load sales orders page', async ({ page }) => {

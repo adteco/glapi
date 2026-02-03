@@ -11,7 +11,7 @@ test.describe('Vendor Payments', () => {
     listPage = new ListPage(page);
     formPage = new FormPage(page);
     dialogPage = new DialogPage(page);
-    await page.goto('/transactions/purchasing/vendor-payments');
+    await page.goto('/transactions/purchasing/bill-payments');
     await listPage.waitForPageLoad();
   });
 
