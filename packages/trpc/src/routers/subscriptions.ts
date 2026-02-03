@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { SubscriptionService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // Zod schemas for validation
 const subscriptionItemSchema = z.object({
@@ -44,6 +45,10 @@ function handleServiceError(error: any): never {
 export const subscriptionsRouter = router({
   // List subscriptions with filtering
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_subscriptions', 'Search and list subscriptions', {
+      scopes: ['subscriptions', 'billing', 'global'],
+      permissions: ['read:subscriptions'],
+    }) })
     .input(z.object({
       entityId: z.string().uuid().optional(),
       status: z.enum(['draft', 'active', 'suspended', 'cancelled']).optional(),
@@ -57,6 +62,10 @@ export const subscriptionsRouter = router({
 
   // Get single subscription with items
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_subscription', 'Get a single subscription by ID with items', {
+      scopes: ['subscriptions', 'billing', 'global'],
+      permissions: ['read:subscriptions'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
@@ -74,6 +83,11 @@ export const subscriptionsRouter = router({
 
   // Create subscription with items
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_subscription', 'Create a new subscription', {
+      scopes: ['subscriptions', 'billing'],
+      permissions: ['write:subscriptions'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(subscriptionSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
@@ -97,6 +111,11 @@ export const subscriptionsRouter = router({
 
   // Update subscription
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_subscription', 'Update an existing subscription', {
+      scopes: ['subscriptions', 'billing'],
+      permissions: ['write:subscriptions'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       data: subscriptionSchema.partial()
@@ -133,6 +152,12 @@ export const subscriptionsRouter = router({
 
   // Delete subscription
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_subscription', 'Cancel a subscription', {
+      scopes: ['subscriptions'],
+      permissions: ['delete:subscriptions'],
+      riskLevel: 'HIGH',
+      requiresConfirmation: true,
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
@@ -153,6 +178,11 @@ export const subscriptionsRouter = router({
 
   // Activate subscription
   activate: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('activate_subscription', 'Activate a draft subscription', {
+      scopes: ['subscriptions', 'billing'],
+      permissions: ['write:subscriptions'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
@@ -176,8 +206,14 @@ export const subscriptionsRouter = router({
       }
     }),
 
-  // Cancel subscription  
+  // Cancel subscription
   cancel: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('cancel_subscription', 'Cancel an active subscription', {
+      scopes: ['subscriptions', 'billing'],
+      permissions: ['write:subscriptions'],
+      riskLevel: 'HIGH',
+      requiresConfirmation: true,
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       cancellationDate: z.coerce.date(),

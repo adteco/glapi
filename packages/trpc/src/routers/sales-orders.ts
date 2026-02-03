@@ -6,6 +6,7 @@ import {
   SalesOrderStatus,
   ApprovalActionType,
 } from '@glapi/database';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 // ============================================================================
 // Zod Schemas
@@ -132,6 +133,10 @@ export const salesOrdersRouter = router({
    * List sales orders with filtering and pagination
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_sales_orders', 'Search and list sales orders', {
+      scopes: ['sales', 'orders', 'global'],
+      permissions: ['read:sales-orders'],
+    }) })
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -151,6 +156,10 @@ export const salesOrdersRouter = router({
    * Get a single sales order by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_sales_order', 'Get a single sales order by ID', {
+      scopes: ['sales', 'orders', 'global'],
+      permissions: ['read:sales-orders'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new SalesOrderService(ctx.serviceContext);
@@ -193,6 +202,11 @@ export const salesOrdersRouter = router({
    * Create a new sales order
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_sales_order', 'Create a new sales order', {
+      scopes: ['sales', 'orders'],
+      permissions: ['write:sales-orders'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createSalesOrderSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new SalesOrderService(ctx.serviceContext);
@@ -258,6 +272,11 @@ export const salesOrdersRouter = router({
    * Update a sales order (only in DRAFT or REJECTED status)
    */
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_sales_order', 'Update an existing sales order', {
+      scopes: ['sales', 'orders'],
+      permissions: ['write:sales-orders'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -318,6 +337,12 @@ export const salesOrdersRouter = router({
    * Approve a sales order
    */
   approve: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('approve_sales_order', 'Approve a sales order', {
+      scopes: ['sales', 'orders', 'approvals'],
+      permissions: ['approve:sales-orders'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'manager',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -456,6 +481,12 @@ export const salesOrdersRouter = router({
    * Cancel sales order
    */
   cancel: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('cancel_sales_order', 'Cancel a sales order', {
+      scopes: ['sales', 'orders'],
+      permissions: ['write:sales-orders'],
+      riskLevel: 'HIGH',
+      requiresConfirmation: true,
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
