@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { WarehousePricingService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const warehouseSchema = z.object({
   warehouseId: z.string().min(1, 'Warehouse ID is required'),
@@ -43,6 +44,10 @@ const getCustomerPriceSchema = z.object({
 
 export const warehousesRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_warehouses', 'List warehouses', {
+      scopes: ['warehouses', 'inventory'],
+      permissions: ['read:warehouses'],
+    }) })
     .input(warehouseQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new WarehousePricingService(ctx.serviceContext);
@@ -50,6 +55,10 @@ export const warehousesRouter = router({
     }),
 
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_warehouse', 'Get a warehouse by ID', {
+      scopes: ['warehouses', 'inventory'],
+      permissions: ['read:warehouses'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new WarehousePricingService(ctx.serviceContext);
@@ -57,6 +66,11 @@ export const warehousesRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_warehouse', 'Create a warehouse', {
+      scopes: ['warehouses', 'inventory'],
+      permissions: ['write:warehouses'],
+      riskLevel: 'LOW',
+    }) })
     .input(warehouseSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new WarehousePricingService(ctx.serviceContext);
@@ -79,6 +93,11 @@ export const warehousesRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_warehouse', 'Delete a warehouse', {
+      scopes: ['warehouses', 'inventory'],
+      permissions: ['delete:warehouses'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const service = new WarehousePricingService(ctx.serviceContext);
@@ -86,6 +105,11 @@ export const warehousesRouter = router({
     }),
 
   assignPriceList: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('assign_warehouse_price_list', 'Assign a price list to a warehouse', {
+      scopes: ['warehouses', 'price-lists', 'pricing'],
+      permissions: ['write:warehouses', 'read:price-lists'],
+      riskLevel: 'LOW',
+    }) })
     .input(assignWarehousePriceListSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new WarehousePricingService(ctx.serviceContext);
@@ -157,6 +181,10 @@ export const warehousesRouter = router({
     }),
 
   getCustomerPrice: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_customer_warehouse_price', 'Get customer-specific warehouse pricing', {
+      scopes: ['warehouses', 'customers', 'pricing'],
+      permissions: ['read:warehouses', 'read:customers'],
+    }) })
     .input(getCustomerPriceSchema)
     .query(async ({ ctx, input }) => {
       const service = new WarehousePricingService(ctx.serviceContext);

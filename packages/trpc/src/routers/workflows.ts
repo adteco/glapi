@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   workflows,
   workflowGroups,
@@ -291,6 +292,10 @@ export const workflowsRouter = router({
    * users have a default workflow immediately.
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_workflows', 'List workflows for the organization', {
+      scopes: ['workflows'],
+      permissions: ['read:workflows'],
+    }) })
     .input(
       z
         .object({
@@ -342,6 +347,10 @@ export const workflowsRouter = router({
    * Get a single workflow by ID with groups and components
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_workflow', 'Get a workflow by ID with groups and components', {
+      scopes: ['workflows'],
+      permissions: ['read:workflows'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const workflow = await ctx.db.query.workflows.findFirst({
@@ -378,6 +387,11 @@ export const workflowsRouter = router({
    * Create a new workflow
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_workflow', 'Create a new workflow', {
+      scopes: ['workflows'],
+      permissions: ['write:workflows'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createWorkflowSchema)
     .mutation(async ({ ctx, input }) => {
       // Check for duplicate name within organization
@@ -455,6 +469,12 @@ export const workflowsRouter = router({
    * Delete a workflow (cascades to groups and components)
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_workflow', 'Delete a workflow (cascades to groups and components)', {
+      scopes: ['workflows'],
+      permissions: ['delete:workflows'],
+      riskLevel: 'HIGH',
+      requiresConfirmation: true,
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await verifyWorkflowOwnership(ctx.db, input.id, ctx.organizationId);
