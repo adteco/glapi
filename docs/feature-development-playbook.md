@@ -273,6 +273,57 @@ All entities must operate within an organization context:
    * Include organization ID in all API requests.
    * If no organization ID is available, redirect to login.
 
+### AI Tool Integration
+
+Every tRPC procedure that should be accessible to the AI assistant needs AI metadata:
+
+1. **Add AI Metadata to Procedures:**
+   ```typescript
+   import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
+
+   export const customersRouter = router({
+     list: authenticatedProcedure
+       .meta({
+         ai: createReadOnlyAIMeta(
+           'list_customers',
+           'Search and retrieve customer records by name, status, or location'
+         ),
+       })
+       .input(listCustomersSchema)
+       .query(...),
+
+     create: authenticatedProcedure
+       .meta({
+         ai: createWriteAIMeta(
+           'create_customer',
+           'Create a new customer record',
+           { scopes: ['global', 'sales'], minimumRole: 'staff' }
+         ),
+       })
+       .input(createCustomerSchema)
+       .mutation(...),
+   });
+   ```
+
+2. **Tool Naming Convention:**
+   * Use snake_case: `list_customers`, `create_invoice`, `delete_vendor`
+   * Prefix with action: `list_`, `get_`, `create_`, `update_`, `delete_`
+   * Be specific: `list_customers` not `get_all`
+
+3. **Description Best Practices:**
+   * Be actionable: "Search and retrieve..." not "Endpoint for..."
+   * Include what can be filtered/searched
+   * Keep under 500 characters
+
+4. **Regenerate AI Tools:**
+   After modifying procedures, run:
+   ```bash
+   pnpm --filter @glapi/trpc generate:ai-tools
+   ```
+
+5. **Documentation:**
+   See `docs/ai-openapi-extensions.md` for full extension reference.
+
 ### Error Handling
 
 Implement consistent error handling:
@@ -345,10 +396,18 @@ For each new entity type (e.g., subsidiary, department, location, class), ensure
 - [ ] Repository layer implemented in `packages/database/src/repositories/{entity}-repository.ts`
 - [ ] Zod validation schemas created in `packages/api-service/src/types/{entity}.types.ts`
 - [ ] Service layer implemented with CRUD operations in `packages/api-service/src/services/{entity}-service.ts`
+- [ ] tRPC router implemented with AI metadata in `packages/trpc/src/routers/{entity}.ts`
 - [ ] API routes implemented in `apps/api/src/routes/{entity}Routes.ts`
 - [ ] Unit tests for repository and service layers
 - [ ] Integration tests for API endpoints
 - [ ] Authorization checks implemented
+
+### AI Integration
+- [ ] AI metadata added to tRPC procedures using helper functions (`createReadOnlyAIMeta`, `createWriteAIMeta`, `createDeleteAIMeta`)
+- [ ] AI tools regenerated (`pnpm --filter @glapi/trpc generate:ai-tools`)
+- [ ] Tool names follow snake_case convention (e.g., `list_customers`, `create_invoice`)
+- [ ] Risk levels set appropriately (LOW for reads, MEDIUM for writes, HIGH for deletes)
+- [ ] Required permissions defined in metadata
 
 ### Frontend
 - [ ] Frontend API client methods added to `apps/web/src/lib/db-adapter.ts`
@@ -367,6 +426,7 @@ For each new entity type (e.g., subsidiary, department, location, class), ensure
 - [ ] README or developer documentation updated with implementation details
 - [ ] Example requests and responses documented
 - [ ] Relationship with other entities documented
+- [ ] AI tool descriptions are clear and actionable for LLM use
 
 ## Lessons Learned from Implementation
 

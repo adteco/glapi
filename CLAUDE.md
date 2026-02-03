@@ -123,6 +123,62 @@ The system is designed around accounting dimensions (customers, organizations, s
 - Each package should be treated as an independent module with its own dependencies
 - The monorepo tooling (pnpm and Turborepo) handles the linking between packages automatically
 
+## AI Tool Development
+
+The project includes an OpenAPI-driven AI assistant that can execute tRPC procedures. AI tools are auto-generated from OpenAPI specs with `x-ai-*` extensions.
+
+### Quick Start: Adding AI to a Procedure
+
+```typescript
+import { createReadOnlyAIMeta } from '../ai-meta';
+
+export const customersRouter = router({
+  list: authenticatedProcedure
+    .meta({
+      ai: createReadOnlyAIMeta(
+        'list_customers',
+        'Search and retrieve customer records'
+      ),
+    })
+    .input(listCustomersSchema)
+    .query(async ({ input, ctx }) => {
+      // Implementation
+    }),
+});
+```
+
+### AI Tool Generation Commands
+
+```bash
+# Generate AI tools from OpenAPI spec
+pnpm --filter @glapi/trpc generate:ai-tools
+
+# Generate both OpenAPI spec and AI tools
+pnpm --filter @glapi/trpc generate:api
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `packages/trpc/src/ai-meta.ts` | AI metadata types and helper functions |
+| `packages/api-service/src/ai/openapi-extensions.ts` | x-ai-* extension Zod schemas |
+| `packages/trpc/src/openapi-generator.ts` | OpenAPI generator with AI extensions |
+| `apps/web/src/lib/ai/generated/` | Auto-generated tools (DO NOT EDIT) |
+| `docs/ai-openapi-extensions.md` | Full extension reference guide |
+
+### Helper Functions
+
+- `createReadOnlyAIMeta(name, desc)` - For list/get queries (LOW risk)
+- `createWriteAIMeta(name, desc)` - For create/update mutations (MEDIUM risk)
+- `createDeleteAIMeta(name, desc)` - For delete mutations (HIGH risk)
+
+### Pre-commit Hook
+
+The pre-commit hook auto-regenerates AI tools when router files change. Generated files are committed automatically.
+
+See [docs/ai-openapi-extensions.md](docs/ai-openapi-extensions.md) for comprehensive documentation.
+
 <!-- MCP_AGENT_MAIL_AND_BEADS_SNIPPET_START -->
 
 ## MCP Agent Mail: coordination for multi-agent workflows
