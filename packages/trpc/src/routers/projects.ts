@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { ProjectService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const projectStatusEnum = z.enum([
   'planning',
@@ -82,6 +83,10 @@ export const projectsRouter = router({
    * List projects with pagination and filters
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_projects', 'Search and list construction/job projects', {
+      scopes: ['projects', 'construction', 'global'],
+      permissions: ['read:projects'],
+    }) })
     .input(
       z
         .object({
@@ -112,6 +117,10 @@ export const projectsRouter = router({
    * Get a single project by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_project', 'Get a single project by ID', {
+      scopes: ['projects', 'construction', 'global'],
+      permissions: ['read:projects'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
@@ -132,6 +141,10 @@ export const projectsRouter = router({
    * Get a project by code
    */
   getByCode: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_project_by_code', 'Get a project by its project code', {
+      scopes: ['projects', 'construction'],
+      permissions: ['read:projects'],
+    }) })
     .input(z.object({ projectCode: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
@@ -152,6 +165,11 @@ export const projectsRouter = router({
    * Create a new project
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_project', 'Create a new construction/job project', {
+      scopes: ['projects', 'construction'],
+      permissions: ['write:projects'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createProjectSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectService(ctx.serviceContext, { db: ctx.db });
@@ -195,6 +213,11 @@ export const projectsRouter = router({
    * Update a project
    */
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_project', 'Update an existing project', {
+      scopes: ['projects', 'construction'],
+      permissions: ['write:projects'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -232,6 +255,12 @@ export const projectsRouter = router({
    * Delete a project
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_project', 'Delete a project', {
+      scopes: ['projects'],
+      permissions: ['delete:projects'],
+      riskLevel: 'HIGH',
+      minimumRole: 'manager',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectService(ctx.serviceContext, { db: ctx.db });

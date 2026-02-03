@@ -116,6 +116,35 @@ else
     echo "  Make sure to run: pnpm db:generate && pnpm db:migrate"
 fi
 
+# 6.5. Auto-regenerate AI tools if TRPC routers changed
+TRPC_ROUTER_CHANGES=$(git diff --cached --name-only | grep -E "packages/trpc/src/routers/.*\.ts$" | grep -v ".test.ts")
+TRPC_SCRIPT_CHANGES=$(git diff --cached --name-only | grep -E "packages/trpc/(scripts|src)/(generate|ai-meta|openapi)")
+
+if [ -n "$TRPC_ROUTER_CHANGES" ] || [ -n "$TRPC_SCRIPT_CHANGES" ]; then
+    echo ""
+    echo -e "${YELLOW}🔄 TRPC changes detected - regenerating AI tools and OpenAPI...${NC}"
+
+    # Run generation
+    if pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc > /dev/null 2>&1; then
+        # Check if generated files changed
+        GENERATED_CHANGES=$(git status --porcelain apps/docs/public/api/openapi.json apps/web/src/lib/ai/generated/ 2>/dev/null)
+
+        if [ -n "$GENERATED_CHANGES" ]; then
+            echo -e "${GREEN}✓${NC} Generated files updated. Staging changes..."
+            git add apps/docs/public/api/openapi.json apps/web/src/lib/ai/generated/
+            echo "  Staged:"
+            echo "$GENERATED_CHANGES" | sed 's/^/    /'
+        else
+            echo -e "${GREEN}✓${NC} Generated files already up to date"
+        fi
+    else
+        echo -e "${RED}✗${NC} Generation failed!"
+        echo "  Run manually: pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc"
+        FAILED=1
+    fi
+    echo ""
+fi
+
 # 7. Check for TODO comments
 echo -n "Checking for TODO comments... "
 TODOS=$(find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
