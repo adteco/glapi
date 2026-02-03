@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { createServiceFactory } from '@glapi/api-service';
 import { leadProspectMetadataSchema } from '@glapi/types';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const leadSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -28,6 +29,10 @@ const leadQuerySchema = z.object({
 
 export const leadsRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_leads', 'Search and list sales leads', {
+      scopes: ['crm', 'leads', 'global'],
+      permissions: ['read:leads'],
+    }) })
     .input(leadQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const services = createServiceFactory(ctx);
@@ -44,6 +49,10 @@ export const leadsRouter = router({
     }),
 
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_lead', 'Get a single lead by ID', {
+      scopes: ['crm', 'leads', 'global'],
+      permissions: ['read:leads'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const services = createServiceFactory(ctx);
@@ -52,6 +61,10 @@ export const leadsRouter = router({
 
   // Alias for getById (some components use get)
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_lead_by_id', 'Get a single lead by ID (alias)', {
+      scopes: ['crm', 'leads'],
+      permissions: ['read:leads'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const services = createServiceFactory(ctx);
@@ -59,6 +72,11 @@ export const leadsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_lead', 'Create a new sales lead', {
+      scopes: ['crm', 'leads'],
+      permissions: ['write:leads'],
+      riskLevel: 'LOW',
+    }) })
     .input(leadSchema)
     .mutation(async ({ ctx, input }) => {
       const services = createServiceFactory(ctx);
@@ -70,6 +88,11 @@ export const leadsRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_lead', 'Update an existing lead', {
+      scopes: ['crm', 'leads'],
+      permissions: ['write:leads'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({
       id: z.string(),
       data: updateLeadSchema,
@@ -80,6 +103,11 @@ export const leadsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_lead', 'Delete a lead', {
+      scopes: ['crm', 'leads'],
+      permissions: ['delete:leads'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const services = createServiceFactory(ctx);
@@ -87,6 +115,11 @@ export const leadsRouter = router({
     }),
 
   convertToCustomer: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('convert_lead_to_customer', 'Convert a lead to a customer', {
+      scopes: ['crm', 'leads', 'customers'],
+      permissions: ['write:leads', 'write:customers'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const services = createServiceFactory(ctx);
