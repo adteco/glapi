@@ -6,6 +6,10 @@
  * - Approval workflow
  * - Goods receipt processing
  * - Status tracking
+ *
+ * NOTE: Data access is delegated to PurchaseOrderRepository, PurchaseOrderLineRepository,
+ * and PurchaseOrderReceiptRepository. This service focuses on business logic, orchestration,
+ * and event emission.
  */
 
 import { BaseService } from './base-service';
@@ -41,9 +45,6 @@ import {
   POApprovalActionType,
   VALID_PURCHASE_ORDER_TRANSITIONS,
   type POApprovalActionTypeValue,
-} from '@glapi/database/schema';
-import { db as globalDb, type ContextualDatabase } from '@glapi/database';
-import {
   purchaseOrders,
   purchaseOrderLines,
   purchaseOrderReceipts,
@@ -53,11 +54,20 @@ import {
   locations,
   items,
 } from '@glapi/database/schema';
+import { db as globalDb, type ContextualDatabase } from '@glapi/database';
+import {
+  PurchaseOrderRepository,
+  PurchaseOrderLineRepository,
+  PurchaseOrderReceiptRepository,
+} from '@glapi/database/repositories';
 import { eq, and, desc, asc, sql, inArray, gte, lte, or, ilike, lt } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 
 export interface PurchaseOrderServiceOptions {
   db?: ContextualDatabase;
+  purchaseOrderRepository?: PurchaseOrderRepository;
+  purchaseOrderLineRepository?: PurchaseOrderLineRepository;
+  purchaseOrderReceiptRepository?: PurchaseOrderReceiptRepository;
 }
 
 // ============================================================================
@@ -66,11 +76,18 @@ export interface PurchaseOrderServiceOptions {
 
 export class PurchaseOrderService extends BaseService {
   private db: ContextualDatabase;
+  private poRepo: PurchaseOrderRepository;
+  private poLineRepo: PurchaseOrderLineRepository;
+  private receiptRepo: PurchaseOrderReceiptRepository;
   private eventService: EventService;
 
   constructor(context: ServiceContext = {}, options: PurchaseOrderServiceOptions = {}) {
     super(context);
     this.db = options.db ?? globalDb;
+    // Initialize repositories with optional db context for RLS
+    this.poRepo = options.purchaseOrderRepository ?? new PurchaseOrderRepository(options.db);
+    this.poLineRepo = options.purchaseOrderLineRepository ?? new PurchaseOrderLineRepository(options.db);
+    this.receiptRepo = options.purchaseOrderReceiptRepository ?? new PurchaseOrderReceiptRepository(options.db);
     this.eventService = new EventService(context);
   }
 
@@ -88,64 +105,12 @@ export class PurchaseOrderService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const { skip, take, page, limit } = this.getPaginationParams(params);
 
-    // Build where conditions
-    const conditions = [eq(purchaseOrders.organizationId, organizationId)];
-
-    if (filters.status) {
-      if (Array.isArray(filters.status)) {
-        conditions.push(inArray(purchaseOrders.status, filters.status));
-      } else {
-        conditions.push(eq(purchaseOrders.status, filters.status));
-      }
-    }
-
-    if (filters.vendorId) {
-      conditions.push(eq(purchaseOrders.vendorId, filters.vendorId));
-    }
-
-    if (filters.subsidiaryId) {
-      conditions.push(eq(purchaseOrders.subsidiaryId, filters.subsidiaryId));
-    }
-
-    if (filters.orderDateFrom) {
-      const dateFrom = typeof filters.orderDateFrom === 'string'
-        ? filters.orderDateFrom
-        : filters.orderDateFrom.toISOString().split('T')[0];
-      conditions.push(gte(purchaseOrders.orderDate, dateFrom));
-    }
-
-    if (filters.orderDateTo) {
-      const dateTo = typeof filters.orderDateTo === 'string'
-        ? filters.orderDateTo
-        : filters.orderDateTo.toISOString().split('T')[0];
-      conditions.push(lte(purchaseOrders.orderDate, dateTo));
-    }
-
-    if (filters.search) {
-      conditions.push(
-        or(
-          ilike(purchaseOrders.poNumber, `%${filters.search}%`),
-          ilike(purchaseOrders.vendorName, `%${filters.search}%`),
-          ilike(purchaseOrders.memo, `%${filters.search}%`)
-        )!
-      );
-    }
-
-    // Count total
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(purchaseOrders)
-      .where(and(...conditions));
-    const total = Number(countResult[0]?.count || 0);
-
-    // Fetch orders
-    const orders = await this.db
-      .select()
-      .from(purchaseOrders)
-      .where(and(...conditions))
-      .orderBy(desc(purchaseOrders.createdAt))
-      .limit(take)
-      .offset(skip);
+    // Use repository to fetch orders
+    const { results: orders, total } = await this.poRepo.findAll(
+      organizationId,
+      { skip, take },
+      filters
+    );
 
     // Enrich with details
     const ordersWithDetails = await Promise.all(
@@ -161,17 +126,12 @@ export class PurchaseOrderService extends BaseService {
   async getPurchaseOrderById(id: string): Promise<PurchaseOrderWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const order = await this.db
-      .select()
-      .from(purchaseOrders)
-      .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId)))
-      .limit(1);
-
-    if (!order[0]) {
+    const order = await this.poRepo.findById(id, organizationId);
+    if (!order) {
       return null;
     }
 
-    return this.enrichPOWithDetails(order[0], true);
+    return this.enrichPOWithDetails(order, true);
   }
 
   /**

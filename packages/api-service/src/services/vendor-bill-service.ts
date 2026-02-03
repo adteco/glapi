@@ -6,6 +6,9 @@
  * - 3-way match validation (PO ↔ Receipt ↔ Bill)
  * - Approval workflow
  * - Payment tracking
+ *
+ * NOTE: Data access is delegated to VendorBillRepository and VendorBillLineRepository.
+ * This service focuses on business logic, orchestration, and event emission.
  */
 
 import { BaseService } from './base-service';
@@ -38,25 +41,18 @@ import {
   VendorBillStatus,
   ThreeWayMatchStatus,
   BillApprovalActionType,
-  VALID_VENDOR_BILL_TRANSITIONS,
 } from '@glapi/database/schema';
-import { db as globalDb, type ContextualDatabase } from '@glapi/database';
+import { type ContextualDatabase } from '@glapi/database';
 import {
-  vendorBills,
-  vendorBillLines,
-  vendorBillApprovalHistory,
-  billPaymentApplications,
-  purchaseOrders,
-  purchaseOrderLines,
-  purchaseOrderReceiptLines,
-  entities,
-  accounts,
-} from '@glapi/database/schema';
-import { eq, and, desc, asc, sql, inArray, gte, lte, or, ilike, lt, isNull } from 'drizzle-orm';
+  VendorBillRepository,
+  VendorBillLineRepository,
+} from '@glapi/database/repositories';
 import Decimal from 'decimal.js';
 
 export interface VendorBillServiceOptions {
   db?: ContextualDatabase;
+  vendorBillRepository?: VendorBillRepository;
+  vendorBillLineRepository?: VendorBillLineRepository;
 }
 
 // ============================================================================
@@ -64,7 +60,8 @@ export interface VendorBillServiceOptions {
 // ============================================================================
 
 export class VendorBillService extends BaseService {
-  private db: ContextualDatabase;
+  private vendorBillRepo: VendorBillRepository;
+  private vendorBillLineRepo: VendorBillLineRepository;
   private eventService: EventService;
 
   // Tolerance thresholds for 3-way match
@@ -73,7 +70,9 @@ export class VendorBillService extends BaseService {
 
   constructor(context: ServiceContext = {}, options: VendorBillServiceOptions = {}) {
     super(context);
-    this.db = options.db ?? globalDb;
+    // Initialize repositories with optional db context for RLS
+    this.vendorBillRepo = options.vendorBillRepository ?? new VendorBillRepository(options.db);
+    this.vendorBillLineRepo = options.vendorBillLineRepository ?? new VendorBillLineRepository(options.db);
     this.eventService = new EventService(context);
   }
 
@@ -91,77 +90,12 @@ export class VendorBillService extends BaseService {
     const organizationId = this.requireOrganizationContext();
     const { skip, take, page, limit } = this.getPaginationParams(params);
 
-    // Build where conditions
-    const conditions = [eq(vendorBills.organizationId, organizationId)];
-
-    if (filters.status) {
-      if (Array.isArray(filters.status)) {
-        conditions.push(inArray(vendorBills.status, filters.status));
-      } else {
-        conditions.push(eq(vendorBills.status, filters.status));
-      }
-    }
-
-    if (filters.vendorId) {
-      conditions.push(eq(vendorBills.vendorId, filters.vendorId));
-    }
-
-    if (filters.subsidiaryId) {
-      conditions.push(eq(vendorBills.subsidiaryId, filters.subsidiaryId));
-    }
-
-    if (filters.purchaseOrderId) {
-      conditions.push(eq(vendorBills.purchaseOrderId, filters.purchaseOrderId));
-    }
-
-    if (filters.threeWayMatchStatus) {
-      conditions.push(eq(vendorBills.threeWayMatchStatus, filters.threeWayMatchStatus));
-    }
-
-    if (filters.billDateFrom) {
-      const dateFrom = typeof filters.billDateFrom === 'string'
-        ? filters.billDateFrom
-        : filters.billDateFrom.toISOString().split('T')[0];
-      conditions.push(gte(vendorBills.billDate, dateFrom));
-    }
-
-    if (filters.billDateTo) {
-      const dateTo = typeof filters.billDateTo === 'string'
-        ? filters.billDateTo
-        : filters.billDateTo.toISOString().split('T')[0];
-      conditions.push(lte(vendorBills.billDate, dateTo));
-    }
-
-    if (filters.hasBalance) {
-      conditions.push(sql`${vendorBills.balanceDue}::decimal > 0`);
-    }
-
-    if (filters.search) {
-      conditions.push(
-        or(
-          ilike(vendorBills.billNumber, `%${filters.search}%`),
-          ilike(vendorBills.vendorInvoiceNumber, `%${filters.search}%`),
-          ilike(vendorBills.vendorName, `%${filters.search}%`),
-          ilike(vendorBills.memo, `%${filters.search}%`)
-        )!
-      );
-    }
-
-    // Count total
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(vendorBills)
-      .where(and(...conditions));
-    const total = Number(countResult[0]?.count || 0);
-
-    // Fetch bills
-    const bills = await this.db
-      .select()
-      .from(vendorBills)
-      .where(and(...conditions))
-      .orderBy(desc(vendorBills.createdAt))
-      .limit(take)
-      .offset(skip);
+    // Use repository to fetch bills
+    const { results: bills, total } = await this.vendorBillRepo.findAll(
+      organizationId,
+      { skip, take },
+      filters
+    );
 
     // Enrich with details
     const billsWithDetails = await Promise.all(
@@ -177,17 +111,12 @@ export class VendorBillService extends BaseService {
   async getVendorBillById(id: string): Promise<VendorBillWithDetails | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const bill = await this.db
-      .select()
-      .from(vendorBills)
-      .where(and(eq(vendorBills.id, id), eq(vendorBills.organizationId, organizationId)))
-      .limit(1);
-
-    if (!bill[0]) {
+    const bill = await this.vendorBillRepo.findById(id, organizationId);
+    if (!bill) {
       return null;
     }
 
-    return this.enrichBillWithDetails(bill[0], true);
+    return this.enrichBillWithDetails(bill, true);
   }
 
   /**
@@ -198,18 +127,13 @@ export class VendorBillService extends BaseService {
     const userId = this.requireUserContext();
 
     // Validate vendor exists
-    const vendor = await this.db
-      .select({ id: entities.id, name: entities.name })
-      .from(entities)
-      .where(eq(entities.id, input.vendorId))
-      .limit(1);
-
-    if (!vendor[0]) {
+    const vendor = await this.vendorBillRepo.getVendor(input.vendorId);
+    if (!vendor) {
       throw new ServiceError('Vendor not found', 'NOT_FOUND', 404);
     }
 
     // Generate bill number
-    const billNumber = await this.generateBillNumber();
+    const billNumber = await this.vendorBillRepo.generateBillNumber();
 
     // Calculate line totals
     const { lines, subtotal, taxTotal } = this.calculateLineTotals(input.lines);
@@ -221,69 +145,62 @@ export class VendorBillService extends BaseService {
       ? ThreeWayMatchStatus.PENDING
       : ThreeWayMatchStatus.NOT_REQUIRED;
 
-    // Create bill
-    const [bill] = await this.db
-      .insert(vendorBills)
-      .values({
-        organizationId,
-        subsidiaryId: input.subsidiaryId,
-        billNumber,
-        vendorInvoiceNumber: input.vendorInvoiceNumber,
-        vendorId: input.vendorId,
-        vendorName: vendor[0].name,
-        purchaseOrderId: input.purchaseOrderId,
-        billDate: this.toDateString(input.billDate),
-        dueDate: this.toDateString(input.dueDate),
-        receivedDate: input.receivedDate ? this.toDateString(input.receivedDate) : null,
-        status: VendorBillStatus.DRAFT,
-        threeWayMatchStatus,
-        subtotal: subtotal.toString(),
-        taxAmount: taxTotal.toString(),
-        shippingAmount: shippingAmount.toString(),
-        totalAmount,
-        paidAmount: '0',
-        balanceDue: totalAmount,
-        discountDate: input.discountDate ? this.toDateString(input.discountDate) : null,
-        discountPercent: input.discountPercent?.toString(),
-        discountAmount: input.discountAmount?.toString(),
-        discountTaken: '0',
-        apAccountId: input.apAccountId,
-        paymentTerms: input.paymentTerms,
-        currencyCode: input.currencyCode || 'USD',
-        exchangeRate: (input.exchangeRate || 1).toString(),
-        memo: input.memo,
-        internalNotes: input.internalNotes,
-        createdBy: userId,
-        updatedBy: userId,
-      })
-      .returning();
+    // Create bill via repository
+    const bill = await this.vendorBillRepo.create({
+      organizationId,
+      subsidiaryId: input.subsidiaryId,
+      billNumber,
+      vendorInvoiceNumber: input.vendorInvoiceNumber,
+      vendorId: input.vendorId,
+      vendorName: vendor.name,
+      purchaseOrderId: input.purchaseOrderId,
+      billDate: this.toDateString(input.billDate),
+      dueDate: this.toDateString(input.dueDate),
+      receivedDate: input.receivedDate ? this.toDateString(input.receivedDate) : null,
+      status: VendorBillStatus.DRAFT,
+      threeWayMatchStatus,
+      subtotal: subtotal.toString(),
+      taxAmount: taxTotal.toString(),
+      shippingAmount: shippingAmount.toString(),
+      totalAmount,
+      paidAmount: '0',
+      balanceDue: totalAmount,
+      discountDate: input.discountDate ? this.toDateString(input.discountDate) : null,
+      discountPercent: input.discountPercent?.toString(),
+      discountAmount: input.discountAmount?.toString(),
+      discountTaken: '0',
+      apAccountId: input.apAccountId,
+      paymentTerms: input.paymentTerms,
+      currencyCode: input.currencyCode || 'USD',
+      exchangeRate: (input.exchangeRate || 1).toString(),
+      memo: input.memo,
+      internalNotes: input.internalNotes,
+      createdBy: userId,
+      updatedBy: userId,
+    });
 
-    // Create lines
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineNumber = line.lineNumber || i + 1;
-
-      await this.db.insert(vendorBillLines).values({
-        vendorBillId: bill.id,
-        lineNumber,
-        purchaseOrderLineId: line.purchaseOrderLineId,
-        receiptLineId: line.receiptLineId,
-        itemId: line.itemId,
-        itemName: line.itemName,
-        itemDescription: line.itemDescription,
-        quantity: line.quantity.toString(),
-        unitOfMeasure: line.unitOfMeasure,
-        unitPrice: line.unitPrice.toString(),
-        amount: line.amount.toString(),
-        taxAmount: (line.taxAmount || 0).toString(),
-        accountId: line.accountId,
-        departmentId: line.departmentId,
-        locationId: line.locationId,
-        classId: line.classId,
-        projectId: line.projectId,
-        memo: line.memo,
-      });
-    }
+    // Create lines via repository
+    const lineData = lines.map((line, i) => ({
+      vendorBillId: bill.id,
+      lineNumber: line.lineNumber || i + 1,
+      purchaseOrderLineId: line.purchaseOrderLineId,
+      receiptLineId: line.receiptLineId,
+      itemId: line.itemId,
+      itemName: line.itemName,
+      itemDescription: line.itemDescription,
+      quantity: line.quantity.toString(),
+      unitOfMeasure: line.unitOfMeasure,
+      unitPrice: line.unitPrice.toString(),
+      amount: line.amount.toString(),
+      taxAmount: (line.taxAmount || 0).toString(),
+      accountId: line.accountId,
+      departmentId: line.departmentId,
+      locationId: line.locationId,
+      classId: line.classId,
+      projectId: line.projectId,
+      memo: line.memo,
+    }));
+    await this.vendorBillLineRepo.createMany(lineData);
 
     // Perform 3-way match if linked to PO
     if (input.purchaseOrderId) {
@@ -312,24 +229,15 @@ export class VendorBillService extends BaseService {
    */
   async createBillFromPO(input: CreateBillFromPOInput): Promise<VendorBillWithDetails> {
     const organizationId = this.requireOrganizationContext();
-    const userId = this.requireUserContext();
 
-    // Get PO
-    const po = await this.db
-      .select()
-      .from(purchaseOrders)
-      .where(and(
-        eq(purchaseOrders.id, input.purchaseOrderId),
-        eq(purchaseOrders.organizationId, organizationId)
-      ))
-      .limit(1);
-
-    if (!po[0]) {
+    // Get PO via repository
+    const po = await this.vendorBillRepo.getPurchaseOrderFull(input.purchaseOrderId, organizationId);
+    if (!po) {
       throw new ServiceError('Purchase order not found', 'NOT_FOUND', 404);
     }
 
     // PO must be received
-    if (po[0].status !== 'RECEIVED' && po[0].status !== 'PARTIALLY_RECEIVED') {
+    if (po.status !== 'RECEIVED' && po.status !== 'PARTIALLY_RECEIVED') {
       throw new ServiceError(
         'Purchase order must be in RECEIVED or PARTIALLY_RECEIVED status to create a bill',
         'VALIDATION_ERROR',
@@ -337,12 +245,8 @@ export class VendorBillService extends BaseService {
       );
     }
 
-    // Get PO lines
-    const poLines = await this.db
-      .select()
-      .from(purchaseOrderLines)
-      .where(eq(purchaseOrderLines.purchaseOrderId, input.purchaseOrderId))
-      .orderBy(asc(purchaseOrderLines.lineNumber));
+    // Get PO lines via repository
+    const poLines = await this.vendorBillLineRepo.getPurchaseOrderLines(input.purchaseOrderId);
 
     // Build bill lines from PO lines (received but not yet billed)
     const billLines: CreateVendorBillInput['lines'] = [];
@@ -378,17 +282,17 @@ export class VendorBillService extends BaseService {
 
     // Create the bill
     return this.createVendorBill({
-      subsidiaryId: po[0].subsidiaryId,
-      vendorId: po[0].vendorId,
+      subsidiaryId: po.subsidiaryId,
+      vendorId: po.vendorId,
       vendorInvoiceNumber: input.vendorInvoiceNumber,
       purchaseOrderId: input.purchaseOrderId,
       billDate: input.billDate,
       dueDate: input.dueDate,
       discountDate: input.discountDate,
       discountPercent: input.discountPercent,
-      paymentTerms: po[0].paymentTerms || undefined,
-      currencyCode: po[0].currencyCode || 'USD',
-      exchangeRate: po[0].exchangeRate || undefined,
+      paymentTerms: po.paymentTerms || undefined,
+      currencyCode: po.currencyCode || 'USD',
+      exchangeRate: po.exchangeRate || undefined,
       memo: input.memo,
       lines: billLines,
     });
@@ -438,31 +342,23 @@ export class VendorBillService extends BaseService {
       };
 
       if (billLine.purchaseOrderLineId) {
-        // Get PO line
-        const poLine = await this.db
-          .select()
-          .from(purchaseOrderLines)
-          .where(eq(purchaseOrderLines.id, billLine.purchaseOrderLineId))
-          .limit(1);
+        // Get PO line via repository
+        const poLine = await this.vendorBillLineRepo.getPurchaseOrderLine(billLine.purchaseOrderLineId);
 
-        if (poLine[0]) {
-          lineResult.poQuantity = poLine[0].quantity;
-          lineResult.poUnitPrice = poLine[0].unitPrice;
+        if (poLine) {
+          lineResult.poQuantity = poLine.quantity;
+          lineResult.poUnitPrice = poLine.unitPrice;
 
-          // Get received quantity for this PO line
-          const receivedResult = await this.db
-            .select({ total: sql<string>`sum(quantity_received)` })
-            .from(purchaseOrderReceiptLines)
-            .where(eq(purchaseOrderReceiptLines.purchaseOrderLineId, billLine.purchaseOrderLineId));
-
-          lineResult.receivedQuantity = receivedResult[0]?.total || '0';
+          // Get received quantity for this PO line via repository
+          lineResult.receivedQuantity = await this.vendorBillLineRepo.getReceivedQuantity(
+            billLine.purchaseOrderLineId
+          );
 
           // Calculate variances
           const billedQty = new Decimal(billLine.quantity);
-          const poQty = new Decimal(poLine[0].quantity);
           const receivedQty = new Decimal(lineResult.receivedQuantity);
           const billedPrice = new Decimal(billLine.unitPrice);
-          const poPrice = new Decimal(poLine[0].unitPrice);
+          const poPrice = new Decimal(poLine.unitPrice);
 
           // Quantity variance (billed vs received)
           const qtyVariance = billedQty.minus(receivedQty);
@@ -506,36 +402,25 @@ export class VendorBillService extends BaseService {
         }
       }
 
-      // Update line match status in DB
-      await this.db
-        .update(vendorBillLines)
-        .set({
-          poQuantity: lineResult.poQuantity,
-          poUnitPrice: lineResult.poUnitPrice,
-          receivedQuantity: lineResult.receivedQuantity,
-          quantityVariance: lineResult.quantityVariance,
-          priceVariance: lineResult.priceVariance,
-          matchStatus: lineResult.matchStatus,
-          updatedAt: new Date(),
-        })
-        .where(eq(vendorBillLines.id, billLine.id));
+      // Update line match status via repository
+      await this.vendorBillLineRepo.updateMatchStatus(billLine.id, {
+        poQuantity: lineResult.poQuantity,
+        poUnitPrice: lineResult.poUnitPrice,
+        receivedQuantity: lineResult.receivedQuantity,
+        quantityVariance: lineResult.quantityVariance,
+        priceVariance: lineResult.priceVariance,
+        matchStatus: lineResult.matchStatus,
+      });
 
       lineResults.push(lineResult);
     }
 
-    // Update bill match status
+    // Update bill match status via repository
     const overallStatus = hasExceptions
       ? ThreeWayMatchStatus.EXCEPTION
       : ThreeWayMatchStatus.MATCHED;
 
-    await this.db
-      .update(vendorBills)
-      .set({
-        threeWayMatchStatus: overallStatus,
-        matchVarianceAmount: totalVariance.toFixed(2),
-        updatedAt: new Date(),
-      })
-      .where(eq(vendorBills.id, billId));
+    await this.vendorBillRepo.updateMatchStatus(billId, overallStatus, totalVariance.toFixed(2));
 
     // Emit event
     await this.eventService.emit({
@@ -565,6 +450,7 @@ export class VendorBillService extends BaseService {
    * Override a 3-way match exception (with approval)
    */
   async overrideMatchException(input: OverrideMatchExceptionInput): Promise<VendorBillWithDetails> {
+    const organizationId = this.requireOrganizationContext();
     const userId = this.requireUserContext();
 
     const bill = await this.getVendorBillById(input.vendorBillId);
@@ -576,18 +462,14 @@ export class VendorBillService extends BaseService {
       throw new ServiceError('Bill does not have match exceptions to override', 'VALIDATION_ERROR', 400);
     }
 
-    // Update match status to override
-    await this.db
-      .update(vendorBills)
-      .set({
-        threeWayMatchStatus: ThreeWayMatchStatus.OVERRIDE,
-        matchOverrideReason: input.reason,
-        matchOverrideBy: userId,
-        matchOverrideAt: new Date(),
-        updatedBy: userId,
-        updatedAt: new Date(),
-      })
-      .where(eq(vendorBills.id, input.vendorBillId));
+    // Update match status to override via repository
+    await this.vendorBillRepo.update(input.vendorBillId, organizationId, {
+      threeWayMatchStatus: ThreeWayMatchStatus.OVERRIDE,
+      matchOverrideReason: input.reason,
+      matchOverrideBy: userId,
+      matchOverrideAt: new Date(),
+      updatedBy: userId,
+    });
 
     // Emit event
     await this.eventService.emit({
@@ -639,28 +521,23 @@ export class VendorBillService extends BaseService {
       );
     }
 
-    // Update status
-    await this.db
-      .update(vendorBills)
-      .set({
-        status: VendorBillStatus.PENDING_APPROVAL,
-        updatedBy: userId,
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(vendorBills.id, input.vendorBillId),
-        eq(vendorBills.organizationId, organizationId)
-      ));
-
-    // Record approval history
-    await this.recordApprovalHistory(
+    // Update status via repository
+    await this.vendorBillRepo.updateStatus(
       input.vendorBillId,
-      BillApprovalActionType.SUBMITTED,
-      bill.status,
+      organizationId,
       VendorBillStatus.PENDING_APPROVAL,
-      userId,
-      input.comments
+      userId
     );
+
+    // Record approval history via repository
+    await this.vendorBillRepo.recordApprovalHistory({
+      vendorBillId: input.vendorBillId,
+      action: BillApprovalActionType.SUBMITTED,
+      fromStatus: bill.status,
+      toStatus: VendorBillStatus.PENDING_APPROVAL,
+      performedBy: userId,
+      comments: input.comments,
+    });
 
     // Emit event
     await this.eventService.emit({
@@ -715,40 +592,36 @@ export class VendorBillService extends BaseService {
         throw new ServiceError(`Invalid action: ${input.action}`, 'VALIDATION_ERROR', 400);
     }
 
-    // Update status
-    const updateData: Record<string, unknown> = {
-      status: newStatus,
-      updatedBy: userId,
-      updatedAt: new Date(),
-    };
-
+    // Build additional fields for approve action
+    const additionalFields: Record<string, unknown> = {};
     if (input.action === 'APPROVE') {
-      updateData.approvedAt = new Date();
-      updateData.approvedBy = userId;
+      additionalFields.approvedAt = new Date();
+      additionalFields.approvedBy = userId;
     }
 
-    await this.db
-      .update(vendorBills)
-      .set(updateData)
-      .where(and(
-        eq(vendorBills.id, input.vendorBillId),
-        eq(vendorBills.organizationId, organizationId)
-      ));
+    // Update status via repository
+    await this.vendorBillRepo.updateStatus(
+      input.vendorBillId,
+      organizationId,
+      newStatus,
+      userId,
+      additionalFields
+    );
 
     // Update PO billed amounts if approved
     if (input.action === 'APPROVE' && bill.purchaseOrderId) {
       await this.updatePOBilledAmounts(input.vendorBillId);
     }
 
-    // Record approval history
-    await this.recordApprovalHistory(
-      input.vendorBillId,
-      actionType,
-      bill.status,
-      newStatus,
-      userId,
-      input.comments
-    );
+    // Record approval history via repository
+    await this.vendorBillRepo.recordApprovalHistory({
+      vendorBillId: input.vendorBillId,
+      action: actionType,
+      fromStatus: bill.status,
+      toStatus: newStatus,
+      performedBy: userId,
+      comments: input.comments,
+    });
 
     // Emit event
     await this.eventService.emit({
@@ -784,33 +657,27 @@ export class VendorBillService extends BaseService {
       );
     }
 
-    // Update status
-    await this.db
-      .update(vendorBills)
-      .set({
-        status: VendorBillStatus.VOIDED,
-        voidedAt: new Date(),
-        voidedBy: userId,
-        voidReason: reason,
-        updatedBy: userId,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(vendorBills.id, id), eq(vendorBills.organizationId, organizationId)));
+    // Update status via repository
+    await this.vendorBillRepo.updateStatus(id, organizationId, VendorBillStatus.VOIDED, userId, {
+      voidedAt: new Date(),
+      voidedBy: userId,
+      voidReason: reason,
+    });
 
     // Reverse PO billed amounts if applicable
     if (bill.purchaseOrderId && bill.status === VendorBillStatus.APPROVED) {
       await this.reversePOBilledAmounts(id);
     }
 
-    // Record history
-    await this.recordApprovalHistory(
-      id,
-      BillApprovalActionType.VOIDED,
-      bill.status,
-      VendorBillStatus.VOIDED,
-      userId,
-      reason
-    );
+    // Record history via repository
+    await this.vendorBillRepo.recordApprovalHistory({
+      vendorBillId: id,
+      action: BillApprovalActionType.VOIDED,
+      fromStatus: bill.status,
+      toStatus: VendorBillStatus.VOIDED,
+      performedBy: userId,
+      comments: reason,
+    });
 
     // Emit event
     await this.eventService.emit({
@@ -857,16 +724,14 @@ export class VendorBillService extends BaseService {
       newStatus = VendorBillStatus.PARTIALLY_PAID;
     }
 
-    await this.db
-      .update(vendorBills)
-      .set({
-        paidAmount: newPaid.toFixed(2),
-        discountTaken: newDiscount.toFixed(2),
-        balanceDue: newBalance.lt(0) ? '0' : newBalance.toFixed(2),
-        status: newStatus,
-        updatedAt: new Date(),
-      })
-      .where(eq(vendorBills.id, billId));
+    // Update via repository
+    await this.vendorBillRepo.updatePaymentAmounts(
+      billId,
+      newPaid.toFixed(2),
+      newDiscount.toFixed(2),
+      newBalance.lt(0) ? '0' : newBalance.toFixed(2),
+      newStatus
+    );
   }
 
   // ==========================================================================
@@ -879,35 +744,18 @@ export class VendorBillService extends BaseService {
   async getVendorAccountSummary(vendorId: string): Promise<VendorAccountSummary> {
     const organizationId = this.requireOrganizationContext();
 
-    // Get vendor info
-    const vendor = await this.db
-      .select({ id: entities.id, name: entities.name })
-      .from(entities)
-      .where(eq(entities.id, vendorId))
-      .limit(1);
-
-    if (!vendor[0]) {
+    // Get vendor info via repository
+    const vendor = await this.vendorBillRepo.getVendor(vendorId);
+    if (!vendor) {
       throw new ServiceError('Vendor not found', 'NOT_FOUND', 404);
     }
 
-    // Get bill totals
-    const billStats = await this.db
-      .select({
-        totalOutstanding: sql<string>`sum(balance_due::decimal)`,
-        totalOverdue: sql<string>`sum(case when due_date < current_date and balance_due::decimal > 0 then balance_due::decimal else 0 end)`,
-        oldestBillDate: sql<string>`min(bill_date)`,
-        billCount: sql<number>`count(*)`,
-        overdueBillCount: sql<number>`count(case when due_date < current_date and balance_due::decimal > 0 then 1 end)`,
-      })
-      .from(vendorBills)
-      .where(and(
-        eq(vendorBills.organizationId, organizationId),
-        eq(vendorBills.vendorId, vendorId),
-        inArray(vendorBills.status, [
-          VendorBillStatus.APPROVED,
-          VendorBillStatus.PARTIALLY_PAID,
-        ])
-      ));
+    // Get bill totals via repository
+    const billStats = await this.vendorBillRepo.getVendorAccountSummary(
+      vendorId,
+      organizationId,
+      [VendorBillStatus.APPROVED, VendorBillStatus.PARTIALLY_PAID]
+    );
 
     // Get unapplied credits
     // (would need vendor credit memo query here)
@@ -915,13 +763,13 @@ export class VendorBillService extends BaseService {
 
     return {
       vendorId,
-      vendorName: vendor[0].name,
-      totalOutstanding: billStats[0]?.totalOutstanding || '0',
-      totalOverdue: billStats[0]?.totalOverdue || '0',
+      vendorName: vendor.name,
+      totalOutstanding: billStats?.totalOutstanding || '0',
+      totalOverdue: billStats?.totalOverdue || '0',
       totalUnappliedCredits,
-      oldestBillDate: billStats[0]?.oldestBillDate,
-      billCount: Number(billStats[0]?.billCount || 0),
-      overdueBillCount: Number(billStats[0]?.overdueBillCount || 0),
+      oldestBillDate: billStats?.oldestBillDate,
+      billCount: Number(billStats?.billCount || 0),
+      overdueBillCount: Number(billStats?.overdueBillCount || 0),
     };
   }
 
@@ -930,57 +778,27 @@ export class VendorBillService extends BaseService {
    */
   async getAPAgingSummary(subsidiaryId?: string): Promise<APAgingSummary> {
     const organizationId = this.requireOrganizationContext();
-    const today = new Date().toISOString().split('T')[0];
 
-    const conditions = [
-      eq(vendorBills.organizationId, organizationId),
-      inArray(vendorBills.status, [
-        VendorBillStatus.APPROVED,
-        VendorBillStatus.PARTIALLY_PAID,
-      ]),
-      sql`${vendorBills.balanceDue}::decimal > 0`,
-    ];
-
-    if (subsidiaryId) {
-      conditions.push(eq(vendorBills.subsidiaryId, subsidiaryId));
-    }
-
-    const agingResult = await this.db
-      .select({
-        current: sql<string>`sum(case when due_date >= current_date then balance_due::decimal else 0 end)`,
-        days1to30: sql<string>`sum(case when due_date < current_date and due_date >= current_date - interval '30 days' then balance_due::decimal else 0 end)`,
-        days31to60: sql<string>`sum(case when due_date < current_date - interval '30 days' and due_date >= current_date - interval '60 days' then balance_due::decimal else 0 end)`,
-        days61to90: sql<string>`sum(case when due_date < current_date - interval '60 days' and due_date >= current_date - interval '90 days' then balance_due::decimal else 0 end)`,
-        over90: sql<string>`sum(case when due_date < current_date - interval '90 days' then balance_due::decimal else 0 end)`,
-        total: sql<string>`sum(balance_due::decimal)`,
-      })
-      .from(vendorBills)
-      .where(and(...conditions));
+    // Get aging data via repository
+    const agingResult = await this.vendorBillRepo.getAPAgingSummary(
+      organizationId,
+      [VendorBillStatus.APPROVED, VendorBillStatus.PARTIALLY_PAID],
+      subsidiaryId
+    );
 
     return {
-      current: agingResult[0]?.current || '0',
-      days1to30: agingResult[0]?.days1to30 || '0',
-      days31to60: agingResult[0]?.days31to60 || '0',
-      days61to90: agingResult[0]?.days61to90 || '0',
-      over90: agingResult[0]?.over90 || '0',
-      total: agingResult[0]?.total || '0',
+      current: agingResult?.current || '0',
+      days1to30: agingResult?.days1to30 || '0',
+      days31to60: agingResult?.days31to60 || '0',
+      days61to90: agingResult?.days61to90 || '0',
+      over90: agingResult?.over90 || '0',
+      total: agingResult?.total || '0',
     };
   }
 
   // ==========================================================================
   // PRIVATE HELPERS
   // ==========================================================================
-
-  private async generateBillNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const result = await this.db.execute(sql`
-      SELECT COUNT(*) + 1 as seq
-      FROM vendor_bills
-      WHERE bill_number LIKE ${`BILL-${year}-%`}
-    `);
-    const seq = String((result.rows[0] as { seq: number }).seq).padStart(6, '0');
-    return `BILL-${year}-${seq}`;
-  }
 
   private calculateLineTotals(lines: CreateVendorBillInput['lines']) {
     let subtotal = new Decimal(0);
@@ -1012,145 +830,77 @@ export class VendorBillService extends BaseService {
     };
   }
 
-  private async recordApprovalHistory(
-    vendorBillId: string,
-    action: (typeof BillApprovalActionType)[keyof typeof BillApprovalActionType],
-    fromStatus: VendorBillStatusValue | undefined,
-    toStatus: VendorBillStatusValue,
-    userId: string,
-    comments?: string
-  ): Promise<void> {
-    await this.db.insert(vendorBillApprovalHistory).values({
-      vendorBillId,
-      action,
-      fromStatus,
-      toStatus,
-      performedBy: userId,
-      comments,
-    });
-  }
-
   private async updatePOBilledAmounts(billId: string): Promise<void> {
-    const lines = await this.db
-      .select()
-      .from(vendorBillLines)
-      .where(eq(vendorBillLines.vendorBillId, billId));
+    const organizationId = this.requireOrganizationContext();
+
+    // Get bill lines via repository
+    const lines = await this.vendorBillLineRepo.findByBillId(billId);
 
     for (const line of lines) {
       if (line.purchaseOrderLineId) {
-        await this.db.execute(sql`
-          UPDATE purchase_order_lines
-          SET quantity_billed = quantity_billed + ${line.quantity}::decimal,
-              updated_at = NOW()
-          WHERE id = ${line.purchaseOrderLineId}
-        `);
+        await this.vendorBillLineRepo.updatePOLineBilledQuantity(
+          line.purchaseOrderLineId,
+          line.quantity
+        );
       }
     }
 
     // Update PO header billed amount
-    const bill = await this.db
-      .select({ purchaseOrderId: vendorBills.purchaseOrderId, totalAmount: vendorBills.totalAmount })
-      .from(vendorBills)
-      .where(eq(vendorBills.id, billId))
-      .limit(1);
-
-    if (bill[0]?.purchaseOrderId) {
-      await this.db.execute(sql`
-        UPDATE purchase_orders
-        SET billed_amount = billed_amount + ${bill[0].totalAmount}::decimal,
-            status = CASE
-              WHEN billed_amount + ${bill[0].totalAmount}::decimal >= total_amount::decimal THEN 'BILLED'
-              ELSE status
-            END,
-            updated_at = NOW()
-        WHERE id = ${bill[0].purchaseOrderId}
-      `);
+    const bill = await this.vendorBillRepo.findById(billId, organizationId);
+    if (bill?.purchaseOrderId) {
+      await this.vendorBillRepo.updatePOBilledAmount(bill.purchaseOrderId, bill.totalAmount);
     }
   }
 
   private async reversePOBilledAmounts(billId: string): Promise<void> {
-    const lines = await this.db
-      .select()
-      .from(vendorBillLines)
-      .where(eq(vendorBillLines.vendorBillId, billId));
+    const organizationId = this.requireOrganizationContext();
+
+    // Get bill lines via repository
+    const lines = await this.vendorBillLineRepo.findByBillId(billId);
 
     for (const line of lines) {
       if (line.purchaseOrderLineId) {
-        await this.db.execute(sql`
-          UPDATE purchase_order_lines
-          SET quantity_billed = GREATEST(0, quantity_billed - ${line.quantity}::decimal),
-              updated_at = NOW()
-          WHERE id = ${line.purchaseOrderLineId}
-        `);
+        await this.vendorBillLineRepo.reversePOLineBilledQuantity(
+          line.purchaseOrderLineId,
+          line.quantity
+        );
       }
     }
 
     // Update PO header billed amount
-    const bill = await this.db
-      .select({ purchaseOrderId: vendorBills.purchaseOrderId, totalAmount: vendorBills.totalAmount })
-      .from(vendorBills)
-      .where(eq(vendorBills.id, billId))
-      .limit(1);
-
-    if (bill[0]?.purchaseOrderId) {
-      await this.db.execute(sql`
-        UPDATE purchase_orders
-        SET billed_amount = GREATEST(0, billed_amount - ${bill[0].totalAmount}::decimal),
-            status = CASE
-              WHEN status = 'BILLED' THEN 'RECEIVED'
-              ELSE status
-            END,
-            updated_at = NOW()
-        WHERE id = ${bill[0].purchaseOrderId}
-      `);
+    const bill = await this.vendorBillRepo.findById(billId, organizationId);
+    if (bill?.purchaseOrderId) {
+      await this.vendorBillRepo.reversePOBilledAmount(bill.purchaseOrderId, bill.totalAmount);
     }
   }
 
   private async enrichBillWithDetails(
-    bill: typeof vendorBills.$inferSelect,
+    bill: Parameters<typeof this.vendorBillRepo.findById> extends [infer _, infer __] ? Awaited<ReturnType<typeof this.vendorBillRepo.findById>> : never,
     includeAll = false
   ): Promise<VendorBillWithDetails> {
-    // Get vendor
-    const vendor = await this.db
-      .select({ id: entities.id, name: entities.name })
-      .from(entities)
-      .where(eq(entities.id, bill.vendorId))
-      .limit(1);
+    if (!bill) {
+      throw new ServiceError('Bill not found', 'NOT_FOUND', 404);
+    }
 
-    // Get PO if linked
+    // Get vendor via repository
+    const vendor = await this.vendorBillRepo.getVendor(bill.vendorId);
+
+    // Get PO if linked via repository
     const po = bill.purchaseOrderId
-      ? await this.db
-          .select({ id: purchaseOrders.id, poNumber: purchaseOrders.poNumber })
-          .from(purchaseOrders)
-          .where(eq(purchaseOrders.id, bill.purchaseOrderId))
-          .limit(1)
-      : [];
+      ? await this.vendorBillRepo.getPurchaseOrder(bill.purchaseOrderId)
+      : null;
 
-    // Get lines
-    const lines = await this.db
-      .select()
-      .from(vendorBillLines)
-      .where(eq(vendorBillLines.vendorBillId, bill.id))
-      .orderBy(asc(vendorBillLines.lineNumber));
+    // Get lines via repository
+    const lines = await this.vendorBillLineRepo.findByBillId(bill.id);
 
-    // Get payment applications if requested
+    // Get payment applications if requested via repository
     const paymentApps = includeAll
-      ? await this.db
-          .select()
-          .from(billPaymentApplications)
-          .where(and(
-            eq(billPaymentApplications.vendorBillId, bill.id),
-            isNull(billPaymentApplications.reversedAt)
-          ))
+      ? await this.vendorBillRepo.getPaymentApplications(bill.id)
       : [];
 
-    // Get approval history if requested
+    // Get approval history if requested via repository
     const approvalHistory = includeAll
-      ? await this.db
-          .select()
-          .from(vendorBillApprovalHistory)
-          .where(eq(vendorBillApprovalHistory.vendorBillId, bill.id))
-          .orderBy(desc(vendorBillApprovalHistory.performedAt))
+      ? await this.vendorBillRepo.getApprovalHistory(bill.id)
       : [];
 
     return {
@@ -1160,10 +910,10 @@ export class VendorBillService extends BaseService {
       billNumber: bill.billNumber,
       vendorInvoiceNumber: bill.vendorInvoiceNumber || undefined,
       vendorId: bill.vendorId,
-      vendor: vendor[0] ? { id: vendor[0].id, name: vendor[0].name } : undefined,
+      vendor: vendor ? { id: vendor.id, name: vendor.name } : undefined,
       vendorName: bill.vendorName || undefined,
       purchaseOrderId: bill.purchaseOrderId || undefined,
-      purchaseOrder: po[0] ? { id: po[0].id, poNumber: po[0].poNumber } : undefined,
+      purchaseOrder: po ? { id: po.id, poNumber: po.poNumber } : undefined,
       billDate: bill.billDate,
       dueDate: bill.dueDate,
       receivedDate: bill.receivedDate || undefined,
