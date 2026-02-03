@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { ItemsService, ItemCategoriesService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const itemSchema = z.object({
   itemCode: z.string().min(1),

@@ -8,6 +8,8 @@
     "type-check": "tsc --noEmit",
     "generate-openapi": "tsx scripts/generate-openapi.ts",
     "generate-ai-tools": "tsx scripts/generate-ai-tools.ts",
+    "generate:openapi": "tsx scripts/generate-openapi.ts",
+    "generate:ai-tools": "tsx scripts/generate-ai-tools.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },

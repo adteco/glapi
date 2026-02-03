@@ -7,7 +7,7 @@
       "persistent": true
     },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "generate:ai-tools"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**", "build/**"]
     },
     "lint": {
@@ -27,6 +27,26 @@
     },
     "generate": {
       "cache": false
+    },
+    "generate:openapi": {
+      "inputs": [
+        "src/router.ts",
+        "src/routers/**/*.ts",
+        "src/openapi-generator.ts",
+        "src/ai-meta.ts",
+        "scripts/generate-openapi.ts"
+      ],
+      "outputs": ["../../apps/docs/public/api/openapi.json"]
+    },
+    "generate:ai-tools": {
+      "inputs": [
+        "src/router.ts",
+        "src/routers/**/*.ts",
+        "src/openapi-generator.ts",
+        "src/ai-meta.ts",
+        "scripts/generate-ai-tools.ts"
+      ],
+      "outputs": ["../../apps/web/src/lib/ai/generated/**"]
     },
     "migrate": {
       "cache": false
