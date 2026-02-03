@@ -69,6 +69,13 @@ interface AICacheExtension {
   varyBy?: string[];
 }
 
+interface AIOutputExtension {
+  includeFields?: string[];
+  redactFields?: string[];
+  maxItems?: number;
+  maxTokens?: number;
+}
+
 interface ExtractedTool {
   operationId: string;
   path: string;
@@ -79,6 +86,7 @@ interface ExtractedTool {
   permissions: AIPermissionsExtension;
   rateLimit?: AIRateLimitExtension;
   cache?: AICacheExtension;
+  output?: AIOutputExtension;
   parameters: any[];
   requestBody?: any;
 }
@@ -105,6 +113,7 @@ function extractToolsFromSpec(spec: OpenAPISpec): ExtractedTool[] {
         permissions: operation['x-ai-permissions'] || { required: [], minimumRole: 'viewer' },
         rateLimit: operation['x-ai-rate-limit'],
         cache: operation['x-ai-cache'],
+        output: operation['x-ai-output'],
         parameters: operation.parameters || [],
         requestBody: operation.requestBody,
       };
@@ -170,6 +179,12 @@ export interface AIToolMetadata {
     enabled: boolean;
     ttlSeconds: number;
     varyBy?: string[];
+  };
+  output?: {
+    includeFields?: string[];
+    redactFields?: string[];
+    maxItems?: number;
+    maxTokens?: number;
   };
   operationId: string;
   path: string;
@@ -299,6 +314,11 @@ function generateToolDefinition(tool: ExtractedTool): string {
       ttlSeconds: ${tool.cache.ttlSeconds ?? 300},${tool.cache.varyBy ? `\n      varyBy: ${JSON.stringify(tool.cache.varyBy)},` : ''}
     },`
         : ''
+    }${
+      tool.output
+        ? `\n    output: {${tool.output.includeFields ? `\n      includeFields: ${JSON.stringify(tool.output.includeFields)},` : ''}${tool.output.redactFields ? `\n      redactFields: ${JSON.stringify(tool.output.redactFields)},` : ''}${tool.output.maxItems ? `\n      maxItems: ${tool.output.maxItems},` : ''}${tool.output.maxTokens ? `\n      maxTokens: ${tool.output.maxTokens},` : ''}
+    },`
+        : ''
     }
     operationId: '${tool.operationId}',
     path: '${tool.path}',
@@ -362,6 +382,7 @@ function generateExecutorFile(tools: ExtractedTool[]): string {
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { AI_TOOLS_BY_NAME, type GeneratedAITool, type RiskLevel } from './generated-tools';
+import { applyOutputShaping, type OutputConfig } from '../output-shaping';
 
 // =============================================================================
 // Types
@@ -388,6 +409,12 @@ export interface ExecutionResult<T = unknown> {
   preview?: boolean;
   fromCache?: boolean;
   executionTimeMs?: number;
+  outputShaping?: {
+    applied: boolean;
+    fieldsRedacted: number;
+    itemsLimited: number;
+    tokensTruncated: boolean;
+  };
 }
 
 export interface ToolExecutorConfig {
@@ -541,6 +568,7 @@ export function createToolExecutor(config: ToolExecutorConfig) {
     }
 
     // Check cache for read operations
+    // Note: Cached data is already output-shaped (we store shaped results)
     if (cache && tool.metadata.cache?.enabled && tool.metadata.method === 'GET') {
       const cacheKey = buildCacheKey(toolName, parameters, context);
       const cached = await cache.get(cacheKey);
@@ -550,25 +578,42 @@ export function createToolExecutor(config: ToolExecutorConfig) {
           data: cached,
           fromCache: true,
           executionTimeMs: Date.now() - startTime,
+          outputShaping: {
+            applied: !!tool.metadata.output,
+            fieldsRedacted: 0, // Already redacted when cached
+            itemsLimited: 0,
+            tokensTruncated: false,
+          },
         };
       }
     }
 
     // Execute tool
     try {
-      const result = await executeToolImplementation(toolName, parameters, context, trpcCaller);
+      const rawResult = await executeToolImplementation(toolName, parameters, context, trpcCaller);
 
-      // Cache result if enabled
+      // Apply output shaping BEFORE caching or returning
+      // This ensures redacted data is never stored or logged
+      const outputConfig = tool.metadata.output as OutputConfig | undefined;
+      const { data: shapedResult, stats: shapingStats } = applyOutputShaping(rawResult, outputConfig);
+
+      // Cache the SHAPED result (not raw) if enabled
       if (cache && tool.metadata.cache?.enabled && tool.metadata.method === 'GET') {
         const cacheKey = buildCacheKey(toolName, parameters, context);
-        await cache.set(cacheKey, result, tool.metadata.cache.ttlSeconds);
+        await cache.set(cacheKey, shapedResult, tool.metadata.cache.ttlSeconds);
       }
 
       return {
         success: true,
-        data: result,
+        data: shapedResult,
         preview: context.dryRun,
         executionTimeMs: Date.now() - startTime,
+        outputShaping: {
+          applied: !!outputConfig,
+          fieldsRedacted: shapingStats.fieldsRedacted,
+          itemsLimited: shapingStats.itemsLimited,
+          tokensTruncated: shapingStats.tokensTruncated,
+        },
       };
     } catch (error) {
       const trpcError = error as TRPCError;

@@ -43,6 +43,12 @@ export interface AIToolMetadata {
     ttlSeconds: number;
     varyBy?: string[];
   };
+  output?: {
+    includeFields?: string[];
+    redactFields?: string[];
+    maxItems?: number;
+    maxTokens?: number;
+  };
   operationId: string;
   path: string;
   method: string;
