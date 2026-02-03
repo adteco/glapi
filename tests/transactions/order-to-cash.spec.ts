@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForPageReady } from '../utils/test-helpers';
 
 /**
  * Order-to-Cash (O2C) E2E Flow Tests
@@ -14,7 +15,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Order-to-Cash Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/transactions/sales/sales-orders');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
   });
 
   test.describe('Sales Order Page Load', () => {

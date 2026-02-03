@@ -6,9 +6,49 @@ import { type Page, type Locator, expect } from '@playwright/test';
 
 /**
  * Wait for network to be idle
+ * @deprecated Use waitForPageReady instead - networkidle never resolves with persistent tRPC connections
  */
 export async function waitForNetworkIdle(page: Page, timeout = 10000): Promise<void> {
   await page.waitForLoadState('networkidle', { timeout });
+}
+
+/**
+ * Wait for page to be ready for interaction.
+ *
+ * Unlike waitForNetworkIdle, this doesn't wait for all network activity to stop
+ * (which never happens with tRPC/React Query persistent connections). Instead it:
+ * 1. Waits for DOM to be loaded
+ * 2. Waits briefly for React hydration
+ * 3. Waits for loading indicators to disappear
+ *
+ * @param page - Playwright page object
+ * @param options - Optional configuration
+ */
+export async function waitForPageReady(
+  page: Page,
+  options?: { timeout?: number; hydrationDelay?: number }
+): Promise<void> {
+  const { timeout = 30000, hydrationDelay = 500 } = options || {};
+
+  // Wait for DOM content to be loaded
+  await page.waitForLoadState('domcontentloaded', { timeout });
+
+  // Brief wait for React hydration
+  await page.waitForTimeout(hydrationDelay);
+
+  // Wait for common loading indicators to disappear
+  const loadingSpinner = page.locator(
+    '[data-testid="loading"], .loading, [role="progressbar"], .animate-spin'
+  );
+  if (await loadingSpinner.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await loadingSpinner.waitFor({ state: 'hidden', timeout });
+  }
+
+  // Wait for "Loading..." text patterns to disappear
+  const loadingText = page.locator('text=/Loading\\.\\.\\.|Loading [a-z]+\\.\\.\\./i');
+  if (await loadingText.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await loadingText.waitFor({ state: 'hidden', timeout });
+  }
 }
 
 /**

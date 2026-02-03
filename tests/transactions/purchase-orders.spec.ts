@@ -11,7 +11,7 @@ test.describe('Purchase Orders', () => {
     listPage = new ListPage(page);
     formPage = new FormPage(page);
     dialogPage = new DialogPage(page);
-    await page.goto('/transactions/purchasing/purchase-orders');
+    await page.goto('/transactions/inventory/purchase-orders');
     await listPage.waitForPageLoad();
   });
 

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ListPage, FormPage, DialogPage } from '../pages';
+import { waitForPageReady } from '../utils/test-helpers';
 
 test.describe('Work in Progress (WIP) Reports', () => {
   let listPage: ListPage;
@@ -70,7 +71,7 @@ test.describe('Work in Progress (WIP) Reports', () => {
       const generateButton = page.locator('button:has-text("Generate"), button:has-text("Run Report")');
       if (await generateButton.isVisible()) {
         await generateButton.click();
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         const reportContent = page.locator('[data-testid="wip-report"], table, .report-content');
         await expect(reportContent).toBeVisible();
@@ -81,7 +82,7 @@ test.describe('Work in Progress (WIP) Reports', () => {
       const generateButton = page.locator('button:has-text("Generate"), button:has-text("Run Report")');
       if (await generateButton.isVisible()) {
         await generateButton.click();
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         const summary = page.locator('[data-testid="project-summary"], :has-text("Summary")');
         // Summary should be visible after generation
@@ -148,7 +149,7 @@ test.describe('Work in Progress (WIP) Reports', () => {
       const savedReportItem = page.locator('[data-testid="saved-report-item"]').first();
       if (await savedReportItem.isVisible()) {
         await savedReportItem.click();
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         const reportContent = page.locator('[data-testid="wip-report"], table');
         await expect(reportContent).toBeVisible();
