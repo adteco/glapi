@@ -20,10 +20,7 @@ test.describe('Payment Terms CRUD', () => {
 
   test.afterAll(async () => {
     // Note: In a production setup, we'd clean up created test data here
-    // For now, we track created codes for manual cleanup if needed
-    if (createdTermsCodes.length > 0) {
-      console.log('Created payment terms codes for cleanup:', createdTermsCodes);
-    }
+    // Test data codes are tracked in createdTermsCodes array for potential manual cleanup
   });
 
   test.describe('Page Load and Display', () => {
