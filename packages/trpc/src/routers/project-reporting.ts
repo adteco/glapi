@@ -1,9 +1,14 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { ProjectReportingService } from '@glapi/api-service';
+import { createReadOnlyAIMeta } from '../ai-meta';
 
 export const projectReportingRouter = router({
   jobCostSummary: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_job_cost_summary', 'Get job cost summary with optional filters', {
+      scopes: ['project-reporting', 'projects', 'accounting'],
+      permissions: ['read:project-reporting'],
+    }) })
     .input(
       z
         .object({
@@ -19,6 +24,10 @@ export const projectReportingRouter = router({
     }),
 
   progressHistory: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_progress_history', 'Get progress history for a project', {
+      scopes: ['project-reporting', 'projects'],
+      permissions: ['read:project-reporting'],
+    }) })
     .input(
       z.object({
         projectId: z.string().uuid(),
@@ -35,6 +44,10 @@ export const projectReportingRouter = router({
    * Shows cost code level detail with variance analysis and cost type breakdown
    */
   budgetVariance: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_budget_variance_report', 'Get detailed budget vs actual variance report', {
+      scopes: ['project-reporting', 'projects', 'accounting'],
+      permissions: ['read:project-reporting'],
+    }) })
     .input(
       z.object({
         projectId: z.string().uuid(),
