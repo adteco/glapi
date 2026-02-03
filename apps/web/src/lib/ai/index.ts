@@ -182,3 +182,42 @@ export {
   type RateLimiterStats,
   type RateLimiterConfig,
 } from './rate-limit';
+
+// Reliability (idempotency, retry, circuit breaker, async polling)
+export {
+  // Idempotency
+  IdempotencyStore,
+  getIdempotencyStore,
+  generateIdempotencyKey,
+  shouldUseIdempotency,
+  type IdempotencyRecord,
+  type IdempotencyCheckResult,
+  type IdempotencyConfig,
+  type IdempotencyStats,
+  // Retry & Circuit Breaker
+  withRetry,
+  withTimeout,
+  withReliability,
+  CircuitBreaker,
+  getCircuitBreaker,
+  getAllCircuitBreakerStats,
+  resetAllCircuitBreakers,
+  type RetryConfig,
+  type RetryResult,
+  type CircuitState,
+  type CircuitBreakerConfig,
+  type CircuitBreakerStats,
+  // Async Tools
+  AsyncOperationStore,
+  getAsyncStore,
+  pollForCompletion,
+  isAsyncResult,
+  generateJobId,
+  executeWithAsyncSupport,
+  type AsyncOperationStatus,
+  type AsyncOperation,
+  type PollingConfig,
+  type AsyncToolResult,
+  type PollingResult,
+  type AsyncToolStats,
+} from './reliability';
