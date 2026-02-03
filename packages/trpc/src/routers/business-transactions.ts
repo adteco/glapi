@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure } from '../trpc';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import { 
   businessTransactions, 
   businessTransactionLines, 
@@ -128,6 +129,10 @@ function calculateTransactionTotals(lines: any[]) {
 
 export const businessTransactionsRouter = router({
   list: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_business_transactions', 'Search and list business transactions', {
+      scopes: ['transactions', 'accounting', 'global'],
+      permissions: ['read:business-transactions'],
+    }) })
     .input(listTransactionsSchema)
     .query(async ({ input, ctx }) => {
       const { db, serviceContext } = ctx;
@@ -224,6 +229,10 @@ export const businessTransactionsRouter = router({
     }),
 
   getById: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_business_transaction', 'Get a business transaction by ID', {
+      scopes: ['transactions', 'accounting'],
+      permissions: ['read:business-transactions'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       const { db, serviceContext } = ctx;
@@ -265,6 +274,11 @@ export const businessTransactionsRouter = router({
     }),
 
   create: protectedProcedure
+    .meta({ ai: createWriteAIMeta('create_business_transaction', 'Create a new business transaction', {
+      scopes: ['transactions', 'accounting'],
+      permissions: ['write:business-transactions'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createTransactionSchema)
     .mutation(async ({ input, ctx }) => {
       const { db, serviceContext } = ctx;
@@ -407,6 +421,11 @@ export const businessTransactionsRouter = router({
     }),
 
   delete: protectedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_business_transaction', 'Cancel a business transaction', {
+      scopes: ['transactions', 'accounting'],
+      permissions: ['delete:business-transactions'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const { db, serviceContext } = ctx;
