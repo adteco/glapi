@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { LocationService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const locationSchema = z.object({
   name: z.string().min(1),
@@ -19,6 +20,10 @@ const locationSchema = z.object({
 
 export const locationsRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_locations', 'Search and list locations', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:locations'],
+    }) })
     .input(
       z.object({
         includeInactive: z.boolean().optional(),
@@ -35,6 +40,10 @@ export const locationsRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_location', 'Get a single location by ID', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:locations'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new LocationService(ctx.serviceContext, { db: ctx.db });
@@ -51,6 +60,11 @@ export const locationsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_location', 'Create a new location', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:locations'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(locationSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new LocationService(ctx.serviceContext, { db: ctx.db });
@@ -61,6 +75,11 @@ export const locationsRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_location', 'Update an existing location', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:locations'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -82,6 +101,11 @@ export const locationsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_location', 'Delete a location', {
+      scopes: ['accounting'],
+      permissions: ['delete:locations'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new LocationService(ctx.serviceContext, { db: ctx.db });
