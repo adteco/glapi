@@ -1,15 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { ListPage, FormPage, DialogPage } from '../pages';
-import { uniqueId, randomString, randomEmail, randomPhone } from '../utils/test-helpers';
+import { ListPage, DialogPage } from '../pages';
+import { randomString, randomEmail, randomPhone } from '../utils/test-helpers';
 
 test.describe('Leads', () => {
   let listPage: ListPage;
-  let formPage: FormPage;
   let dialogPage: DialogPage;
 
   test.beforeEach(async ({ page }) => {
     listPage = new ListPage(page);
-    formPage = new FormPage(page);
     dialogPage = new DialogPage(page);
     await page.goto('/relationships/leads');
     await listPage.waitForPageLoad();
@@ -128,7 +126,7 @@ test.describe('Leads', () => {
       expect(dialogOpened || urlChanged).toBe(true);
     });
 
-    test('should create lead with basic info', async ({ page }) => {
+    test('should create lead with basic info', async () => {
       await listPage.clickCreate();
 
       if (await dialogPage.isOpen()) {
@@ -154,7 +152,7 @@ test.describe('Leads', () => {
       }
     });
 
-    test('should create lead with all fields', async ({ page }) => {
+    test('should create lead with all fields', async () => {
       await listPage.clickCreate();
 
       if (await dialogPage.isOpen()) {
@@ -241,7 +239,7 @@ test.describe('Leads', () => {
       }
     });
 
-    test('should validate required fields', async ({ page }) => {
+    test('should validate required fields', async () => {
       await listPage.clickCreate();
 
       if (await dialogPage.isOpen()) {
@@ -252,7 +250,7 @@ test.describe('Leads', () => {
       }
     });
 
-    test('should validate email format', async ({ page }) => {
+    test('should validate email format', async () => {
       await listPage.clickCreate();
 
       if (await dialogPage.isOpen()) {
@@ -268,7 +266,7 @@ test.describe('Leads', () => {
       }
     });
 
-    test('should cancel lead creation', async ({ page }) => {
+    test('should cancel lead creation', async () => {
       const initialCount = await listPage.getRowCount();
 
       await listPage.clickCreate();
@@ -359,7 +357,6 @@ test.describe('Leads', () => {
 
       if (await menuButton.isVisible()) {
         await menuButton.click();
-        const convertOption = page.locator('[role="menuitem"]:has-text("Convert")');
         // Convert option may or may not be present - just check menu opens
         await page.waitForTimeout(300);
       }
@@ -399,7 +396,7 @@ test.describe('Leads', () => {
       expect(dialogOpened || urlChanged).toBe(true);
     });
 
-    test('should update lead name', async ({ page }) => {
+    test('should update lead name', async () => {
       const rowCount = await listPage.getRowCount();
       if (rowCount === 0) {
         test.skip();
@@ -418,7 +415,7 @@ test.describe('Leads', () => {
       }
     });
 
-    test('should update lead email', async ({ page }) => {
+    test('should update lead email', async () => {
       const rowCount = await listPage.getRowCount();
       if (rowCount === 0) {
         test.skip();
@@ -436,7 +433,7 @@ test.describe('Leads', () => {
       }
     });
 
-    test('should update lead phone', async ({ page }) => {
+    test('should update lead phone', async () => {
       const rowCount = await listPage.getRowCount();
       if (rowCount === 0) {
         test.skip();
@@ -456,7 +453,7 @@ test.describe('Leads', () => {
       }
     });
 
-    test('should preserve data after edit cancel', async ({ page }) => {
+    test('should preserve data after edit cancel', async () => {
       const rowCount = await listPage.getRowCount();
       if (rowCount === 0) {
         test.skip();
@@ -492,7 +489,7 @@ test.describe('Leads', () => {
       await expect(alertDialog).toBeVisible();
     });
 
-    test('should cancel delete operation', async ({ page }) => {
+    test('should cancel delete operation', async () => {
       const rowCount = await listPage.getRowCount();
       if (rowCount === 0) {
         test.skip();
@@ -506,7 +503,7 @@ test.describe('Leads', () => {
       expect(newCount).toBe(rowCount);
     });
 
-    test('should delete lead after confirmation', async ({ page }) => {
+    test('should delete lead after confirmation', async () => {
       // First create a lead to delete to avoid removing existing data
       await listPage.clickCreate();
 
@@ -636,9 +633,7 @@ test.describe('Leads', () => {
         return;
       }
 
-      const firstRowBefore = await listPage.getRow(0).textContent();
       await listPage.sortByColumn('Name');
-      const firstRowAfterFirstSort = await listPage.getRow(0).textContent();
       await listPage.sortByColumn('Name');
       const firstRowAfterSecondSort = await listPage.getRow(0).textContent();
 
@@ -683,11 +678,7 @@ test.describe('Leads', () => {
       await page.keyboard.press('Meta+k');
       await page.waitForTimeout(300);
 
-      // Either search is focused or command palette opened
-      const searchFocused = await listPage.searchInput.evaluate(
-        (el) => document.activeElement === el
-      );
-      // Just verify no errors
+      // Just verify no errors occurred
       expect(true).toBe(true);
     });
 
