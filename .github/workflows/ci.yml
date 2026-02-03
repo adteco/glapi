@@ -15,6 +15,61 @@ env:
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 jobs:
+  generated-files:
+    name: Generated Files Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate AI tools and OpenAPI
+        run: |
+          pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc
+
+      - name: Check for drift
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Generated files are out of sync. Run 'pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc' and commit the changes."
+            echo ""
+            echo "### Generated Files Drift Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The following files need to be regenerated:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            git status --porcelain >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Fix locally:**" >> $GITHUB_STEP_SUMMARY
+            echo '```bash' >> $GITHUB_STEP_SUMMARY
+            echo "pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc" >> $GITHUB_STEP_SUMMARY
+            echo "git add apps/docs/public/api/openapi.json apps/web/src/lib/ai/generated/" >> $GITHUB_STEP_SUMMARY
+            echo "git commit -m 'chore: regenerate AI tools and OpenAPI'" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "Changed files:"
+            git status --porcelain
+            echo ""
+            echo "Diff:"
+            git diff --stat
+            exit 1
+          fi
+          echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo "All generated files are up to date." >> $GITHUB_STEP_SUMMARY
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -94,7 +149,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [lint, type-check]
+    needs: [lint, type-check, generated-files]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -127,7 +182,7 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [lint, type-check, test, build]
+    needs: [lint, type-check, test, build, generated-files]
     if: always()
     steps:
       - name: Check all jobs passed
@@ -139,15 +194,18 @@ jobs:
           TYPE_CHECK_RESULT="${{ needs.type-check.result }}"
           TEST_RESULT="${{ needs.test.result }}"
           BUILD_RESULT="${{ needs.build.result }}"
+          GENERATED_RESULT="${{ needs.generated-files.result }}"
 
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Generated Files | ${GENERATED_RESULT} |" >> $GITHUB_STEP_SUMMARY
           echo "| Lint | ${LINT_RESULT} |" >> $GITHUB_STEP_SUMMARY
           echo "| Type Check | ${TYPE_CHECK_RESULT} |" >> $GITHUB_STEP_SUMMARY
           echo "| Tests | ${TEST_RESULT} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${BUILD_RESULT} |" >> $GITHUB_STEP_SUMMARY
 
-          if [[ "$LINT_RESULT" != "success" ]] || \
+          if [[ "$GENERATED_RESULT" != "success" ]] || \
+             [[ "$LINT_RESULT" != "success" ]] || \
              [[ "$TYPE_CHECK_RESULT" != "success" ]] || \
              [[ "$TEST_RESULT" != "success" ]] || \
              [[ "$BUILD_RESULT" != "success" ]]; then
@@ -158,6 +216,11 @@ jobs:
             echo "# Install dependencies" >> $GITHUB_STEP_SUMMARY
             echo "pnpm install" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+            if [[ "$GENERATED_RESULT" != "success" ]]; then
+              echo "# Regenerate files" >> $GITHUB_STEP_SUMMARY
+              echo "pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
             if [[ "$LINT_RESULT" != "success" ]]; then
               echo "# Fix lint errors" >> $GITHUB_STEP_SUMMARY
               echo "pnpm lint        # See errors" >> $GITHUB_STEP_SUMMARY

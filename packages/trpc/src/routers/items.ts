@@ -47,6 +47,10 @@ const variantSchema = z.object({
 
 export const itemsRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_items', 'Search and list inventory items and products', {
+      scopes: ['inventory', 'items', 'global'],
+      permissions: ['read:items'],
+    }) })
     .input(
       z.object({
         categoryId: z.string().uuid().optional(),
@@ -66,6 +70,10 @@ export const itemsRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_item', 'Get a single item by ID', {
+      scopes: ['inventory', 'items', 'global'],
+      permissions: ['read:items'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
@@ -74,6 +82,10 @@ export const itemsRouter = router({
 
   // Alias for get (some components use getById)
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_item_by_id', 'Get a single item by ID (alias)', {
+      scopes: ['inventory', 'items'],
+      permissions: ['read:items'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
@@ -81,6 +93,11 @@ export const itemsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_item', 'Create a new inventory item or product', {
+      scopes: ['inventory', 'items'],
+      permissions: ['write:items'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(itemSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
@@ -96,6 +113,11 @@ export const itemsRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_item', 'Update an existing inventory item', {
+      scopes: ['inventory', 'items'],
+      permissions: ['write:items'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -118,6 +140,11 @@ export const itemsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_item', 'Delete an inventory item', {
+      scopes: ['inventory'],
+      permissions: ['delete:items'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ItemsService(ctx.serviceContext, { db: ctx.db });
