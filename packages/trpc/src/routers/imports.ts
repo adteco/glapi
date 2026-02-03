@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { importService, importRollbackService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // =============================================================================
 // Input Schemas
@@ -130,6 +131,11 @@ export const importsRouter = router({
   // ---------------------------------------------------------------------------
 
   createBatch: protectedProcedure
+    .meta({ ai: createWriteAIMeta('create_import_batch', 'Create a new import batch for data migration', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['write:imports'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createBatchInput)
     .mutation(async ({ input, ctx }) => {
       return importService.createBatch({
@@ -145,18 +151,31 @@ export const importsRouter = router({
     }),
 
   getBatch: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_import_batch', 'Get import batch details by ID', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['read:imports'],
+    }) })
     .input(z.string().uuid())
     .query(async ({ input }) => {
       return importService.getBatch(input);
     }),
 
   listBatches: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_import_batches', 'List import batches with filters', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['read:imports'],
+    }) })
     .input(listBatchesInput)
     .query(async ({ input, ctx }) => {
       return importService.listBatches(ctx.organizationId, input);
     }),
 
   cancelBatch: protectedProcedure
+    .meta({ ai: createWriteAIMeta('cancel_import_batch', 'Cancel an import batch', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['write:imports'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.string().uuid())
     .mutation(async ({ input, ctx }) => {
       return importService.cancelBatch(input, ctx.user.id);
@@ -167,6 +186,11 @@ export const importsRouter = router({
   // ---------------------------------------------------------------------------
 
   addRecords: protectedProcedure
+    .meta({ ai: createWriteAIMeta('add_import_records', 'Add records to an import batch', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['write:imports'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(addRecordsInput)
     .mutation(async ({ input }) => {
       return importService.addRecords({
@@ -181,6 +205,10 @@ export const importsRouter = router({
     }),
 
   getRecords: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_import_records', 'Get records from an import batch', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['read:imports'],
+    }) })
     .input(listRecordsInput)
     .query(async ({ input }) => {
       return importService.getRecords(input.batchId, {
@@ -241,6 +269,12 @@ export const importsRouter = router({
   // ---------------------------------------------------------------------------
 
   executeImport: protectedProcedure
+    .meta({ ai: createWriteAIMeta('execute_import', 'Execute data import from a validated batch', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['write:imports'],
+      riskLevel: 'HIGH',
+      requiresConfirmation: true,
+    }) })
     .input(executeImportInput)
     .mutation(async ({ input }) => {
       return importService.executeImport({
@@ -266,6 +300,12 @@ export const importsRouter = router({
     }),
 
   rollbackBatch: protectedProcedure
+    .meta({ ai: createDeleteAIMeta('rollback_import_batch', 'Rollback an entire import batch', {
+      scopes: ['imports', 'migration', 'data'],
+      permissions: ['delete:imports'],
+      riskLevel: 'HIGH',
+      requiresConfirmation: true,
+    }) })
     .input(rollbackBatchInput)
     .mutation(async ({ input, ctx }) => {
       return importRollbackService.rollbackBatch(
