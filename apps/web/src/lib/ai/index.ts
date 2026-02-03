@@ -6,19 +6,12 @@
  * conversational service.
  */
 
-// Intent definitions and catalog
+// Intent types (deprecated - use generated tools via tool-adapter)
 export {
-  INTENT_CATALOG,
   type Intent,
   type IntentCategory,
   type IntentRiskLevel,
   type PermissionScope,
-  getIntentsByCategory,
-  getHighRiskIntents,
-  getIntentById,
-  getIntentByMcpTool,
-  isIntentEnabled,
-  getEnabledIntents,
 } from './intents';
 
 // Guardrails and safety system
@@ -42,7 +35,7 @@ export {
   type IntentMiddlewareOptions,
   type MiddlewareContext,
   type MiddlewareResult,
-  type AuditLogEntry,
+  // Note: AuditLogEntry is exported from observability module
 } from './middleware';
 
 // Action executor
@@ -266,3 +259,41 @@ export {
   type AuditLoggerConfig,
   type AuditLoggerStats,
 } from './observability';
+
+// Evaluation Harness
+export {
+  // Golden Prompts
+  ALL_GOLDEN_PROMPTS,
+  TOOL_SELECTION_PROMPTS,
+  VALIDATION_RECOVERY_PROMPTS,
+  CONFIRMATION_COMPLIANCE_PROMPTS,
+  PERMISSION_HANDLING_PROMPTS,
+  ERROR_HANDLING_PROMPTS,
+  MULTI_STEP_PROMPTS,
+  AMBIGUITY_HANDLING_PROMPTS,
+  getPromptsByCategory,
+  getPromptsByTag,
+  getPromptById,
+  // Harness
+  runEvalHarness,
+  evaluatePrompt,
+  scoreResult,
+  didPass,
+  calculateSummary,
+  compareToBaseline,
+  formatSummaryMarkdown,
+  formatComparisonMarkdown,
+  type GoldenPrompt,
+  type EvalCategory,
+  type ExpectedBehavior,
+  type EvalConfig,
+  type EvalProgress,
+  type EvalResult,
+  type EvalDetails,
+  type EvalSummary,
+  type CategorySummary,
+  type MockToolCall,
+  type MockResponse,
+  type PromptHandler,
+  type BaselineComparison,
+} from './eval';
