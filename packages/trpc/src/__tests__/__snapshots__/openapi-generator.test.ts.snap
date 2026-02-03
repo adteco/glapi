@@ -1,0 +1,619 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`emitAIExtensions > snapshot tests > should match snapshot for full metadata 1`] = `
+{
+  "x-ai-async": {
+    "enabled": true,
+    "polling": {
+      "maxMs": 10000,
+      "minMs": 1000,
+    },
+    "statusEndpoint": "/api/test/{id}/status",
+    "terminalStates": [
+      "completed",
+      "failed",
+      "cancelled",
+    ],
+  },
+  "x-ai-cache": {
+    "enabled": true,
+    "invalidateOn": [
+      "test.updated",
+      "test.deleted",
+    ],
+    "ttlSeconds": 120,
+    "varyBy": [
+      "id",
+      "status",
+    ],
+  },
+  "x-ai-errors": [
+    {
+      "code": "TEST_NOT_FOUND",
+      "retryable": false,
+      "userSafeMessage": "The requested test resource was not found.",
+    },
+    {
+      "code": "TEST_CONFLICT",
+      "retryable": true,
+      "userSafeMessage": "A conflict occurred. Please try again.",
+    },
+  ],
+  "x-ai-financial-limits": {
+    "accountant": 50000,
+    "admin": 100000,
+    "manager": 10000,
+    "staff": 1000,
+  },
+  "x-ai-idempotency": {
+    "keySource": "header",
+    "ttlSeconds": 3600,
+  },
+  "x-ai-output": {
+    "includeFields": [
+      "id",
+      "name",
+      "status",
+    ],
+    "maxItems": 50,
+    "maxTokens": 1000,
+    "redactFields": [
+      "ssn",
+      "creditCard",
+    ],
+  },
+  "x-ai-permissions": {
+    "minimumRole": "manager",
+    "required": [
+      "write:test",
+      "delete:test",
+    ],
+  },
+  "x-ai-policy": {
+    "allowTiers": [
+      "enterprise",
+      "pro",
+    ],
+    "maxAffectedRecords": 100,
+    "requireMfaForRisk": [
+      "HIGH",
+      "CRITICAL",
+    ],
+    "rowScope": "organization.id == user.orgId",
+  },
+  "x-ai-rate-limit": {
+    "burstLimit": 5,
+    "requestsPerMinute": 30,
+    "scope": "organization",
+  },
+  "x-ai-risk": {
+    "confirmationMessage": "Are you sure you want to proceed?",
+    "level": "HIGH",
+    "requiresConfirmation": true,
+    "supportsDryRun": true,
+  },
+  "x-ai-timeouts": {
+    "hardMs": 15000,
+    "retryable": false,
+    "softMs": 5000,
+  },
+  "x-ai-tool": {
+    "deprecated": true,
+    "description": "A fully configured test tool",
+    "enabled": true,
+    "exampleUtterances": [
+      "test this tool",
+      "use the test tool",
+    ],
+    "name": "full_test_tool",
+    "replacement": "new_test_tool",
+    "scopes": [
+      "sales",
+      "finance",
+    ],
+    "stability": "beta",
+    "version": 2,
+  },
+}
+`;
+
+exports[`emitAIExtensions > snapshot tests > should match snapshot for minimal metadata 1`] = `
+{
+  "x-ai-permissions": {
+    "minimumRole": "viewer",
+    "required": [
+      "read:test",
+    ],
+  },
+  "x-ai-risk": {
+    "level": "LOW",
+    "requiresConfirmation": false,
+    "supportsDryRun": false,
+  },
+  "x-ai-tool": {
+    "deprecated": false,
+    "description": "A test tool",
+    "enabled": true,
+    "name": "test_tool",
+    "scopes": [
+      "global",
+    ],
+    "stability": "stable",
+    "version": 1,
+  },
+}
+`;
+
+exports[`generateOpenAPISpec > snapshot tests > should match snapshot for spec with AI extensions 1`] = `
+{
+  "customers": {
+    "get": {
+      "operationId": "customers.list",
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response",
+        },
+        "401": {
+          "description": "Unauthorized - Invalid or missing authentication",
+        },
+        "404": {
+          "description": "Resource not found",
+        },
+        "500": {
+          "description": "Internal server error",
+        },
+      },
+      "summary": "List all customers",
+      "tags": [
+        "Customers",
+      ],
+      "x-ai-cache": {
+        "enabled": true,
+        "ttlSeconds": 60,
+        "varyBy": [
+          "search",
+          "limit",
+          "offset",
+        ],
+      },
+      "x-ai-permissions": {
+        "minimumRole": "viewer",
+        "required": [
+          "read:customers",
+        ],
+      },
+      "x-ai-rate-limit": {
+        "requestsPerMinute": 60,
+        "scope": "user",
+      },
+      "x-ai-risk": {
+        "level": "LOW",
+        "requiresConfirmation": false,
+        "supportsDryRun": false,
+      },
+      "x-ai-tool": {
+        "deprecated": false,
+        "description": "Search and list customers records",
+        "enabled": true,
+        "name": "list_customers",
+        "scopes": [
+          "global",
+        ],
+        "stability": "stable",
+        "version": 1,
+      },
+    },
+    "post": {
+      "operationId": "customers.create",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "description": "customers data",
+              "type": "object",
+            },
+          },
+        },
+        "required": true,
+      },
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response",
+        },
+        "401": {
+          "description": "Unauthorized - Invalid or missing authentication",
+        },
+        "404": {
+          "description": "Resource not found",
+        },
+        "500": {
+          "description": "Internal server error",
+        },
+      },
+      "summary": "Create a new customers",
+      "tags": [
+        "Customers",
+      ],
+      "x-ai-idempotency": {
+        "keySource": "auto",
+        "ttlSeconds": 86400,
+      },
+      "x-ai-permissions": {
+        "minimumRole": "staff",
+        "required": [
+          "write:customers",
+        ],
+      },
+      "x-ai-rate-limit": {
+        "requestsPerMinute": 30,
+        "scope": "user",
+      },
+      "x-ai-risk": {
+        "level": "MEDIUM",
+        "requiresConfirmation": true,
+        "supportsDryRun": true,
+      },
+      "x-ai-tool": {
+        "deprecated": false,
+        "description": "Create a new customer",
+        "enabled": true,
+        "name": "create_customer",
+        "scopes": [
+          "global",
+        ],
+        "stability": "stable",
+        "version": 1,
+      },
+    },
+  },
+  "customersById": {
+    "delete": {
+      "operationId": "customers.delete",
+      "parameters": [
+        {
+          "description": "customers ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "format": "uuid",
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response",
+        },
+        "401": {
+          "description": "Unauthorized - Invalid or missing authentication",
+        },
+        "404": {
+          "description": "Resource not found",
+        },
+        "500": {
+          "description": "Internal server error",
+        },
+      },
+      "summary": "Delete a customers",
+      "tags": [
+        "Customers",
+      ],
+      "x-ai-permissions": {
+        "minimumRole": "manager",
+        "required": [
+          "delete:customers",
+        ],
+      },
+      "x-ai-rate-limit": {
+        "requestsPerMinute": 10,
+        "scope": "user",
+      },
+      "x-ai-risk": {
+        "confirmationMessage": "Are you sure you want to delete this customer? This action cannot be undone.",
+        "level": "HIGH",
+        "requiresConfirmation": true,
+        "supportsDryRun": true,
+      },
+      "x-ai-tool": {
+        "deprecated": false,
+        "description": "Delete a customer",
+        "enabled": true,
+        "name": "delete_customer",
+        "scopes": [
+          "global",
+        ],
+        "stability": "stable",
+        "version": 1,
+      },
+    },
+    "get": {
+      "operationId": "customers.get",
+      "parameters": [
+        {
+          "description": "customers ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "format": "uuid",
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response",
+        },
+        "401": {
+          "description": "Unauthorized - Invalid or missing authentication",
+        },
+        "404": {
+          "description": "Resource not found",
+        },
+        "500": {
+          "description": "Internal server error",
+        },
+      },
+      "summary": "Get a specific customers by ID",
+      "tags": [
+        "Customers",
+      ],
+      "x-ai-cache": {
+        "enabled": true,
+        "ttlSeconds": 60,
+        "varyBy": [
+          "id",
+        ],
+      },
+      "x-ai-permissions": {
+        "minimumRole": "viewer",
+        "required": [
+          "read:customers",
+        ],
+      },
+      "x-ai-rate-limit": {
+        "requestsPerMinute": 60,
+        "scope": "user",
+      },
+      "x-ai-risk": {
+        "level": "LOW",
+        "requiresConfirmation": false,
+        "supportsDryRun": false,
+      },
+      "x-ai-tool": {
+        "deprecated": false,
+        "description": "Get a specific customer by ID",
+        "enabled": true,
+        "name": "get_customer",
+        "scopes": [
+          "global",
+        ],
+        "stability": "stable",
+        "version": 1,
+      },
+    },
+    "put": {
+      "operationId": "customers.update",
+      "parameters": [
+        {
+          "description": "customers ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "format": "uuid",
+            "type": "string",
+          },
+        },
+      ],
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "description": "customers data",
+              "type": "object",
+            },
+          },
+        },
+        "required": true,
+      },
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response",
+        },
+        "401": {
+          "description": "Unauthorized - Invalid or missing authentication",
+        },
+        "404": {
+          "description": "Resource not found",
+        },
+        "500": {
+          "description": "Internal server error",
+        },
+      },
+      "summary": "Update an existing customers",
+      "tags": [
+        "Customers",
+      ],
+      "x-ai-idempotency": {
+        "keySource": "auto",
+        "ttlSeconds": 86400,
+      },
+      "x-ai-permissions": {
+        "minimumRole": "staff",
+        "required": [
+          "write:customers",
+        ],
+      },
+      "x-ai-rate-limit": {
+        "requestsPerMinute": 30,
+        "scope": "user",
+      },
+      "x-ai-risk": {
+        "level": "MEDIUM",
+        "requiresConfirmation": true,
+        "supportsDryRun": true,
+      },
+      "x-ai-tool": {
+        "deprecated": false,
+        "description": "Update an existing customer",
+        "enabled": true,
+        "name": "update_customer",
+        "scopes": [
+          "global",
+        ],
+        "stability": "stable",
+        "version": 1,
+      },
+    },
+  },
+  "info": {
+    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API
+
+GLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.
+
+## Features
+
+- **Multi-tenant Architecture**: Organization-based data isolation
+- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes
+- **Revenue Recognition**: ASC 606 compliant revenue recognition
+- **Inventory Management**: Items, Warehouses, Price Lists
+- **Financial Operations**: Invoices, Payments, Subscriptions
+- **General Ledger**: Chart of Accounts, GL Transactions
+- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling
+
+## Authentication
+
+All endpoints require authentication using Clerk. Include your authentication token in the Authorization header:
+
+\`\`\`
+Authorization: Bearer YOUR_TOKEN
+\`\`\`
+
+## AI Extensions
+
+Endpoints with \`x-ai-tool\` extensions can be used by AI assistants for automated operations.
+See the x-ai-* extension fields for risk levels, permissions, and rate limits.
+
+## Base URL
+
+The API is accessible at:
+- Development: http://localhost:3031/api
+- Production: https://api.glapi.io/api",
+    "title": "GLAPI - General Ledger and Accounting API",
+    "version": "1.0.0",
+  },
+  "openapi": "3.0.3",
+}
+`;
+
+exports[`generateOpenAPISpec > snapshot tests > should match snapshot for spec without AI extensions 1`] = `
+{
+  "customers": {
+    "get": {
+      "operationId": "customers.list",
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response",
+        },
+        "401": {
+          "description": "Unauthorized - Invalid or missing authentication",
+        },
+        "404": {
+          "description": "Resource not found",
+        },
+        "500": {
+          "description": "Internal server error",
+        },
+      },
+      "summary": "List all customers",
+      "tags": [
+        "Customers",
+      ],
+    },
+    "post": {
+      "operationId": "customers.create",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "description": "customers data",
+              "type": "object",
+            },
+          },
+        },
+        "required": true,
+      },
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response",
+        },
+        "401": {
+          "description": "Unauthorized - Invalid or missing authentication",
+        },
+        "404": {
+          "description": "Resource not found",
+        },
+        "500": {
+          "description": "Internal server error",
+        },
+      },
+      "summary": "Create a new customers",
+      "tags": [
+        "Customers",
+      ],
+    },
+  },
+  "openapi": "3.0.3",
+}
+`;
