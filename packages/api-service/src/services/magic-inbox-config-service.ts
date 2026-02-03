@@ -542,11 +542,13 @@ export class MagicInboxConfigService extends BaseService {
 
   /**
    * Verify webhook secret (for webhook handler)
-   * Returns true if the provided secret matches the stored hash.
+   * Returns true if the provided secret hash matches the stored hash.
+   * The Lambda receives the hash from the lookup endpoint and sends it
+   * directly, so we compare hashes without re-hashing.
    * Uses withoutRLS because webhook verification happens before
    * organization context is established.
    */
-  static async verifyWebhookSecret(organizationId: string, secret: string): Promise<boolean> {
+  static async verifyWebhookSecret(organizationId: string, providedSecretHash: string): Promise<boolean> {
     return withoutRLS(async (contextDb) => {
       const registry = await contextDb.query.magicInboxEmailRegistry.findFirst({
         where: and(
@@ -559,11 +561,11 @@ export class MagicInboxConfigService extends BaseService {
         return false;
       }
 
-      // Use timing-safe comparison
-      const providedHash = crypto.createHash('sha256').update(secret).digest('hex');
+      // Use timing-safe comparison of hashes
+      // The Lambda sends the hash it received from lookup, so compare directly
       try {
         return crypto.timingSafeEqual(
-          Buffer.from(providedHash),
+          Buffer.from(providedSecretHash),
           Buffer.from(registry.webhookSecretHash)
         );
       } catch {

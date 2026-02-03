@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth, useOrganization } from '@clerk/nextjs';
+import { useAuth, useOrganization, useUser } from '@clerk/nextjs';
 import { Mail, Check, X, Copy, RefreshCw, TestTube2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -50,6 +50,25 @@ interface UsageSummary {
 export function MagicInboxSettings() {
   const { getToken } = useAuth();
   const { organization } = useOrganization();
+  const { user } = useUser();
+
+  // Helper to build headers with organization context for RLS
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    const token = await getToken();
+    const headers: Record<string, string> = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (organization?.id) {
+      headers['x-organization-id'] = organization.id;
+    }
+    if (user?.id) {
+      headers['x-user-id'] = user.id;
+    }
+
+    return headers;
+  }, [getToken, organization?.id, user?.id]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,25 +82,12 @@ export function MagicInboxSettings() {
   const [checkingPrefix, setCheckingPrefix] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
 
-  // Load current config - reload when organization changes
-  useEffect(() => {
-    // Clear previous org's data immediately when org changes
-    setConfig(null);
-    setUsage(null);
-    setPrefix('');
-    setPrefixAvailable(null);
-    setCustomDomain('');
-    setLoading(true);
-
-    loadConfig();
-    loadUsage();
-  }, [organization?.id]); // Re-run when organization changes
-
-  async function loadConfig() {
+  // Load config with proper org context
+  const loadConfig = useCallback(async () => {
     try {
-      const token = await getToken();
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (response.ok) {
@@ -95,13 +101,14 @@ export function MagicInboxSettings() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [getAuthHeaders]);
 
-  async function loadUsage() {
+  // Load usage with proper org context
+  const loadUsage = useCallback(async () => {
     try {
-      const token = await getToken();
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/usage`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (response.ok) {
@@ -111,7 +118,21 @@ export function MagicInboxSettings() {
     } catch (error) {
       console.error('Failed to load usage:', error);
     }
-  }
+  }, [getAuthHeaders]);
+
+  // Load current config - reload when organization changes
+  useEffect(() => {
+    // Clear previous org's data immediately when org changes
+    setConfig(null);
+    setUsage(null);
+    setPrefix('');
+    setPrefixAvailable(null);
+    setCustomDomain('');
+    setLoading(true);
+
+    loadConfig();
+    loadUsage();
+  }, [organization?.id, loadConfig, loadUsage]);
 
   async function checkPrefixAvailability() {
     if (!prefix || prefix.length < 3) return;
@@ -120,12 +141,12 @@ export function MagicInboxSettings() {
     setPrefixAvailable(null);
 
     try {
-      const token = await getToken();
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/check-prefix`, {
         method: 'POST',
         headers: {
+          ...headers,
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ prefix }),
       });
@@ -147,12 +168,12 @@ export function MagicInboxSettings() {
     setSaving(true);
 
     try {
-      const token = await getToken();
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
         method: 'POST',
         headers: {
+          ...headers,
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           emailType,
@@ -187,10 +208,10 @@ export function MagicInboxSettings() {
     setSaving(true);
 
     try {
-      const token = await getToken();
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (response.ok) {
@@ -206,10 +227,10 @@ export function MagicInboxSettings() {
 
   async function regenerateSecret() {
     try {
-      const token = await getToken();
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/webhook-secret`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (response.ok) {
@@ -228,10 +249,10 @@ export function MagicInboxSettings() {
 
   async function sendTestEmail() {
     try {
-      const token = await getToken();
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/test`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (response.ok) {
