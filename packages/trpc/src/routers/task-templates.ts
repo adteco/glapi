@@ -10,6 +10,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   db,
   taskTemplates,
@@ -213,6 +214,10 @@ export const taskTemplatesRouter = router({
    * - includeInactive: Whether to include inactive templates
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_task_templates', 'List task templates with optional filters', {
+      scopes: ['task-templates', 'tasks'],
+      permissions: ['read:task-templates'],
+    }) })
     .input(
       z
         .object({
@@ -259,6 +264,10 @@ export const taskTemplatesRouter = router({
    * Get a single task template by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_task_template', 'Get a task template by ID', {
+      scopes: ['task-templates', 'tasks'],
+      permissions: ['read:task-templates'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const template = await db.query.taskTemplates.findFirst({
@@ -286,6 +295,11 @@ export const taskTemplatesRouter = router({
    * Create a new task template
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_task_template', 'Create a new task template', {
+      scopes: ['task-templates', 'tasks'],
+      permissions: ['write:task-templates'],
+      riskLevel: 'LOW',
+    }) })
     .input(createTemplateSchema)
     .mutation(async ({ ctx, input }) => {
       // Validate template data structure
@@ -402,6 +416,11 @@ export const taskTemplatesRouter = router({
    * Delete a task template
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_task_template', 'Delete a task template', {
+      scopes: ['task-templates', 'tasks'],
+      permissions: ['delete:task-templates'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await verifyTemplateOwnership(input.id, ctx.organizationId);
@@ -481,6 +500,11 @@ export const taskTemplatesRouter = router({
    * 5. Returns the created task IDs
    */
   instantiate: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('instantiate_task_template', 'Create tasks from a template', {
+      scopes: ['task-templates', 'tasks'],
+      permissions: ['write:tasks', 'read:task-templates'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         templateId: z.string().uuid(),

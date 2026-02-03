@@ -1,12 +1,17 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { WipReportingService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 export const wipReportingRouter = router({
   /**
    * Get WIP summary for all projects
    */
   getWipSummary: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_wip_summary', 'Get WIP summary for projects', {
+      scopes: ['wip-reporting', 'projects', 'construction', 'reporting'],
+      permissions: ['read:wip-reporting'],
+    }) })
     .input(
       z
         .object({
@@ -27,6 +32,10 @@ export const wipReportingRouter = router({
    * Get percent complete data for all projects
    */
   getPercentComplete: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_percent_complete', 'Get percent complete data for projects', {
+      scopes: ['wip-reporting', 'projects', 'construction', 'reporting'],
+      permissions: ['read:wip-reporting'],
+    }) })
     .input(
       z
         .object({
@@ -63,6 +72,10 @@ export const wipReportingRouter = router({
    * Get combined WIP dashboard data
    */
   getWipDashboard: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_wip_dashboard', 'Get combined WIP dashboard data', {
+      scopes: ['wip-reporting', 'projects', 'construction', 'reporting'],
+      permissions: ['read:wip-reporting'],
+    }) })
     .input(
       z
         .object({
@@ -100,6 +113,11 @@ export const wipReportingRouter = router({
    * Trigger refresh of materialized views
    */
   refreshViews: protectedProcedure
+    .meta({ ai: createWriteAIMeta('refresh_wip_views', 'Trigger refresh of WIP materialized views', {
+      scopes: ['wip-reporting', 'reporting'],
+      permissions: ['write:wip-reporting'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z
         .object({
