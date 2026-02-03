@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   db,
   entityTasks,
@@ -198,6 +199,10 @@ export const entityTasksRouter = router({
    * List tasks with filters and pagination
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_entity_tasks', 'List tasks with filters and pagination', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['read:entity-tasks'],
+    }) })
     .input(listInputSchema)
     .query(async ({ ctx, input = {} }) => {
       const { page = 1, limit = 50 } = input;
@@ -271,6 +276,10 @@ export const entityTasksRouter = router({
    * Get a single task by ID with subtasks
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_entity_task', 'Get a single task by ID with subtasks', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['read:entity-tasks'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const task = await db.query.entityTasks.findFirst({
@@ -313,6 +322,11 @@ export const entityTasksRouter = router({
    * Create a new task
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_entity_task', 'Create a new task for an entity', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['write:entity-tasks'],
+      riskLevel: 'LOW',
+    }) })
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
       // Verify parent task belongs to same organization if specified
@@ -356,6 +370,11 @@ export const entityTasksRouter = router({
    * Update a task
    */
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_entity_task', 'Update a task', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['write:entity-tasks'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -413,6 +432,12 @@ export const entityTasksRouter = router({
    * Delete a task (and optionally subtasks)
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_entity_task', 'Delete a task and optionally subtasks', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['delete:entity-tasks'],
+      riskLevel: 'MEDIUM',
+      requiresConfirmation: true,
+    }) })
     .input(deleteSchema)
     .mutation(async ({ ctx, input }) => {
       await verifyTaskOwnership(input.id, ctx.organizationId);
@@ -461,6 +486,11 @@ export const entityTasksRouter = router({
    * Change task status with optional blocking reason
    */
   updateStatus: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_entity_task_status', 'Change task status with optional blocking reason', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['write:entity-tasks'],
+      riskLevel: 'LOW',
+    }) })
     .input(updateStatusSchema)
     .mutation(async ({ ctx, input }) => {
       await verifyTaskOwnership(input.id, ctx.organizationId);
@@ -510,6 +540,11 @@ export const entityTasksRouter = router({
    * Bulk update status for multiple tasks
    */
   bulkUpdateStatus: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('bulk_update_entity_task_status', 'Bulk update status for multiple tasks', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['write:entity-tasks'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(bulkUpdateStatusSchema)
     .mutation(async ({ ctx, input }) => {
       // Verify all tasks belong to the organization
@@ -562,6 +597,11 @@ export const entityTasksRouter = router({
    * Reorder tasks (update sortOrder and optionally parentTaskId)
    */
   reorder: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('reorder_entity_tasks', 'Reorder tasks - update sortOrder and optionally parentTaskId', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['write:entity-tasks'],
+      riskLevel: 'LOW',
+    }) })
     .input(reorderSchema)
     .mutation(async ({ ctx, input }) => {
       // Verify all tasks belong to the organization
@@ -633,6 +673,10 @@ export const entityTasksRouter = router({
    * Get subtasks for a parent task
    */
   getSubtasks: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_entity_task_subtasks', 'Get subtasks for a parent task', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['read:entity-tasks'],
+    }) })
     .input(z.object({ parentTaskId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       // Verify parent task exists
@@ -663,6 +707,10 @@ export const entityTasksRouter = router({
    * Get all tasks for a specific entity
    */
   getByEntity: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_entity_tasks_by_entity', 'Get all tasks for a specific entity', {
+      scopes: ['tasks', 'projects', 'entities'],
+      permissions: ['read:entity-tasks'],
+    }) })
     .input(
       z.object({
         entityType: entityTypeEnum,

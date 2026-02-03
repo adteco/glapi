@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { CustomerService, ProjectService, InvoiceService, ItemsService, EntityService } from '@glapi/api-service';
+import { createReadOnlyAIMeta } from '../ai-meta';
 
 // Search result type prefixes
 const SEARCH_PREFIXES = {
@@ -37,6 +38,10 @@ function matchesSearch(value: string | undefined | null, query: string): boolean
 
 export const globalSearchRouter = router({
   search: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('global_search', 'Search across customers, projects, invoices, employees, vendors, items, and contacts', {
+      scopes: ['search', 'global'],
+      permissions: ['read:global-search'],
+    }) })
     .input(searchInputSchema)
     .query(async ({ ctx, input }): Promise<{ results: SearchResult[]; query: string; type: EntityType | 'all' }> => {
       const { query, limit } = input;
@@ -331,6 +336,10 @@ export const globalSearchRouter = router({
 
   // Get search prefixes for autocomplete hints
   getPrefixes: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_search_prefixes', 'Get search prefixes for autocomplete hints', {
+      scopes: ['search', 'global'],
+      permissions: ['read:global-search'],
+    }) })
     .query(() => {
       return Object.entries(SEARCH_PREFIXES).map(([type, prefix]) => ({
         type,
