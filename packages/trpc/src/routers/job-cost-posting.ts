@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { JobCostPostingService } from '@glapi/api-service';
+import { createWriteAIMeta } from '../ai-meta';
 
 const laborEntrySchema = z.object({
   id: z.string().uuid(),
@@ -30,6 +31,11 @@ export const jobCostPostingRouter = router({
    * Routes labor costs to WIP and expense accounts based on cost code configuration
    */
   postLabor: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('post_labor_entries', 'Post labor entries to the GL - routes labor costs to WIP and expense accounts', {
+      scopes: ['job-costing', 'accounting', 'projects'],
+      permissions: ['write:job-cost-posting'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         entries: z.array(laborEntrySchema).min(1),
@@ -55,6 +61,11 @@ export const jobCostPostingRouter = router({
    * Routes expense costs to WIP and expense accounts based on cost code configuration
    */
   postExpenses: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('post_expense_entries', 'Post expense entries to the GL - routes expense costs to WIP and expense accounts', {
+      scopes: ['job-costing', 'accounting', 'projects'],
+      permissions: ['write:job-cost-posting'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         entries: z.array(expenseEntrySchema).min(1),
