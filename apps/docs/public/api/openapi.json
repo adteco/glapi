@@ -3,7 +3,7 @@
   "info": {
     "title": "GLAPI - General Ledger and Accounting API",
     "version": "1.0.0",
-    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031/api\n- Production: https://api.glapi.io/api"
+    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## AI Extensions\n\nEndpoints with `x-ai-tool` extensions can be used by AI assistants for automated operations.\nSee the x-ai-* extension fields for risk levels, permissions, and rate limits.\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031/api\n- Production: https://api.glapi.io/api"
   },
   "servers": [
     {
@@ -43,6 +43,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_customers",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list customers records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:customers"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -82,6 +117,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_customer",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new customer",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:customers"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -124,7 +189,40 @@
             },
             "description": "customers ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_customer",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific customer by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:customers"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing customers",
@@ -175,6 +273,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_customer",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing customer",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:customers"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -215,7 +343,34 @@
             },
             "description": "customers ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_customer",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a customer",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this customer? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:customers"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/organizations": {
@@ -245,6 +400,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_organizations",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list organizations records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:organizations"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -284,6 +474,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_organization",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new organization",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:organizations"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -326,7 +546,40 @@
             },
             "description": "organizations ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_organization",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific organization by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:organizations"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing organizations",
@@ -377,6 +630,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_organization",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing organization",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:organizations"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -417,7 +700,34 @@
             },
             "description": "organizations ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_organization",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a organization",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this organization? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:organizations"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/subsidiaries": {
@@ -447,6 +757,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_subsidiaries",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list subsidiaries records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:subsidiaries"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -486,6 +831,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_subsidiarie",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new subsidiarie",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:subsidiaries"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -528,7 +903,40 @@
             },
             "description": "subsidiaries ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_subsidiarie",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific subsidiarie by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:subsidiaries"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing subsidiaries",
@@ -579,6 +987,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_subsidiarie",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing subsidiarie",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:subsidiaries"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -619,7 +1057,34 @@
             },
             "description": "subsidiaries ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_subsidiarie",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a subsidiarie",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this subsidiarie? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:subsidiaries"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/departments": {
@@ -649,6 +1114,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_departments",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list departments records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:departments"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -688,6 +1188,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_department",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new department",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:departments"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -730,7 +1260,40 @@
             },
             "description": "departments ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_department",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific department by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:departments"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing departments",
@@ -781,6 +1344,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_department",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing department",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:departments"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -821,7 +1414,34 @@
             },
             "description": "departments ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_department",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a department",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this department? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:departments"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/locations": {
@@ -851,6 +1471,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_locations",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list locations records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:locations"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -890,6 +1545,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_location",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new location",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:locations"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -932,7 +1617,40 @@
             },
             "description": "locations ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_location",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific location by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:locations"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing locations",
@@ -983,6 +1701,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_location",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing location",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:locations"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -1023,7 +1771,34 @@
             },
             "description": "locations ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_location",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a location",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this location? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:locations"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/classes": {
@@ -1053,6 +1828,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_classes",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list classes records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:classes"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -1092,6 +1902,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_classe",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new classe",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:classes"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -1134,7 +1974,40 @@
             },
             "description": "classes ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_classe",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific classe by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:classes"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing classes",
@@ -1185,6 +2058,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_classe",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing classe",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:classes"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -1225,7 +2128,34 @@
             },
             "description": "classes ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_classe",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a classe",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this classe? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:classes"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/items": {
@@ -1255,6 +2185,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_items",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list items records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:items"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -1294,6 +2259,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_item",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new item",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:items"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -1336,7 +2331,40 @@
             },
             "description": "items ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_item",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific item by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:items"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing items",
@@ -1387,6 +2415,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_item",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing item",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:items"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -1427,7 +2485,34 @@
             },
             "description": "items ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_item",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a item",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this item? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:items"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/priceLists": {
@@ -1457,6 +2542,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_priceLists",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list priceLists records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:priceLists"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -1496,6 +2616,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_priceList",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new priceList",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:priceLists"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -1538,7 +2688,40 @@
             },
             "description": "priceLists ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_priceList",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific priceList by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:priceLists"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing priceLists",
@@ -1589,6 +2772,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_priceList",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing priceList",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:priceLists"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -1629,7 +2842,34 @@
             },
             "description": "priceLists ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_priceList",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a priceList",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this priceList? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:priceLists"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/warehouses": {
@@ -1659,6 +2899,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_warehouses",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list warehouses records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:warehouses"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -1698,6 +2973,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_warehouse",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new warehouse",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:warehouses"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -1740,7 +3045,40 @@
             },
             "description": "warehouses ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_warehouse",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific warehouse by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:warehouses"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing warehouses",
@@ -1791,6 +3129,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_warehouse",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing warehouse",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:warehouses"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -1831,7 +3199,34 @@
             },
             "description": "warehouses ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_warehouse",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a warehouse",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this warehouse? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:warehouses"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/vendors": {
@@ -1861,6 +3256,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_vendors",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list vendors records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:vendors"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -1900,6 +3330,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_vendor",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new vendor",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:vendors"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -1942,7 +3402,40 @@
             },
             "description": "vendors ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_vendor",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific vendor by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:vendors"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing vendors",
@@ -1993,6 +3486,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_vendor",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing vendor",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:vendors"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -2033,7 +3556,34 @@
             },
             "description": "vendors ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_vendor",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a vendor",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this vendor? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:vendors"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/accounts": {
@@ -2063,6 +3613,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_accounts",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list accounts records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:accounts"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -2102,6 +3687,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_account",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new account",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:accounts"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -2144,7 +3759,40 @@
             },
             "description": "accounts ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_account",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific account by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:accounts"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing accounts",
@@ -2195,6 +3843,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_account",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing account",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:accounts"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -2235,7 +3913,34 @@
             },
             "description": "accounts ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_account",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a account",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this account? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:accounts"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/leads": {
@@ -2265,6 +3970,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_leads",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list leads records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:leads"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -2304,6 +4044,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_lead",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new lead",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:leads"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -2346,7 +4116,40 @@
             },
             "description": "leads ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_lead",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific lead by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:leads"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing leads",
@@ -2397,6 +4200,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_lead",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing lead",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:leads"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -2437,7 +4270,34 @@
             },
             "description": "leads ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_lead",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a lead",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this lead? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:leads"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/employees": {
@@ -2467,6 +4327,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_employees",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list employees records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:employees"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -2506,6 +4401,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_employee",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new employee",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:employees"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -2548,7 +4473,40 @@
             },
             "description": "employees ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_employee",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific employee by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:employees"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing employees",
@@ -2599,6 +4557,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_employee",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing employee",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:employees"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -2639,7 +4627,34 @@
             },
             "description": "employees ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_employee",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a employee",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this employee? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:employees"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/prospects": {
@@ -2669,6 +4684,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_prospects",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list prospects records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:prospects"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -2708,6 +4758,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_prospect",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new prospect",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:prospects"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -2750,7 +4830,40 @@
             },
             "description": "prospects ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_prospect",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific prospect by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:prospects"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing prospects",
@@ -2801,6 +4914,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_prospect",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing prospect",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:prospects"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -2841,7 +4984,34 @@
             },
             "description": "prospects ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_prospect",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a prospect",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this prospect? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:prospects"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/contacts": {
@@ -2871,6 +5041,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_contacts",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list contacts records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:contacts"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -2910,6 +5115,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_contact",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new contact",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:contacts"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -2952,7 +5187,40 @@
             },
             "description": "contacts ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_contact",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific contact by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:contacts"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing contacts",
@@ -3003,6 +5271,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_contact",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing contact",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:contacts"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -3043,7 +5341,34 @@
             },
             "description": "contacts ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_contact",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a contact",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this contact? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:contacts"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/unitsOfMeasure": {
@@ -3073,6 +5398,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_unitsOfMeasure",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list unitsOfMeasure records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:unitsOfMeasure"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -3112,6 +5472,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_unitsOfMeasure",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new unitsOfMeasure",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:unitsOfMeasure"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -3154,7 +5544,40 @@
             },
             "description": "unitsOfMeasure ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_unitsOfMeasure",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific unitsOfMeasure by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:unitsOfMeasure"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing unitsOfMeasure",
@@ -3205,6 +5628,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_unitsOfMeasure",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing unitsOfMeasure",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:unitsOfMeasure"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -3245,7 +5698,34 @@
             },
             "description": "unitsOfMeasure ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_unitsOfMeasure",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a unitsOfMeasure",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this unitsOfMeasure? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:unitsOfMeasure"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/businessTransactions": {
@@ -3275,6 +5755,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_businessTransactions",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list businessTransactions records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:businessTransactions"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -3314,6 +5829,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_businessTransaction",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new businessTransaction",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:businessTransactions"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -3356,7 +5901,40 @@
             },
             "description": "businessTransactions ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_businessTransaction",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific businessTransaction by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:businessTransactions"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing businessTransactions",
@@ -3407,6 +5985,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_businessTransaction",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing businessTransaction",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:businessTransactions"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -3447,7 +6055,34 @@
             },
             "description": "businessTransactions ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_businessTransaction",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a businessTransaction",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this businessTransaction? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:businessTransactions"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/subscriptions": {
@@ -3477,6 +6112,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_subscriptions",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list subscriptions records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:subscriptions"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -3516,6 +6186,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_subscription",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new subscription",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:subscriptions"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -3558,7 +6258,40 @@
             },
             "description": "subscriptions ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_subscription",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific subscription by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:subscriptions"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing subscriptions",
@@ -3609,6 +6342,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_subscription",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing subscription",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:subscriptions"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -3649,7 +6412,34 @@
             },
             "description": "subscriptions ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_subscription",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a subscription",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this subscription? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:subscriptions"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/invoices": {
@@ -3679,6 +6469,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_invoices",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list invoices records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:invoices"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -3718,6 +6543,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_invoice",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new invoice",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:invoices"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -3760,7 +6615,40 @@
             },
             "description": "invoices ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_invoice",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific invoice by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:invoices"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing invoices",
@@ -3811,6 +6699,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_invoice",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing invoice",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:invoices"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -3851,7 +6769,34 @@
             },
             "description": "invoices ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_invoice",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a invoice",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this invoice? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:invoices"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/payments": {
@@ -3881,6 +6826,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_payments",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list payments records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:payments"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -3920,6 +6900,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_payment",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new payment",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:payments"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -3962,7 +6972,40 @@
             },
             "description": "payments ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_payment",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific payment by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:payments"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing payments",
@@ -4013,6 +7056,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_payment",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing payment",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:payments"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -4053,7 +7126,34 @@
             },
             "description": "payments ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_payment",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a payment",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this payment? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:payments"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     },
     "/api/revenue": {
@@ -4083,6 +7183,41 @@
           "500": {
             "description": "Internal server error"
           }
+        },
+        "x-ai-tool": {
+          "name": "list_revenue",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Search and list revenue records",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:revenue"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "search",
+            "limit",
+            "offset"
+          ]
         }
       },
       "post": {
@@ -4122,6 +7257,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "create_revenue",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Create a new revenue",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:revenue"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       }
     },
@@ -4164,7 +7329,40 @@
             },
             "description": "revenue ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "get_revenue",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Get a specific revenue by ID",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "LOW",
+          "requiresConfirmation": false,
+          "supportsDryRun": false
+        },
+        "x-ai-permissions": {
+          "required": [
+            "read:revenue"
+          ],
+          "minimumRole": "viewer"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 60,
+          "scope": "user"
+        },
+        "x-ai-cache": {
+          "enabled": true,
+          "ttlSeconds": 60,
+          "varyBy": [
+            "id"
+          ]
+        }
       },
       "put": {
         "summary": "Update an existing revenue",
@@ -4215,6 +7413,36 @@
               }
             }
           }
+        },
+        "x-ai-tool": {
+          "name": "update_revenue",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Update an existing revenue",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "MEDIUM",
+          "requiresConfirmation": true,
+          "supportsDryRun": true
+        },
+        "x-ai-permissions": {
+          "required": [
+            "write:revenue"
+          ],
+          "minimumRole": "staff"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 30,
+          "scope": "user"
+        },
+        "x-ai-idempotency": {
+          "keySource": "auto",
+          "ttlSeconds": 86400
         }
       },
       "delete": {
@@ -4255,7 +7483,34 @@
             },
             "description": "revenue ID"
           }
-        ]
+        ],
+        "x-ai-tool": {
+          "name": "delete_revenue",
+          "version": 1,
+          "stability": "stable",
+          "deprecated": false,
+          "description": "Delete a revenue",
+          "scopes": [
+            "global"
+          ],
+          "enabled": true
+        },
+        "x-ai-risk": {
+          "level": "HIGH",
+          "requiresConfirmation": true,
+          "supportsDryRun": true,
+          "confirmationMessage": "Are you sure you want to delete this revenue? This action cannot be undone."
+        },
+        "x-ai-permissions": {
+          "required": [
+            "delete:revenue"
+          ],
+          "minimumRole": "manager"
+        },
+        "x-ai-rate-limit": {
+          "requestsPerMinute": 10,
+          "scope": "user"
+        }
       }
     }
   },
