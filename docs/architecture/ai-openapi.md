@@ -26,6 +26,9 @@ This document outlines an architectural approach where the **OpenAPI specificati
 2. **Drift Risk**: Tool definitions can become out of sync with actual API capabilities
 3. **No Single Source of Truth**: Developers must check 3+ files to understand AI capabilities
 4. **Manual Schema Duplication**: Request/response schemas defined separately in each layer
+5. **Context Window Pollution**: Sending 50+ tool definitions (~5k tokens) on every turn degrades performance and confuses the model
+6. **Opaque Failure Modes**: LLM parameter hallucinations result in generic TRPC errors with no self-correction capability
+7. **Binary Confirmation Model**: High-risk actions use simple "confirm?" dialogs without showing users what will actually happen
 
 ---
 
@@ -98,6 +101,109 @@ This document outlines an architectural approach where the **OpenAPI specificati
 
 ---
 
+## Production-Ready Enhancements
+
+Three architectural features make this system production-ready at scale:
+
+### 1. Dynamic Tool Scoping (Performance & Accuracy)
+
+**Problem**: Sending 50+ tool definitions (~5k+ tokens) in every system prompt increases latency, costs, and makes the LLM prone to selecting wrong tools.
+
+**Solution**: Tag tools with contextual `scopes` (e.g., `global`, `sales`, `invoicing`). At runtime, only load relevant tools based on user's current page/route/state.
+
+```typescript
+// Before: Load ALL 50+ tools (5k tokens)
+const tools = AI_TOOLS;
+
+// After: Load only relevant tools (~1.5k tokens, 70% reduction)
+const tools = getToolsByScope(['global', 'invoicing']);
+```
+
+**Benefits**:
+- **Cost/Latency**: Reduces prompt size by ~70%
+- **Accuracy**: LLM won't suggest "delete user" when user is asking about invoices
+- **Focus**: Model has fewer options to choose from, improving precision
+
+**Scope Examples**:
+| Scope | Tools Included |
+|-------|----------------|
+| `global` | list_customers, search, get_organization_info |
+| `sales` | create_quote, list_opportunities, get_customer |
+| `invoicing` | create_invoice, list_invoices, apply_payment |
+| `accounting` | create_journal_entry, close_period, run_report |
+
+### 2. Zod-Based Intermediate Validation (Self-Healing)
+
+**Problem**: If LLM sends `limit: "fifty"` (string) instead of `limit: 50` (number), TRPC throws a generic 400 error. The AI crashes or says "Something went wrong."
+
+**Solution**: Each generated tool includes a runtime Zod schema. The executor validates parameters **before** calling TRPC, returning structured errors that enable the LLM to self-correct.
+
+```typescript
+// LLM sends invalid params
+const params = { limit: "fifty" }; // Wrong type!
+
+// Executor catches and returns actionable error
+{
+  error: "ArgumentValidationFailed",
+  details: {
+    fieldErrors: {
+      limit: ["Expected number, received string"]
+    }
+  },
+  hint: "Please correct the parameters and try again"
+}
+
+// LLM reads error, fixes itself, retries with:
+const params = { limit: 50 }; // Correct!
+```
+
+**Benefits**:
+- **Self-Healing**: AI fixes its own type errors without user intervention
+- **Safety**: Malformed data never reaches business logic/database
+- **Debugging**: Clear error messages for developers
+
+### 3. Dry-Run Simulation Support (User Experience)
+
+**Problem**: High-risk actions use binary "confirm?" dialogs. Users can't see what will happen before confirming.
+
+**Solution**: Tools can declare `supportsDryRun: true`. Before committing, the AI calls the action in simulation mode to show the user exactly what will happen.
+
+```typescript
+// User: "Create an invoice for Acme"
+
+// Step 1: AI calls preview
+const preview = await previewAction('create_invoice', {
+  customerId: 'acme-123',
+  items: [{ description: 'Consulting', amount: 5000 }]
+}, { caller });
+
+// Preview returns:
+{
+  preview: true,
+  wouldCreate: {
+    invoiceNumber: "INV-2024-0042",
+    customer: "Acme Corporation",
+    lineItems: [{ description: "Consulting", amount: 5000 }],
+    total: 5000,
+    dueDate: "2024-02-15"
+  },
+  accountingImpact: {
+    debit: { account: "Accounts Receivable", amount: 5000 },
+    credit: { account: "Revenue", amount: 5000 }
+  }
+}
+
+// Step 2: AI shows user the preview and asks for confirmation
+// Step 3: User confirms, AI executes without dryRun flag
+```
+
+**Benefits**:
+- **Transparency**: Users see exactly what will happen
+- **Confidence**: Reduces fear of AI "doing something wrong"
+- **Audit**: Preview data can be logged for compliance
+
+---
+
 ## Technical Overview
 
 ### Phase 1: OpenAPI Extension Schema
@@ -109,12 +215,13 @@ Define custom extensions for AI-specific metadata:
 x-ai-tool:
   name: list_customers          # Tool name for LLM
   description: "Search and retrieve customer records"
-  category: CUSTOMER_MANAGEMENT # Business domain
+  scopes: ["global", "sales"]   # Contextual scoping for dynamic loading
   enabled: true                 # Feature flag
 
 x-ai-risk:
   level: LOW | MEDIUM | HIGH | CRITICAL
   requiresConfirmation: boolean
+  supportsDryRun: boolean       # Can we simulate this action?
   confirmationMessage: string   # Custom message for user
 
 x-ai-permissions:
@@ -152,12 +259,13 @@ Extend current generator to include AI metadata:
       "x-ai-tool": {
         "name": "list_customers",
         "description": "Retrieve and search customer records in the system",
-        "category": "CUSTOMER_MANAGEMENT",
+        "scopes": ["global", "sales"],
         "enabled": true
       },
       "x-ai-risk": {
         "level": "LOW",
-        "requiresConfirmation": false
+        "requiresConfirmation": false,
+        "supportsDryRun": false
       },
       "x-ai-permissions": {
         "required": ["read:customers"],
@@ -180,6 +288,8 @@ Create a build-time tool that generates AI function declarations from OpenAPI:
 **File**: `packages/trpc/scripts/generate-ai-tools.ts`
 
 ```typescript
+import { z, ZodSchema } from 'zod';
+
 interface GeneratedAITool {
   // For LLM function calling
   functionDeclaration: {
@@ -188,14 +298,18 @@ interface GeneratedAITool {
     parameters: JSONSchema;
   };
 
+  // Runtime validation schema (enables self-healing on LLM errors)
+  inputSchema: ZodSchema;
+
   // For guardrails system
   metadata: {
     riskLevel: RiskLevel;
     requiresConfirmation: boolean;
+    supportsDryRun: boolean;      // Can simulate before committing
     requiredPermissions: string[];
     minimumRole: UserRole;
     rateLimitPerMinute: number;
-    category: string;
+    scopes: string[];             // Dynamic tool loading contexts
   };
 
   // For execution
@@ -213,6 +327,8 @@ interface GeneratedAITool {
 // Auto-generated from OpenAPI spec
 // DO NOT EDIT MANUALLY
 
+import { z } from 'zod';
+
 export const AI_TOOLS: GeneratedAITool[] = [
   {
     functionDeclaration: {
@@ -226,13 +342,19 @@ export const AI_TOOLS: GeneratedAITool[] = [
         }
       }
     },
+    // Runtime Zod schema for validation (enables LLM self-correction)
+    inputSchema: z.object({
+      search: z.string().optional(),
+      limit: z.number().min(1).max(100).optional()
+    }),
     metadata: {
       riskLevel: "LOW",
       requiresConfirmation: false,
+      supportsDryRun: false,
       requiredPermissions: ["read:customers"],
       minimumRole: "viewer",
       rateLimitPerMinute: 60,
-      category: "CUSTOMER_MANAGEMENT"
+      scopes: ["global", "sales"]
     },
     endpoint: {
       method: "GET",
@@ -242,6 +364,18 @@ export const AI_TOOLS: GeneratedAITool[] = [
   },
   // ... 40+ more tools auto-generated
 ];
+
+// Helper for retrieving scoped tools (reduces context window by ~70%)
+export const getToolsByScope = (scopes: string[]): GeneratedAITool[] => {
+  return AI_TOOLS.filter(tool =>
+    tool.metadata.scopes.some(s => scopes.includes(s))
+  );
+};
+
+// Get tool by name
+export const getToolByName = (name: string): GeneratedAITool | undefined => {
+  return AI_TOOLS.find(t => t.functionDeclaration.name === name);
+};
 ```
 
 ### Phase 4: Runtime Execution (Dual-Mode)
@@ -253,8 +387,14 @@ Support **both** HTTP and TRPC execution - TRPC for internal AI (performance), H
 **File**: `apps/web/src/lib/ai/generated/executor.ts`
 
 ```typescript
-import { AI_TOOLS, type GeneratedAITool } from './tools';
+import { z } from 'zod';
+import { AI_TOOLS, getToolByName, type GeneratedAITool } from './tools';
 import type { Caller } from '@glapi/trpc';
+
+// Validation result type for self-healing capability
+export type ValidationResult =
+  | { success: true; data: unknown }
+  | { success: false; error: 'ArgumentValidationFailed'; details: z.ZodError['flatten'] };
 
 // Auto-generated TRPC mappings (for internal AI - no HTTP overhead)
 const TRPC_HANDLERS: Record<string, (caller: Caller, params: any) => Promise<any>> = {
@@ -265,29 +405,79 @@ const TRPC_HANDLERS: Record<string, (caller: Caller, params: any) => Promise<any
   // ... all 40+ operations auto-generated
 };
 
-// TRPC execution (internal AI chat - recommended for performance)
+// Validate parameters using Zod schema (enables LLM self-correction)
+export function validateToolParams(
+  tool: GeneratedAITool,
+  params: unknown
+): ValidationResult {
+  const validation = tool.inputSchema.safeParse(params);
+  if (!validation.success) {
+    return {
+      success: false,
+      error: 'ArgumentValidationFailed',
+      details: validation.error.flatten()
+    };
+  }
+  return { success: true, data: validation.data };
+}
+
+// TRPC execution with validation (internal AI chat - recommended for performance)
 export async function executeViaTRPC(
   tool: GeneratedAITool,
   params: unknown,
-  caller: Caller
+  caller: Caller,
+  options?: { dryRun?: boolean }
 ): Promise<unknown> {
+  // Validate parameters first - enables self-healing
+  const validation = validateToolParams(tool, params);
+  if (!validation.success) {
+    // Return structured error so LLM can self-correct
+    return {
+      error: validation.error,
+      details: validation.details,
+      hint: 'Please correct the parameters and try again'
+    };
+  }
+
   const handler = TRPC_HANDLERS[tool.endpoint.operationId];
   if (!handler) throw new Error(`No TRPC handler for ${tool.endpoint.operationId}`);
-  return handler(caller, params);
+
+  // If dry run requested and supported, add dryRun flag
+  const finalParams = options?.dryRun && tool.metadata.supportsDryRun
+    ? { ...validation.data, dryRun: true }
+    : validation.data;
+
+  return handler(caller, finalParams);
 }
 
-// HTTP execution (external integrations, SDK, testing)
+// HTTP execution with validation (external integrations, SDK, testing)
 export async function executeViaHTTP(
   tool: GeneratedAITool,
   params: unknown,
   baseUrl: string,
-  authToken: string
+  authToken: string,
+  options?: { dryRun?: boolean }
 ): Promise<unknown> {
+  // Validate parameters first
+  const validation = validateToolParams(tool, params);
+  if (!validation.success) {
+    return {
+      error: validation.error,
+      details: validation.details,
+      hint: 'Please correct the parameters and try again'
+    };
+  }
+
   const url = new URL(tool.endpoint.path, baseUrl);
+
+  // Add dryRun query param if requested and supported
+  if (options?.dryRun && tool.metadata.supportsDryRun) {
+    url.searchParams.set('dryRun', 'true');
+  }
 
   // GET requests use query params, others use body
   if (tool.endpoint.method === 'GET') {
-    Object.entries(params as Record<string, unknown>).forEach(([k, v]) => {
+    Object.entries(validation.data as Record<string, unknown>).forEach(([k, v]) => {
       if (v !== undefined) url.searchParams.set(k, String(v));
     });
   }
@@ -298,7 +488,7 @@ export async function executeViaHTTP(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${authToken}`
     },
-    body: tool.endpoint.method !== 'GET' ? JSON.stringify(params) : undefined
+    body: tool.endpoint.method !== 'GET' ? JSON.stringify(validation.data) : undefined
   });
 
   return response.json();
@@ -308,22 +498,39 @@ export async function executeViaHTTP(
 export async function executeTool(
   toolName: string,
   params: unknown,
-  context: { caller?: Caller; baseUrl?: string; authToken?: string }
+  context: { caller?: Caller; baseUrl?: string; authToken?: string },
+  options?: { dryRun?: boolean }
 ): Promise<unknown> {
-  const tool = AI_TOOLS.find(t => t.functionDeclaration.name === toolName);
+  const tool = getToolByName(toolName);
   if (!tool) throw new Error(`Unknown tool: ${toolName}`);
 
   // Prefer TRPC if caller available (server-side)
   if (context.caller) {
-    return executeViaTRPC(tool, params, context.caller);
+    return executeViaTRPC(tool, params, context.caller, options);
   }
 
   // Fall back to HTTP (client-side or external)
   if (context.baseUrl && context.authToken) {
-    return executeViaHTTP(tool, params, context.baseUrl, context.authToken);
+    return executeViaHTTP(tool, params, context.baseUrl, context.authToken, options);
   }
 
   throw new Error('No execution context provided');
+}
+
+// Preview/dry-run helper for high-risk actions
+export async function previewAction(
+  toolName: string,
+  params: unknown,
+  context: { caller?: Caller; baseUrl?: string; authToken?: string }
+): Promise<unknown> {
+  const tool = getToolByName(toolName);
+  if (!tool) throw new Error(`Unknown tool: ${toolName}`);
+
+  if (!tool.metadata.supportsDryRun) {
+    throw new Error(`Tool ${toolName} does not support dry run previews`);
+  }
+
+  return executeTool(toolName, params, context, { dryRun: true });
 }
 ```
 
@@ -559,6 +766,9 @@ pnpm --filter web test:run -- src/lib/ai
 | **Execution Strategy** | Both HTTP + TRPC | HTTP for external integrations/SDK, TRPC for internal AI (performance) |
 | **Migration Approach** | Full migration + auto-sync | Complete conversion with automated regeneration on schema changes |
 | **Extension Namespace** | `x-ai-*` | Simple, clear, follows OpenAPI extension conventions |
+| **Tool Loading** | Dynamic scoping | Reduces context window by ~70%, improves accuracy |
+| **Validation Layer** | Zod schemas in executor | Enables LLM self-correction, prevents malformed data reaching DB |
+| **High-Risk Actions** | Dry-run simulation | Users see preview before committing, builds trust |
 
 ---
 
@@ -646,6 +856,7 @@ info:
   x-ai-capabilities:
     enabled: true
     version: 1.0
+    defaultScopes: ["global"]  # Tools loaded by default
 
 paths:
   /api/customers:
@@ -658,7 +869,7 @@ paths:
           Retrieve and search customer records. Use search parameter
           for natural language queries like "customers in California"
           or "Acme Corporation".
-        category: CUSTOMER_MANAGEMENT
+        scopes: ["global", "sales"]  # Loaded in global + sales contexts
         enabled: true
         exampleUtterances:
           - "List all customers"
@@ -667,6 +878,7 @@ paths:
       x-ai-risk:
         level: LOW
         requiresConfirmation: false
+        supportsDryRun: false
       x-ai-permissions:
         required: [read:customers]
         minimumRole: viewer
@@ -695,11 +907,12 @@ paths:
       x-ai-tool:
         name: create_invoice
         description: Create a new customer invoice
-        category: INVOICING
+        scopes: ["invoicing", "sales"]  # Only loaded in invoicing/sales contexts
         enabled: true
       x-ai-risk:
         level: HIGH
         requiresConfirmation: true
+        supportsDryRun: true  # Enables preview before commit
         confirmationMessage: >
           You are about to create an invoice for {customer}
           totaling {amount}. This will affect accounts receivable.
@@ -712,4 +925,25 @@ paths:
         staff: 10000
         manager: 100000
         accountant: 1000000
+      parameters:
+        - name: dryRun
+          in: query
+          description: If true, returns preview without committing
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceInput'
+      responses:
+        200:
+          description: Invoice created (or preview if dryRun=true)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Invoice'
+                  - $ref: '#/components/schemas/InvoicePreview'
 ```
