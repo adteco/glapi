@@ -49,8 +49,8 @@ export class ListPage extends BasePage {
     this.tableHeaders = this.table.locator('thead th, [role="columnheader"]');
     this.tableRows = this.table.locator('tbody tr, [role="row"]:not(:first-child)');
     this.emptyState = page.locator(
-      '[data-testid="empty-state"], .empty-state, text="No results", text="No items"'
-    );
+      '[data-testid="empty-state"], .empty-state'
+    ).or(page.getByText('No results')).or(page.getByText('No items'));
 
     // Pagination
     this.pagination = page.locator(
