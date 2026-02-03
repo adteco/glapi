@@ -5,7 +5,7 @@
  * Creates pending documents for human review and manages the conversion workflow.
  */
 
-import { db, pendingDocuments, eq, organizations, withOrganizationContext } from '@glapi/database';
+import { db, pendingDocuments, eq, organizations, withOrganizationContext, withoutRLS } from '@glapi/database';
 import type {
   NewPendingDocument,
   PendingDocument,
@@ -33,10 +33,12 @@ import { MagicInboxUsageService } from './magic-inbox-usage-service';
 export async function processMagicInboxWebhook(
   payload: MagicInboxWebhookPayload
 ): Promise<MagicInboxWebhookResponse> {
-  // Check for duplicate by messageId
+  // Check for duplicate by messageId (use withoutRLS since we check globally)
   if (payload.messageId) {
-    const existing = await db.query.pendingDocuments.findFirst({
-      where: eq(pendingDocuments.messageId, payload.messageId),
+    const existing = await withoutRLS(async (contextDb) => {
+      return contextDb.query.pendingDocuments.findFirst({
+        where: eq(pendingDocuments.messageId, payload.messageId),
+      });
     });
 
     if (existing) {
