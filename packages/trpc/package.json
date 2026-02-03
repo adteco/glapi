@@ -7,6 +7,7 @@
     "build": "echo 'Skipping tRPC build - using source files directly'",
     "type-check": "tsc --noEmit",
     "generate-openapi": "tsx scripts/generate-openapi.ts",
+    "generate-ai-tools": "tsx scripts/generate-ai-tools.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },
