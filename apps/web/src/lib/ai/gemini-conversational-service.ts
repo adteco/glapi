@@ -89,6 +89,15 @@ export interface PendingConfirmation {
   riskLevel: string;
   /** Expiration time */
   expiresAt: Date;
+  /** Tool name for execution (for serverless) */
+  toolName?: string;
+  /** Tool parameters (for serverless) */
+  parameters?: Record<string, unknown>;
+  /** Intent info */
+  intent?: {
+    id: string;
+    name: string;
+  };
 }
 
 // ============================================================================
@@ -745,6 +754,13 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
       description: p.guardrailResult.confirmationMessage || p.request.toolName,
       riskLevel: p.guardrailResult.intent?.riskLevel || 'UNKNOWN',
       expiresAt: p.expiresAt,
+      // Include action details for serverless execution
+      toolName: p.request.toolName,
+      parameters: p.request.parameters,
+      intent: p.guardrailResult.intent ? {
+        id: p.guardrailResult.intent.id,
+        name: p.guardrailResult.intent.name,
+      } : undefined,
     }));
   }
 

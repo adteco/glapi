@@ -20,9 +20,15 @@ function getConversationalService(organizationId: string, userId: string) {
   }
 
   // Create the TRPC-based MCP client for real database access
+  // Server-side needs absolute URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/trpc`
+    : 'http://localhost:3030/api/trpc';
+
   const mcpClient = createTRPCMCPClient({
     organizationId,
     userId,
+    baseUrl,
     enableLogging: process.env.NODE_ENV === 'development',
   });
 

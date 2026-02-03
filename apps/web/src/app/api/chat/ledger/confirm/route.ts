@@ -1,46 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { createActionExecutor, createDefaultUserContext, type UserRole } from '@/lib/ai';
-
-// Mock MCP client - shared with main route in production
-const mockMcpClient = {
-  async callTool(toolName: string, parameters: Record<string, unknown>, _authToken: string) {
-    const mockResponses: Record<string, unknown> = {
-      create_customer: { id: 'cust_' + Date.now(), name: parameters.name || 'New Customer' },
-      create_invoice: { id: 'inv_' + Date.now(), amount: parameters.amount || 0 },
-      create_journal_entry: { id: 'je_' + Date.now(), status: 'posted' },
-    };
-    return mockResponses[toolName] || { success: true };
-  },
-};
-
-// In production, this would be a shared instance via Redis or similar
-let actionExecutor: ReturnType<typeof createActionExecutor> | null = null;
-
-function getActionExecutor() {
-  if (!actionExecutor) {
-    actionExecutor = createActionExecutor({
-      mcpClient: mockMcpClient,
-      enableLogging: process.env.NODE_ENV === 'development',
-    });
-  }
-  return actionExecutor;
-}
-
-function mapClerkRoleToGlapiRole(clerkRole?: string): UserRole {
-  const roleMap: Record<string, UserRole> = {
-    admin: 'admin',
-    accountant: 'accountant',
-    manager: 'manager',
-    staff: 'staff',
-    viewer: 'viewer',
-  };
-  return roleMap[clerkRole || ''] || 'staff';
-}
+import { createTRPCMCPClient } from '@/lib/ai';
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -48,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     const user = await currentUser();
     const body = await request.json();
-    const { conversationId, pendingActionId } = body;
+    const { conversationId, pendingActionId, pendingAction } = body;
 
     if (!conversationId || !pendingActionId) {
       return NextResponse.json(
@@ -57,14 +21,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const executor = getActionExecutor();
+    // Get organization ID from Clerk org or user metadata
+    const organizationId = orgId || (user?.publicMetadata?.organizationId as string) || 'default-org';
 
-    // Confirm the pending action
-    const result = await executor.confirmAction(
-      conversationId,
-      pendingActionId,
-      'mock-auth-token'
-    );
+    // If pendingAction data is provided (from client), execute directly
+    // This handles serverless environments where state isn't preserved
+    if (!pendingAction?.toolName || !pendingAction?.parameters) {
+      return NextResponse.json({
+        success: false,
+        message: 'Conversation not found. Please try the action again.',
+      });
+    }
+
+    // Create MCP client with proper org context
+    // Server-side needs absolute URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/api/trpc`
+      : 'http://localhost:3030/api/trpc';
+
+    const mcpClient = createTRPCMCPClient({
+      organizationId,
+      userId,
+      baseUrl,
+      enableLogging: process.env.NODE_ENV === 'development',
+    });
+
+    // Execute the action
+    let result;
+    try {
+      const data = await mcpClient.callTool(
+        pendingAction.toolName,
+        pendingAction.parameters,
+        'clerk-auth-token'
+      );
+      result = {
+        success: true,
+        data,
+        intent: pendingAction.intent,
+      };
+    } catch (error) {
+      result = {
+        success: false,
+        error: error instanceof Error ? error.message : 'Action execution failed',
+        intent: pendingAction.intent,
+      };
+    }
 
     if (result.success) {
       return NextResponse.json({

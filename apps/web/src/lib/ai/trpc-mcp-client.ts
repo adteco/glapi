@@ -1,12 +1,15 @@
 /**
  * GLAPI TRPC-based MCP Client
  *
- * This module provides a real MCP client implementation that makes HTTP calls
- * to the TRPC API to execute database operations. It maps AI tool calls to
- * actual TRPC router methods.
+ * This module provides a real MCP client implementation that uses the TRPC
+ * server-side caller to execute database operations directly. It maps AI
+ * tool calls to actual TRPC router methods.
  */
 
 import { type MCPClient } from './action-executor';
+import { appRouter, createCallerFactory } from '@glapi/trpc';
+import { createContextualDb } from '@glapi/database';
+import type { OrganizationId, ClerkUserId, EntityId } from '@glapi/shared-types';
 
 // ============================================================================
 // Types
@@ -17,83 +20,92 @@ export interface TRPCMCPClientConfig {
   organizationId: string;
   /** The user ID for the current user */
   userId: string;
-  /** Base URL for TRPC API (defaults to /api/trpc) */
+  /** Base URL for TRPC API (deprecated - not used with server caller) */
   baseUrl?: string;
   /** Enable logging */
   enableLogging?: boolean;
 }
 
 // ============================================================================
-// TRPC HTTP Client
+// TRPC Server Caller Client
 // ============================================================================
 
 /**
- * Create a TRPC-based MCP client that uses HTTP calls
+ * Create a TRPC-based MCP client that uses server-side caller
  *
- * This client translates AI tool calls into HTTP requests to the TRPC API.
- * This avoids importing server-side dependencies in the browser.
+ * This client translates AI tool calls into direct TRPC procedure calls
+ * using the server-side caller. No HTTP requests needed.
  */
 export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
   const {
     organizationId,
     userId,
-    baseUrl = '/api/trpc',
     enableLogging = false,
   } = config;
 
+  // Create the caller factory
+  const createCaller = createCallerFactory(appRouter);
+
   /**
-   * Make a TRPC query call
+   * Get a caller with the proper context
    */
-  async function trpcQuery(procedure: string, input: Record<string, unknown> = {}): Promise<unknown> {
-    const url = `${baseUrl}/${procedure}?input=${encodeURIComponent(JSON.stringify(input))}`;
-
-    if (enableLogging) {
-      console.log(`[TRPC MCP] Query: ${procedure}`, input);
-    }
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include auth cookies
+  async function getCaller() {
+    const { db, release } = await createContextualDb({
+      organizationId: organizationId as OrganizationId,
+      userId
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`TRPC query failed: ${response.status} - ${errorText}`);
-    }
+    const caller = createCaller({
+      req: undefined,
+      res: undefined,
+      resHeaders: undefined,
+      organizationName: undefined,
+      db,
+      user: {
+        id: userId,
+        clerkId: userId as ClerkUserId,
+        organizationId: organizationId as OrganizationId,
+        entityId: null as EntityId | null,
+        email: null,
+        role: 'user' as const,
+      },
+      serviceContext: {
+        organizationId: organizationId as OrganizationId,
+        clerkUserId: userId as ClerkUserId,
+        entityId: null as EntityId | null,
+        userId,
+      },
+    });
 
-    const data = await response.json();
-    return data.result?.data;
+    return { caller, release };
   }
 
   /**
-   * Make a TRPC mutation call
+   * Execute a TRPC query with proper context handling
    */
-  async function trpcMutation(procedure: string, input: Record<string, unknown> = {}): Promise<unknown> {
-    const url = `${baseUrl}/${procedure}`;
-
-    if (enableLogging) {
-      console.log(`[TRPC MCP] Mutation: ${procedure}`, input);
+  async function trpcQuery<T>(
+    queryFn: (caller: ReturnType<typeof createCaller>) => Promise<T>
+  ): Promise<T> {
+    const { caller, release } = await getCaller();
+    try {
+      return await queryFn(caller);
+    } finally {
+      release();
     }
+  }
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include auth cookies
-      body: JSON.stringify(input),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`TRPC mutation failed: ${response.status} - ${errorText}`);
+  /**
+   * Execute a TRPC mutation with proper context handling
+   */
+  async function trpcMutation<T>(
+    mutationFn: (caller: ReturnType<typeof createCaller>) => Promise<T>
+  ): Promise<T> {
+    const { caller, release } = await getCaller();
+    try {
+      return await mutationFn(caller);
+    } finally {
+      release();
     }
-
-    const data = await response.json();
-    return data.result?.data;
   }
 
   /**
@@ -115,38 +127,45 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Customer Operations
         // ============================================
         case 'list_customers': {
-          const result = await trpcQuery('customers.list', {
-            search: parameters.search,
-            limit: parameters.limit || 50,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.customers.list({
+              includeInactive: parameters.includeInactive as boolean | undefined,
+            })
+          );
           const customers = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { customers, total: (customers as unknown[]).length };
         }
 
         case 'get_customer': {
-          const result = await trpcQuery('customers.getById', {
-            id: parameters.id,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.customers.get({ id: parameters.id as string })
+          );
           return { customer: result };
         }
 
         case 'create_customer': {
-          const result = await trpcMutation('customers.create', {
-            name: parameters.name,
-            email: parameters.email,
-            phone: parameters.phone,
-          });
+          const result = await trpcMutation(async (caller) =>
+            caller.customers.create({
+              companyName: parameters.name as string,
+              contactEmail: parameters.email as string | undefined,
+              contactPhone: parameters.phone as string | undefined,
+            })
+          );
           return { customer: result, success: true };
         }
 
         case 'update_customer': {
-          const result = await trpcMutation('customers.update', {
-            id: parameters.id,
-            name: parameters.name,
-            email: parameters.email,
-            phone: parameters.phone,
-            isActive: parameters.status === 'active',
-          });
+          const result = await trpcMutation(async (caller) =>
+            caller.customers.update({
+              id: parameters.id as string,
+              data: {
+                companyName: parameters.name as string | undefined,
+                contactEmail: parameters.email as string | undefined,
+                contactPhone: parameters.phone as string | undefined,
+                status: parameters.status as 'active' | 'inactive' | 'archived' | undefined,
+              },
+            })
+          );
           return { customer: result, success: true };
         }
 
@@ -154,20 +173,24 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Vendor Operations
         // ============================================
         case 'list_vendors': {
-          const result = await trpcQuery('vendors.list', {
-            search: parameters.search,
-            limit: parameters.limit || 50,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.vendors.list({
+              search: parameters.search as string | undefined,
+              limit: (parameters.limit as number) || 50,
+            })
+          );
           const vendors = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { vendors, total: (vendors as unknown[]).length };
         }
 
         case 'create_vendor': {
-          const result = await trpcMutation('vendors.create', {
-            name: parameters.name,
-            email: parameters.email,
-            phone: parameters.phone,
-          });
+          const result = await trpcMutation(async (caller) =>
+            caller.vendors.create({
+              name: parameters.name as string,
+              email: parameters.email as string | undefined,
+              phone: parameters.phone as string | undefined,
+            })
+          );
           return { vendor: result, success: true };
         }
 
@@ -175,21 +198,23 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Employee Operations
         // ============================================
         case 'list_employees': {
-          const result = await trpcQuery('employees.list', {
-            search: parameters.search,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.employees.list({
+              search: parameters.search as string | undefined,
+            })
+          );
           const employees = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { employees, total: (employees as unknown[]).length };
         }
 
         case 'create_employee': {
-          const nameParts = (parameters.name as string).split(' ');
-          const result = await trpcMutation('employees.create', {
-            firstName: nameParts[0] || '',
-            lastName: nameParts.slice(1).join(' ') || '',
-            email: parameters.email,
-            phone: parameters.phone,
-          });
+          const result = await trpcMutation(async (caller) =>
+            caller.employees.create({
+              name: parameters.name as string,
+              email: parameters.email as string | undefined,
+              phone: parameters.phone as string | undefined,
+            })
+          );
           return { employee: result, success: true };
         }
 
@@ -197,19 +222,23 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Lead Operations
         // ============================================
         case 'list_leads': {
-          const result = await trpcQuery('leads.list', {
-            search: parameters.search,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.leads.list({
+              search: parameters.search as string | undefined,
+            })
+          );
           const leads = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { leads, total: (leads as unknown[]).length };
         }
 
         case 'create_lead': {
-          const result = await trpcMutation('leads.create', {
-            name: parameters.name,
-            email: parameters.email,
-            phone: parameters.phone,
-          });
+          const result = await trpcMutation(async (caller) =>
+            caller.leads.create({
+              name: parameters.name as string,
+              email: parameters.email as string | undefined,
+              phone: parameters.phone as string | undefined,
+            })
+          );
           return { lead: result, success: true };
         }
 
@@ -217,9 +246,11 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Prospect Operations
         // ============================================
         case 'list_prospects': {
-          const result = await trpcQuery('prospects.list', {
-            search: parameters.search,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.prospects.list({
+              search: parameters.search as string | undefined,
+            })
+          );
           const prospects = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { prospects, total: (prospects as unknown[]).length };
         }
@@ -228,9 +259,11 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Contact Operations
         // ============================================
         case 'list_contacts': {
-          const result = await trpcQuery('contacts.list', {
-            search: parameters.search,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.contacts.list({
+              search: parameters.search as string | undefined,
+            })
+          );
           const contacts = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { contacts, total: (contacts as unknown[]).length };
         }
@@ -239,10 +272,12 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Invoice Operations
         // ============================================
         case 'list_invoices': {
-          const result = await trpcQuery('invoices.list', {
-            customerId: parameters.customerId,
-            status: parameters.status,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.invoices.list({
+              entityId: parameters.customerId as string | undefined,
+              status: parameters.status as 'draft' | 'sent' | 'paid' | 'overdue' | 'void' | undefined,
+            })
+          );
           const invoices = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { invoices, total: (invoices as unknown[]).length };
         }
@@ -258,10 +293,14 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Project Operations
         // ============================================
         case 'list_projects': {
-          const result = await trpcQuery('projects.list', {
-            search: parameters.search,
-            customerId: parameters.customerId,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.projects.list({
+              filters: {
+                search: parameters.search as string | undefined,
+                customerId: parameters.customerId as string | undefined,
+              },
+            })
+          );
           const projects = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { projects, total: (projects as unknown[]).length };
         }
@@ -270,10 +309,14 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Estimate Operations
         // ============================================
         case 'list_estimates': {
-          const result = await trpcQuery('estimates.list', {
-            search: parameters.search,
-            customerId: parameters.customerId,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.estimates.list({
+              filters: {
+                search: parameters.search as string | undefined,
+                entityId: parameters.customerId as string | undefined,
+              },
+            })
+          );
           const estimates = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { estimates, total: (estimates as unknown[]).length };
         }
@@ -282,9 +325,9 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // Account Operations
         // ============================================
         case 'list_accounts': {
-          const result = await trpcQuery('accounts.list', {
-            search: parameters.search,
-          });
+          const result = await trpcQuery(async (caller) =>
+            caller.accounts.list({})
+          );
           const accounts = Array.isArray(result) ? result : (result as { data?: unknown[] })?.data || [];
           return { accounts, total: (accounts as unknown[]).length };
         }
@@ -327,11 +370,13 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         // ============================================
         case 'global_search': {
           try {
-            const result = await trpcQuery('globalSearch.search', {
-              query: parameters.query,
-              limit: parameters.limit || 20,
-            });
-            return { results: result, total: Array.isArray(result) ? result.length : 0 };
+            const result = await trpcQuery(async (caller) =>
+              caller.globalSearch.search({
+                query: parameters.query as string,
+                limit: (parameters.limit as number) || 20,
+              })
+            );
+            return { results: result.results, total: result.results.length };
           } catch {
             return { results: [], total: 0, note: 'Search is currently unavailable.' };
           }
@@ -343,12 +388,12 @@ export function createTRPCMCPClient(config: TRPCMCPClientConfig): MCPClient {
         case 'help': {
           return {
             capabilities: [
-              '📋 **Relationship Management**: List and search customers, vendors, employees, leads, prospects, and contacts',
-              '🔍 **Search & View**: View customer and vendor details, find specific records',
-              '➕ **Create Records**: Create new customers, vendors, leads (with confirmation)',
-              '📊 **Projects & Jobs**: List projects, estimates, and invoices',
-              '💰 **Financial Data**: View accounts and transaction information',
-              '❓ **Help & Guidance**: Explain accounting concepts and system features',
+              'List and search customers, vendors, employees, leads, prospects, and contacts',
+              'View customer and vendor details, find specific records',
+              'Create new customers, vendors, leads (with confirmation)',
+              'List projects, estimates, and invoices',
+              'View accounts and transaction information',
+              'Explain accounting concepts and system features',
             ],
             examples: [
               '"List all customers" - See your customer list',
