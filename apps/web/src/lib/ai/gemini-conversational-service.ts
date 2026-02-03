@@ -21,11 +21,11 @@ import {
   type UserContext,
   createDefaultUserContext,
 } from './guardrails';
+// Legacy types removed - now using generated tools via tool-adapter
 import {
-  INTENT_CATALOG,
-  type Intent,
-  getEnabledIntents,
-} from './intents';
+  getAllEnabledTools,
+  type UnifiedToolInfo,
+} from './tool-adapter';
 import {
   createActionExecutor,
   type ActionExecutor,
@@ -220,13 +220,15 @@ Remember: You're helping users manage their business operations efficiently. Acc
 // ============================================================================
 
 /**
- * Generate Gemini function declarations from intent catalog
+ * Generate Gemini function declarations from enabled tools
+ *
+ * Now uses generated tools via tool-adapter instead of legacy intent catalog.
  */
 function generateFunctionDeclarations(): FunctionDeclaration[] {
   const declarations: FunctionDeclaration[] = [];
 
-  for (const intent of getEnabledIntents()) {
-    const decl = getFunctionDeclarationForIntent(intent);
+  for (const tool of getAllEnabledTools()) {
+    const decl = getFunctionDeclarationForTool(tool);
     if (decl) {
       declarations.push(decl);
     }
@@ -267,11 +269,15 @@ function generateFunctionDeclarations(): FunctionDeclaration[] {
 }
 
 /**
- * Map an intent to a Gemini function declaration
+ * Map a unified tool to a Gemini function declaration
+ *
+ * Uses the tool name to look up the parameter schema.
  */
-function getFunctionDeclarationForIntent(
-  intent: Intent
+function getFunctionDeclarationForTool(
+  tool: UnifiedToolInfo
 ): FunctionDeclaration | null {
+  // Get the tool name for schema lookup (from generated tool or convert from legacy)
+  const toolName = tool.generatedTool?.metadata.name || tool.id.toLowerCase();
   // Define parameter schemas for each tool type
   const toolSchemas: Record<string, FunctionDeclarationSchema> = {
     // Customer tools
@@ -491,14 +497,14 @@ function getFunctionDeclarationForIntent(
     },
   };
 
-  const schema = toolSchemas[intent.mcpTool];
+  const schema = toolSchemas[toolName];
   if (!schema) {
     return null;
   }
 
   return {
-    name: intent.mcpTool,
-    description: intent.description,
+    name: toolName,
+    description: tool.description,
     parameters: schema,
   };
 }

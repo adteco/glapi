@@ -18,9 +18,11 @@ import {
 } from './guardrails';
 import {
   type Intent,
-  getIntentByMcpTool,
-  INTENT_CATALOG,
 } from './intents';
+import {
+  getAllEnabledTools,
+  type UnifiedToolInfo,
+} from './tool-adapter';
 import {
   createToolExecutor,
   type ExecutionContext,
@@ -600,14 +602,16 @@ export function createActionExecutor(config: ActionExecutorConfig) {
 
   /**
    * Get available actions for the user's role
+   *
+   * Now uses generated tools via tool-adapter instead of legacy intent catalog.
    */
-  function getAvailableActions(userContext: UserContext): Intent[] {
-    return Object.values(INTENT_CATALOG).filter((intent) => {
+  function getAvailableActions(userContext: UserContext): UnifiedToolInfo[] {
+    return getAllEnabledTools().filter((tool) => {
       // Check if user has required permissions
-      const hasPermissions = intent.requiredPermissions.every((perm) =>
+      const hasPermissions = tool.requiredPermissions.every((perm) =>
         userContext.permissions.includes(perm)
       );
-      return intent.enabled && hasPermissions;
+      return tool.enabled && hasPermissions;
     });
   }
 
