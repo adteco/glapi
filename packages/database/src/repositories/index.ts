@@ -113,6 +113,15 @@ export * from './accounting-list-repository';
 // Export Saved Report Configs repository
 export * from './saved-report-configs-repository';
 
+// Export Vendor Bill repositories
+export * from './vendor-bill-repository';
+export * from './vendor-bill-line-repository';
+
+// Export Purchase Order repositories
+export * from './purchase-order-repository';
+export * from './purchase-order-line-repository';
+export * from './purchase-order-receipt-repository';
+
 // Export repository instances for dependency injection
 import { DepartmentRepository } from './department-repository';
 import { LocationRepository } from './location-repository';
@@ -166,6 +175,11 @@ import { ProjectTaskRepository } from './project-task-repository';
 import { AuthEntityRepository } from './auth-entity-repository';
 import { AccountingListRepository } from './accounting-list-repository';
 import { SavedReportConfigsRepository } from './saved-report-configs-repository';
+import { VendorBillRepository } from './vendor-bill-repository';
+import { VendorBillLineRepository } from './vendor-bill-line-repository';
+import { PurchaseOrderRepository } from './purchase-order-repository';
+import { PurchaseOrderLineRepository } from './purchase-order-line-repository';
+import { PurchaseOrderReceiptRepository } from './purchase-order-receipt-repository';
 
 // Create singleton instances - initialized on first use
 // Explicit type annotations to avoid TS7056 "inferred type exceeds max length"
@@ -221,3 +235,8 @@ export const projectTaskRepository: ProjectTaskRepository = new ProjectTaskRepos
 export const authEntityRepository: AuthEntityRepository = new AuthEntityRepository();
 export const accountingListRepository: AccountingListRepository = new AccountingListRepository();
 export const savedReportConfigsRepository: SavedReportConfigsRepository = new SavedReportConfigsRepository();
+export const vendorBillRepository: VendorBillRepository = new VendorBillRepository();
+export const vendorBillLineRepository: VendorBillLineRepository = new VendorBillLineRepository();
+export const purchaseOrderRepository: PurchaseOrderRepository = new PurchaseOrderRepository();
+export const purchaseOrderLineRepository: PurchaseOrderLineRepository = new PurchaseOrderLineRepository();
+export const purchaseOrderReceiptRepository: PurchaseOrderReceiptRepository = new PurchaseOrderReceiptRepository();
