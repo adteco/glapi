@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { ExpenseEntryService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const ExpenseEntryStatusEnum = z.enum([
   'DRAFT',
@@ -113,6 +114,10 @@ export const expenseEntriesRouter = router({
    * List expense entries with optional filters
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_expense_entries', 'Search and list expense entries', {
+      scopes: ['expenses', 'projects', 'global'],
+      permissions: ['read:expense-entries'],
+    }) })
     .input(
       z
         .object({
@@ -138,6 +143,10 @@ export const expenseEntriesRouter = router({
    * Get a single expense entry by ID
    */
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_expense_entry', 'Get a single expense entry by ID', {
+      scopes: ['expenses', 'projects', 'global'],
+      permissions: ['read:expense-entries'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
@@ -192,7 +201,13 @@ export const expenseEntriesRouter = router({
   /**
    * Create a new expense entry
    */
-  create: authenticatedProcedure.input(createExpenseEntrySchema).mutation(async ({ ctx, input }) => {
+  create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_expense_entry', 'Create a new expense entry', {
+      scopes: ['expenses', 'projects'],
+      permissions: ['write:expense-entries'],
+      riskLevel: 'LOW',
+    }) })
+    .input(createExpenseEntrySchema).mutation(async ({ ctx, input }) => {
     const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
     return service.create({
       expenseDate: input.expenseDate,
@@ -234,7 +249,13 @@ export const expenseEntriesRouter = router({
   /**
    * Delete an expense entry (DRAFT only)
    */
-  delete: authenticatedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+  delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_expense_entry', 'Delete a draft expense entry', {
+      scopes: ['expenses'],
+      permissions: ['delete:expense-entries'],
+      riskLevel: 'LOW',
+    }) })
+    .input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
     const service = new ExpenseEntryService(ctx.serviceContext, { db: ctx.db });
     await service.delete(input.id);
     return { success: true };
@@ -264,6 +285,12 @@ export const expenseEntriesRouter = router({
    * Approve submitted expense entries
    */
   approve: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('approve_expense_entries', 'Approve submitted expense entries', {
+      scopes: ['expenses', 'approvals'],
+      permissions: ['approve:expense-entries'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'manager',
+    }) })
     .input(
       z.object({
         expenseEntryIds: z.array(z.string().uuid()).min(1),

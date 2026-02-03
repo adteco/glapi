@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { TimeEntryService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   // Time entry types
   TimeEntryStatusEnum,
@@ -30,7 +31,12 @@ export const timeEntriesRouter = router({
   /**
    * List time entries with optional filters
    */
-  list: authenticatedProcedure.input(timeEntryListInputSchema).query(async ({ ctx, input }) => {
+  list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_time_entries', 'Search and list time entries', {
+      scopes: ['time', 'projects', 'global'],
+      permissions: ['read:time-entries'],
+    }) })
+    .input(timeEntryListInputSchema).query(async ({ ctx, input }) => {
     const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.list(
       { page: input?.page, limit: input?.limit },
@@ -43,7 +49,12 @@ export const timeEntriesRouter = router({
   /**
    * Get a single time entry by ID
    */
-  getById: authenticatedProcedure.input(byIdInputSchema).query(async ({ ctx, input }) => {
+  getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_time_entry', 'Get a single time entry by ID', {
+      scopes: ['time', 'projects', 'global'],
+      permissions: ['read:time-entries'],
+    }) })
+    .input(byIdInputSchema).query(async ({ ctx, input }) => {
     const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     const entry = await service.getById(input.id);
 
@@ -85,7 +96,13 @@ export const timeEntriesRouter = router({
   /**
    * Create a new time entry
    */
-  create: authenticatedProcedure.input(createTimeEntrySchema).mutation(async ({ ctx, input }) => {
+  create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_time_entry', 'Create a new time entry', {
+      scopes: ['time', 'projects'],
+      permissions: ['write:time-entries'],
+      riskLevel: 'LOW',
+    }) })
+    .input(createTimeEntrySchema).mutation(async ({ ctx, input }) => {
     const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.create(input);
   }),
@@ -108,7 +125,13 @@ export const timeEntriesRouter = router({
   /**
    * Delete a time entry (DRAFT only)
    */
-  delete: authenticatedProcedure.input(byIdInputSchema).mutation(async ({ ctx, input }) => {
+  delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_time_entry', 'Delete a draft time entry', {
+      scopes: ['time'],
+      permissions: ['delete:time-entries'],
+      riskLevel: 'LOW',
+    }) })
+    .input(byIdInputSchema).mutation(async ({ ctx, input }) => {
     const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     await service.delete(input.id);
     return { success: true };
@@ -127,7 +150,14 @@ export const timeEntriesRouter = router({
   /**
    * Approve submitted time entries
    */
-  approve: authenticatedProcedure.input(approveTimeEntriesSchema).mutation(async ({ ctx, input }) => {
+  approve: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('approve_time_entries', 'Approve submitted time entries', {
+      scopes: ['time', 'approvals'],
+      permissions: ['approve:time-entries'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'manager',
+    }) })
+    .input(approveTimeEntriesSchema).mutation(async ({ ctx, input }) => {
     const service = new TimeEntryService(ctx.serviceContext, { db: ctx.db });
     return service.approve(input);
   }),
