@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { savedReportConfigsRepository, REPORT_TYPES } from '@glapi/database';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // Report type enum
 const reportTypeSchema = z.enum(['BALANCE_SHEET', 'INCOME_STATEMENT', 'CASH_FLOW_STATEMENT']);
@@ -29,6 +30,10 @@ export const savedReportConfigsRouter = router({
    * List all saved report configs for the current user
    */
   list: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_saved_report_configs', 'List all saved report configs for the current user', {
+      scopes: ['saved-report-configs', 'reporting', 'user-preferences'],
+      permissions: ['read:saved-report-configs'],
+    }) })
     .input(
       z.object({
         page: z.number().int().positive().default(1),
@@ -64,6 +69,10 @@ export const savedReportConfigsRouter = router({
    * Get a specific saved report config by ID
    */
   get: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_saved_report_config', 'Get a specific saved report config by ID', {
+      scopes: ['saved-report-configs', 'reporting', 'user-preferences'],
+      permissions: ['read:saved-report-configs'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.user!.id;
@@ -103,6 +112,11 @@ export const savedReportConfigsRouter = router({
    * Create a new saved report config
    */
   create: protectedProcedure
+    .meta({ ai: createWriteAIMeta('create_saved_report_config', 'Create a new saved report config', {
+      scopes: ['saved-report-configs', 'reporting', 'user-preferences'],
+      permissions: ['write:saved-report-configs'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z.object({
         name: z.string().min(1).max(100),
@@ -143,6 +157,11 @@ export const savedReportConfigsRouter = router({
    * Update an existing saved report config
    */
   update: protectedProcedure
+    .meta({ ai: createWriteAIMeta('update_saved_report_config', 'Update an existing saved report config', {
+      scopes: ['saved-report-configs', 'reporting', 'user-preferences'],
+      permissions: ['write:saved-report-configs'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -210,6 +229,11 @@ export const savedReportConfigsRouter = router({
    * Delete a saved report config
    */
   delete: protectedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_saved_report_config', 'Delete a saved report config', {
+      scopes: ['saved-report-configs', 'reporting', 'user-preferences'],
+      permissions: ['delete:saved-report-configs'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user!.id;

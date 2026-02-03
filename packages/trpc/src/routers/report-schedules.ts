@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { ReportSchedulerService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // Schema definitions
 const reportScheduleStatusSchema = z.enum(['draft', 'active', 'paused', 'completed', 'error']);
@@ -72,6 +73,11 @@ export const reportSchedulesRouter = router({
 
   // Create a new report schedule
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_report_schedule', 'Create a new report schedule', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['write:report-schedules'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       name: z.string().min(1).max(255),
       description: z.string().optional(),
@@ -131,6 +137,10 @@ export const reportSchedulesRouter = router({
 
   // Get a report schedule by ID
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_report_schedule', 'Get a report schedule by ID', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['read:report-schedules'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ReportSchedulerService(ctx.serviceContext);
@@ -168,6 +178,11 @@ export const reportSchedulesRouter = router({
 
   // Update a report schedule
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_report_schedule', 'Update a report schedule', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['write:report-schedules'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       name: z.string().min(1).max(255).optional(),
@@ -207,6 +222,11 @@ export const reportSchedulesRouter = router({
 
   // Delete a report schedule
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_report_schedule', 'Delete a report schedule', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['delete:report-schedules'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ReportSchedulerService(ctx.serviceContext);
@@ -221,6 +241,10 @@ export const reportSchedulesRouter = router({
 
   // List report schedules
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_report_schedules', 'List report schedules with filtering', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['read:report-schedules'],
+    }) })
     .input(z.object({
       status: z.union([
         reportScheduleStatusSchema,
@@ -244,6 +268,11 @@ export const reportSchedulesRouter = router({
 
   // Activate a schedule
   activate: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('activate_report_schedule', 'Activate a report schedule', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['write:report-schedules'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ReportSchedulerService(ctx.serviceContext);
@@ -257,6 +286,11 @@ export const reportSchedulesRouter = router({
 
   // Pause a schedule
   pause: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('pause_report_schedule', 'Pause a report schedule', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['write:report-schedules'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ReportSchedulerService(ctx.serviceContext);
@@ -329,6 +363,10 @@ export const reportSchedulesRouter = router({
 
   // Get scheduler statistics
   getStats: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_report_scheduler_stats', 'Get scheduler statistics', {
+      scopes: ['report-schedules', 'reporting'],
+      permissions: ['read:report-schedules'],
+    }) })
     .query(async ({ ctx }) => {
       const service = new ReportSchedulerService(ctx.serviceContext);
 

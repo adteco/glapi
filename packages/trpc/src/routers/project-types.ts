@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { ProjectTypeService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const createProjectTypeSchema = z.object({
   subsidiaryId: z.string().uuid().optional(),
@@ -32,6 +33,10 @@ export const projectTypesRouter = router({
    * List project types with pagination and filters
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_project_types', 'List project types with pagination and filters', {
+      scopes: ['project-types', 'projects'],
+      permissions: ['read:project-types'],
+    }) })
     .input(
       z
         .object({
@@ -60,6 +65,10 @@ export const projectTypesRouter = router({
    * Get a single project type by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_project_type', 'Get a single project type by ID', {
+      scopes: ['project-types', 'projects'],
+      permissions: ['read:project-types'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ProjectTypeService(ctx.serviceContext, { db: ctx.db });
@@ -101,6 +110,11 @@ export const projectTypesRouter = router({
    * Requires permission: project_types.create
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_project_type', 'Create a new project type', {
+      scopes: ['project-types', 'projects'],
+      permissions: ['write:project-types'],
+      riskLevel: 'LOW',
+    }) })
     .input(createProjectTypeSchema)
     .mutation(async ({ ctx, input }) => {
       // TODO: Add permission check for project_types.create
@@ -168,6 +182,11 @@ export const projectTypesRouter = router({
    * Requires permission: project_types.update
    */
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_project_type', 'Update a project type', {
+      scopes: ['project-types', 'projects'],
+      permissions: ['write:project-types'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -208,6 +227,11 @@ export const projectTypesRouter = router({
    * Requires permission: project_types.delete
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_project_type', 'Delete a project type', {
+      scopes: ['project-types', 'projects'],
+      permissions: ['delete:project-types'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       // TODO: Add permission check for project_types.delete

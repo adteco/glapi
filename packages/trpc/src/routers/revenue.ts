@@ -2,10 +2,16 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { RevenueService, SSPService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 export const revenueRouter = router({
   // Calculate revenue for subscription
   calculate: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('calculate_revenue', 'Calculate revenue for subscription (ASC 606)', {
+      scopes: ['revenue', 'subscriptions', 'accounting'],
+      permissions: ['write:revenue'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       calculationType: z.enum(['initial', 'modification', 'renewal', 'termination']),
@@ -176,6 +182,11 @@ export const revenueRouter = router({
 
   // Revenue recognition processing
   recognize: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('recognize_revenue', 'Process revenue recognition for a period', {
+      scopes: ['revenue', 'accounting'],
+      permissions: ['write:revenue'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({
       periodDate: z.coerce.date(),
       scheduleIds: z.array(z.string().uuid()).optional(),
@@ -458,6 +469,10 @@ export const revenueRouter = router({
 
   // ASC 605 vs 606 comparison
   comparison: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('compare_asc_standards', 'Compare ASC 605 vs 606 revenue treatment', {
+      scopes: ['revenue', 'reporting', 'accounting'],
+      permissions: ['read:revenue'],
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       comparisonDate: z.coerce.date().optional()
@@ -483,6 +498,10 @@ export const revenueRouter = router({
 
   // Allocation preview
   allocationPreview: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('preview_revenue_allocation', 'Preview revenue allocation for subscription', {
+      scopes: ['revenue', 'subscriptions', 'accounting'],
+      permissions: ['read:revenue'],
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       effectiveDate: z.coerce.date()

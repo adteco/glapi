@@ -221,3 +221,48 @@ export {
   type PollingResult,
   type AsyncToolStats,
 } from './reliability';
+
+// Observability (events, tracing, audit)
+export {
+  // Events
+  getToolEventEmitter,
+  createStartEvent,
+  createSuccessEvent,
+  createErrorEvent,
+  createConsoleListener,
+  createMetricsListener,
+  type ToolInvocationEvent,
+  type ToolInvocationEventType,
+  type ToolInvocationListener,
+  // Tracing
+  generateTraceId,
+  generateSpanId,
+  createTraceContext,
+  createChildContext,
+  getCurrentContext,
+  setCurrentContext,
+  withContext,
+  startSpan,
+  endSpanSuccess,
+  endSpanError,
+  addSpanEvent,
+  addSpanAttributes,
+  serializeTraceparent,
+  parseTraceparent,
+  getTraceHeaders,
+  extractTraceFromHeaders,
+  createToolInvocationContext,
+  type TraceContext,
+  type Span,
+  type SpanEvent,
+  type TraceHeaders,
+  // Audit
+  AuditLogger,
+  getAuditLogger,
+  createAuditLoggerInterface,
+  redactObject,
+  redactPII,
+  type AuditLogEntry,
+  type AuditLoggerConfig,
+  type AuditLoggerStats,
+} from './observability';
