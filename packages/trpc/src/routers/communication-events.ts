@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure, adminProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 import {
   db,
   communicationEvents,
@@ -187,6 +188,10 @@ export const communicationEventsRouter = router({
   // ===========================================================================
 
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_communication_events', 'Search and list communication events', {
+      scopes: ['communications', 'email', 'global'],
+      permissions: ['read:communication-events'],
+    }) })
     .input(listEventsSchema)
     .query(async ({ ctx, input }) => {
       const {
@@ -305,6 +310,10 @@ export const communicationEventsRouter = router({
   // ===========================================================================
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_communication_event', 'Get a communication event by ID', {
+      scopes: ['communications', 'email'],
+      permissions: ['read:communication-events'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const event = await db.query.communicationEvents.findFirst({
@@ -341,6 +350,11 @@ export const communicationEventsRouter = router({
   // ===========================================================================
 
   sendAdHoc: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('send_adhoc_email', 'Send an ad-hoc email', {
+      scopes: ['communications', 'email'],
+      permissions: ['write:communication-events'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(sendAdHocEmailSchema)
     .mutation(async ({ ctx, input }) => {
       // Check if email is suppressed

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { AccountingPeriodService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const PeriodStatusEnum = z.enum(['OPEN', 'SOFT_CLOSED', 'CLOSED', 'LOCKED']);
 const PeriodTypeEnum = z.enum(['MONTH', 'QUARTER', 'YEAR', 'ADJUSTMENT']);
@@ -31,6 +32,10 @@ export const accountingPeriodsRouter = router({
    * List all accounting periods with optional filters
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_accounting_periods', 'Search and list accounting periods', {
+      scopes: ['accounting', 'periods', 'global'],
+      permissions: ['read:accounting-periods'],
+    }) })
     .input(
       z.object({
         page: z.number().int().positive().optional(),
@@ -54,6 +59,10 @@ export const accountingPeriodsRouter = router({
    * Get a single accounting period by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_accounting_period', 'Get a single accounting period by ID', {
+      scopes: ['accounting', 'periods', 'global'],
+      permissions: ['read:accounting-periods'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
@@ -122,6 +131,11 @@ export const accountingPeriodsRouter = router({
    * Create a new accounting period
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_accounting_period', 'Create a new accounting period', {
+      scopes: ['accounting', 'periods'],
+      permissions: ['write:accounting-periods'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createPeriodSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
@@ -200,6 +214,13 @@ export const accountingPeriodsRouter = router({
    * No further changes allowed - use with caution
    */
   lock: adminProcedure
+    .meta({ ai: createWriteAIMeta('lock_accounting_period', 'Permanently lock an accounting period', {
+      scopes: ['accounting', 'periods'],
+      permissions: ['admin:accounting-periods'],
+      riskLevel: 'HIGH',
+      minimumRole: 'admin',
+      requiresConfirmation: true,
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });
@@ -221,6 +242,12 @@ export const accountingPeriodsRouter = router({
    * Delete a period (only if OPEN) - ADMIN ONLY
    */
   delete: adminProcedure
+    .meta({ ai: createDeleteAIMeta('delete_accounting_period', 'Delete an open accounting period', {
+      scopes: ['accounting', 'periods'],
+      permissions: ['delete:accounting-periods'],
+      riskLevel: 'HIGH',
+      minimumRole: 'admin',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new AccountingPeriodService(ctx.serviceContext, { db: ctx.db });

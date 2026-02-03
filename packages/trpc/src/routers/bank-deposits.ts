@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { BankDepositService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 // Zod schemas for validation
 const reconcileDepositSchema = z.object({
@@ -44,6 +45,10 @@ export const bankDepositsRouter = router({
    * List bank deposits with filters and pagination
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_bank_deposits', 'Search and list bank deposits', {
+      scopes: ['banking', 'deposits', 'global'],
+      permissions: ['read:bank-deposits'],
+    }) })
     .input(depositFiltersSchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new BankDepositService(ctx.serviceContext);
@@ -63,6 +68,10 @@ export const bankDepositsRouter = router({
    * Get a specific deposit by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_bank_deposit', 'Get a bank deposit by ID', {
+      scopes: ['banking', 'deposits'],
+      permissions: ['read:bank-deposits'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new BankDepositService(ctx.serviceContext);
@@ -138,7 +147,13 @@ export const bankDepositsRouter = router({
   /**
    * Reconcile a deposit against bank statement
    */
-  reconcile: authenticatedProcedure.input(reconcileDepositSchema).mutation(async ({ ctx, input }) => {
+  reconcile: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('reconcile_bank_deposit', 'Reconcile a deposit against bank statement', {
+      scopes: ['banking', 'reconciliation'],
+      permissions: ['write:bank-deposits'],
+      riskLevel: 'MEDIUM',
+    }) })
+    .input(reconcileDepositSchema).mutation(async ({ ctx, input }) => {
     const service = new BankDepositService(ctx.serviceContext);
 
     try {
