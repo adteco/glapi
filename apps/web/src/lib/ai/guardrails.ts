@@ -3,6 +3,8 @@
  *
  * This module implements safety guardrails, permission checks, and policy
  * enforcement for the conversational ledger assistant.
+ *
+ * Supports both legacy intents and generated AI tool metadata via the tool adapter.
  */
 
 import {
@@ -12,6 +14,14 @@ import {
   getIntentByMcpTool,
   isIntentEnabled,
 } from './intents';
+
+import {
+  type UnifiedToolInfo,
+  type ExtendedUserRole,
+  getToolInfo,
+  isToolEnabled,
+  roleAtLeast,
+} from './tool-adapter';
 
 // ============================================================================
 // Types & Interfaces
@@ -58,8 +68,12 @@ export interface GuardrailResult {
   confirmationMessage?: string;
   /** Warnings (non-blocking) */
   warnings: string[];
-  /** The evaluated intent */
+  /** The evaluated intent (legacy) */
   intent?: Intent;
+  /** The unified tool info (supports both generated and legacy) */
+  toolInfo?: UnifiedToolInfo;
+  /** Whether dry-run preview is supported */
+  supportsDryRun?: boolean;
 }
 
 /**
@@ -250,6 +264,9 @@ function checkRateLimit(
 
 /**
  * Evaluate guardrails for a tool/intent invocation
+ *
+ * This function now supports both generated AI tools and legacy intents
+ * via the unified tool adapter. Generated tools take precedence.
  */
 export function evaluateGuardrails(
   toolName: string,
@@ -259,10 +276,11 @@ export function evaluateGuardrails(
 ): GuardrailResult {
   const warnings: string[] = [];
 
-  // 1. Get the intent for this tool
-  const intent = getIntentByMcpTool(toolName);
+  // 1. Get tool info (prefers generated tools, falls back to legacy intents)
+  const toolInfo = getToolInfo(toolName);
+  const intent = getIntentByMcpTool(toolName); // Keep for backward compatibility
 
-  if (!intent) {
+  if (!toolInfo) {
     return {
       allowed: false,
       reason: `Unknown tool: ${toolName}`,
@@ -272,15 +290,16 @@ export function evaluateGuardrails(
     };
   }
 
-  // 2. Check if intent is enabled
-  if (!isIntentEnabled(intent.id)) {
+  // 2. Check if tool is enabled
+  if (!toolInfo.enabled) {
     return {
       allowed: false,
-      reason: `The ${intent.name} capability is currently disabled`,
+      reason: `The ${toolInfo.name} capability is currently disabled`,
       errorCode: 'INTENT_DISABLED',
       requiresConfirmation: false,
       warnings: [],
       intent,
+      toolInfo,
     };
   }
 
@@ -295,6 +314,7 @@ export function evaluateGuardrails(
         requiresConfirmation: false,
         warnings: [],
         intent,
+        toolInfo,
       };
     }
     if (contentCheck.warnings.length > 0) {
@@ -302,8 +322,23 @@ export function evaluateGuardrails(
     }
   }
 
-  // 4. Check permissions
-  const permissionCheck = checkPermissions(intent, userContext);
+  // 4. Check minimum role requirement (from generated tool metadata)
+  if (toolInfo.source === 'generated' && toolInfo.minimumRole) {
+    if (!roleAtLeast(userContext.role, toolInfo.minimumRole)) {
+      return {
+        allowed: false,
+        reason: `Your role (${userContext.role}) does not have access to ${toolInfo.name}. Minimum role required: ${toolInfo.minimumRole}`,
+        errorCode: 'PERMISSION_DENIED',
+        requiresConfirmation: false,
+        warnings: [],
+        intent,
+        toolInfo,
+      };
+    }
+  }
+
+  // 5. Check permissions
+  const permissionCheck = checkPermissionsUnified(toolInfo, userContext);
   if (!permissionCheck.hasPermission) {
     return {
       allowed: false,
@@ -312,30 +347,32 @@ export function evaluateGuardrails(
       requiresConfirmation: false,
       warnings: [],
       intent,
+      toolInfo,
     };
   }
 
-  // 5. Check rate limits
-  if (intent.rateLimitPerMinute) {
+  // 6. Check rate limits
+  if (toolInfo.rateLimitPerMinute) {
     const rateCheck = checkRateLimit(
       userContext.userId,
-      intent.id,
-      intent.rateLimitPerMinute
+      toolInfo.id,
+      toolInfo.rateLimitPerMinute
     );
     if (!rateCheck.allowed) {
       return {
         allowed: false,
-        reason: `Rate limit exceeded for ${intent.name}. Please wait a moment before trying again.`,
+        reason: `Rate limit exceeded for ${toolInfo.name}. Please wait a moment before trying again.`,
         errorCode: 'RATE_LIMITED',
         requiresConfirmation: false,
         warnings: [],
         intent,
+        toolInfo,
       };
     }
   }
 
-  // 6. Check financial limits for relevant operations
-  const financialCheck = checkFinancialLimits(intent, parameters, userContext);
+  // 7. Check financial limits for relevant operations
+  const financialCheck = checkFinancialLimitsUnified(toolInfo, parameters, userContext);
   if (!financialCheck.allowed) {
     return {
       allowed: false,
@@ -344,11 +381,12 @@ export function evaluateGuardrails(
       requiresConfirmation: false,
       warnings: [],
       intent,
+      toolInfo,
     };
   }
 
-  // 7. Check for high-risk intents
-  const riskCheck = evaluateRiskLevel(intent, userContext);
+  // 8. Check for high-risk operations
+  const riskCheck = evaluateRiskLevelUnified(toolInfo, userContext);
   if (!riskCheck.allowed) {
     return {
       allowed: false,
@@ -357,22 +395,30 @@ export function evaluateGuardrails(
       requiresConfirmation: false,
       warnings: [],
       intent,
+      toolInfo,
     };
   }
 
-  // 8. Determine if confirmation is needed
-  const needsConfirmation = intent.requiresConfirmation ||
-    intent.riskLevel === 'HIGH' ||
-    intent.riskLevel === 'CRITICAL';
+  // 9. Determine if confirmation is needed
+  const needsConfirmation = toolInfo.requiresConfirmation ||
+    toolInfo.riskLevel === 'HIGH' ||
+    toolInfo.riskLevel === 'CRITICAL';
+
+  // 10. Get confirmation message (prefer generated tool's custom message)
+  let confirmationMessage: string | undefined;
+  if (needsConfirmation) {
+    confirmationMessage = toolInfo.confirmationMessage ||
+      generateConfirmationMessageUnified(toolInfo, parameters);
+  }
 
   return {
     allowed: true,
     requiresConfirmation: needsConfirmation,
-    confirmationMessage: needsConfirmation
-      ? generateConfirmationMessage(intent, parameters)
-      : undefined,
+    confirmationMessage,
     warnings,
     intent,
+    toolInfo,
+    supportsDryRun: toolInfo.supportsDryRun,
   };
 }
 
@@ -437,6 +483,32 @@ function checkPermissions(
 }
 
 /**
+ * Check if user has required permissions (unified version)
+ */
+function checkPermissionsUnified(
+  toolInfo: UnifiedToolInfo,
+  userContext: UserContext
+): { hasPermission: boolean; reason?: string } {
+  // Get user's effective permissions (from context or role defaults)
+  const effectivePermissions =
+    userContext.permissions.length > 0
+      ? userContext.permissions
+      : ROLE_PERMISSIONS[userContext.role] || [];
+
+  // Check each required permission
+  for (const required of toolInfo.requiredPermissions) {
+    if (!effectivePermissions.includes(required)) {
+      return {
+        hasPermission: false,
+        reason: `You don't have permission to ${toolInfo.name.toLowerCase()}. Required permission: ${required}`,
+      };
+    }
+  }
+
+  return { hasPermission: true };
+}
+
+/**
  * Check financial amount limits
  */
 function checkFinancialLimits(
@@ -447,6 +519,49 @@ function checkFinancialLimits(
   // Only check for intents that involve financial amounts
   const financialIntents = ['CREATE_INVOICE', 'CREATE_JOURNAL_ENTRY', 'CREATE_PAYMENT'];
   if (!financialIntents.includes(intent.id)) {
+    return { allowed: true };
+  }
+
+  // Extract amount from parameters (in cents)
+  const amount = extractAmountFromParameters(parameters);
+  if (amount === null) {
+    return { allowed: true }; // No amount specified
+  }
+
+  const limit = FINANCIAL_LIMITS[userContext.role];
+  if (amount > limit) {
+    const limitFormatted = (limit / 100).toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    });
+    const amountFormatted = (amount / 100).toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    });
+    return {
+      allowed: false,
+      reason: `Transaction amount (${amountFormatted}) exceeds your limit of ${limitFormatted}. Please contact an administrator for approval.`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Check financial amount limits (unified version)
+ */
+function checkFinancialLimitsUnified(
+  toolInfo: UnifiedToolInfo,
+  parameters: Record<string, unknown>,
+  userContext: UserContext
+): { allowed: boolean; reason?: string } {
+  // Only check for tools that involve financial amounts
+  const financialPatterns = ['invoice', 'journal', 'payment', 'bill', 'credit', 'debit'];
+  const toolNameLower = toolInfo.name.toLowerCase();
+  const isFinancialTool = financialPatterns.some(p => toolNameLower.includes(p)) &&
+    (toolNameLower.includes('create') || toolNameLower.includes('update') || toolNameLower.includes('post'));
+
+  if (!isFinancialTool) {
     return { allowed: true };
   }
 
@@ -530,6 +645,44 @@ function evaluateRiskLevel(
 }
 
 /**
+ * Evaluate risk level restrictions (unified version)
+ */
+function evaluateRiskLevelUnified(
+  toolInfo: UnifiedToolInfo,
+  userContext: UserContext
+): { allowed: boolean; reason?: string } {
+  // Viewers cannot perform any write operations
+  if (userContext.role === 'viewer' && toolInfo.riskLevel !== 'LOW') {
+    return {
+      allowed: false,
+      reason: 'Your role does not allow modifying data. Please contact an administrator if you need write access.',
+    };
+  }
+
+  // CRITICAL operations require admin or accountant role
+  if (toolInfo.riskLevel === 'CRITICAL') {
+    if (!['admin', 'accountant'].includes(userContext.role)) {
+      return {
+        allowed: false,
+        reason: `${toolInfo.name} is a critical operation that requires elevated privileges. Please contact an administrator.`,
+      };
+    }
+  }
+
+  // HIGH operations should not be available to staff without explicit permissions
+  if (toolInfo.riskLevel === 'HIGH') {
+    if (userContext.role === 'staff' && !userContext.permissions.length) {
+      return {
+        allowed: false,
+        reason: `${toolInfo.name} is a high-impact operation that requires additional permissions. Please contact your manager.`,
+      };
+    }
+  }
+
+  return { allowed: true };
+}
+
+/**
  * Generate a human-readable confirmation message
  */
 function generateConfirmationMessage(
@@ -554,6 +707,45 @@ function generateConfirmationMessage(
 
   if (intent.riskLevel === 'HIGH') {
     return `⚡ HIGH IMPACT: You are about to ${description}. Please confirm this action.`;
+  }
+
+  return `You are about to ${description}. Do you want to proceed?`;
+}
+
+/**
+ * Generate a human-readable confirmation message (unified version)
+ */
+function generateConfirmationMessageUnified(
+  toolInfo: UnifiedToolInfo,
+  parameters: Record<string, unknown>
+): string {
+  // Build a description from the tool name and parameters
+  const action = toolInfo.name.toLowerCase();
+  let details = '';
+
+  // Extract common parameter details
+  if (parameters.name) {
+    details = ` named "${parameters.name}"`;
+  } else if (parameters.id) {
+    details = ` (ID: ${parameters.id})`;
+  } else if (parameters.customerId) {
+    details = ` for customer ${parameters.customerId}`;
+  } else if (parameters.vendorId) {
+    details = ` for vendor ${parameters.vendorId}`;
+  }
+
+  const description = `${action}${details}`;
+
+  if (toolInfo.riskLevel === 'CRITICAL') {
+    return `⚠️ CRITICAL ACTION: You are about to ${description}. This action may be irreversible. Are you sure you want to proceed?`;
+  }
+
+  if (toolInfo.riskLevel === 'HIGH') {
+    return `⚡ HIGH IMPACT: You are about to ${description}. Please confirm this action.`;
+  }
+
+  if (toolInfo.supportsDryRun) {
+    return `You are about to ${description}. Would you like to preview the changes first (dry run), or proceed directly?`;
   }
 
   return `You are about to ${description}. Do you want to proceed?`;
