@@ -81,3 +81,64 @@ export {
   createTRPCMCPClient,
   type TRPCMCPClientConfig,
 } from './trpc-mcp-client';
+
+// Tool Adapter (bridges generated tools with guardrails)
+export {
+  getToolInfo,
+  getToolInfoById,
+  isToolEnabled,
+  getAllEnabledTools,
+  getToolsByScope as getToolsByScopeAdapter,
+  getToolsByCategory,
+  getHighRiskTools,
+  roleAtLeast,
+  canAccessTool,
+  generatedToolToUnified,
+  intentToUnified,
+  type UnifiedToolInfo,
+  type ExtendedUserRole,
+} from './tool-adapter';
+
+// Tool Scoping (dynamic tool selection)
+export {
+  getScopedTools,
+  getToolsForRole,
+  getToolsForTask,
+  getReadOnlyTools,
+  getConfirmationRequiredTools,
+  filterByPermissions,
+  filterByMinimumRole,
+  filterByRiskLevel,
+  inferScopesFromContext,
+  SCOPE_BUNDLES,
+  type ScopingContext,
+  type ScopingResult,
+} from './tool-scoping';
+
+// Generated AI Tools (from OpenAPI spec)
+export {
+  AI_TOOLS,
+  AI_TOOLS_BY_NAME,
+  AI_TOOLS_BY_SCOPE,
+  getToolsByScope,
+  getToolByName,
+  getOpenAITools,
+  TOOL_COUNT,
+  createToolExecutor,
+  type GeneratedAITool,
+  type AIToolMetadata,
+  type RiskLevel,
+  type ExecutionContext,
+  type ExecutionResult,
+  type ToolExecutorConfig,
+} from './generated';
+
+// Error Handling & Retry Guidance
+export {
+  parseError,
+  parseGuardrailError,
+  formatErrorForUser,
+  getRetryGuidance,
+  type AIError,
+  type AIErrorCategory,
+} from './error-handling';

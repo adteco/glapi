@@ -6,6 +6,8 @@
  * 2. Maps to intents via LLM
  * 3. Enforces guardrails and approvals
  * 4. Executes actions and returns responses
+ *
+ * Now uses generated AI tools from OpenAPI spec for tool declarations.
  */
 
 import OpenAI from 'openai';
@@ -24,6 +26,11 @@ import {
   type ActionResult,
   type MCPClient,
 } from './action-executor';
+import {
+  AI_TOOLS,
+  getOpenAITools,
+  type GeneratedAITool,
+} from './generated';
 
 // ============================================================================
 // Types
@@ -88,21 +95,10 @@ export interface PendingConfirmation {
 // ============================================================================
 
 /**
- * Generate OpenAI tool definitions from intent catalog
+ * Confirmation and control tools that are always available
  */
-function generateToolDefinitions(): OpenAI.Chat.Completions.ChatCompletionTool[] {
-  const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [];
-
-  for (const intent of getEnabledIntents()) {
-    // Map intent to tool definition based on category
-    const toolDef = getToolDefinitionForIntent(intent);
-    if (toolDef) {
-      tools.push(toolDef);
-    }
-  }
-
-  // Add confirmation tools
-  tools.push({
+const CONTROL_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
     type: 'function',
     function: {
       name: 'confirm_action',
@@ -118,9 +114,8 @@ function generateToolDefinitions(): OpenAI.Chat.Completions.ChatCompletionTool[]
         required: ['pending_action_id'],
       },
     },
-  });
-
-  tools.push({
+  },
+  {
     type: 'function',
     function: {
       name: 'cancel_action',
@@ -136,9 +131,46 @@ function generateToolDefinitions(): OpenAI.Chat.Completions.ChatCompletionTool[]
         required: ['pending_action_id'],
       },
     },
-  });
+  },
+];
 
-  return tools;
+/**
+ * Generate OpenAI tool definitions from generated AI tools.
+ *
+ * This function now uses the auto-generated tools from OpenAPI spec,
+ * which provides complete, accurate tool definitions with proper
+ * parameter schemas derived from tRPC router definitions.
+ *
+ * @param scopes Optional scopes to filter tools. If not provided, uses 'global' scope to get all tools.
+ * @returns Array of OpenAI-compatible tool definitions
+ */
+function generateToolDefinitions(
+  scopes?: string[]
+): OpenAI.Chat.Completions.ChatCompletionTool[] {
+  // Use generated tools - they are already in OpenAI format
+  // Default to 'global' scope which includes all tools
+  const generatedTools = getOpenAITools(scopes ?? ['global']);
+
+  // Combine with control tools
+  return [...generatedTools, ...CONTROL_TOOLS];
+}
+
+/**
+ * Legacy function for backward compatibility - maps intents to generated tools
+ * @deprecated Use generateToolDefinitions() with scopes instead
+ */
+function generateToolDefinitionsLegacy(): OpenAI.Chat.Completions.ChatCompletionTool[] {
+  const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [];
+
+  for (const intent of getEnabledIntents()) {
+    // Map intent to tool definition based on category
+    const toolDef = getToolDefinitionForIntent(intent);
+    if (toolDef) {
+      tools.push(toolDef);
+    }
+  }
+
+  return [...tools, ...CONTROL_TOOLS];
 }
 
 /**
