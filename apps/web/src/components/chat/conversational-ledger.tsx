@@ -54,11 +54,22 @@ interface MessageMetadata {
   warnings?: string[];
 }
 
+interface PendingActionData {
+  id: string;
+  toolName?: string;
+  parameters?: Record<string, unknown>;
+  intent?: {
+    id: string;
+    name: string;
+  };
+}
+
 interface ConfirmationState {
   isOpen: boolean;
   message: string;
   riskLevel: string;
   pendingActionId: string;
+  pendingAction?: PendingActionData;
 }
 
 // ============================================================================
@@ -84,6 +95,7 @@ export function ConversationalLedger() {
     message: '',
     riskLevel: '',
     pendingActionId: '',
+    pendingAction: undefined,
   });
   const [conversationId] = useState(() => `conv_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -157,11 +169,16 @@ export function ConversationalLedger() {
 
       // Handle confirmation requirement
       if (data.metadata?.requiresConfirmation && data.metadata?.pendingActionId) {
+        // Get the full pending action from pendingConfirmations array
+        const pendingAction = data.metadata?.pendingConfirmations?.find(
+          (p: PendingActionData) => p.id === data.metadata.pendingActionId
+        );
         setConfirmation({
           isOpen: true,
           message: data.metadata.confirmationMessage || data.message,
           riskLevel: data.metadata.riskLevel || 'MEDIUM',
           pendingActionId: data.metadata.pendingActionId,
+          pendingAction,
         });
       }
 
@@ -221,6 +238,8 @@ export function ConversationalLedger() {
         body: JSON.stringify({
           conversationId,
           pendingActionId: confirmation.pendingActionId,
+          // Include full action data for serverless environments
+          pendingAction: confirmation.pendingAction,
         }),
       });
 
@@ -299,6 +318,7 @@ export function ConversationalLedger() {
       message: '',
       riskLevel: '',
       pendingActionId: '',
+      pendingAction: undefined,
     });
 
     const cancelMessage: Message = {
@@ -358,9 +378,9 @@ export function ConversationalLedger() {
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col p-0">
+        <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 space-y-4 min-h-0">
             {messages.map((message) => (
               <div
                 key={message.id}
