@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { PricingService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const priceListSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -47,6 +48,10 @@ const priceCalculationSchema = z.object({
 
 export const priceListsRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_price_lists', 'List price lists with optional filters', {
+      scopes: ['pricing', 'sales', 'items'],
+      permissions: ['read:price-lists'],
+    }) })
     .input(priceListQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new PricingService(ctx.serviceContext);
@@ -54,6 +59,10 @@ export const priceListsRouter = router({
     }),
 
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_price_list', 'Get a price list by ID', {
+      scopes: ['pricing', 'sales', 'items'],
+      permissions: ['read:price-lists'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new PricingService(ctx.serviceContext);
@@ -61,6 +70,11 @@ export const priceListsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_price_list', 'Create a new price list', {
+      scopes: ['pricing', 'sales', 'items'],
+      permissions: ['write:price-lists'],
+      riskLevel: 'LOW',
+    }) })
     .input(priceListSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new PricingService(ctx.serviceContext);
@@ -78,6 +92,11 @@ export const priceListsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_price_list', 'Delete a price list', {
+      scopes: ['pricing', 'sales', 'items'],
+      permissions: ['delete:price-lists'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const service = new PricingService(ctx.serviceContext);
@@ -150,6 +169,10 @@ export const priceListsRouter = router({
     }),
 
   calculatePrice: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('calculate_price', 'Calculate price for an item based on customer and quantity', {
+      scopes: ['pricing', 'sales', 'items'],
+      permissions: ['read:price-lists'],
+    }) })
     .input(priceCalculationSchema)
     .query(async ({ ctx, input }) => {
       const service = new PricingService(ctx.serviceContext);
@@ -167,6 +190,11 @@ export const priceListsRouter = router({
     }),
 
   bulkUpdatePrices: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('bulk_update_prices', 'Bulk update prices in a price list', {
+      scopes: ['pricing', 'sales', 'items'],
+      permissions: ['write:price-lists'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       priceListId: z.string(),
       updates: z.array(z.object({
