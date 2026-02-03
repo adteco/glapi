@@ -23,6 +23,14 @@ import {
   roleAtLeast,
 } from './tool-adapter';
 
+import {
+  evaluatePolicy,
+  policyViolationsToError,
+  type AIPolicy,
+  type PolicyContext,
+  type PolicyResult,
+} from './policy-evaluator';
+
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
@@ -45,6 +53,12 @@ export interface UserContext {
   requestCount: number;
   /** IP address (for rate limiting) */
   ipAddress?: string;
+  /** Subscription tier for policy evaluation (from x-ai-policy) */
+  tier?: string;
+  /** Whether MFA has been verified for this session */
+  mfaVerified?: boolean;
+  /** Additional claims from auth token */
+  claims?: Record<string, unknown>;
 }
 
 /**
@@ -74,6 +88,14 @@ export interface GuardrailResult {
   toolInfo?: UnifiedToolInfo;
   /** Whether dry-run preview is supported */
   supportsDryRun?: boolean;
+  /** Policy evaluation result (from x-ai-policy) */
+  policyResult?: PolicyResult;
+  /** Whether MFA is required to proceed */
+  requiresMfa?: boolean;
+  /** Row scope filter to apply during execution */
+  rowScopeFilter?: string;
+  /** Maximum records allowed for this operation */
+  maxRecords?: number;
 }
 
 /**
@@ -90,7 +112,12 @@ export type GuardrailErrorCode =
   | 'HIGH_RISK_DENIED'
   | 'CONFIRMATION_REQUIRED'
   | 'PII_DETECTED'
-  | 'FINANCIAL_LIMIT_EXCEEDED';
+  | 'FINANCIAL_LIMIT_EXCEEDED'
+  // Policy enforcement errors (from x-ai-policy)
+  | 'POLICY_TIER_NOT_ALLOWED'
+  | 'POLICY_MFA_REQUIRED'
+  | 'POLICY_ROW_SCOPE_VIOLATION'
+  | 'POLICY_MAX_RECORDS_EXCEEDED';
 
 // ============================================================================
 // Role Permission Mappings
@@ -399,7 +426,78 @@ export function evaluateGuardrails(
     };
   }
 
-  // 9. Determine if confirmation is needed
+  // 9. Evaluate x-ai-policy rules (tier, MFA, row scope, max records)
+  let policyResult: PolicyResult | undefined;
+  let requiresMfa = false;
+  let rowScopeFilter: string | undefined;
+  let maxRecords: number | undefined;
+
+  if (toolInfo.source === 'generated' && toolInfo.policy) {
+    // Build policy context from user context
+    const policyContext: PolicyContext = {
+      tier: userContext.tier || 'free',
+      mfaVerified: userContext.mfaVerified || false,
+      organizationId: userContext.organizationId,
+      userId: userContext.userId,
+      claims: userContext.claims,
+    };
+
+    // Get affected record count from parameters if available
+    const affectedRecordCount = typeof parameters.limit === 'number'
+      ? parameters.limit
+      : typeof parameters.count === 'number'
+        ? parameters.count
+        : undefined;
+
+    policyResult = evaluatePolicy(
+      toolInfo.policy,
+      policyContext,
+      toolInfo.riskLevel,
+      affectedRecordCount
+    );
+
+    // Check for tier violations
+    const tierViolation = policyResult.violations.find(v => v.type === 'TIER_NOT_ALLOWED');
+    if (tierViolation) {
+      return {
+        allowed: false,
+        reason: tierViolation.message,
+        errorCode: 'POLICY_TIER_NOT_ALLOWED',
+        requiresConfirmation: false,
+        warnings: [],
+        intent,
+        toolInfo,
+        policyResult,
+      };
+    }
+
+    // Check for max records violations
+    const maxRecordsViolation = policyResult.violations.find(v => v.type === 'MAX_RECORDS_EXCEEDED');
+    if (maxRecordsViolation) {
+      return {
+        allowed: false,
+        reason: maxRecordsViolation.message,
+        errorCode: 'POLICY_MAX_RECORDS_EXCEEDED',
+        requiresConfirmation: false,
+        warnings: [],
+        intent,
+        toolInfo,
+        policyResult,
+      };
+    }
+
+    // MFA required is not a hard block - we pass it through for the caller to handle
+    requiresMfa = policyResult.requiresMfa;
+    rowScopeFilter = policyResult.rowScopeFilter;
+    maxRecords = policyResult.maxRecords;
+
+    // Add warning if MFA is required but not verified
+    if (requiresMfa) {
+      warnings.push('Multi-factor authentication is required for this action. You will be prompted to verify.');
+    }
+  }
+
+  // 10. Determine if confirmation is needed
   const needsConfirmation = toolInfo.requiresConfirmation ||
     toolInfo.riskLevel === 'HIGH' ||
     toolInfo.riskLevel === 'CRITICAL';
@@ -419,6 +517,10 @@ export function evaluateGuardrails(
     intent,
     toolInfo,
     supportsDryRun: toolInfo.supportsDryRun,
+    policyResult,
+    requiresMfa,
+    rowScopeFilter,
+    maxRecords,
   };
 }
 

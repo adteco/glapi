@@ -142,3 +142,43 @@ export {
   type AIError,
   type AIErrorCategory,
 } from './error-handling';
+
+// Policy Evaluator (x-ai-policy enforcement)
+export {
+  evaluatePolicy,
+  validateRowScope,
+  policyViolationsToError,
+  isPolicyErrorRetryable,
+  getPolicyViolationGuidance,
+  tierAtLeast,
+  getMinimumRequiredTier,
+  POLICY_ERRORS,
+  STANDARD_TIERS,
+  type AIPolicy,
+  type PolicyContext,
+  type PolicyResult,
+  type PolicyViolation,
+  type PolicyViolationType,
+  type PolicyErrorCode,
+  type StandardTier,
+} from './policy-evaluator';
+
+// Tool Caching
+export {
+  ToolCache,
+  buildCacheKey,
+  getToolCache,
+  createCacheInterface,
+  type CacheStats,
+  type ToolCacheConfig,
+} from './caching';
+
+// Rate Limiting
+export {
+  RateLimiter,
+  getRateLimiter,
+  createRateLimiterInterface,
+  type RateLimitResult,
+  type RateLimiterStats,
+  type RateLimiterConfig,
+} from './rate-limit';
