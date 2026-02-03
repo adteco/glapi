@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth, useOrganization } from '@clerk/nextjs';
 import { Mail, Check, X, Copy, RefreshCw, TestTube2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,6 +49,7 @@ interface UsageSummary {
 
 export function MagicInboxSettings() {
   const { getToken } = useAuth();
+  const { organization } = useOrganization();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,11 +63,19 @@ export function MagicInboxSettings() {
   const [checkingPrefix, setCheckingPrefix] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
 
-  // Load current config
+  // Load current config - reload when organization changes
   useEffect(() => {
+    // Clear previous org's data immediately when org changes
+    setConfig(null);
+    setUsage(null);
+    setPrefix('');
+    setPrefixAvailable(null);
+    setCustomDomain('');
+    setLoading(true);
+
     loadConfig();
     loadUsage();
-  }, []);
+  }, [organization?.id]); // Re-run when organization changes
 
   async function loadConfig() {
     try {
