@@ -1,7 +1,5 @@
 import { eq, and, desc, sql, gte, lte, inArray, isNull, lt } from 'drizzle-orm';
-import { db as globalDb } from '../db';
-import type { ContextualDatabase } from '../context';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { BaseRepository } from './base-repository';
 import {
   billingSchedules,
   billingScheduleLines,
@@ -14,12 +12,7 @@ import {
   type BillingScheduleWithLines,
 } from '../db/schema/billing-schedules';
 
-export class BillingScheduleRepository {
-  private db: NodePgDatabase<any>;
-
-  constructor(db?: ContextualDatabase | NodePgDatabase<any>) {
-    this.db = db ?? globalDb;
-  }
+export class BillingScheduleRepository extends BaseRepository {
   // ============================================================================
   // Schedule CRUD Operations
   // ============================================================================
