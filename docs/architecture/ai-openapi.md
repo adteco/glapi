@@ -903,6 +903,18 @@ x-ai-errors:
   - code: RateLimited
     retryable: true
     userSafeMessage: "Too many requests. Try again shortly."
+
+x-ai-async:
+  enabled: true
+  statusPath: /api/jobs/{id}
+  terminalStates: [succeeded, failed, canceled]
+  polling:
+    minMs: 500
+    maxMs: 5000
+
+x-ai-cache:
+  ttlSeconds: 60
+  varyBy: ["userId", "orgId", "query"]
 ```
 
 ### Phase 2: Enhanced OpenAPI Generation
@@ -1237,6 +1249,30 @@ if (intent.riskLevel === 'HIGH') { ... }
 const tool = AI_TOOLS.find(t => t.functionDeclaration.name === toolName);
 if (tool.metadata.riskLevel === 'HIGH') { ... }
 ```
+
+---
+
+## Execution Semantics & Reliability
+
+### Idempotency (Write Safety)
+- All mutating tools (POST/PUT/PATCH/DELETE) require an `Idempotency-Key`.
+- The executor should forward caller-provided keys and optionally generate one per request when absent.
+- The server stores idempotency keys per user/org for the configured TTL to prevent double-writes on retries.
+
+### Timeouts, Retries, and Circuit Breakers
+- **Soft timeout** signals the model to retry or narrow the request.
+- **Hard timeout** aborts the operation and returns a retryable error if safe.
+- Retry only when `x-ai-errors[].retryable` is true to avoid duplicate writes.
+- Optional circuit breaker per tool to prevent repeated failures from cascading.
+
+### Async Operations (Long-Running Tasks)
+- Tools with `x-ai-async.enabled: true` return a job handle immediately.
+- The executor polls `statusPath` with bounded backoff until a terminal state.
+- The assistant can update the user with progress without blocking a single turn.
+
+### Caching & Staleness Controls
+- Safe, read-only tools can declare `x-ai-cache` to reduce latency and cost.
+- Cache keys must include tenant identifiers to avoid cross-tenant leakage.
 
 ---
 
@@ -1948,6 +1984,12 @@ pnpm test --filter="**/ai/**"
 pnpm --filter web test:run -- src/lib/ai
 ```
 
+### LLM Evaluation & Regression
+- Maintain a small "golden prompts" suite that covers core workflows and edge cases.
+- Track tool selection accuracy, validation error recovery, and confirmation compliance.
+- Add redaction tests to ensure sensitive fields never appear in responses.
+- Record latency and tool usage cost to prevent silent regressions.
+
 ---
 
 ## Key Decisions
@@ -2068,6 +2110,9 @@ paths:
       summary: List all customers
       x-ai-tool:
         name: list_customers
+        version: 1
+        stability: stable
+        deprecated: false
         description: >
           Retrieve and search customer records. Use search parameter
           for natural language queries like "customers in California"
@@ -2096,6 +2141,9 @@ paths:
         redactFields: ["taxId", "bankAccount", "ssn"]
         maxItems: 50
         maxTokens: 500
+      x-ai-cache:
+        ttlSeconds: 60
+        varyBy: ["userId", "orgId", "query"]
       parameters:
         - name: search
           in: query
@@ -2118,6 +2166,9 @@ paths:
       summary: Create a new invoice
       x-ai-tool:
         name: create_invoice
+        version: 1
+        stability: stable
+        deprecated: false
         description: Create a new customer invoice
         scopes: ["invoicing", "sales"]  # Only loaded in invoicing/sales contexts
         enabled: true
