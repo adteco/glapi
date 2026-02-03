@@ -9,24 +9,17 @@
 
 import {
   type Intent,
-  type IntentRiskLevel,
   type PermissionScope,
-  getIntentByMcpTool,
-  isIntentEnabled,
 } from './intents';
 
 import {
   type UnifiedToolInfo,
-  type ExtendedUserRole,
   getToolInfo,
-  isToolEnabled,
   roleAtLeast,
 } from './tool-adapter';
 
 import {
   evaluatePolicy,
-  policyViolationsToError,
-  type AIPolicy,
   type PolicyContext,
   type PolicyResult,
 } from './policy-evaluator';
@@ -303,9 +296,8 @@ export function evaluateGuardrails(
 ): GuardrailResult {
   const warnings: string[] = [];
 
-  // 1. Get tool info (prefers generated tools, falls back to legacy intents)
+  // 1. Get tool info from generated tools (OpenAPI source of truth)
   const toolInfo = getToolInfo(toolName);
-  const intent = getIntentByMcpTool(toolName); // Keep for backward compatibility
 
   if (!toolInfo) {
     return {
@@ -325,7 +317,6 @@ export function evaluateGuardrails(
       errorCode: 'INTENT_DISABLED',
       requiresConfirmation: false,
       warnings: [],
-      intent,
       toolInfo,
     };
   }
@@ -340,7 +331,6 @@ export function evaluateGuardrails(
         errorCode: 'BLOCKED_CONTENT',
         requiresConfirmation: false,
         warnings: [],
-        intent,
         toolInfo,
       };
     }
@@ -358,7 +348,6 @@ export function evaluateGuardrails(
         errorCode: 'PERMISSION_DENIED',
         requiresConfirmation: false,
         warnings: [],
-        intent,
         toolInfo,
       };
     }
@@ -373,7 +362,6 @@ export function evaluateGuardrails(
       errorCode: 'PERMISSION_DENIED',
       requiresConfirmation: false,
       warnings: [],
-      intent,
       toolInfo,
     };
   }
@@ -392,7 +380,6 @@ export function evaluateGuardrails(
         errorCode: 'RATE_LIMITED',
         requiresConfirmation: false,
         warnings: [],
-        intent,
         toolInfo,
       };
     }
@@ -407,7 +394,6 @@ export function evaluateGuardrails(
       errorCode: 'FINANCIAL_LIMIT_EXCEEDED',
       requiresConfirmation: false,
       warnings: [],
-      intent,
       toolInfo,
     };
   }
@@ -421,7 +407,6 @@ export function evaluateGuardrails(
       errorCode: 'HIGH_RISK_DENIED',
       requiresConfirmation: false,
       warnings: [],
-      intent,
       toolInfo,
     };
   }
@@ -465,7 +450,6 @@ export function evaluateGuardrails(
         errorCode: 'POLICY_TIER_NOT_ALLOWED',
         requiresConfirmation: false,
         warnings: [],
-        intent,
         toolInfo,
         policyResult,
       };
@@ -480,7 +464,6 @@ export function evaluateGuardrails(
         errorCode: 'POLICY_MAX_RECORDS_EXCEEDED',
         requiresConfirmation: false,
         warnings: [],
-        intent,
         toolInfo,
         policyResult,
       };
@@ -514,7 +497,6 @@ export function evaluateGuardrails(
     requiresConfirmation: needsConfirmation,
     confirmationMessage,
     warnings,
-    intent,
     toolInfo,
     supportsDryRun: toolInfo.supportsDryRun,
     policyResult,

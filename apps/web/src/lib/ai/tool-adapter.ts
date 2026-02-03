@@ -20,7 +20,6 @@ import {
   type IntentRiskLevel,
   type PermissionScope,
   type IntentCategory,
-  INTENT_CATALOG,
 } from './intents';
 import type { AIPolicy } from './policy-evaluator';
 
@@ -155,6 +154,9 @@ export function generatedToolToUnified(tool: GeneratedAITool): UnifiedToolInfo {
 
 /**
  * Convert a legacy intent to unified tool info
+ *
+ * @deprecated Legacy intents have been removed. This function is kept for
+ * backward compatibility but should not be used for new code.
  */
 export function intentToUnified(intent: Intent): UnifiedToolInfo {
   return {
@@ -165,11 +167,11 @@ export function intentToUnified(intent: Intent): UnifiedToolInfo {
     requiresConfirmation: intent.requiresConfirmation,
     supportsDryRun: false,
     requiredPermissions: intent.requiredPermissions,
-    minimumRole: deriveMinimumRole(intent),
+    minimumRole: deriveMinimumRoleFromIntent(intent),
     enabled: intent.enabled,
     rateLimitPerMinute: intent.rateLimitPerMinute,
     category: intent.category,
-    scopes: ['global'], // Legacy intents are globally scoped
+    scopes: ['global'],
     source: 'legacy',
     legacyIntent: intent,
   };
@@ -177,24 +179,19 @@ export function intentToUnified(intent: Intent): UnifiedToolInfo {
 
 /**
  * Derive minimum role from intent permissions and risk level
+ *
+ * @deprecated Use generated tool minimumRole instead
  */
-function deriveMinimumRole(intent: Intent): UserRole {
-  // Check for admin permissions
+function deriveMinimumRoleFromIntent(intent: Intent): UserRole {
   if (intent.requiredPermissions.some(p => p.startsWith('admin:'))) {
     return 'admin';
   }
-
-  // Critical operations require accountant or admin
   if (intent.riskLevel === 'CRITICAL') {
     return 'accountant';
   }
-
-  // Write operations require at least staff
   if (intent.requiredPermissions.some(p => p.startsWith('write:') || p.startsWith('delete:'))) {
     return 'staff';
   }
-
-  // Read-only operations can be performed by viewer
   return 'viewer';
 }
 
@@ -214,41 +211,30 @@ function formatToolName(name: string): string {
 
 /**
  * Get unified tool info by tool name
- * Prefers generated tools over legacy intents
+ *
+ * Uses generated tools from OpenAPI as the source of truth.
  */
 export function getToolInfo(toolName: string): UnifiedToolInfo | undefined {
-  // First check generated tools (AI_TOOLS_BY_NAME is a Map)
   const generatedTool = AI_TOOLS_BY_NAME.get(toolName);
   if (generatedTool) {
     return generatedToolToUnified(generatedTool);
   }
-
-  // Fall back to legacy intents
-  const intent = Object.values(INTENT_CATALOG).find(i => i.mcpTool === toolName);
-  if (intent) {
-    return intentToUnified(intent);
-  }
-
   return undefined;
 }
 
 /**
  * Get unified tool info by ID
+ *
+ * Converts ID format (e.g., LIST_CUSTOMERS) to tool name (list_customers)
+ * and looks up in generated tools.
  */
 export function getToolInfoById(id: string): UnifiedToolInfo | undefined {
-  // Check legacy intents first (they use IDs like LIST_CUSTOMERS)
-  const intent = INTENT_CATALOG[id];
-  if (intent) {
-    return intentToUnified(intent);
-  }
-
-  // Check generated tools by converting ID to tool name (AI_TOOLS_BY_NAME is a Map)
-  const toolName = id.toLowerCase().replace(/_/g, '_');
+  // Convert ID to tool name format: LIST_CUSTOMERS -> list_customers
+  const toolName = id.toLowerCase();
   const generatedTool = AI_TOOLS_BY_NAME.get(toolName);
   if (generatedTool) {
     return generatedToolToUnified(generatedTool);
   }
-
   return undefined;
 }
 
@@ -262,23 +248,15 @@ export function isToolEnabled(toolName: string): boolean {
 
 /**
  * Get all enabled tools as unified info
+ *
+ * Returns all enabled tools from the generated tools system.
  */
 export function getAllEnabledTools(): UnifiedToolInfo[] {
   const tools: UnifiedToolInfo[] = [];
-  const seenNames = new Set<string>();
 
-  // Add generated tools first (they take precedence) - AI_TOOLS_BY_NAME is a Map
   for (const tool of AI_TOOLS_BY_NAME.values()) {
     if (tool.metadata.enabled) {
       tools.push(generatedToolToUnified(tool));
-      seenNames.add(tool.metadata.name);
-    }
-  }
-
-  // Add legacy intents that don't have generated equivalents
-  for (const intent of Object.values(INTENT_CATALOG)) {
-    if (intent.enabled && !seenNames.has(intent.mcpTool)) {
-      tools.push(intentToUnified(intent));
     }
   }
 

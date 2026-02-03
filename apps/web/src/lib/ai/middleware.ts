@@ -10,7 +10,7 @@ import {
   type UserContext,
   type GuardrailResult,
 } from './guardrails';
-import { type Intent, getIntentByMcpTool } from './intents';
+import { type UnifiedToolInfo } from './tool-adapter';
 
 // ============================================================================
 // Types
@@ -218,7 +218,7 @@ export function createIntentMiddleware(options: IntentMiddlewareOptions = {}) {
     }
 
     // Sanitize parameters if needed
-    const sanitizedParameters = sanitizeParameters(parameters, guardrailResult.intent);
+    const sanitizedParameters = sanitizeParameters(parameters, guardrailResult.toolInfo);
 
     if (enableLogging) {
       logger(`[${requestId}] Tool call approved: ${toolName}`);
@@ -314,12 +314,12 @@ function createAuditEntry(
     timestamp: context.timestamp,
     userId: context.userContext.userId,
     organizationId: context.userContext.organizationId,
-    intentId: guardrailResult.intent?.id || 'UNKNOWN',
+    intentId: guardrailResult.toolInfo?.id || 'UNKNOWN',
     toolName: context.toolName,
     allowed: guardrailResult.allowed,
     denialReason: guardrailResult.reason,
     confirmationRequired: guardrailResult.requiresConfirmation,
-    riskLevel: guardrailResult.intent?.riskLevel || 'UNKNOWN',
+    riskLevel: guardrailResult.toolInfo?.riskLevel || 'UNKNOWN',
     parameters: sanitizeParametersForAudit(context.parameters),
     ipAddress: context.userContext.ipAddress,
   };
@@ -330,7 +330,7 @@ function createAuditEntry(
  */
 function sanitizeParameters(
   parameters: Record<string, unknown>,
-  intent?: Intent
+  _toolInfo?: UnifiedToolInfo
 ): Record<string, unknown> {
   const sanitized = { ...parameters };
 
