@@ -5,7 +5,7 @@
  * Creates pending documents for human review and manages the conversion workflow.
  */
 
-import { db, pendingDocuments, eq, organizations } from '@glapi/database';
+import { db, pendingDocuments, eq, organizations, withOrganizationContext } from '@glapi/database';
 import type {
   NewPendingDocument,
   PendingDocument,
@@ -101,10 +101,16 @@ export async function processMagicInboxWebhook(
     receivedAt: payload.receivedAt ? new Date(payload.receivedAt) : new Date(),
   };
 
-  const [document] = await db
-    .insert(pendingDocuments)
-    .values(newDocument)
-    .returning();
+  // Use RLS context for the insert - pendingDocuments table has RLS policies
+  const [document] = await withOrganizationContext(
+    { organizationId },
+    async (contextDb) => {
+      return contextDb
+        .insert(pendingDocuments)
+        .values(newDocument)
+        .returning();
+    }
+  );
 
   console.log(`[MagicInbox] Created pending document ${document.id} for org ${organizationId}`);
 
