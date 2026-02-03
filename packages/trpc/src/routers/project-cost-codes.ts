@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { ProjectCostCodeService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const CostCodeTypeEnum = z.enum(['LABOR', 'MATERIAL', 'EQUIPMENT', 'SUBCONTRACT', 'OTHER']);
 
@@ -61,6 +62,10 @@ export const projectCostCodesRouter = router({
    * List cost codes with optional filters
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_project_cost_codes', 'List cost codes with optional filters', {
+      scopes: ['cost-codes', 'projects', 'accounting'],
+      permissions: ['read:project-cost-codes'],
+    }) })
     .input(
       z.object({
         page: z.number().int().positive().optional(),
@@ -84,6 +89,10 @@ export const projectCostCodesRouter = router({
    * Get a single cost code by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_project_cost_code', 'Get a single cost code by ID', {
+      scopes: ['cost-codes', 'projects', 'accounting'],
+      permissions: ['read:project-cost-codes'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ProjectCostCodeService(ctx.serviceContext);
@@ -133,6 +142,11 @@ export const projectCostCodesRouter = router({
    * Create a new cost code
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_project_cost_code', 'Create a new cost code', {
+      scopes: ['cost-codes', 'projects', 'accounting'],
+      permissions: ['write:project-cost-codes'],
+      riskLevel: 'LOW',
+    }) })
     .input(createCostCodeSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectCostCodeService(ctx.serviceContext);
@@ -158,6 +172,11 @@ export const projectCostCodesRouter = router({
    * Delete (deactivate) a cost code
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_project_cost_code', 'Delete (deactivate) a cost code', {
+      scopes: ['cost-codes', 'projects', 'accounting'],
+      permissions: ['delete:project-cost-codes'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectCostCodeService(ctx.serviceContext);
