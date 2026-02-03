@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { InvoiceService, type CreateInvoiceData, type GenerateInvoiceParams, type UpdateInvoiceData } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // Zod schemas for validation
 const invoiceLineItemSchema = z.object({
@@ -34,6 +35,10 @@ const invoiceSchema = z.object({
 export const invoicesRouter = router({
   // List invoices with filtering
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_invoices', 'Search and list invoices with filtering', {
+      scopes: ['invoices', 'billing', 'ar', 'global'],
+      permissions: ['read:invoices'],
+    }) })
     .input(z.object({
       entityId: z.string().uuid().optional(),
       subscriptionId: z.string().uuid().optional(),
@@ -50,6 +55,10 @@ export const invoicesRouter = router({
 
   // Get invoice with line items
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_invoice', 'Get a single invoice by ID with line items', {
+      scopes: ['invoices', 'billing', 'ar', 'global'],
+      permissions: ['read:invoices'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
@@ -67,6 +76,12 @@ export const invoicesRouter = router({
 
   // Create invoice manually
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_invoice', 'Create a new invoice manually', {
+      scopes: ['invoices', 'billing', 'ar'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'staff',
+    }) })
     .input(invoiceSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
@@ -86,6 +101,12 @@ export const invoicesRouter = router({
 
   // Generate invoice from subscription
   generateFromSubscription: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('generate_invoice_from_subscription', 'Generate an invoice from a subscription billing period', {
+      scopes: ['invoices', 'subscriptions', 'billing'],
+      permissions: ['write:invoices', 'read:subscriptions'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'staff',
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       billingPeriodStart: z.coerce.date(),
@@ -116,6 +137,11 @@ export const invoicesRouter = router({
 
   // Update invoice
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_invoice', 'Update an existing invoice', {
+      scopes: ['invoices', 'billing', 'ar'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       data: invoiceSchema.partial()
@@ -147,6 +173,12 @@ export const invoicesRouter = router({
 
   // Send invoice
   send: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('send_invoice', 'Send an invoice to the customer', {
+      scopes: ['invoices', 'billing'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+      requiresConfirmation: true,
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
@@ -172,6 +204,13 @@ export const invoicesRouter = router({
 
   // Void invoice
   void: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('void_invoice', 'Void an invoice with a reason', {
+      scopes: ['invoices', 'billing'],
+      permissions: ['write:invoices'],
+      riskLevel: 'HIGH',
+      requiresConfirmation: true,
+      minimumRole: 'manager',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       reason: z.string().min(1)
