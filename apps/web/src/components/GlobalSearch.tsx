@@ -25,10 +25,12 @@ import {
   Contact,
   Loader2,
   Command as CommandIcon,
+  ArrowRight,
 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
+import { filterPages, CATEGORY_CONFIG } from '@/lib/page-registry';
 
 // Type icons mapping
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -111,6 +113,9 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
     setQuery(prefix + ' ');
   }, []);
 
+  // Filter pages (instant, no debounce)
+  const filteredPages = React.useMemo(() => filterPages(query), [query]);
+
   // Group results by type
   const groupedResults = React.useMemo(() => {
     if (!searchResults?.results) return {};
@@ -128,6 +133,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
   }, [searchResults]);
 
   const hasResults = searchResults?.results && searchResults.results.length > 0;
+  const hasPageResults = filteredPages.length > 0;
   const showHints = query.length === 0;
 
   return (
@@ -153,7 +159,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
       <CommandDialog open={open} onOpenChange={setOpen}>
         <Command shouldFilter={false} className="rounded-lg border border-gray-700 bg-gray-900">
           <CommandInput
-            placeholder="Search customers, projects, invoices... (try 'cus: acme')"
+            placeholder="Search pages, customers, projects... (try 'cus:acme')"
             value={query}
             onValueChange={setQuery}
             className="border-none focus:ring-0"
@@ -166,8 +172,8 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
               </div>
             )}
 
-            {/* Empty state */}
-            {!isLoading && debouncedQuery.length > 0 && !hasResults && (
+            {/* Empty state - only show if no pages AND no entity results */}
+            {!isLoading && debouncedQuery.length > 0 && !hasResults && !hasPageResults && (
               <CommandEmpty>
                 <div className="text-center py-6">
                   <Search className="h-10 w-10 text-gray-500 mx-auto mb-2" />
@@ -201,6 +207,36 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                   </CommandItem>
                 ))}
               </CommandGroup>
+            )}
+
+            {/* Page navigation results (instant) */}
+            {hasPageResults && (
+              <>
+                <CommandGroup heading="Go to Page">
+                  {filteredPages.map((page) => {
+                    const Icon = page.icon;
+                    const categoryConfig = CATEGORY_CONFIG[page.category];
+                    return (
+                      <CommandItem
+                        key={page.path}
+                        value={`page-${page.path}`}
+                        onSelect={() => handleSelect(page.path)}
+                        className="flex items-center gap-3 py-2 cursor-pointer"
+                      >
+                        <div className={cn('p-1.5 rounded', categoryConfig.color)}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-200">{page.name}</div>
+                          <div className="text-xs text-gray-500 truncate">{page.path}</div>
+                        </div>
+                        <ArrowRight className="h-3.5 w-3.5 text-gray-500" />
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+                {(hasResults || isLoading) && <CommandSeparator className="bg-gray-800" />}
+              </>
             )}
 
             {/* Search results grouped by type */}
