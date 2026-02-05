@@ -33,19 +33,19 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { filterPages, CATEGORY_CONFIG } from '@/lib/page-registry';
 
 // Entity type configuration - single source of truth
-// Prefix rule: first 4 letters of the type name + ":"
+// Prefixes match backend (3-char prefixes)
 const ENTITY_TYPES = [
-  { type: 'customer', label: 'Customers', icon: Users, color: 'bg-blue-500/10 text-blue-500', description: 'Search customers by name or ID' },
-  { type: 'project', label: 'Projects', icon: Briefcase, color: 'bg-purple-500/10 text-purple-500', description: 'Search projects by name or code' },
-  { type: 'invoice', label: 'Invoices', icon: FileText, color: 'bg-green-500/10 text-green-500', description: 'Search invoices by number' },
-  { type: 'item', label: 'Items', icon: Package, color: 'bg-orange-500/10 text-orange-500', description: 'Search items by name or code' },
-  { type: 'vendor', label: 'Vendors', icon: Building, color: 'bg-yellow-500/10 text-yellow-500', description: 'Search vendors by name' },
-  { type: 'employee', label: 'Employees', icon: UserCircle, color: 'bg-pink-500/10 text-pink-500', description: 'Search employees by name' },
-  { type: 'contact', label: 'Contacts', icon: Contact, color: 'bg-cyan-500/10 text-cyan-500', description: 'Search contacts by name' },
+  { type: 'customer', prefix: 'cus:', label: 'Customers', icon: Users, color: 'bg-blue-500/10 text-blue-500', description: 'Search customers by name or ID' },
+  { type: 'project', prefix: 'prj:', label: 'Projects', icon: Briefcase, color: 'bg-purple-500/10 text-purple-500', description: 'Search projects by name or code' },
+  { type: 'invoice', prefix: 'inv:', label: 'Invoices', icon: FileText, color: 'bg-green-500/10 text-green-500', description: 'Search invoices by number' },
+  { type: 'item', prefix: 'itm:', label: 'Items', icon: Package, color: 'bg-orange-500/10 text-orange-500', description: 'Search items by name or code' },
+  { type: 'vendor', prefix: 'ven:', label: 'Vendors', icon: Building, color: 'bg-yellow-500/10 text-yellow-500', description: 'Search vendors by name' },
+  { type: 'employee', prefix: 'emp:', label: 'Employees', icon: UserCircle, color: 'bg-pink-500/10 text-pink-500', description: 'Search employees by name' },
+  { type: 'contact', prefix: 'con:', label: 'Contacts', icon: Contact, color: 'bg-cyan-500/10 text-cyan-500', description: 'Search contacts by name' },
 ] as const;
 
-// Derive prefix from type: first 4 chars + ":"
-const getPrefix = (type: string) => `${type.slice(0, 4)}:`;
+// Get prefix for a type
+const getPrefix = (type: string) => ENTITY_TYPES.find(e => e.type === type)?.prefix ?? `${type.slice(0, 3)}:`;
 
 // Derived mappings
 const TYPE_ICONS: Record<string, React.ElementType> = Object.fromEntries(
@@ -56,9 +56,9 @@ const TYPE_COLORS: Record<string, string> = Object.fromEntries(
   ENTITY_TYPES.map((e) => [e.type, e.color])
 );
 
-// Derived search hints with auto-generated prefixes
+// Derived search hints using explicit prefixes
 const SEARCH_HINTS = ENTITY_TYPES.map((e) => ({
-  prefix: getPrefix(e.type),
+  prefix: e.prefix,
   label: e.label,
   description: e.description,
   color: e.color,
