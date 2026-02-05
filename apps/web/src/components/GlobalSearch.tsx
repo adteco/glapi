@@ -33,19 +33,19 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { filterPages, CATEGORY_CONFIG } from '@/lib/page-registry';
 
 // Entity type configuration - single source of truth
-// Prefixes match backend (3-char prefixes)
+// Prefixes are first 4 letters of entity type + ":"
 const ENTITY_TYPES = [
-  { type: 'customer', prefix: 'cus:', label: 'Customers', icon: Users, color: 'bg-blue-500/10 text-blue-500', description: 'Search customers by name or ID' },
-  { type: 'project', prefix: 'prj:', label: 'Projects', icon: Briefcase, color: 'bg-purple-500/10 text-purple-500', description: 'Search projects by name or code' },
-  { type: 'invoice', prefix: 'inv:', label: 'Invoices', icon: FileText, color: 'bg-green-500/10 text-green-500', description: 'Search invoices by number' },
-  { type: 'item', prefix: 'itm:', label: 'Items', icon: Package, color: 'bg-orange-500/10 text-orange-500', description: 'Search items by name or code' },
-  { type: 'vendor', prefix: 'ven:', label: 'Vendors', icon: Building, color: 'bg-yellow-500/10 text-yellow-500', description: 'Search vendors by name' },
-  { type: 'employee', prefix: 'emp:', label: 'Employees', icon: UserCircle, color: 'bg-pink-500/10 text-pink-500', description: 'Search employees by name' },
-  { type: 'contact', prefix: 'con:', label: 'Contacts', icon: Contact, color: 'bg-cyan-500/10 text-cyan-500', description: 'Search contacts by name' },
+  { type: 'customer', prefix: 'cust:', label: 'Customers', icon: Users, color: 'bg-blue-500/10 text-blue-500', description: 'Search customers by name or ID' },
+  { type: 'project', prefix: 'proj:', label: 'Projects', icon: Briefcase, color: 'bg-purple-500/10 text-purple-500', description: 'Search projects by name or code' },
+  { type: 'invoice', prefix: 'invo:', label: 'Invoices', icon: FileText, color: 'bg-green-500/10 text-green-500', description: 'Search invoices by number' },
+  { type: 'item', prefix: 'item:', label: 'Items', icon: Package, color: 'bg-orange-500/10 text-orange-500', description: 'Search items by name or code' },
+  { type: 'vendor', prefix: 'vend:', label: 'Vendors', icon: Building, color: 'bg-yellow-500/10 text-yellow-500', description: 'Search vendors by name' },
+  { type: 'employee', prefix: 'empl:', label: 'Employees', icon: UserCircle, color: 'bg-pink-500/10 text-pink-500', description: 'Search employees by name' },
+  { type: 'contact', prefix: 'cont:', label: 'Contacts', icon: Contact, color: 'bg-cyan-500/10 text-cyan-500', description: 'Search contacts by name' },
 ] as const;
 
-// Get prefix for a type
-const getPrefix = (type: string) => ENTITY_TYPES.find(e => e.type === type)?.prefix ?? `${type.slice(0, 3)}:`;
+// Get prefix for a type (first 4 chars + ":")
+const getPrefix = (type: string) => ENTITY_TYPES.find(e => e.type === type)?.prefix ?? `${type.slice(0, 4)}:`;
 
 // Derived mappings
 const TYPE_ICONS: Record<string, React.ElementType> = Object.fromEntries(
@@ -158,7 +158,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
       <CommandDialog open={open} onOpenChange={setOpen}>
         <Command shouldFilter={false} className="rounded-lg border border-gray-700 bg-gray-900">
           <CommandInput
-            placeholder="Search pages, customers, projects... (try 'cust:acme')"
+            placeholder="Search pages, customers, projects... (try 'proj:')"
             value={query}
             onValueChange={setQuery}
             className="border-none focus:ring-0"
@@ -178,7 +178,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                   <Search className="h-10 w-10 text-gray-500 mx-auto mb-2" />
                   <p className="text-gray-400">No results found for "{debouncedQuery}"</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Try using a prefix like "cus:" or "prj:" to filter by type
+                    Try using a prefix like "cust:" or "proj:" to filter by type
                   </p>
                 </div>
               </CommandEmpty>
@@ -306,7 +306,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
               </span>
             </div>
             <div>
-              Type <code className="px-1 bg-gray-800 rounded">cust:</code> to filter by type
+              Type <code className="px-1 bg-gray-800 rounded">proj:</code> to filter by type
             </div>
           </div>
         </Command>
