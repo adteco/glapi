@@ -32,38 +32,37 @@ import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import { filterPages, CATEGORY_CONFIG } from '@/lib/page-registry';
 
-// Type icons mapping
-const TYPE_ICONS: Record<string, React.ElementType> = {
-  customer: Users,
-  project: Briefcase,
-  invoice: FileText,
-  item: Package,
-  vendor: Building,
-  employee: UserCircle,
-  contact: Contact,
-};
+// Entity type configuration - single source of truth
+// Prefix rule: first 4 letters of the type name + ":"
+const ENTITY_TYPES = [
+  { type: 'customer', label: 'Customers', icon: Users, color: 'bg-blue-500/10 text-blue-500', description: 'Search customers by name or ID' },
+  { type: 'project', label: 'Projects', icon: Briefcase, color: 'bg-purple-500/10 text-purple-500', description: 'Search projects by name or code' },
+  { type: 'invoice', label: 'Invoices', icon: FileText, color: 'bg-green-500/10 text-green-500', description: 'Search invoices by number' },
+  { type: 'item', label: 'Items', icon: Package, color: 'bg-orange-500/10 text-orange-500', description: 'Search items by name or code' },
+  { type: 'vendor', label: 'Vendors', icon: Building, color: 'bg-yellow-500/10 text-yellow-500', description: 'Search vendors by name' },
+  { type: 'employee', label: 'Employees', icon: UserCircle, color: 'bg-pink-500/10 text-pink-500', description: 'Search employees by name' },
+  { type: 'contact', label: 'Contacts', icon: Contact, color: 'bg-cyan-500/10 text-cyan-500', description: 'Search contacts by name' },
+] as const;
 
-// Type colors for badges
-const TYPE_COLORS: Record<string, string> = {
-  customer: 'bg-blue-500/10 text-blue-500',
-  project: 'bg-purple-500/10 text-purple-500',
-  invoice: 'bg-green-500/10 text-green-500',
-  item: 'bg-orange-500/10 text-orange-500',
-  vendor: 'bg-yellow-500/10 text-yellow-500',
-  employee: 'bg-pink-500/10 text-pink-500',
-  contact: 'bg-cyan-500/10 text-cyan-500',
-};
+// Derive prefix from type: first 4 chars + ":"
+const getPrefix = (type: string) => `${type.slice(0, 4)}:`;
 
-// Search prefixes for hints
-const SEARCH_HINTS = [
-  { prefix: 'cus:', label: 'Customers', description: 'Search customers by name or ID' },
-  { prefix: 'prj:', label: 'Projects', description: 'Search projects by name or code' },
-  { prefix: 'inv:', label: 'Invoices', description: 'Search invoices by number' },
-  { prefix: 'emp:', label: 'Employees', description: 'Search employees by name' },
-  { prefix: 'ven:', label: 'Vendors', description: 'Search vendors by name' },
-  { prefix: 'itm:', label: 'Items', description: 'Search items by name or code' },
-  { prefix: 'con:', label: 'Contacts', description: 'Search contacts by name' },
-];
+// Derived mappings
+const TYPE_ICONS: Record<string, React.ElementType> = Object.fromEntries(
+  ENTITY_TYPES.map((e) => [e.type, e.icon])
+);
+
+const TYPE_COLORS: Record<string, string> = Object.fromEntries(
+  ENTITY_TYPES.map((e) => [e.type, e.color])
+);
+
+// Derived search hints with auto-generated prefixes
+const SEARCH_HINTS = ENTITY_TYPES.map((e) => ({
+  prefix: getPrefix(e.type),
+  label: e.label,
+  description: e.description,
+  color: e.color,
+}));
 
 interface GlobalSearchProps {
   className?: string;
@@ -159,7 +158,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
       <CommandDialog open={open} onOpenChange={setOpen}>
         <Command shouldFilter={false} className="rounded-lg border border-gray-700 bg-gray-900">
           <CommandInput
-            placeholder="Search pages, customers, projects... (try 'cus:acme')"
+            placeholder="Search pages, customers, projects... (try 'cust:acme')"
             value={query}
             onValueChange={setQuery}
             className="border-none focus:ring-0"
@@ -194,7 +193,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                     onSelect={() => handlePrefixClick(hint.prefix)}
                     className="flex items-center gap-3 py-2"
                   >
-                    <div className={cn('p-1.5 rounded', TYPE_COLORS[hint.prefix.replace(':', '')] || 'bg-gray-700')}>
+                    <div className={cn('p-1.5 rounded', hint.color)}>
                       <CommandIcon className="h-3.5 w-3.5" />
                     </div>
                     <div className="flex-1">
@@ -307,7 +306,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
               </span>
             </div>
             <div>
-              Type <code className="px-1 bg-gray-800 rounded">cus:</code> to filter by type
+              Type <code className="px-1 bg-gray-800 rounded">cust:</code> to filter by type
             </div>
           </div>
         </Command>

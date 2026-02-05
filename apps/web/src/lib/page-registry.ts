@@ -146,8 +146,11 @@ export const PAGE_REGISTRY: PageEntry[] = [
   { name: 'Budgets', path: '/transactions/management/budgets', icon: Calendar, category: 'accounting', keywords: ['budget', 'plan'] },
 ];
 
-// Search prefixes that indicate record search (skip page filtering)
-const RECORD_SEARCH_PREFIXES = ['cus:', 'prj:', 'inv:', 'emp:', 'ven:', 'itm:', 'con:'];
+// Entity types that support record search (prefix = first 4 chars + ":")
+const SEARCHABLE_ENTITY_TYPES = ['customer', 'project', 'invoice', 'item', 'vendor', 'employee', 'contact'];
+
+// Derive prefixes from entity types: first 4 chars + ":"
+const RECORD_SEARCH_PREFIXES = SEARCHABLE_ENTITY_TYPES.map((type) => `${type.slice(0, 4)}:`);
 
 /**
  * Filter pages based on search query
