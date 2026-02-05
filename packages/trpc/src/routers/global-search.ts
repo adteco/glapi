@@ -50,7 +50,7 @@ export const globalSearchRouter = router({
       let searchQuery = query.trim();
       let targetType: EntityType | 'all' = 'all';
 
-      // Check for type prefix (e.g., "cus: acme")
+      // Check for type prefix (e.g., "cus: acme" or just "cus:")
       for (const [type, prefix] of Object.entries(SEARCH_PREFIXES)) {
         if (searchQuery.toLowerCase().startsWith(prefix)) {
           targetType = type as EntityType;
@@ -59,32 +59,33 @@ export const globalSearchRouter = router({
         }
       }
 
-      // If search query is empty after removing prefix, return empty results
-      if (!searchQuery) {
-        return { results: [], query: searchQuery, type: targetType };
-      }
+      // If search query is empty but we have a specific type prefix, show all of that type
+      // If no prefix and no query, return empty results
+      const showAllOfType = !searchQuery && targetType !== 'all';
 
       const results: SearchResult[] = [];
       const perTypeLimit = targetType === 'all' ? Math.ceil(limit / 5) : limit;
 
       // Search customers
-      if (targetType === 'all' || targetType === 'customer') {
+      if ((targetType === 'all' && searchQuery) || targetType === 'customer') {
         try {
           const customerService = new CustomerService(ctx.serviceContext);
           const customersResult = await customerService.listCustomers(
-            { page: 1, limit: 100 },
+            { page: 1, limit: showAllOfType ? perTypeLimit : 100 },
             'companyName',
             'asc'
           );
 
-          // Filter customers by search query
-          const matchingCustomers = customersResult.data
-            .filter(customer =>
-              matchesSearch(customer.companyName, searchQuery) ||
-              matchesSearch(customer.customerId, searchQuery) ||
-              matchesSearch(customer.contactEmail, searchQuery)
-            )
-            .slice(0, perTypeLimit);
+          // Filter customers by search query (or take all if showAllOfType)
+          const matchingCustomers = showAllOfType
+            ? customersResult.data.slice(0, perTypeLimit)
+            : customersResult.data
+              .filter(customer =>
+                matchesSearch(customer.companyName, searchQuery) ||
+                matchesSearch(customer.customerId, searchQuery) ||
+                matchesSearch(customer.contactEmail, searchQuery)
+              )
+              .slice(0, perTypeLimit);
 
           for (const customer of matchingCustomers) {
             if (!customer.id) continue; // Skip if no ID (shouldn't happen)
@@ -105,22 +106,24 @@ export const globalSearchRouter = router({
       }
 
       // Search projects
-      if (targetType === 'all' || targetType === 'project') {
+      if ((targetType === 'all' && searchQuery) || targetType === 'project') {
         try {
           const projectService = new ProjectService(ctx.serviceContext);
           const projects = await projectService.listProjects({
             page: 1,
-            limit: 100,
+            limit: showAllOfType ? perTypeLimit : 100,
           });
 
-          // Filter projects by search query
-          const matchingProjects = projects.data
-            .filter(project =>
-              matchesSearch(project.name, searchQuery) ||
-              matchesSearch(project.projectCode, searchQuery) ||
-              matchesSearch(project.description, searchQuery)
-            )
-            .slice(0, perTypeLimit);
+          // Filter projects by search query (or take all if showAllOfType)
+          const matchingProjects = showAllOfType
+            ? projects.data.slice(0, perTypeLimit)
+            : projects.data
+              .filter(project =>
+                matchesSearch(project.name, searchQuery) ||
+                matchesSearch(project.projectCode, searchQuery) ||
+                matchesSearch(project.description, searchQuery)
+              )
+              .slice(0, perTypeLimit);
 
           for (const project of matchingProjects) {
             results.push({
@@ -140,20 +143,22 @@ export const globalSearchRouter = router({
       }
 
       // Search invoices
-      if (targetType === 'all' || targetType === 'invoice') {
+      if ((targetType === 'all' && searchQuery) || targetType === 'invoice') {
         try {
           const invoiceService = new InvoiceService(ctx.serviceContext, { db: ctx.db });
           const invoices = await invoiceService.listInvoices({
             page: 1,
-            limit: 100,
+            limit: showAllOfType ? perTypeLimit : 100,
           });
 
-          // Filter invoices by search query (invoice number)
-          const matchingInvoices = invoices.data
-            .filter(invoice =>
-              matchesSearch(invoice.invoiceNumber, searchQuery)
-            )
-            .slice(0, perTypeLimit);
+          // Filter invoices by search query (or take all if showAllOfType)
+          const matchingInvoices = showAllOfType
+            ? invoices.data.slice(0, perTypeLimit)
+            : invoices.data
+              .filter(invoice =>
+                matchesSearch(invoice.invoiceNumber, searchQuery)
+              )
+              .slice(0, perTypeLimit);
 
           for (const invoice of matchingInvoices) {
             results.push({
@@ -174,27 +179,29 @@ export const globalSearchRouter = router({
       }
 
       // Search employees
-      if (targetType === 'all' || targetType === 'employee') {
+      if ((targetType === 'all' && searchQuery) || targetType === 'employee') {
         try {
           const entityService = new EntityService(ctx.serviceContext);
           const employees = await entityService.list(
             ['Employee'],
             {
               page: 1,
-              limit: 100,
+              limit: showAllOfType ? perTypeLimit : 100,
               orderBy: 'name',
               orderDirection: 'asc',
             }
           );
 
-          // Filter employees by search query
-          const matchingEmployees = employees.data
-            .filter(employee =>
-              matchesSearch(employee.displayName, searchQuery) ||
-              matchesSearch(employee.name, searchQuery) ||
-              matchesSearch(employee.email, searchQuery)
-            )
-            .slice(0, perTypeLimit);
+          // Filter employees by search query (or take all if showAllOfType)
+          const matchingEmployees = showAllOfType
+            ? employees.data.slice(0, perTypeLimit)
+            : employees.data
+              .filter(employee =>
+                matchesSearch(employee.displayName, searchQuery) ||
+                matchesSearch(employee.name, searchQuery) ||
+                matchesSearch(employee.email, searchQuery)
+              )
+              .slice(0, perTypeLimit);
 
           for (const employee of matchingEmployees) {
             results.push({
@@ -214,27 +221,29 @@ export const globalSearchRouter = router({
       }
 
       // Search vendors
-      if (targetType === 'all' || targetType === 'vendor') {
+      if ((targetType === 'all' && searchQuery) || targetType === 'vendor') {
         try {
           const entityService = new EntityService(ctx.serviceContext);
           const vendors = await entityService.list(
             ['Vendor'],
             {
               page: 1,
-              limit: 100,
+              limit: showAllOfType ? perTypeLimit : 100,
               orderBy: 'name',
               orderDirection: 'asc',
             }
           );
 
-          // Filter vendors by search query
-          const matchingVendors = vendors.data
-            .filter(vendor =>
-              matchesSearch(vendor.displayName, searchQuery) ||
-              matchesSearch(vendor.name, searchQuery) ||
-              matchesSearch(vendor.email, searchQuery)
-            )
-            .slice(0, perTypeLimit);
+          // Filter vendors by search query (or take all if showAllOfType)
+          const matchingVendors = showAllOfType
+            ? vendors.data.slice(0, perTypeLimit)
+            : vendors.data
+              .filter(vendor =>
+                matchesSearch(vendor.displayName, searchQuery) ||
+                matchesSearch(vendor.name, searchQuery) ||
+                matchesSearch(vendor.email, searchQuery)
+              )
+              .slice(0, perTypeLimit);
 
           for (const vendor of matchingVendors) {
             results.push({
@@ -254,23 +263,25 @@ export const globalSearchRouter = router({
       }
 
       // Search items
-      if (targetType === 'all' || targetType === 'item') {
+      if ((targetType === 'all' && searchQuery) || targetType === 'item') {
         try {
           const itemService = new ItemsService(ctx.serviceContext);
           const items = await itemService.listItems({
             page: 1,
-            limit: 100,
+            limit: showAllOfType ? perTypeLimit : 100,
           });
 
-          // Filter items by search query
+          // Filter items by search query (or take all if showAllOfType)
           type ItemType = typeof items.data[number];
-          const matchingItems = items.data
-            .filter((item: ItemType) =>
-              matchesSearch(item.name, searchQuery) ||
-              matchesSearch(item.itemCode, searchQuery) ||
-              matchesSearch(item.description ?? undefined, searchQuery)
-            )
-            .slice(0, perTypeLimit);
+          const matchingItems = showAllOfType
+            ? items.data.slice(0, perTypeLimit)
+            : items.data
+              .filter((item: ItemType) =>
+                matchesSearch(item.name, searchQuery) ||
+                matchesSearch(item.itemCode, searchQuery) ||
+                matchesSearch(item.description ?? undefined, searchQuery)
+              )
+              .slice(0, perTypeLimit);
 
           for (const item of matchingItems) {
             results.push({
@@ -290,27 +301,29 @@ export const globalSearchRouter = router({
       }
 
       // Search contacts
-      if (targetType === 'all' || targetType === 'contact') {
+      if ((targetType === 'all' && searchQuery) || targetType === 'contact') {
         try {
           const entityService = new EntityService(ctx.serviceContext);
           const contacts = await entityService.list(
             ['Contact'],
             {
               page: 1,
-              limit: 100,
+              limit: showAllOfType ? perTypeLimit : 100,
               orderBy: 'name',
               orderDirection: 'asc',
             }
           );
 
-          // Filter contacts by search query
-          const matchingContacts = contacts.data
-            .filter(contact =>
-              matchesSearch(contact.displayName, searchQuery) ||
-              matchesSearch(contact.name, searchQuery) ||
-              matchesSearch(contact.email, searchQuery)
-            )
-            .slice(0, perTypeLimit);
+          // Filter contacts by search query (or take all if showAllOfType)
+          const matchingContacts = showAllOfType
+            ? contacts.data.slice(0, perTypeLimit)
+            : contacts.data
+              .filter(contact =>
+                matchesSearch(contact.displayName, searchQuery) ||
+                matchesSearch(contact.name, searchQuery) ||
+                matchesSearch(contact.email, searchQuery)
+              )
+              .slice(0, perTypeLimit);
 
           for (const contact of matchingContacts) {
             results.push({
