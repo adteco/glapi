@@ -3,15 +3,15 @@ import { router, authenticatedProcedure } from '../trpc';
 import { CustomerService, ProjectService, InvoiceService, ItemsService, EntityService } from '@glapi/api-service';
 import { createReadOnlyAIMeta } from '../ai-meta';
 
-// Search result type prefixes
+// Search result type prefixes (first 4 letters of entity type)
 const SEARCH_PREFIXES = {
-  customer: 'cus:',
-  project: 'prj:',
-  invoice: 'inv:',
-  employee: 'emp:',
-  vendor: 'ven:',
-  item: 'itm:',
-  contact: 'con:',
+  customer: 'cust:',
+  project: 'proj:',
+  invoice: 'invo:',
+  employee: 'empl:',
+  vendor: 'vend:',
+  item: 'item:',
+  contact: 'cont:',
 } as const;
 
 type EntityType = 'customer' | 'project' | 'invoice' | 'employee' | 'vendor' | 'item' | 'contact';
