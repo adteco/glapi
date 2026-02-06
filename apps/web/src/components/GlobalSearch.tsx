@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import {
-  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -155,8 +154,11 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
       </Button>
 
       {/* Search dialog */}
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <Command shouldFilter={false} className="rounded-lg border border-gray-700 bg-gray-900">
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        commandProps={{ shouldFilter: false, className: "rounded-lg border border-gray-700 bg-gray-900" }}
+      >
           <CommandInput
             placeholder="Search pages, customers, projects... (try 'proj:')"
             value={query}
@@ -309,7 +311,6 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
               Type <code className="px-1 bg-gray-800 rounded">proj:</code> to filter by type
             </div>
           </div>
-        </Command>
       </CommandDialog>
     </>
   );
