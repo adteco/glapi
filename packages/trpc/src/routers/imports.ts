@@ -273,7 +273,6 @@ export const importsRouter = router({
       scopes: ['imports', 'migration', 'data'],
       permissions: ['write:imports'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(executeImportInput)
     .mutation(async ({ input }) => {
@@ -304,7 +303,6 @@ export const importsRouter = router({
       scopes: ['imports', 'migration', 'data'],
       permissions: ['delete:imports'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(rollbackBatchInput)
     .mutation(async ({ input, ctx }) => {

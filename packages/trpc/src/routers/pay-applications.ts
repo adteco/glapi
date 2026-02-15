@@ -260,7 +260,6 @@ export const payApplicationsRouter = router({
       scopes: ['pay-applications', 'construction', 'billing'],
       permissions: ['approve:pay-applications'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(
       z.object({

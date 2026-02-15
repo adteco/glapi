@@ -744,8 +744,8 @@ export class ContractModificationEngine {
       .from(performanceObligations)
       .where(and(
         eq(performanceObligations.subscriptionId, subscriptionId),
-        eq(performanceObligations.status, 'active'),
-        gte(performanceObligations.endDate, effectiveDate.toISOString())
+        inArray(performanceObligations.status, ['Pending', 'InProcess', 'PartiallyFulfilled']),
+        gte(performanceObligations.endDate, effectiveDate.toISOString().split('T')[0])
       ));
 
     // Check if remaining obligations are distinct

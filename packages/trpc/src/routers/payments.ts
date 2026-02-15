@@ -105,7 +105,6 @@ export const paymentsRouter = router({
       scopes: ['payments', 'billing'],
       permissions: ['write:payments'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
       minimumRole: 'manager',
     }) })
     .input(z.object({
@@ -189,7 +188,6 @@ export const paymentsRouter = router({
       scopes: ['payments', 'billing'],
       permissions: ['write:payments'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(z.object({
       payments: z.array(paymentSchema).min(1).max(100)

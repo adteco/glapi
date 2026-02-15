@@ -133,23 +133,26 @@ export class ProjectTaskRepository {
   }
 
   async createMilestone(data: CreateMilestoneData) {
-    const [milestone] = await this.db.insert(projectMilestones).values(data).returning();
+    const [milestone] = (await this.db
+      .insert(projectMilestones)
+      .values(data)
+      .returning()) as any[];
     return milestone;
   }
 
   async createMilestonesBulk(data: CreateMilestoneData[]) {
     if (data.length === 0) return [];
-    return this.db.insert(projectMilestones).values(data).returning();
+    return (await this.db.insert(projectMilestones).values(data).returning()) as any[];
   }
 
   async updateMilestone(id: string, organizationId: string, data: UpdateMilestoneData) {
-    const [milestone] = await this.db.update(projectMilestones)
+    const [milestone] = (await this.db.update(projectMilestones)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectMilestones.id, id),
         eq(projectMilestones.organizationId, organizationId)
       ))
-      .returning();
+      .returning()) as any[];
     return milestone ?? null;
   }
 
@@ -256,18 +259,21 @@ export class ProjectTaskRepository {
   }
 
   async createTaskTemplate(data: CreateTaskTemplateData) {
-    const [template] = await this.db.insert(projectTaskTemplates).values(data).returning();
+    const [template] = (await this.db
+      .insert(projectTaskTemplates)
+      .values(data)
+      .returning()) as any[];
     return template;
   }
 
   async updateTaskTemplate(id: string, organizationId: string, data: UpdateTaskTemplateData) {
-    const [template] = await this.db.update(projectTaskTemplates)
+    const [template] = (await this.db.update(projectTaskTemplates)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectTaskTemplates.id, id),
         eq(projectTaskTemplates.organizationId, organizationId)
       ))
-      .returning();
+      .returning()) as any[];
     return template ?? null;
   }
 
@@ -454,23 +460,23 @@ export class ProjectTaskRepository {
   }
 
   async createTask(data: CreateTaskData) {
-    const [task] = await this.db.insert(projectTasks).values(data).returning();
+    const [task] = (await this.db.insert(projectTasks).values(data).returning()) as any[];
     return task;
   }
 
   async createTasksBulk(data: CreateTaskData[]) {
     if (data.length === 0) return [];
-    return this.db.insert(projectTasks).values(data).returning();
+    return (await this.db.insert(projectTasks).values(data).returning()) as any[];
   }
 
   async updateTask(id: string, organizationId: string, data: UpdateTaskData) {
-    const [task] = await this.db.update(projectTasks)
+    const [task] = (await this.db.update(projectTasks)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectTasks.id, id),
         eq(projectTasks.organizationId, organizationId)
       ))
-      .returning();
+      .returning()) as any[];
     return task ?? null;
   }
 
@@ -486,13 +492,13 @@ export class ProjectTaskRepository {
       updates.completedAt = new Date();
     }
 
-    const [task] = await this.db.update(projectTasks)
+    const [task] = (await this.db.update(projectTasks)
       .set(updates)
       .where(and(
         eq(projectTasks.id, id),
         eq(projectTasks.organizationId, organizationId)
       ))
-      .returning();
+      .returning()) as any[];
     return task ?? null;
   }
 
@@ -522,6 +528,22 @@ export class ProjectTaskRepository {
       ));
 
     return result[0] ?? null;
+  }
+
+  /**
+   * Find billable completed tasks that have not been invoiced yet
+   */
+  async findBillableCompletedTasks(projectId: string, organizationId: string) {
+    return this.db.select()
+      .from(projectTasks)
+      .where(and(
+        eq(projectTasks.projectId, projectId),
+        eq(projectTasks.organizationId, organizationId),
+        eq(projectTasks.status, 'COMPLETED'),
+        eq(projectTasks.isBillable, true),
+        isNull(projectTasks.invoicedAt)
+      ))
+      .orderBy(asc(projectTasks.sortOrder));
   }
 
   // ============================================================================
@@ -619,18 +641,18 @@ export class ProjectTaskRepository {
   }
 
   async createProjectTemplate(data: CreateProjectTemplateData) {
-    const [template] = await this.db.insert(projectTemplates).values(data).returning();
+    const [template] = (await this.db.insert(projectTemplates).values(data).returning()) as any[];
     return template;
   }
 
   async updateProjectTemplate(id: string, organizationId: string, data: UpdateProjectTemplateData) {
-    const [template] = await this.db.update(projectTemplates)
+    const [template] = (await this.db.update(projectTemplates)
       .set({ ...data, updatedAt: new Date() })
       .where(and(
         eq(projectTemplates.id, id),
         eq(projectTemplates.organizationId, organizationId)
       ))
-      .returning();
+      .returning()) as any[];
     return template ?? null;
   }
 
@@ -667,13 +689,13 @@ export class ProjectTaskRepository {
   }
 
   async createProjectTemplateTask(data: CreateProjectTemplateTaskData) {
-    const [templateTask] = await this.db.insert(projectTemplateTasks).values(data).returning();
+    const [templateTask] = (await this.db.insert(projectTemplateTasks).values(data).returning()) as any[];
     return templateTask;
   }
 
   async createProjectTemplateTasksBulk(data: CreateProjectTemplateTaskData[]) {
     if (data.length === 0) return [];
-    return this.db.insert(projectTemplateTasks).values(data).returning();
+    return (await this.db.insert(projectTemplateTasks).values(data).returning()) as any[];
   }
 
   async deleteProjectTemplateTask(id: string) {

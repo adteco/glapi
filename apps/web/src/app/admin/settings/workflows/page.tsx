@@ -150,9 +150,9 @@ const AVAILABLE_COMPONENTS: AvailableComponent[] = [
   { key: 'transfers', displayName: 'Transfers', route: '/transactions/transfers', category: 'transactions' },
   { key: 'receipts', displayName: 'Receipts', route: '/transactions/receipts', category: 'transactions' },
   { key: 'purchase_orders', displayName: 'Purchase Orders', route: '/transactions/purchase-orders', category: 'transactions' },
-  { key: 'contracts', displayName: 'Contracts', route: '/transactions/contracts', category: 'transactions' },
-  { key: 'performance_obligations', displayName: 'Performance Obligations', route: '/transactions/performance-obligations', category: 'transactions' },
-  { key: 'revenue_recognition', displayName: 'Revenue Recognition', route: '/transactions/revenue-recognition', category: 'transactions' },
+  { key: 'contracts', displayName: 'Contracts', route: '/transactions/recurring/contracts', category: 'transactions' },
+  { key: 'performance_obligations', displayName: 'Performance Obligations', route: '/transactions/recurring/performance-obligations', category: 'transactions' },
+  { key: 'revenue_recognition', displayName: 'Revenue Recognition', route: '/transactions/recurring/revenue-recognition', category: 'transactions' },
 
   // Time Tracking
   { key: 'projects', displayName: 'Projects', route: '/projects', category: 'time_tracking' },

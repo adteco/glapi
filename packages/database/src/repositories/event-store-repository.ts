@@ -63,6 +63,42 @@ export interface AppendEventResult {
 // ============================================================================
 
 export class EventStoreRepository extends BaseRepository {
+  // Drizzle `.returning()` with no args has proven brittle in some Next.js
+  // RSC bundling contexts; use explicit selections.
+  private eventReturning = {
+    id: eventStore.id,
+    eventType: eventStore.eventType,
+    eventCategory: eventStore.eventCategory,
+    aggregateId: eventStore.aggregateId,
+    aggregateType: eventStore.aggregateType,
+    eventVersion: eventStore.eventVersion,
+    globalSequence: eventStore.globalSequence,
+    eventData: eventStore.eventData,
+    metadata: eventStore.metadata,
+    eventTimestamp: eventStore.eventTimestamp,
+    createdAt: eventStore.createdAt,
+    userId: eventStore.userId,
+    sessionId: eventStore.sessionId,
+    correlationId: eventStore.correlationId,
+    causationId: eventStore.causationId,
+    organizationId: eventStore.organizationId,
+  } as const;
+
+  private outboxReturning = {
+    id: eventOutbox.id,
+    eventId: eventOutbox.eventId,
+    topic: eventOutbox.topic,
+    partitionKey: eventOutbox.partitionKey,
+    payload: eventOutbox.payload,
+    status: eventOutbox.status,
+    createdAt: eventOutbox.createdAt,
+    publishedAt: eventOutbox.publishedAt,
+    retryCount: eventOutbox.retryCount,
+    nextRetryAt: eventOutbox.nextRetryAt,
+    errorMessage: eventOutbox.errorMessage,
+    organizationId: eventOutbox.organizationId,
+  } as const;
+
   // --------------------------------------------------------------------------
   // Event Store Operations
   // --------------------------------------------------------------------------
@@ -93,7 +129,7 @@ export class EventStoreRepository extends BaseRepository {
           ...event,
           globalSequence,
         })
-        .returning();
+        .returning(this.eventReturning);
 
       let outboxEntry: EventOutboxRecord | undefined;
 
@@ -109,7 +145,7 @@ export class EventStoreRepository extends BaseRepository {
             status: 'PENDING',
             organizationId: event.organizationId,
           })
-          .returning();
+          .returning(this.outboxReturning);
 
         outboxEntry = insertedOutbox;
       }
@@ -151,7 +187,7 @@ export class EventStoreRepository extends BaseRepository {
             ...event,
             globalSequence,
           })
-          .returning();
+          .returning(this.eventReturning);
 
         let outboxEntry: EventOutboxRecord | undefined;
 
@@ -166,7 +202,7 @@ export class EventStoreRepository extends BaseRepository {
               status: 'PENDING',
               organizationId: event.organizationId,
             })
-            .returning();
+            .returning(this.outboxReturning);
 
           outboxEntry = insertedOutbox;
         }

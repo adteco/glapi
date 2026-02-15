@@ -1,11 +1,5 @@
-import { db } from '@glapi/database';
-import { 
-  kitComponents,
-  items,
-  sspEvidence,
-  type KitComponent
-} from '@glapi/database';
-import { eq, and, sql } from 'drizzle-orm';
+import { db as globalDb, type ContextualDatabase, kitComponents, items, sspEvidence, type KitComponent } from '@glapi/database';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
 export interface KitExplosionResult {
   kitItemId: string;
@@ -24,6 +18,13 @@ export interface ComponentAllocation {
 }
 
 export class KitService {
+  private db: ContextualDatabase;
+
+  constructor(db?: ContextualDatabase) {
+    // Prefer contextual DB to satisfy RLS (kit_components is protected by RLS).
+    this.db = db ?? globalDb;
+  }
+
   /**
    * Explode a kit/bundle into its component items with price allocation
    */
@@ -62,9 +63,9 @@ export class KitService {
    * Get all components of a kit
    */
   private async getKitComponents(kitItemId: string): Promise<KitComponent[]> {
-    const components = await db.select()
+    const components = await this.db.select()
       .from(kitComponents)
-      .where(eq(kitComponents.parentItemId, kitItemId))
+      .where(eq(kitComponents.kitItemId, kitItemId))
       .orderBy(kitComponents.componentItemId);
     
     return components;
@@ -77,22 +78,6 @@ export class KitService {
     components: KitComponent[],
     organizationId: string
   ): Promise<'percentage' | 'ssp_based' | 'equal'> {
-    // Check if explicit allocation percentages are defined
-    const hasPercentages = components.every(c => 
-      c.allocationPercentage && parseFloat(c.allocationPercentage) > 0
-    );
-    
-    if (hasPercentages) {
-      // Validate percentages sum to 100
-      const totalPercentage = components.reduce((sum, c) => 
-        sum + parseFloat(c.allocationPercentage || '0'), 0
-      );
-      
-      if (Math.abs(totalPercentage - 100) < 0.01) {
-        return 'percentage';
-      }
-    }
-    
     // Check if SSP is available for all components
     const hasSSP = await this.checkSSPAvailability(components, organizationId);
     if (hasSSP) {
@@ -111,7 +96,7 @@ export class KitService {
     organizationId: string
   ): Promise<boolean> {
     for (const component of components) {
-      const [evidence] = await db.select()
+      const [evidence] = await this.db.select()
         .from(sspEvidence)
         .where(
           and(
@@ -163,27 +148,9 @@ export class KitService {
     components: KitComponent[],
     totalPrice: number
   ): Promise<ComponentAllocation[]> {
-    const allocations: ComponentAllocation[] = [];
-    
-    for (const component of components) {
-      const percentage = parseFloat(component.allocationPercentage || '0') / 100;
-      const allocatedAmount = totalPrice * percentage;
-      
-      const [item] = await db.select()
-        .from(items)
-        .where(eq(items.id, component.componentItemId))
-        .limit(1);
-      
-      allocations.push({
-        componentItemId: component.componentItemId,
-        componentName: item?.name || 'Unknown',
-        quantity: parseFloat(component.quantity),
-        allocationPercentage: percentage * 100,
-        allocatedAmount
-      });
-    }
-    
-    return this.adjustForRounding(allocations, totalPrice);
+    // The live schema does not support explicit allocation percentages on kit_components.
+    // Keep this method for backwards compatibility if we later add a percentage field.
+    return this.allocateBySSP(components, totalPrice, '');
   }
 
   /**
@@ -199,7 +166,7 @@ export class KitService {
     
     // Get SSP for each component
     for (const component of components) {
-      const [evidence] = await db.select()
+      const [evidence] = await this.db.select()
         .from(sspEvidence)
         .where(
           and(
@@ -209,25 +176,26 @@ export class KitService {
           )
         )
         .orderBy(
-          // Priority: standalone_sale > competitor_pricing > cost_plus_margin > market_assessment
-          // @ts-ignore - SQL template compatibility
+          // Priority: customer_pricing > comparable_sales > market_research > cost_plus
           sql`
             CASE ${sspEvidence.evidenceType}
-              WHEN 'standalone_sale' THEN 1
-              WHEN 'competitor_pricing' THEN 2
-              WHEN 'cost_plus_margin' THEN 3
-              WHEN 'market_assessment' THEN 4
+              WHEN 'customer_pricing' THEN 1
+              WHEN 'comparable_sales' THEN 2
+              WHEN 'market_research' THEN 3
+              WHEN 'cost_plus' THEN 4
             END
-          `
+          `,
+          desc(sspEvidence.evidenceDate)
         )
         .limit(1);
       
-      const [item] = await db.select()
+      const [item] = await this.db.select()
         .from(items)
         .where(eq(items.id, component.componentItemId))
         .limit(1);
       
-      const sspAmount = evidence ? parseFloat(evidence.sspAmount) : 0;
+      const qty = parseFloat(component.quantity);
+      const sspAmount = evidence ? parseFloat(evidence.sspAmount) * qty : 0;
       componentSSPs.push({ component, ssp: sspAmount, item });
     }
     
@@ -269,7 +237,7 @@ export class KitService {
     const equalPercentage = 100 / components.length;
     
     for (const component of components) {
-      const [item] = await db.select()
+      const [item] = await this.db.select()
         .from(items)
         .where(eq(items.id, component.componentItemId))
         .limit(1);
@@ -324,18 +292,6 @@ export class KitService {
       errors.push('Kit has no components defined');
     }
     
-    // Check if percentages are defined and sum to 100
-    const hasPercentages = components.some(c => c.allocationPercentage);
-    if (hasPercentages) {
-      const totalPercentage = components.reduce((sum, c) => 
-        sum + parseFloat(c.allocationPercentage || '0'), 0
-      );
-      
-      if (Math.abs(totalPercentage - 100) > 0.01) {
-        errors.push(`Allocation percentages sum to ${totalPercentage}%, should be 100%`);
-      }
-    }
-    
     // Check for duplicate components
     const componentIds = components.map(c => c.componentItemId);
     const uniqueIds = new Set(componentIds);
@@ -367,20 +323,17 @@ export class KitService {
     organizationId: string
   ): Promise<void> {
     // Delete existing components
-    await db.delete(kitComponents)
-      .where(eq(kitComponents.parentItemId, kitItemId));
+    await this.db.delete(kitComponents)
+      .where(eq(kitComponents.kitItemId, kitItemId));
     
     // Insert new components
     for (const component of components) {
-      await db.insert(kitComponents)
+      await this.db.insert(kitComponents)
         .values({
-          organizationId,
-          parentItemId: kitItemId,
+          kitItemId,
           componentItemId: component.componentItemId,
           quantity: String(component.quantity),
-          allocationPercentage: component.allocationPercentage 
-            ? String(component.allocationPercentage) 
-            : null
+          isOptional: false
         });
     }
   }

@@ -398,10 +398,16 @@ async function createPerformanceObligations(context: MigrationContext): Promise<
             itemId: item.itemId,
             obligationType: determineObligationType(item),
             allocatedAmount: item.unitPrice, // Will be adjusted by SSP allocation
+            // Legacy non-null fields on the canonical table.
+            // For migrated subscriptions, we don't have a 1:1 legacy contract line item, so we
+            // populate these with safe defaults to satisfy constraints.
+            name: `Subscription Item ${item.itemId}`,
+            ssp: item.unitPrice,
+            allocatedTransactionPrice: item.unitPrice,
             satisfactionMethod: determineSatisfactionMethod(item),
             startDate: item.startDate,
             endDate: item.endDate,
-            status: 'active' as const,
+            status: 'Pending' as const,
             createdAt: new Date(),
             updatedAt: new Date()
           };

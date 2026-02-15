@@ -50,6 +50,12 @@ export const ProjectMilestoneStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'COM
 export type ProjectMilestoneStatus = z.infer<typeof ProjectMilestoneStatusEnum>;
 
 /**
+ * Task billing type enum
+ */
+export const TaskBillingTypeEnum = z.enum(['flat_fee', 'time_and_materials']);
+export type TaskBillingType = z.infer<typeof TaskBillingTypeEnum>;
+
+/**
  * Valid task status transitions
  */
 export const VALID_TASK_STATUS_TRANSITIONS: Record<ProjectTaskStatus, ProjectTaskStatus[]> = {
@@ -293,6 +299,8 @@ export const createProjectTaskSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
   isBillable: z.boolean().default(true),
   billingRate: z.number().positive().optional(),
+  billingType: TaskBillingTypeEnum.default('flat_fee'),
+  flatFeeAmount: z.number().positive().optional(),
   metadata: metadataSchema,
 });
 
@@ -325,6 +333,8 @@ export const updateProjectTaskSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
   isBillable: z.boolean().optional(),
   billingRate: z.number().positive().nullable().optional(),
+  billingType: TaskBillingTypeEnum.optional(),
+  flatFeeAmount: z.number().positive().nullable().optional(),
   metadata: metadataSchema,
 });
 
@@ -399,6 +409,10 @@ export const projectTaskSchema = z.object({
   sortOrder: z.number(),
   isBillable: z.boolean(),
   billingRate: z.number().nullable().optional(),
+  billingType: TaskBillingTypeEnum.nullable().optional(),
+  flatFeeAmount: z.number().nullable().optional(),
+  invoicedAt: z.date().nullable().optional(),
+  invoiceLineId: z.string().uuid().nullable().optional(),
   metadata: metadataSchema,
   createdBy: z.string().uuid().nullable().optional(),
   createdAt: z.date(),

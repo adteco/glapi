@@ -15,7 +15,7 @@ import {
   type NewPerformanceObligation,
   type NewRevenueSchedule
 } from '@glapi/database';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, inArray, sql } from 'drizzle-orm';
 import { RevenueCalculationEngine, type CalculationResult } from '@glapi/business';
 
 export interface RevenueServiceOptions {
@@ -47,7 +47,7 @@ export interface RevenueCalculationResult {
 
 export interface ListPerformanceObligationsInput {
   subscriptionId?: string;
-  status?: 'active' | 'satisfied' | 'cancelled';
+  status?: 'Pending' | 'InProcess' | 'Fulfilled' | 'PartiallyFulfilled' | 'Cancelled';
   obligationType?: string;
   page?: number;
   limit?: number;
@@ -76,6 +76,12 @@ export interface RevenueWaterfallInput {
   compareToASC605?: boolean;
 }
 
+export interface SubscriptionPlanInput {
+  subscriptionId: string;
+  startDate?: Date | string;
+  endDate?: Date | string;
+}
+
 export class RevenueService extends BaseService {
   private db: ContextualDatabase;
   private subscriptionRepository: SubscriptionRepository;
@@ -91,7 +97,7 @@ export class RevenueService extends BaseService {
     this.subscriptionRepository = new SubscriptionRepository(options.db);
     this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
     this.invoiceRepository = new InvoiceRepository(options.db);
-    this.calculationEngine = new RevenueCalculationEngine();
+    this.calculationEngine = new RevenueCalculationEngine(this.db);
   }
 
   async calculateRevenue(
@@ -106,6 +112,11 @@ export class RevenueService extends BaseService {
     const subscription = await this.subscriptionRepository.findByIdWithItems(subscriptionId);
     if (!subscription || subscription.organizationId !== organizationId) {
       throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
+    }
+
+    // Prevent duplicate schedule/obligation rows on recalculation.
+    if (options.forceRecalculation) {
+      await this.clearExistingCalculationData(subscriptionId, organizationId);
     }
 
     // Use the RevenueCalculationEngine for ASC 606 compliant calculation
@@ -140,6 +151,126 @@ export class RevenueService extends BaseService {
         periodEnd: s.periodEndDate.toISOString().split('T')[0],
         amount: s.scheduledAmount
       }))
+    };
+  }
+
+  async getSubscriptionPlan(input: SubscriptionPlanInput): Promise<any> {
+    const organizationId = this.requireOrganizationContext();
+
+    const subscription = await this.subscriptionRepository.findByIdWithItems(input.subscriptionId);
+    if (!subscription || subscription.organizationId !== organizationId) {
+      throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
+    }
+
+    const conditions = [
+      eq(revenueSchedules.organizationId, organizationId),
+      eq(performanceObligations.subscriptionId, input.subscriptionId),
+    ];
+
+    if (input.startDate) {
+      const startDate = typeof input.startDate === 'string' ? input.startDate : input.startDate.toISOString().split('T')[0];
+      conditions.push(gte(revenueSchedules.periodStartDate, startDate));
+    }
+
+    if (input.endDate) {
+      const endDate = typeof input.endDate === 'string' ? input.endDate : input.endDate.toISOString().split('T')[0];
+      conditions.push(lte(revenueSchedules.periodEndDate, endDate));
+    }
+
+    const obligations = await this.db.select({
+      id: performanceObligations.id,
+      itemId: performanceObligations.itemId,
+      obligationType: performanceObligations.obligationType,
+      satisfactionMethod: performanceObligations.satisfactionMethod,
+      startDate: performanceObligations.startDate,
+      endDate: performanceObligations.endDate,
+      status: performanceObligations.status,
+      allocatedAmount: performanceObligations.allocatedAmount,
+    })
+      .from(performanceObligations)
+      .where(and(
+        eq(performanceObligations.organizationId, organizationId),
+        eq(performanceObligations.subscriptionId, input.subscriptionId)
+      ))
+      .orderBy(desc(performanceObligations.createdAt));
+
+    const schedules = await this.db.select({
+      id: revenueSchedules.id,
+      performanceObligationId: revenueSchedules.performanceObligationId,
+      periodStartDate: revenueSchedules.periodStartDate,
+      periodEndDate: revenueSchedules.periodEndDate,
+      scheduledAmount: revenueSchedules.scheduledAmount,
+      recognizedAmount: revenueSchedules.recognizedAmount,
+      recognitionDate: revenueSchedules.recognitionDate,
+      recognitionPattern: revenueSchedules.recognitionPattern,
+      status: revenueSchedules.status,
+      obligationType: performanceObligations.obligationType,
+    })
+      .from(revenueSchedules)
+      .innerJoin(
+        performanceObligations,
+        eq(revenueSchedules.performanceObligationId, performanceObligations.id)
+      )
+      .where(and(...conditions))
+      .orderBy(revenueSchedules.periodStartDate, revenueSchedules.periodEndDate);
+
+    const normalizedSchedules = schedules.map((s) => ({
+      ...s,
+      scheduledAmount: parseFloat(s.scheduledAmount || '0'),
+      recognizedAmount: parseFloat(s.recognizedAmount || '0'),
+    }));
+
+    const totals = normalizedSchedules.reduce((acc, s) => {
+      acc.scheduled += s.scheduledAmount;
+      acc.recognized += s.recognizedAmount;
+      acc.deferred += (s.scheduledAmount - s.recognizedAmount);
+      return acc;
+    }, { scheduled: 0, recognized: 0, deferred: 0 });
+
+    const monthly = new Map<string, { scheduled: number; recognized: number; deferredBalance: number }>();
+    for (const s of normalizedSchedules) {
+      const monthKey = s.periodStartDate ? s.periodStartDate.slice(0, 7) : 'unknown';
+      const current = monthly.get(monthKey) || { scheduled: 0, recognized: 0, deferredBalance: 0 };
+      current.scheduled += s.scheduledAmount;
+      current.recognized += s.recognizedAmount;
+      monthly.set(monthKey, current);
+    }
+
+    const waterfall = Array.from(monthly.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .reduce((acc, [period, v]) => {
+        const previousBalance = acc.length > 0 ? acc[acc.length - 1].deferredBalance : 0;
+        const deferredBalance = previousBalance + v.scheduled - v.recognized;
+        acc.push({
+          period,
+          scheduled: v.scheduled,
+          recognized: v.recognized,
+          deferredBalance,
+        });
+        return acc;
+      }, [] as Array<{ period: string; scheduled: number; recognized: number; deferredBalance: number }>);
+
+    return {
+      subscription: {
+        id: subscription.id,
+        subscriptionNumber: subscription.subscriptionNumber,
+        status: subscription.status,
+        startDate: subscription.startDate,
+        endDate: subscription.endDate,
+        contractValue: parseFloat(subscription.contractValue || '0'),
+        billingFrequency: subscription.billingFrequency,
+      },
+      summary: {
+        totalScheduled: totals.scheduled,
+        totalRecognized: totals.recognized,
+        totalDeferred: totals.deferred,
+      },
+      obligations: obligations.map((o) => ({
+        ...o,
+        allocatedAmount: parseFloat(o.allocatedAmount || '0'),
+      })),
+      schedules: normalizedSchedules,
+      waterfall,
     };
   }
 
@@ -206,14 +337,14 @@ export class RevenueService extends BaseService {
       throw new ServiceError('Performance obligation not found', 'NOT_FOUND', 404);
     }
     
-    if (obligation.status !== 'active') {
-      throw new ServiceError('Can only satisfy active obligations', 'INVALID_STATUS', 400);
+    if (obligation.status !== 'Pending' && obligation.status !== 'InProcess' && obligation.status !== 'PartiallyFulfilled') {
+      throw new ServiceError('Can only satisfy pending obligations', 'INVALID_STATUS', 400);
     }
     
     // Update obligation status
     const [updated] = await this.db.update(performanceObligations)
       .set({
-        status: 'satisfied',
+        status: 'Fulfilled',
         endDate: typeof satisfactionDate === 'string' ? satisfactionDate : satisfactionDate.toISOString().split('T')[0],
         updatedAt: new Date()
       })
@@ -1107,5 +1238,35 @@ export class RevenueService extends BaseService {
           eq(revenueSchedules.status, 'scheduled')
         )
       );
+  }
+
+  private async clearExistingCalculationData(subscriptionId: string, organizationId: string): Promise<void> {
+    const obligationIds = await this.db.select({ id: performanceObligations.id })
+      .from(performanceObligations)
+      .where(and(
+        eq(performanceObligations.organizationId, organizationId),
+        eq(performanceObligations.subscriptionId, subscriptionId)
+      ));
+
+    if (obligationIds.length === 0) {
+      return;
+    }
+
+    const obligationIdList = obligationIds.map((o) => o.id);
+
+    await this.db.delete(revenueSchedules)
+      .where(inArray(revenueSchedules.performanceObligationId, obligationIdList));
+
+    await this.db.delete(contractSspAllocations)
+      .where(and(
+        eq(contractSspAllocations.organizationId, organizationId),
+        eq(contractSspAllocations.subscriptionId, subscriptionId)
+      ));
+
+    await this.db.delete(performanceObligations)
+      .where(and(
+        eq(performanceObligations.organizationId, organizationId),
+        eq(performanceObligations.subscriptionId, subscriptionId)
+      ));
   }
 }

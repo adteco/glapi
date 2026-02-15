@@ -4,6 +4,7 @@ import {
   InvoiceRepository,
   SubscriptionRepository,
   SubscriptionItemRepository,
+  ProjectTaskRepository,
   type Invoice,
   type NewInvoice,
   type UpdateInvoice,
@@ -109,6 +110,7 @@ export class InvoiceService extends BaseService {
   private invoiceRepository: InvoiceRepository;
   private subscriptionRepository: SubscriptionRepository;
   private subscriptionItemRepository: SubscriptionItemRepository;
+  private projectTaskRepository: ProjectTaskRepository;
 
   constructor(context: ServiceContext = {}, options: InvoiceServiceOptions = {}) {
     super(context);
@@ -116,6 +118,7 @@ export class InvoiceService extends BaseService {
     this.invoiceRepository = new InvoiceRepository(options.db);
     this.subscriptionRepository = new SubscriptionRepository(options.db);
     this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
+    this.projectTaskRepository = new ProjectTaskRepository(options.db);
   }
 
   async listInvoices(input: ListInvoicesInput = {}): Promise<PaginatedResult<Invoice>> {
@@ -382,6 +385,129 @@ export class InvoiceService extends BaseService {
       total: 0,
       message: 'Aging report will be implemented in reporting phase'
     };
+  }
+
+  /**
+   * Create an invoice from billable completed tasks
+   */
+  async createInvoiceFromBillableTasks(params: {
+    projectId: string;
+    entityId: string;
+    taskIds: string[];
+    invoiceDate?: Date | string;
+    dueDate?: Date | string;
+  }): Promise<InvoiceWithLineItems> {
+    const organizationId = this.requireOrganizationContext();
+    const { projectId, entityId, taskIds, invoiceDate, dueDate } = params;
+
+    if (taskIds.length === 0) {
+      throw new ServiceError('No tasks specified for invoicing', 'NO_TASKS', 400);
+    }
+
+    // Get all specified tasks and verify they are billable and completed
+    const tasks: any[] = [];
+    for (const taskId of taskIds) {
+      const task = await this.projectTaskRepository.findTaskById(taskId, organizationId);
+      if (!task) {
+        throw new ServiceError(`Task ${taskId} not found`, 'TASK_NOT_FOUND', 404);
+      }
+      if (task.status !== 'COMPLETED') {
+        throw new ServiceError(`Task ${task.taskName} is not completed`, 'TASK_NOT_COMPLETED', 400);
+      }
+      if (!task.isBillable) {
+        throw new ServiceError(`Task ${task.taskName} is not billable`, 'TASK_NOT_BILLABLE', 400);
+      }
+      if (task.invoicedAt) {
+        throw new ServiceError(`Task ${task.taskName} has already been invoiced`, 'TASK_ALREADY_INVOICED', 400);
+      }
+      if (task.projectId !== projectId) {
+        throw new ServiceError(`Task ${task.taskName} does not belong to the specified project`, 'TASK_PROJECT_MISMATCH', 400);
+      }
+      tasks.push(task);
+    }
+
+    // Create line items from tasks
+    const lineItems = tasks.map(task => {
+      let amount: number;
+      let description: string;
+
+      if (task.billingType === 'flat_fee') {
+        // Flat fee: use the flat fee amount
+        amount = task.flatFeeAmount ? Number(task.flatFeeAmount) : 0;
+        description = `${task.taskName} (Flat Fee)`;
+      } else {
+        // Time and materials: use actual hours × billing rate
+        const hours = task.actualHours ? Number(task.actualHours) : 0;
+        const rate = task.billingRate ? Number(task.billingRate) : 0;
+        amount = hours * rate;
+        description = `${task.taskName} (${hours} hrs @ $${rate}/hr)`;
+      }
+
+      return {
+        itemId: task.serviceItemId,
+        description,
+        quantity: '1',
+        unitPrice: String(amount.toFixed(2)),
+        amount: String(amount.toFixed(2)),
+        linkedProjectTaskId: task.id,
+      };
+    });
+
+    // Calculate totals
+    const subtotal = lineItems.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+    const taxAmount = 0; // TODO: Implement tax calculation
+    const totalAmount = subtotal + taxAmount;
+
+    const invoiceDateStr = invoiceDate
+      ? (typeof invoiceDate === 'string' ? invoiceDate : invoiceDate.toISOString().split('T')[0])
+      : new Date().toISOString().split('T')[0];
+
+    const dueDateStr = dueDate
+      ? (typeof dueDate === 'string' ? dueDate : dueDate.toISOString().split('T')[0])
+      : new Date(Date.parse(invoiceDateStr) + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 30 days
+
+    // Create the invoice
+    const invoiceData: CreateInvoiceData = {
+      entityId,
+      invoiceDate: invoiceDateStr,
+      dueDate: dueDateStr,
+      subtotal: String(subtotal.toFixed(2)),
+      taxAmount: String(taxAmount.toFixed(2)),
+      totalAmount: String(totalAmount.toFixed(2)),
+      paidAmount: '0',
+      balanceDue: String(totalAmount.toFixed(2)),
+      status: 'draft',
+      metadata: {
+        projectId,
+        taskIds,
+        generatedFromTasks: true,
+      },
+      lineItems: lineItems.map(item => ({
+        itemId: item.itemId,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        amount: item.amount,
+      })),
+    };
+
+    const invoice = await this.createInvoice(invoiceData);
+
+    // Mark tasks as invoiced
+    // Note: In a production system, this should be done in a transaction
+    // For now, we'll update each task individually
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const lineItem = invoice.lineItems?.[i];
+      if (lineItem) {
+        await this.projectTaskRepository.updateTask(task.id, organizationId, {
+          invoicedAt: new Date(),
+          invoiceLineId: lineItem.id,
+        });
+      }
+    }
+
+    return invoice;
   }
 
   private async generateInvoiceNumber(): Promise<string> {

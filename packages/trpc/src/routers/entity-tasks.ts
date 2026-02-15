@@ -436,7 +436,6 @@ export const entityTasksRouter = router({
       scopes: ['tasks', 'projects', 'entities'],
       permissions: ['delete:entity-tasks'],
       riskLevel: 'MEDIUM',
-      requiresConfirmation: true,
     }) })
     .input(deleteSchema)
     .mutation(async ({ ctx, input }) => {

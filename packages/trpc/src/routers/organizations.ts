@@ -109,7 +109,12 @@ export const organizationsRouter = router({
     .mutation(async ({ input }) => {
       const service = new OrganizationService({});
       try {
-        return await service.provisionFromClerk(input);
+        return await service.provisionFromClerk({
+          clerkOrgId: input.clerkOrgId,
+          name: input.name,
+          slug: input.slug,
+          defaultSubsidiaryName: input.defaultSubsidiaryName,
+        });
       } catch (error) {
         if (error instanceof Error && error.message.includes('already exists')) {
           throw new TRPCError({
@@ -137,6 +142,10 @@ export const organizationsRouter = router({
     )
     .mutation(async ({ input }) => {
       const service = new OrganizationService({});
-      return await service.findOrProvisionFromClerk(input);
+      return await service.findOrProvisionFromClerk({
+        clerkOrgId: input.clerkOrgId,
+        name: input.name,
+        slug: input.slug,
+      });
     }),
 });

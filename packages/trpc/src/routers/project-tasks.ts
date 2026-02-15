@@ -327,6 +327,20 @@ export const projectTasksRouter = router({
     }),
 
   /**
+   * Get billable completed tasks that have not been invoiced yet
+   */
+  getBillableCompletedTasks: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_billable_completed_tasks', 'Get billable completed tasks ready for invoicing', {
+      scopes: ['project-tasks', 'projects', 'invoicing'],
+      permissions: ['read:project-tasks'],
+    }) })
+    .input(z.object({ projectId: uuidSchema }))
+    .query(async ({ ctx, input }) => {
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
+      return service.getBillableCompletedTasks(input.projectId);
+    }),
+
+  /**
    * Get tasks by milestone
    */
   getTasksByMilestone: authenticatedProcedure

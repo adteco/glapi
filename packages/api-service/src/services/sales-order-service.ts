@@ -59,7 +59,9 @@ export class SalesOrderService extends BaseService {
     this.invoiceService = new InvoiceService(context, { db: options.db });
     this.postingEngine = new GlPostingEngine(context);
     this.periodService = new AccountingPeriodService(context, { db: options.db });
-    this.eventService = new EventService(context);
+    // Important: event_store is RLS-protected; use the same contextual DB
+    // connection so inserts satisfy org isolation policies.
+    this.eventService = new EventService(context, { db: options.db });
   }
 
   // ==========================================================================

@@ -1,68 +1,44 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
-// Obligation type enum - defines the type of performance obligation
-export const obligationTypeEnum = pgEnum("obligation_type", [
-  "product_license",
-  "maintenance_support",
-  "professional_services",
-  "hosting_services",
-  "other"
+// NOTE: These pgEnum declarations must match the live Postgres enum types in RDS.
+// If the labels drift, inserts will fail at runtime.
+
+export const performanceObligationStatusEnum = pgEnum(
+  "performance_obligation_status_enum",
+  ["Pending", "InProcess", "Fulfilled", "PartiallyFulfilled", "Cancelled"]
+);
+
+export const recognitionSourceEnum = pgEnum("recognition_source", [
+  "automatic",
+  "manual_adjustment",
+  "milestone_achievement",
 ]);
 
-// Satisfaction method enum - how the obligation is satisfied
-export const satisfactionMethodEnum = pgEnum("satisfaction_method", [
-  "point_in_time",
-  "over_time"
-]);
-
-// Recognition pattern enum - how revenue is recognized over time
-export const recognitionPatternEnum = pgEnum("recognition_pattern", [
-  "straight_line",
+// Used by contract_ssp_allocations in the live schema.
+export const allocationMethodEnum = pgEnum("allocation_method", [
   "proportional",
-  "milestone_based",
-  "usage_based"
+  "residual",
+  "specific_evidence",
 ]);
 
-// Schedule status enum - status of revenue schedule entries
-export const scheduleStatusEnum = pgEnum("schedule_status", [
-  "scheduled",
-  "recognized",
-  "deferred",
-  "cancelled"
-]);
-
-// Performance obligation status enum
-export const poStatusEnum = pgEnum("po_status", [
-  "active",
-  "satisfied",
-  "cancelled"
-]);
-
-// SSP evidence type enum
 export const evidenceTypeEnum = pgEnum("evidence_type", [
-  "standalone_sale",
-  "competitor_pricing",
-  "cost_plus_margin",
-  "market_assessment"
+  "customer_pricing",
+  "comparable_sales",
+  "market_research",
+  "cost_plus",
 ]);
 
-// Confidence level enum for SSP evidence
 export const confidenceLevelEnum = pgEnum("confidence_level", [
   "high",
   "medium",
-  "low"
+  "low",
 ]);
 
-// Allocation method enum for SSP allocations
-export const allocationMethodEnum = pgEnum("allocation_method", [
-  "ssp_proportional",
-  "residual",
-  "specified_percentage"
-]);
-
-// Journal entry status enum
+// NOTE: This enum is referenced by application code, but the live RDS schema
+// currently does not expose it on `revenue_journal_entries`. It's kept here so
+// the package compiles while we work toward unifying the journal entry schema.
 export const journalStatusEnum = pgEnum("journal_status", [
   "draft",
   "posted",
-  "reversed"
+  "failed",
 ]);

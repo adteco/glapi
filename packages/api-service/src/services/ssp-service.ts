@@ -17,7 +17,7 @@ export interface SSPServiceOptions {
 export interface CreateSSPData {
   organizationId?: string;
   itemId: string;
-  evidenceType: 'standalone_sale' | 'competitor_pricing' | 'cost_plus_margin' | 'market_assessment';
+  evidenceType: 'customer_pricing' | 'comparable_sales' | 'market_research' | 'cost_plus';
   evidenceDate: Date | string;
   sspAmount: number;
   currency?: string;
@@ -27,7 +27,7 @@ export interface CreateSSPData {
 
 export interface ListSSPEvidenceInput {
   itemId?: string;
-  evidenceType?: 'standalone_sale' | 'competitor_pricing' | 'cost_plus_margin' | 'market_assessment';
+  evidenceType?: 'customer_pricing' | 'comparable_sales' | 'market_research' | 'cost_plus';
   isActive?: boolean;
   page?: number;
   limit?: number;
@@ -142,13 +142,13 @@ export class SSPService extends BaseService {
         )
       )
       .orderBy(
-        // Priority: standalone_sale > competitor_pricing > cost_plus_margin > market_assessment
+        // Priority: customer_pricing > comparable_sales > market_research > cost_plus
         sql`
           CASE ${sspEvidence.evidenceType}
-            WHEN 'standalone_sale' THEN 1
-            WHEN 'competitor_pricing' THEN 2
-            WHEN 'cost_plus_margin' THEN 3
-            WHEN 'market_assessment' THEN 4
+            WHEN 'customer_pricing' THEN 1
+            WHEN 'comparable_sales' THEN 2
+            WHEN 'market_research' THEN 3
+            WHEN 'cost_plus' THEN 4
           END
         `,
         desc(sspEvidence.confidenceLevel),
@@ -368,10 +368,10 @@ export class SSPService extends BaseService {
     
     // Calculate weighted confidence based on evidence types and counts
     const typeWeights = {
-      standalone_sale: 1.0,
-      competitor_pricing: 0.8,
-      cost_plus_margin: 0.6,
-      market_assessment: 0.4
+      customer_pricing: 1.0,
+      comparable_sales: 0.8,
+      cost_plus: 0.6,
+      market_research: 0.4,
     };
     
     const confWeights = {

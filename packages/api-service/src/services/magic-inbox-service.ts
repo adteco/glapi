@@ -175,7 +175,7 @@ async function resolveOrganizationId(orgId: string): Promise<string | null> {
   if (orgId === 'test-org' || orgId === 'test') {
     const testOrg = await db.query.organizations.findFirst();
     if (testOrg) {
-      const testOrgId = testOrg.id as string;
+      const testOrgId = testOrg.id as unknown as string;
       console.log(`[MagicInbox] Using fallback org ${testOrgId} for test orgId: ${orgId}`);
       return testOrgId;
     }

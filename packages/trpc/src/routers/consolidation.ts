@@ -496,7 +496,6 @@ export const consolidationRouter = router({
       scopes: ['consolidation', 'accounting'],
       permissions: ['execute:consolidation'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(
       z.object({

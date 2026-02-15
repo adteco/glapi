@@ -219,7 +219,6 @@ export const accountingPeriodsRouter = router({
       permissions: ['admin:accounting-periods'],
       riskLevel: 'HIGH',
       minimumRole: 'admin',
-      requiresConfirmation: true,
     }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {

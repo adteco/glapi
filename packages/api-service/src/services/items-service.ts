@@ -61,6 +61,9 @@ export class ItemsService extends BaseService {
       assetAccountId: dbRecord.assetAccountId,
       cogsAccountId: dbRecord.cogsAccountId,
       defaultPrice: dbRecord.defaultPrice ? parseFloat(dbRecord.defaultPrice) : null,
+      listPrice: dbRecord.defaultPrice ? parseFloat(dbRecord.defaultPrice) : null,
+      defaultSspAmount: dbRecord.defaultSspAmount ? parseFloat(dbRecord.defaultSspAmount) : null,
+      revenueBehavior: dbRecord.revenueBehavior ?? null,
       defaultCost: dbRecord.defaultCost ? parseFloat(dbRecord.defaultCost) : null,
       isTaxable: dbRecord.isTaxable,
       taxCode: dbRecord.taxCode,
@@ -231,6 +234,11 @@ export class ItemsService extends BaseService {
       }
     }
     
+    const resolvedDefaultPrice =
+      validatedInput.listPrice !== undefined
+        ? validatedInput.listPrice
+        : validatedInput.defaultPrice;
+
     const created = await this.itemsRepository.create({
       organizationId,
       itemCode: validatedInput.itemCode,
@@ -246,7 +254,9 @@ export class ItemsService extends BaseService {
       expenseAccountId: validatedInput.expenseAccountId,
       assetAccountId: validatedInput.assetAccountId,
       cogsAccountId: validatedInput.cogsAccountId,
-      defaultPrice: validatedInput.defaultPrice?.toString(),
+      defaultPrice: resolvedDefaultPrice?.toString(),
+      defaultSspAmount: validatedInput.defaultSspAmount?.toString(),
+      revenueBehavior: validatedInput.revenueBehavior,
       defaultCost: validatedInput.defaultCost?.toString(),
       isTaxable: validatedInput.isTaxable,
       taxCode: validatedInput.taxCode,
@@ -358,14 +368,23 @@ export class ItemsService extends BaseService {
       // }
     }
     
+    const { listPrice: _listPrice, ...restValidatedInput } = validatedInput;
     const updateData: any = {
-      ...validatedInput,
+      ...restValidatedInput,
       updatedBy: userId,
     };
     
+    const resolvedDefaultPrice =
+      validatedInput.listPrice !== undefined
+        ? validatedInput.listPrice
+        : validatedInput.defaultPrice;
+
     // Convert numeric fields
-    if (validatedInput.defaultPrice !== undefined) {
-      updateData.defaultPrice = validatedInput.defaultPrice?.toString() || null;
+    if (resolvedDefaultPrice !== undefined) {
+      updateData.defaultPrice = resolvedDefaultPrice?.toString() || null;
+    }
+    if (validatedInput.defaultSspAmount !== undefined) {
+      updateData.defaultSspAmount = validatedInput.defaultSspAmount?.toString() || null;
     }
     if (validatedInput.defaultCost !== undefined) {
       updateData.defaultCost = validatedInput.defaultCost?.toString() || null;

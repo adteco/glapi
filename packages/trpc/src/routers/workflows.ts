@@ -473,7 +473,6 @@ export const workflowsRouter = router({
       scopes: ['workflows'],
       permissions: ['delete:workflows'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {

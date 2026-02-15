@@ -50,6 +50,7 @@ import * as subscriptionItems from './subscription-items';
 import * as subscriptionVersions from './subscription-versions';
 import * as billingSchedulesSchemas from './billing-schedules';
 import * as invoices from './invoices';
+import * as invoiceLineItemsSchemas from './invoice-line-items';
 import * as payments from './payments';
 import * as revenueEnums from './revenue-enums';
 import * as performanceObligationsNew from './performance-obligations';
@@ -214,6 +215,7 @@ export const schema = {
   ...subscriptionVersions,
   ...billingSchedulesSchemas,
   ...invoices,
+  ...invoiceLineItemsSchemas,
   ...payments,
   ...revenueEnums,
   ...performanceObligationsNew,
@@ -321,6 +323,8 @@ export type { KitComponent } from './kit-components';
 export { subscriptions } from './subscriptions';
 export { subscriptionItems } from './subscription-items';
 export { invoices } from './invoices';
+export { invoiceLineItems } from './invoice-line-items';
+export type { InvoiceLineItem, NewInvoiceLineItem, UpdateInvoiceLineItem } from './invoice-line-items';
 export { payments } from './payments';
 
 // Re-export contract modification schemas
@@ -936,9 +940,11 @@ export {
   projectTaskStatusEnum,
   projectTaskPriorityEnum,
   projectMilestoneStatusEnum,
+  taskBillingTypeEnum,
   PROJECT_TASK_STATUS,
   PROJECT_TASK_PRIORITY,
   PROJECT_MILESTONE_STATUS,
+  TASK_BILLING_TYPE,
 } from './project-tasks';
 export type {
   ProjectMilestone,
@@ -958,6 +964,7 @@ export type {
   ProjectTaskStatus,
   ProjectTaskPriority,
   ProjectMilestoneStatus,
+  TaskBillingType,
 } from './project-tasks';
 
 // Re-export Accounting Lists schemas

@@ -41,7 +41,7 @@ export interface VendorBillPaginationParams {
 
 export interface CreateVendorBillData {
   organizationId: string;
-  subsidiaryId?: string;
+  subsidiaryId: string;
   billNumber: string;
   vendorInvoiceNumber?: string;
   vendorId: string;
@@ -182,40 +182,44 @@ export class VendorBillRepository extends BaseRepository {
    * Create a new vendor bill
    */
   async create(data: CreateVendorBillData) {
+    // Build values without passing `undefined` for optional columns (Drizzle insert types reject `undefined`).
+    const values: typeof vendorBills.$inferInsert = {
+      organizationId: data.organizationId,
+      subsidiaryId: data.subsidiaryId,
+      billNumber: data.billNumber,
+      vendorId: data.vendorId,
+      billDate: data.billDate,
+      dueDate: data.dueDate,
+      status: data.status,
+      threeWayMatchStatus: data.threeWayMatchStatus,
+      subtotal: data.subtotal,
+      taxAmount: data.taxAmount,
+      shippingAmount: data.shippingAmount,
+      totalAmount: data.totalAmount,
+      paidAmount: data.paidAmount,
+      balanceDue: data.balanceDue,
+      discountTaken: data.discountTaken,
+      currencyCode: data.currencyCode,
+      exchangeRate: data.exchangeRate,
+      createdBy: data.createdBy,
+      updatedBy: data.updatedBy,
+    };
+
+    if (data.vendorInvoiceNumber !== undefined) values.vendorInvoiceNumber = data.vendorInvoiceNumber;
+    if (data.vendorName !== undefined) values.vendorName = data.vendorName;
+    if (data.purchaseOrderId !== undefined) values.purchaseOrderId = data.purchaseOrderId;
+    if (data.receivedDate !== undefined) values.receivedDate = data.receivedDate ?? null;
+    if (data.discountDate !== undefined) values.discountDate = data.discountDate ?? null;
+    if (data.discountPercent !== undefined) values.discountPercent = data.discountPercent;
+    if (data.discountAmount !== undefined) values.discountAmount = data.discountAmount;
+    if (data.apAccountId !== undefined) values.apAccountId = data.apAccountId;
+    if (data.paymentTerms !== undefined) values.paymentTerms = data.paymentTerms;
+    if (data.memo !== undefined) values.memo = data.memo;
+    if (data.internalNotes !== undefined) values.internalNotes = data.internalNotes;
+
     const [result] = await this.db
       .insert(vendorBills)
-      .values({
-        organizationId: data.organizationId,
-        subsidiaryId: data.subsidiaryId,
-        billNumber: data.billNumber,
-        vendorInvoiceNumber: data.vendorInvoiceNumber,
-        vendorId: data.vendorId,
-        vendorName: data.vendorName,
-        purchaseOrderId: data.purchaseOrderId,
-        billDate: data.billDate,
-        dueDate: data.dueDate,
-        receivedDate: data.receivedDate,
-        status: data.status,
-        threeWayMatchStatus: data.threeWayMatchStatus,
-        subtotal: data.subtotal,
-        taxAmount: data.taxAmount,
-        shippingAmount: data.shippingAmount,
-        totalAmount: data.totalAmount,
-        paidAmount: data.paidAmount,
-        balanceDue: data.balanceDue,
-        discountDate: data.discountDate,
-        discountPercent: data.discountPercent,
-        discountAmount: data.discountAmount,
-        discountTaken: data.discountTaken,
-        apAccountId: data.apAccountId,
-        paymentTerms: data.paymentTerms,
-        currencyCode: data.currencyCode,
-        exchangeRate: data.exchangeRate,
-        memo: data.memo,
-        internalNotes: data.internalNotes,
-        createdBy: data.createdBy,
-        updatedBy: data.updatedBy,
-      })
+      .values(values)
       .returning();
 
     return result;
