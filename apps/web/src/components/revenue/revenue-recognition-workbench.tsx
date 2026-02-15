@@ -85,6 +85,7 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
   const [scenarioUnitPrice, setScenarioUnitPrice] = useState<number>(100);
   const [effectiveDate, setEffectiveDate] = useState<string>(today);
   const [lastPlanResult, setLastPlanResult] = useState<any | null>(null);
+  const [seededDemo, setSeededDemo] = useState<any | null>(null);
 
   const subscriptionsQuery = trpc.subscriptions.list.useQuery({
     page: 1,
@@ -147,6 +148,8 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
     { enabled: !!selectedSubscriptionId }
   );
 
+  const demoScenariosQuery = trpc.revenue.listSoftwareDemoScenarios.useQuery();
+
   const createPlanMutation = trpc.salesOrders.createWithRevenuePlan.useMutation({
     onSuccess: async (result) => {
       setSelectedSubscriptionId(result.subscription.id);
@@ -188,6 +191,22 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
       await Promise.all([
         utils.revenue.subscriptionPlan.invalidate({ subscriptionId: selectedSubscriptionId }),
         utils.subscriptions.get.invalidate({ id: selectedSubscriptionId }),
+        utils.subscriptions.list.invalidate(),
+      ]);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const seedDemoMutation = trpc.revenue.seedSoftwareDemoScenarios.useMutation({
+    onSuccess: async (result) => {
+      setSeededDemo(result);
+      const firstScenario = result?.scenarios?.[0];
+      if (firstScenario?.subscriptionId) {
+        setSelectedSubscriptionId(String(firstScenario.subscriptionId));
+      }
+      toast.success('Seeded demo ASC 606 software scenarios');
+      await Promise.all([
+        utils.revenue.listSoftwareDemoScenarios.invalidate(),
         utils.subscriptions.list.invalidate(),
       ]);
     },
@@ -354,6 +373,90 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Demo Data (Software Scenarios)</CardTitle>
+          <CardDescription>
+            Seed typical ASC-606 software cases: prepaid annual, monthly billing, discount with SSP allocation, upsell,
+            downsell, and cancellation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => seedDemoMutation.mutate({ forceRecalculate: false })}
+              disabled={seedDemoMutation.isPending}
+            >
+              {seedDemoMutation.isPending ? 'Seeding...' : 'Seed Demo Software Scenarios'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => demoScenariosQuery.refetch()}
+              disabled={demoScenariosQuery.isFetching}
+            >
+              Refresh List
+            </Button>
+          </div>
+
+          {(() => {
+            const scenarios = (seededDemo?.scenarios || demoScenariosQuery.data || []) as any[];
+            if (!Array.isArray(scenarios) || scenarios.length === 0) {
+              return <div className="text-sm text-muted-foreground">No demo scenarios found yet.</div>;
+            }
+
+            const labelFromNumber = (n: string) => {
+              const map: Record<string, string> = {
+                'DEMO-ASC606-PREPAID-ANNUAL-12K': 'Prepaid Annual ($12k) Straight-Line',
+                'DEMO-ASC606-BILLED-MONTHLY-12K': 'Monthly Billed ($12k) Straight-Line',
+                'DEMO-ASC606-BUNDLE-DISCOUNT-SSP': 'Bundle Discount (SSP Allocation)',
+                'DEMO-ASC606-UPSELL-ADD-SEATS': 'Upsell (Add Seats) Mid-Term',
+                'DEMO-ASC606-DOWNSELL-REMOVE-SEATS': 'Downsell (Remove Seats) Mid-Term',
+                'DEMO-ASC606-CANCELLATION-MIDTERM': 'Cancellation Mid-Term (Prorated)',
+              };
+              return map[n] || n;
+            };
+
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2">Scenario</th>
+                      <th className="py-2">Subscription</th>
+                      <th className="py-2">Status</th>
+                      <th className="py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scenarios.map((row) => {
+                      const subscriptionId = String(row.subscriptionId || row.id);
+                      const subscriptionNumber = String(row.subscriptionNumber || '');
+                      return (
+                        <tr key={subscriptionId} className="border-b">
+                          <td className="py-2">{row.label || labelFromNumber(subscriptionNumber)}</td>
+                          <td className="py-2 font-mono">{subscriptionNumber || subscriptionId}</td>
+                          <td className="py-2">{row.status || 'active'}</td>
+                          <td className="py-2 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedSubscriptionId(subscriptionId)}
+                            >
+                              Load
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
       {showContractCreation && (
         <Card>
           <CardHeader>
@@ -747,6 +850,76 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
                       <td className="py-2">{row.satisfactionMethod}</td>
                       <td className="py-2 font-mono">{currency(Number(row.allocatedAmount || 0))}</td>
                       <td className="py-2">{row.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {plan?.allocations?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>SSP Allocation</CardTitle>
+            <CardDescription>Allocated transaction price by SSP ratios</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2">Obligation</th>
+                    <th className="py-2 font-mono">Item</th>
+                    <th className="py-2 text-right">SSP</th>
+                    <th className="py-2 text-right">Allocated</th>
+                    <th className="py-2 text-right">%</th>
+                    <th className="py-2">Method</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plan.allocations.map((row: any) => (
+                    <tr key={row.id} className="border-b">
+                      <td className="py-2">{row.obligationType}</td>
+                      <td className="py-2 font-mono">{row.itemId}</td>
+                      <td className="py-2 text-right font-mono">{currency(Number(row.sspAmount || 0))}</td>
+                      <td className="py-2 text-right font-mono">{currency(Number(row.allocatedAmount || 0))}</td>
+                      <td className="py-2 text-right font-mono">
+                        {row.allocationPercentage === null || row.allocationPercentage === undefined
+                          ? '—'
+                          : `${(Number(row.allocationPercentage) * 100).toFixed(2)}%`}
+                      </td>
+                      <td className="py-2">{row.allocationMethod}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {plan?.invoiceSchedule?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice Schedule</CardTitle>
+            <CardDescription>Billing schedule derived from billing frequency (demo)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2">Invoice Date</th>
+                    <th className="py-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plan.invoiceSchedule.map((row: any) => (
+                    <tr key={row.invoiceDate} className="border-b">
+                      <td className="py-2 font-mono">{row.invoiceDate}</td>
+                      <td className="py-2 text-right font-mono">{currency(Number(row.amount || 0))}</td>
                     </tr>
                   ))}
                 </tbody>
