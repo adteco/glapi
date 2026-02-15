@@ -86,6 +86,7 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
   const [effectiveDate, setEffectiveDate] = useState<string>(today);
   const [lastPlanResult, setLastPlanResult] = useState<any | null>(null);
   const [seededDemo, setSeededDemo] = useState<any | null>(null);
+  const [loadingPlanForSubscriptionId, setLoadingPlanForSubscriptionId] = useState<string>('');
 
   const subscriptionsQuery = trpc.subscriptions.list.useQuery({
     page: 1,
@@ -371,6 +372,33 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
     });
   };
 
+  const loadSubscriptionPlan = async (subscriptionId: string, maybePlan?: any) => {
+    if (!subscriptionId) return;
+
+    setSelectedSubscriptionId(subscriptionId);
+    if (maybePlan) {
+      setLastPlanResult(maybePlan);
+      if (maybePlan?.obligations?.[0]?.itemId) {
+        setSelectedItemId(String(maybePlan.obligations[0].itemId));
+      }
+    }
+
+    setLoadingPlanForSubscriptionId(subscriptionId);
+    try {
+      // Force a fresh fetch so the user sees a deterministic result when clicking "Load".
+      const fetched = await utils.revenue.subscriptionPlan.fetch({ subscriptionId });
+      setLastPlanResult(fetched);
+      if (fetched?.obligations?.[0]?.itemId) {
+        setSelectedItemId(String(fetched.obligations[0].itemId));
+      }
+      toast.success('Loaded subscription plan');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to load subscription plan');
+    } finally {
+      setLoadingPlanForSubscriptionId('');
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -432,6 +460,7 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
                     {scenarios.map((row) => {
                       const subscriptionId = String(row.subscriptionId || row.id);
                       const subscriptionNumber = String(row.subscriptionNumber || '');
+                      const isLoading = loadingPlanForSubscriptionId === subscriptionId;
                       return (
                         <tr key={subscriptionId} className="border-b">
                           <td className="py-2">{row.label || labelFromNumber(subscriptionNumber)}</td>
@@ -441,9 +470,10 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedSubscriptionId(subscriptionId)}
+                              disabled={isLoading}
+                              onClick={() => loadSubscriptionPlan(subscriptionId, row.plan)}
                             >
-                              Load
+                              {isLoading ? 'Loading...' : 'Load'}
                             </Button>
                           </td>
                         </tr>
