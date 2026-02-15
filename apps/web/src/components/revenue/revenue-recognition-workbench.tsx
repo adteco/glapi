@@ -209,6 +209,9 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
       await Promise.all([
         utils.revenue.listSoftwareDemoScenarios.invalidate(),
         utils.subscriptions.list.invalidate(),
+        utils.subsidiaries.list.invalidate(),
+        utils.customers.list.invalidate(),
+        utils.items.list.invalidate(),
       ]);
     },
     onError: (error) => toast.error(error.message),

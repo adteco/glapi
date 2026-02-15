@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { RevenueService, SSPService, SubscriptionService, CustomerService } from '@glapi/api-service';
-import { items, subscriptionItems, subscriptions, unitsOfMeasure } from '@glapi/database/schema';
+import { items, subscriptionItems, subscriptions, subsidiaries, unitsOfMeasure } from '@glapi/database/schema';
 import { TRPCError } from '@trpc/server';
 import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 import { and, desc, eq, ilike } from 'drizzle-orm';
@@ -573,6 +573,34 @@ export const revenueRouter = router({
       const subscriptionService = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       const revenueService = new RevenueService(ctx.serviceContext, { db: ctx.db });
       const customerService = new CustomerService(ctx.serviceContext, { db: ctx.db });
+
+      // 0) Ensure at least one subsidiary exists. Sales orders require `subsidiary_id`.
+      const [existingDemoSubsidiary] = await ctx.db
+        .select()
+        .from(subsidiaries)
+        .where(and(
+          eq(subsidiaries.organizationId, organizationId),
+          eq(subsidiaries.code, 'DEMO')
+        ))
+        .limit(1);
+
+      if (!existingDemoSubsidiary) {
+        const [anySubsidiary] = await ctx.db
+          .select({ id: subsidiaries.id })
+          .from(subsidiaries)
+          .where(eq(subsidiaries.organizationId, organizationId))
+          .limit(1);
+
+        if (!anySubsidiary) {
+          await ctx.db.insert(subsidiaries).values({
+            organizationId,
+            name: 'Demo Subsidiary',
+            code: 'DEMO',
+            description: 'Seeded automatically for ASC-606 demo scenarios.',
+            isActive: true,
+          });
+        }
+      }
 
       // 1) Ensure unit-of-measure (EA) exists for demo items.
       const [existingUom] = await ctx.db.select()

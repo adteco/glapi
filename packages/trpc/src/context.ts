@@ -43,8 +43,12 @@ export interface User {
   role: 'user' | 'admin';
 
   /**
-   * @deprecated Use `clerkId` instead. This alias exists for backward compatibility.
-   * Returns the Clerk user ID (NOT an entity UUID).
+   * Internal user identifier used for RLS context and audit fields.
+   *
+   * In practice this should be a UUID (typically the Entity ID). `clerkId` remains
+   * the external auth identifier.
+   *
+   * @deprecated Prefer `entityId` for audit fields and `clerkId` for external identity.
    */
   id: string;
 }
@@ -96,7 +100,8 @@ export async function createContext(opts: CreateContextOptions) {
     entityId: user.entityId,
     clerkUserId: user.clerkId,
     // Deprecated alias
-    userId: user.clerkId,
+    // Many tables use UUID audit fields; prefer entityId when present.
+    userId: user.entityId ?? user.id,
   } : undefined;
 
   return {

@@ -168,6 +168,7 @@ export class RevenueCalculationEngine {
       const lineMetadata = this.toMetadataRecord(item.metadata);
       const lineBehavior = this.parseSatisfactionMethod(lineMetadata.revenueBehavior);
       const lineSspAmount = this.toOptionalNumber(lineMetadata.sspAmount);
+      const lineListPrice = this.toOptionalNumber(lineMetadata.listPrice);
       const isKit = await this.isKitItem(item.itemId);
       
       if (isKit) {
@@ -221,6 +222,7 @@ export class RevenueCalculationEngine {
         const baseSsp =
           lineSspAmount ??
           this.toOptionalNumber(itemDetails?.defaultSspAmount) ??
+          lineListPrice ??
           this.toOptionalNumber(itemDetails?.defaultPrice);
         const sspOverrideAmount =
           baseSsp === undefined ? undefined : baseSsp * (Number.isFinite(lineQty) && lineQty > 0 ? lineQty : 1);
@@ -407,7 +409,20 @@ export class RevenueCalculationEngine {
   }
 
   private toMetadataRecord(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== 'object') return {};
+    if (!value) return {};
+    // Some DB drivers / legacy rows can return jsonb as a string. Be tolerant.
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        if (parsed && typeof parsed === 'object') {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        return {};
+      }
+      return {};
+    }
+    if (typeof value !== 'object') return {};
     return value as Record<string, unknown>;
   }
 
@@ -509,37 +524,8 @@ export class RevenueCalculationEngine {
       };
     }
 
-    // Get the best available SSP evidence for the item
-    const evidence = await this.db.select()
-      .from(sspEvidence)
-      .where(
-        and(
-          eq(sspEvidence.organizationId, organizationId),
-          eq(sspEvidence.itemId, itemId),
-          eq(sspEvidence.isActive, true)
-        )
-      )
-      .orderBy(
-        // Priority: customer_pricing > comparable_sales > market_research > cost_plus
-        sql`
-          CASE ${sspEvidence.evidenceType}
-            WHEN 'customer_pricing' THEN 1
-            WHEN 'comparable_sales' THEN 2
-            WHEN 'market_research' THEN 3
-            WHEN 'cost_plus' THEN 4
-          END
-        `
-      )
-      .limit(1);
-    
-    if (evidence.length > 0) {
-      return {
-        amount: parseFloat(evidence[0].sspAmount),
-        confidence: evidence[0].confidenceLevel
-      };
-    }
-
-    // Fallback to item-level defaults if no SSP evidence is available.
+    // Prefer item-level defaults before attempting to read SSP evidence.
+    // This keeps the engine usable in environments where SSP evidence isn't configured yet.
     const item = await this.itemRepo.findById(itemId, organizationId);
     const itemDefaultSsp = this.toOptionalNumber(item?.defaultSspAmount);
     if (itemDefaultSsp && itemDefaultSsp > 0) {
@@ -554,6 +540,43 @@ export class RevenueCalculationEngine {
       return {
         amount: itemListPrice,
         confidence: 'medium',
+      };
+    }
+
+    // Get the best available SSP evidence for the item
+    // NOTE: SSP evidence schemas vary across deployments (legacy vs items-based).
+    // Treat missing-column errors as "no evidence" so planning doesn't hard-fail.
+    let evidence: any[] = [];
+    try {
+      evidence = await this.db.select()
+        .from(sspEvidence)
+        .where(
+          and(
+            eq(sspEvidence.organizationId, organizationId),
+            eq(sspEvidence.itemId, itemId),
+            eq(sspEvidence.isActive, true)
+          )
+        )
+        .orderBy(
+          // Priority: customer_pricing > comparable_sales > market_research > cost_plus
+          sql`
+            CASE ${sspEvidence.evidenceType}
+              WHEN 'customer_pricing' THEN 1
+              WHEN 'comparable_sales' THEN 2
+              WHEN 'market_research' THEN 3
+              WHEN 'cost_plus' THEN 4
+            END
+          `
+        )
+        .limit(1);
+    } catch {
+      evidence = [];
+    }
+    
+    if (evidence.length > 0) {
+      return {
+        amount: parseFloat(evidence[0].sspAmount),
+        confidence: evidence[0].confidenceLevel
       };
     }
     
