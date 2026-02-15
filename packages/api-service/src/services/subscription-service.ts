@@ -231,7 +231,16 @@ export class SubscriptionService extends BaseService {
     const changedFields = this.detectChangedFields(existingSubscription, data);
 
     // Update subscription
-    const { items, changeReason, ...subscriptionData } = data;
+    // Normalize date inputs to YYYY-MM-DD to avoid timezone drift between Date/string.
+    const { items, changeReason, ...subscriptionDataRaw } = data;
+    const subscriptionData: any = { ...subscriptionDataRaw };
+    if (subscriptionData.startDate instanceof Date) {
+      subscriptionData.startDate = subscriptionData.startDate.toISOString().split('T')[0];
+    }
+    if (subscriptionData.endDate instanceof Date) {
+      subscriptionData.endDate = subscriptionData.endDate.toISOString().split('T')[0];
+    }
+
     const updatedSubscription = await this.subscriptionRepository.update(id, subscriptionData);
 
     if (!updatedSubscription) {

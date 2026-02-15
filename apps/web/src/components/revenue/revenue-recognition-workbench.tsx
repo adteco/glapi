@@ -223,10 +223,10 @@ export default function RevenueRecognitionWorkbench({ mode = 'full' }: RevenueRe
   }, [existingItems, selectedItemId]);
 
   const plan = useMemo(() => {
-    if (planQuery.data) return planQuery.data;
     if (lastPlanResult && selectedSubscriptionId && lastPlanResult.subscription?.id === selectedSubscriptionId) {
       return lastPlanResult;
     }
+    if (planQuery.data) return planQuery.data;
     if (!selectedSubscriptionId && lastPlanResult) return lastPlanResult;
     return null;
   }, [planQuery.data, lastPlanResult, selectedSubscriptionId]);

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { RevenueService, SSPService, SubscriptionService, CustomerService } from '@glapi/api-service';
-import { items, subscriptions, unitsOfMeasure } from '@glapi/database/schema';
+import { items, subscriptionItems, subscriptions, unitsOfMeasure } from '@glapi/database/schema';
 import { TRPCError } from '@trpc/server';
 import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 import { and, desc, eq, ilike } from 'drizzle-orm';
@@ -560,15 +560,15 @@ export const revenueRouter = router({
     }) })
     .input(z.object({
       /**
-       * If true, reruns revenue calculations for existing demo subscriptions.
-       * Does not delete subscriptions.
+       * Deprecated: kept for compatibility. Seeding is always deterministic and will
+       * reset + recalculate demo subscriptions on each run.
        */
       forceRecalculate: z.boolean().default(false),
     }).optional())
     .mutation(async ({ ctx, input }) => {
       const organizationId = ctx.organizationId;
       const demoTag = 'asc606-software-v1';
-      const forceRecalculate = input?.forceRecalculate ?? false;
+      void input?.forceRecalculate;
 
       const subscriptionService = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
       const revenueService = new RevenueService(ctx.serviceContext, { db: ctx.db });
@@ -666,348 +666,330 @@ export const revenueRouter = router({
       const startDate = new Date('2026-01-01T00:00:00Z');
       const endDate = new Date('2026-12-31T00:00:00Z');
 
+      const toDateOnlyUtc = (d: Date): Date =>
+        new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+
+      const ymd = (d: Date): string => toDateOnlyUtc(d).toISOString().slice(0, 10);
+
+      const daysInclusiveUtc = (a: Date, b: Date): number => {
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const diff = Math.floor((toDateOnlyUtc(b).getTime() - toDateOnlyUtc(a).getTime()) / msPerDay);
+        return diff + 1;
+      };
+
+      const fractionOfSegmentUtc = (segmentStart: Date, segmentEnd: Date, activeStart: Date, activeEnd: Date): number => {
+        const segStart = toDateOnlyUtc(segmentStart);
+        const segEnd = toDateOnlyUtc(segmentEnd);
+        const actStart = toDateOnlyUtc(activeStart);
+        const actEnd = toDateOnlyUtc(activeEnd);
+        if (actEnd.getTime() < actStart.getTime()) return 0;
+        if (segEnd.getTime() < segStart.getTime()) return 0;
+        const denom = daysInclusiveUtc(segStart, segEnd);
+        const numer = daysInclusiveUtc(actStart, actEnd);
+        return denom > 0 ? Math.min(Math.max(numer / denom, 0), 1) : 0;
+      };
+
+      const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+
       const scenarios: Array<{
         id: string;
         label: string;
         subscriptionId: string;
         subscriptionNumber: string;
-        plan: any;
       }> = [];
-
-      async function getOrCreateSubscriptionByNumber(subscriptionNumber: string, createFn: () => Promise<string>) {
-        const existing = await subscriptionService.getSubscriptionByNumber(subscriptionNumber);
-        if (existing) return existing.id;
-        return createFn();
-      }
 
       async function recalc(subscriptionId: string, calculationType: 'initial' | 'modification' | 'termination', effectiveDate: Date) {
         await revenueService.calculateRevenue(subscriptionId, calculationType, effectiveDate, { forceRecalculation: true });
-        return revenueService.getSubscriptionPlan({ subscriptionId });
+      }
+
+      // Hard-reset demo subscriptions in-place so "Seed Demo" is deterministic even after users
+      // apply additional license changes in the UI.
+      async function upsertDemoSubscription(params: {
+        subscriptionNumber: string;
+        status: 'active' | 'cancelled';
+        startDate: Date;
+        endDate: Date;
+        billingFrequency: 'monthly' | 'annual';
+        renewalTermMonths: number;
+        contractValue: number;
+        metadata: Record<string, unknown>;
+        items: Array<{
+          itemId: string;
+          quantity: number;
+          unitPrice: number;
+          startDate: Date;
+          endDate: Date;
+          metadata?: Record<string, unknown>;
+        }>;
+      }): Promise<string> {
+        const existing = await subscriptionService.getSubscriptionByNumber(params.subscriptionNumber);
+        if (!existing) {
+          const created = await subscriptionService.createSubscription({
+            entityId: demoCustomer.id,
+            subscriptionNumber: params.subscriptionNumber,
+            status: params.status,
+            startDate: params.startDate,
+            endDate: params.endDate,
+            billingFrequency: params.billingFrequency,
+            renewalTermMonths: params.renewalTermMonths,
+            contractValue: params.contractValue,
+            metadata: params.metadata,
+            items: params.items.map((i) => ({
+              itemId: i.itemId,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              startDate: i.startDate,
+              endDate: i.endDate,
+              metadata: i.metadata,
+            })),
+          } as any);
+          return created.id;
+        }
+
+        await ctx.db
+          .update(subscriptions)
+          .set({
+            status: params.status,
+            startDate: ymd(params.startDate),
+            endDate: ymd(params.endDate),
+            billingFrequency: params.billingFrequency,
+            renewalTermMonths: params.renewalTermMonths,
+            contractValue: String(params.contractValue),
+            metadata: params.metadata as any,
+          })
+          .where(and(eq(subscriptions.organizationId, organizationId), eq(subscriptions.id, existing.id)));
+
+        await ctx.db
+          .delete(subscriptionItems)
+          .where(and(eq(subscriptionItems.organizationId, organizationId), eq(subscriptionItems.subscriptionId, existing.id)));
+
+        await ctx.db.insert(subscriptionItems).values(
+          params.items.map((i) => ({
+            organizationId,
+            subscriptionId: existing.id,
+            itemId: i.itemId,
+            quantity: String(i.quantity),
+            unitPrice: String(i.unitPrice),
+            discountPercentage: '0',
+            startDate: ymd(i.startDate),
+            endDate: ymd(i.endDate),
+            metadata: (i.metadata || null) as any,
+          }))
+        );
+
+        return existing.id;
       }
 
       // A) $12,000 prepaid annually, recognized over 12 months
       {
         const subscriptionNumber = 'DEMO-ASC606-PREPAID-ANNUAL-12K';
-        const subscriptionId = await getOrCreateSubscriptionByNumber(subscriptionNumber, async () => {
-          const created = await subscriptionService.createSubscription({
-            entityId: demoCustomer.id,
-            subscriptionNumber,
-            status: 'active',
-            startDate,
-            endDate,
-            billingFrequency: 'annual',
-            renewalTermMonths: 12,
-            contractValue: 12000,
-            metadata: { demoTag, scenario: 'prepaid_annual_12k' },
-            items: [
-              {
-                itemId: seatItem.id,
-                quantity: 100,
-                unitPrice: 120,
-                startDate,
-                endDate,
-                metadata: {
-                  revenueBehavior: 'over_time',
-                  sspAmount: 120,
-                  listPrice: 120,
-                },
-              },
-            ],
-          } as any);
-          return created.id;
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'annual',
+          renewalTermMonths: 12,
+          contractValue: 12000,
+          metadata: { demoTag, scenario: 'prepaid_annual_12k' },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 120,
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+          ],
         });
-
-        const plan = forceRecalculate ? await recalc(subscriptionId, 'initial', startDate) : await revenueService.getSubscriptionPlan({ subscriptionId });
-        scenarios.push({ id: 'prepaid_annual_12k', label: 'Prepaid Annual ($12k) Straight-Line', subscriptionId, subscriptionNumber, plan });
+        await recalc(subscriptionId, 'initial', startDate);
+        scenarios.push({ id: 'prepaid_annual_12k', label: 'Prepaid Annual ($12k) Straight-Line', subscriptionId, subscriptionNumber });
       }
 
       // B) $12,000 billed monthly, same revenue recognition (billing vs recognition)
       {
         const subscriptionNumber = 'DEMO-ASC606-BILLED-MONTHLY-12K';
-        const subscriptionId = await getOrCreateSubscriptionByNumber(subscriptionNumber, async () => {
-          const created = await subscriptionService.createSubscription({
-            entityId: demoCustomer.id,
-            subscriptionNumber,
-            status: 'active',
-            startDate,
-            endDate,
-            billingFrequency: 'monthly',
-            renewalTermMonths: 12,
-            contractValue: 12000,
-            metadata: { demoTag, scenario: 'billed_monthly_12k' },
-            items: [
-              {
-                itemId: seatItem.id,
-                quantity: 100,
-                unitPrice: 120,
-                startDate,
-                endDate,
-                metadata: {
-                  revenueBehavior: 'over_time',
-                  sspAmount: 120,
-                  listPrice: 120,
-                },
-              },
-            ],
-          } as any);
-          return created.id;
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: 12000,
+          metadata: { demoTag, scenario: 'billed_monthly_12k' },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 120,
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+          ],
         });
-
-        const plan = forceRecalculate ? await recalc(subscriptionId, 'initial', startDate) : await revenueService.getSubscriptionPlan({ subscriptionId });
-        scenarios.push({ id: 'billed_monthly_12k', label: 'Monthly Billed ($12k) Straight-Line', subscriptionId, subscriptionNumber, plan });
+        await recalc(subscriptionId, 'initial', startDate);
+        scenarios.push({ id: 'billed_monthly_12k', label: 'Monthly Billed ($12k) Straight-Line', subscriptionId, subscriptionNumber });
       }
 
       // C) Discounted bundle (SSP reallocation across subscription + implementation)
       {
         const subscriptionNumber = 'DEMO-ASC606-BUNDLE-DISCOUNT-SSP';
-        const subscriptionId = await getOrCreateSubscriptionByNumber(subscriptionNumber, async () => {
-          const created = await subscriptionService.createSubscription({
-            entityId: demoCustomer.id,
-            subscriptionNumber,
-            status: 'active',
-            startDate,
-            endDate,
-            billingFrequency: 'annual',
-            renewalTermMonths: 12,
-            // Transaction price discounted vs total SSP.
-            contractValue: 14000, // 100 seats @ $100 (10k) + impl $4k
-            metadata: { demoTag, scenario: 'bundle_discount_ssp_realloc' },
-            items: [
-              {
-                itemId: seatItem.id,
-                quantity: 100,
-                unitPrice: 100, // discounted vs listPrice/SSP
-                startDate,
-                endDate,
-                metadata: {
-                  revenueBehavior: 'over_time',
-                  sspAmount: 120, // per-seat SSP
-                  listPrice: 120,
-                },
-              },
-              {
-                itemId: implItem.id,
-                quantity: 1,
-                unitPrice: 4000,
-                startDate,
-                endDate: startDate,
-                metadata: {
-                  revenueBehavior: 'point_in_time',
-                  sspAmount: 4000,
-                  listPrice: 4000,
-                },
-              },
-            ],
-          } as any);
-          return created.id;
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'annual',
+          renewalTermMonths: 12,
+          // Transaction price discounted vs total SSP.
+          contractValue: 14000, // 100 seats @ $100 (10k) + impl $4k
+          metadata: { demoTag, scenario: 'bundle_discount_ssp_realloc' },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 100, // discounted vs listPrice/SSP
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+            {
+              itemId: implItem.id,
+              quantity: 1,
+              unitPrice: 4000,
+              startDate,
+              endDate: startDate,
+              metadata: { revenueBehavior: 'point_in_time', sspAmount: 4000, listPrice: 4000 },
+            },
+          ],
         });
-
-        const plan = forceRecalculate ? await recalc(subscriptionId, 'initial', startDate) : await revenueService.getSubscriptionPlan({ subscriptionId });
-        scenarios.push({ id: 'bundle_discount_ssp_realloc', label: 'Bundle Discount (SSP Allocation)', subscriptionId, subscriptionNumber, plan });
+        await recalc(subscriptionId, 'initial', startDate);
+        scenarios.push({ id: 'bundle_discount_ssp_realloc', label: 'Bundle Discount (SSP Allocation)', subscriptionId, subscriptionNumber });
       }
 
       // D) Add seats mid-term (upsell)
       {
         const subscriptionNumber = 'DEMO-ASC606-UPSELL-ADD-SEATS';
-        const subscriptionId = await getOrCreateSubscriptionByNumber(subscriptionNumber, async () => {
-          const created = await subscriptionService.createSubscription({
-            entityId: demoCustomer.id,
-            subscriptionNumber,
-            status: 'active',
-            startDate,
-            endDate,
-            billingFrequency: 'monthly',
-            renewalTermMonths: 12,
-            contractValue: 12000,
-            metadata: { demoTag, scenario: 'upsell_add_seats' },
-            items: [
-              {
-                itemId: seatItem.id,
-                quantity: 100,
-                unitPrice: 120,
-                startDate,
-                endDate,
-                metadata: {
-                  revenueBehavior: 'over_time',
-                  sspAmount: 120,
-                  listPrice: 120,
-                },
-              },
-            ],
-          } as any);
-
-          await revenueService.calculateRevenue(created.id, 'initial', startDate, { forceRecalculation: true });
-
-          const effectiveDate = new Date('2026-04-01T00:00:00Z');
-          await subscriptionService.amendSubscription({
-            subscriptionId: created.id,
-            effectiveDate,
-            reason: 'Upsell: add 20 seats',
-            changes: {
-              contractValue: 14400,
-              items: [
-                {
-                  itemId: seatItem.id,
-                  quantity: 120,
-                  unitPrice: 120,
-                  startDate,
-                  endDate,
-                  metadata: {
-                    revenueBehavior: 'over_time',
-                    sspAmount: 120,
-                    listPrice: 120,
-                  },
-                },
-              ],
-              metadata: { demoTag, scenario: 'upsell_add_seats', lastEvent: 'upsell' },
-            } as any,
-          });
-
-          await revenueService.calculateRevenue(created.id, 'modification', effectiveDate, { forceRecalculation: true });
-          return created.id;
+        const effectiveDate = new Date('2026-04-01T00:00:00Z');
+        // Deterministic mid-term upsell: keep original seats for full term, add a new segment
+        // for additional seats effective mid-term with unitPrice prorated to the remaining service period.
+        const baseUnitPrice = 120;
+        const remainingFraction = fractionOfSegmentUtc(startDate, endDate, effectiveDate, endDate);
+        const addedUnitPrice = round2(baseUnitPrice * remainingFraction);
+        const totalContractValue = round2(100 * baseUnitPrice + 20 * addedUnitPrice);
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: totalContractValue,
+          metadata: { demoTag, scenario: 'upsell_add_seats', lastEvent: 'upsell', lastAmendmentDate: effectiveDate.toISOString() },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: baseUnitPrice,
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+            {
+              itemId: seatItem.id,
+              quantity: 20,
+              unitPrice: addedUnitPrice,
+              startDate: effectiveDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120, demoSegment: 'upsell' },
+            },
+          ],
         });
-
-        const plan = forceRecalculate
-          ? await recalc(subscriptionId, 'modification', new Date('2026-04-01T00:00:00Z'))
-          : await revenueService.getSubscriptionPlan({ subscriptionId });
-        scenarios.push({ id: 'upsell_add_seats', label: 'Upsell (Add Seats) Mid-Term', subscriptionId, subscriptionNumber, plan });
+        await recalc(subscriptionId, 'modification', effectiveDate);
+        scenarios.push({ id: 'upsell_add_seats', label: 'Upsell (Add Seats) Mid-Term', subscriptionId, subscriptionNumber });
       }
 
       // E) Remove seats mid-term (downsell)
       {
         const subscriptionNumber = 'DEMO-ASC606-DOWNSELL-REMOVE-SEATS';
-        const subscriptionId = await getOrCreateSubscriptionByNumber(subscriptionNumber, async () => {
-          const created = await subscriptionService.createSubscription({
-            entityId: demoCustomer.id,
-            subscriptionNumber,
-            status: 'active',
-            startDate,
-            endDate,
-            billingFrequency: 'monthly',
-            renewalTermMonths: 12,
-            contractValue: 12000,
-            metadata: { demoTag, scenario: 'downsell_remove_seats' },
-            items: [
-              {
-                itemId: seatItem.id,
-                quantity: 100,
-                unitPrice: 120,
-                startDate,
-                endDate,
-                metadata: {
-                  revenueBehavior: 'over_time',
-                  sspAmount: 120,
-                  listPrice: 120,
-                },
-              },
-            ],
-          } as any);
-
-          await revenueService.calculateRevenue(created.id, 'initial', startDate, { forceRecalculation: true });
-
-          const effectiveDate = new Date('2026-07-01T00:00:00Z');
-          await subscriptionService.amendSubscription({
-            subscriptionId: created.id,
-            effectiveDate,
-            reason: 'Downsell: remove 30 seats',
-            changes: {
-              contractValue: 8400,
-              items: [
-                {
-                  itemId: seatItem.id,
-                  quantity: 70,
-                  unitPrice: 120,
-                  startDate,
-                  endDate,
-                  metadata: {
-                    revenueBehavior: 'over_time',
-                    sspAmount: 120,
-                    listPrice: 120,
-                  },
-                },
-              ],
-              metadata: { demoTag, scenario: 'downsell_remove_seats', lastEvent: 'downsell' },
-            } as any,
-          });
-
-          await revenueService.calculateRevenue(created.id, 'modification', effectiveDate, { forceRecalculation: true });
-          return created.id;
+        const effectiveDate = new Date('2026-07-01T00:00:00Z');
+        // Deterministic mid-term downsell: split into before/after segments and reduce quantity after effective date.
+        const baseUnitPrice = 120;
+        const beforeEnd = new Date('2026-06-30T00:00:00Z');
+        const fracBefore = fractionOfSegmentUtc(startDate, endDate, startDate, beforeEnd);
+        const fracAfter = fractionOfSegmentUtc(startDate, endDate, effectiveDate, endDate);
+        const beforeUnitPrice = round2(baseUnitPrice * fracBefore);
+        const afterUnitPrice = round2(baseUnitPrice * fracAfter);
+        const totalContractValue = round2(100 * beforeUnitPrice + 70 * afterUnitPrice);
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: totalContractValue,
+          metadata: { demoTag, scenario: 'downsell_remove_seats', lastEvent: 'downsell', lastAmendmentDate: effectiveDate.toISOString() },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: beforeUnitPrice,
+              startDate,
+              endDate: beforeEnd,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120, demoSegment: 'pre-downsell' },
+            },
+            {
+              itemId: seatItem.id,
+              quantity: 70,
+              unitPrice: afterUnitPrice,
+              startDate: effectiveDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120, demoSegment: 'post-downsell' },
+            },
+          ],
         });
-
-        const plan = forceRecalculate
-          ? await recalc(subscriptionId, 'modification', new Date('2026-07-01T00:00:00Z'))
-          : await revenueService.getSubscriptionPlan({ subscriptionId });
-        scenarios.push({ id: 'downsell_remove_seats', label: 'Downsell (Remove Seats) Mid-Term', subscriptionId, subscriptionNumber, plan });
+        await recalc(subscriptionId, 'modification', effectiveDate);
+        scenarios.push({ id: 'downsell_remove_seats', label: 'Downsell (Remove Seats) Mid-Term', subscriptionId, subscriptionNumber });
       }
 
       // F) Cancellation mid-term (prorated contract value through cancellation date)
       {
         const subscriptionNumber = 'DEMO-ASC606-CANCELLATION-MIDTERM';
-        const subscriptionId = await getOrCreateSubscriptionByNumber(subscriptionNumber, async () => {
-          const created = await subscriptionService.createSubscription({
-            entityId: demoCustomer.id,
-            subscriptionNumber,
-            status: 'active',
-            startDate,
-            endDate,
-            billingFrequency: 'monthly',
-            renewalTermMonths: 12,
-            contractValue: 12000,
-            metadata: { demoTag, scenario: 'cancellation_midterm' },
-            items: [
-              {
-                itemId: seatItem.id,
-                quantity: 100,
-                unitPrice: 120,
-                startDate,
-                endDate,
-                metadata: {
-                  revenueBehavior: 'over_time',
-                  sspAmount: 120,
-                  listPrice: 120,
-                },
-              },
-            ],
-          } as any);
-
-          await revenueService.calculateRevenue(created.id, 'initial', startDate, { forceRecalculation: true });
-
-          const cancellationDate = new Date('2026-06-30T00:00:00Z');
-          // Reprice the contract to the earned portion (6 of 12 months).
-          await subscriptionService.amendSubscription({
-            subscriptionId: created.id,
-            effectiveDate: cancellationDate,
-            reason: 'Customer cancellation (prorated)',
-            changes: {
+        const cancellationDate = new Date('2026-06-30T00:00:00Z');
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'cancelled',
+          startDate,
+          endDate: cancellationDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: 6000,
+          metadata: {
+            demoTag,
+            scenario: 'cancellation_midterm',
+            amendmentReason: 'Customer cancellation (prorated)',
+            cancellationDate: cancellationDate.toISOString(),
+            lastAmendmentDate: cancellationDate.toISOString(),
+            cancellationReason: 'Cancelled at end of June',
+            lastEvent: 'cancellation',
+          },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 60, // 6/12 of $120 per seat
+              startDate,
               endDate: cancellationDate,
-              contractValue: 6000,
-              items: [
-                {
-                  itemId: seatItem.id,
-                  quantity: 100,
-                  unitPrice: 60, // 6/12 of $120 per seat
-                  startDate,
-                  endDate: cancellationDate,
-                  metadata: {
-                    revenueBehavior: 'over_time',
-                    sspAmount: 120,
-                    listPrice: 120,
-                  },
-                },
-              ],
-              metadata: { demoTag, scenario: 'cancellation_midterm', lastEvent: 'cancellation' },
-            } as any,
-          });
-
-          await subscriptionService.cancelSubscription(created.id, cancellationDate, 'Cancelled at end of June');
-          await revenueService.calculateRevenue(created.id, 'termination', cancellationDate, { forceRecalculation: true });
-          return created.id;
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+          ],
         });
-
-        const plan = forceRecalculate
-          ? await recalc(subscriptionId, 'termination', new Date('2026-06-30T00:00:00Z'))
-          : await revenueService.getSubscriptionPlan({ subscriptionId });
-        scenarios.push({ id: 'cancellation_midterm', label: 'Cancellation Mid-Term (Prorated)', subscriptionId, subscriptionNumber, plan });
+        await recalc(subscriptionId, 'termination', cancellationDate);
+        scenarios.push({ id: 'cancellation_midterm', label: 'Cancellation Mid-Term (Prorated)', subscriptionId, subscriptionNumber });
       }
 
       return {

@@ -46,6 +46,39 @@ function num(value: string | number | null | undefined, fallback: number = 0): n
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// Date-only accounting helpers (UTC) to avoid timezone drift when splitting segments.
+const toDateOnlyUtc = (d: Date): Date =>
+  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+
+const ymd = (d: Date): string => toDateOnlyUtc(d).toISOString().slice(0, 10);
+
+const addDaysUtc = (d: Date, days: number): Date =>
+  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days));
+
+const dayBeforeUtc = (d: Date): Date => addDaysUtc(d, -1);
+
+const daysInclusiveUtc = (a: Date, b: Date): number => {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const diff = Math.floor((toDateOnlyUtc(b).getTime() - toDateOnlyUtc(a).getTime()) / msPerDay);
+  return diff + 1;
+};
+
+function fractionOfSegmentUtc(segmentStart: Date, segmentEnd: Date, activeStart: Date, activeEnd: Date): number {
+  const segStart = toDateOnlyUtc(segmentStart);
+  const segEnd = toDateOnlyUtc(segmentEnd);
+  const actStart = toDateOnlyUtc(activeStart);
+  const actEnd = toDateOnlyUtc(activeEnd);
+  if (actEnd.getTime() < actStart.getTime()) return 0;
+  if (segEnd.getTime() < segStart.getTime()) return 0;
+  const denom = daysInclusiveUtc(segStart, segEnd);
+  const numer = daysInclusiveUtc(actStart, actEnd);
+  return denom > 0 ? Math.min(Math.max(numer / denom, 0), 1) : 0;
+}
+
 async function getItemRevenueDefaults(
   ctx: any,
   organizationId: string,
@@ -501,7 +534,16 @@ export const subscriptionsRouter = router({
       }
 
       const currentItems = [...(current.items || [])];
-      const target = currentItems.find((i) => i.itemId === input.itemId);
+      // If multiple segments exist for the same itemId, pick the segment that covers the effective date.
+      const eff = toDateOnlyUtc(input.effectiveDate);
+      const contractEnd = input.endDate || (current.endDate ? new Date(current.endDate) : undefined);
+      const target = currentItems
+        .filter((i) => i.itemId === input.itemId)
+        .find((i) => {
+          const segStart = toDateOnlyUtc(new Date(i.startDate));
+          const segEnd = toDateOnlyUtc(new Date(i.endDate || (contractEnd ? ymd(contractEnd) : i.startDate)));
+          return eff.getTime() >= segStart.getTime() && eff.getTime() <= segEnd.getTime();
+        });
 
       if (input.action === 'remove') {
         if (!target) {
@@ -510,46 +552,121 @@ export const subscriptionsRouter = router({
             message: 'Cannot remove licenses for an item that is not on the subscription',
           });
         }
-        const remaining = num(target.quantity) - input.quantity;
-        if (remaining < 0) {
+        const segmentStart = toDateOnlyUtc(new Date(target.startDate));
+        const segmentEnd = toDateOnlyUtc(new Date(target.endDate || (contractEnd ? ymd(contractEnd) : target.startDate)));
+        if (!contractEnd) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'endDate is required for mid-term removals when subscription has no end date',
+          });
+        }
+        if (eff.getTime() > segmentEnd.getTime()) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'effectiveDate is after the segment end date' });
+        }
+
+        const originalQty = num(target.quantity);
+        const remainingQty = originalQty - input.quantity;
+        if (remainingQty < 0) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'Removal quantity exceeds currently licensed quantity',
           });
         }
-        if (remaining === 0) {
-          const index = currentItems.findIndex((i) => i.id === target.id);
-          if (index >= 0) currentItems.splice(index, 1);
+
+        // If removal is effective at or before the segment starts, reduce the whole segment quantity.
+        if (eff.getTime() <= segmentStart.getTime()) {
+          if (remainingQty === 0) {
+            const idx = currentItems.findIndex((i) => i.id === target.id);
+            if (idx >= 0) currentItems.splice(idx, 1);
+          } else {
+            target.quantity = String(remainingQty);
+          }
         } else {
-          target.quantity = String(remaining);
-        }
-      } else {
-        if (target) {
-          target.quantity = String(num(target.quantity) + input.quantity);
-        } else {
-          const itemDefaults = await getItemRevenueDefaults(ctx, current.organizationId, input.itemId);
-          const resolvedUnitPrice = input.unitPrice ?? itemDefaults.listPrice;
-          if (!resolvedUnitPrice) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: 'unitPrice is required when adding a new licensed item (or set item listPrice)',
+          // Split the existing segment into before/after portions.
+          const beforeEnd = dayBeforeUtc(eff);
+          const fracBefore = fractionOfSegmentUtc(segmentStart, segmentEnd, segmentStart, beforeEnd);
+          const fracAfter = fractionOfSegmentUtc(segmentStart, segmentEnd, eff, segmentEnd);
+          const baseUnitPrice = num(target.unitPrice);
+
+          const beforeUnitPrice = round2(baseUnitPrice * fracBefore);
+          const afterUnitPrice = round2(baseUnitPrice * fracAfter);
+
+          const idx = currentItems.findIndex((i) => i.id === target.id);
+          if (idx >= 0) {
+            currentItems.splice(idx, 1);
+          }
+
+          // Keep the pre-effective segment at the original quantity.
+          currentItems.push({
+            ...target,
+            id: `preview-${Date.now()}-before`,
+            quantity: String(originalQty),
+            unitPrice: String(beforeUnitPrice),
+            startDate: ymd(segmentStart),
+            endDate: ymd(beforeEnd) as any,
+          });
+
+          // Post-effective segment at reduced quantity (omit if reduced to 0).
+          if (remainingQty > 0) {
+            currentItems.push({
+              ...target,
+              id: `preview-${Date.now()}-after`,
+              quantity: String(remainingQty),
+              unitPrice: String(afterUnitPrice),
+              startDate: ymd(eff),
+              endDate: ymd(segmentEnd) as any,
             });
           }
-          currentItems.push({
-            id: `preview-${Date.now()}`,
-            itemId: input.itemId,
-            quantity: String(input.quantity),
-            unitPrice: String(resolvedUnitPrice),
-            discountPercentage: '0',
-            startDate: input.effectiveDate.toISOString().split('T')[0],
-            endDate: (input.endDate || current.endDate || null) as any,
-            metadata: {
-              revenueBehavior: itemDefaults.revenueBehavior,
-              sspAmount: itemDefaults.defaultSspAmount,
-              listPrice: itemDefaults.listPrice,
-            },
+        }
+      } else {
+        const itemDefaults = await getItemRevenueDefaults(ctx, current.organizationId, input.itemId);
+        const resolvedUnitPrice = input.unitPrice ?? (target ? num(target.unitPrice) : itemDefaults.listPrice);
+        if (!resolvedUnitPrice) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'unitPrice is required when adding a new licensed item (or set item listPrice)',
           });
         }
+
+        const segStart = eff;
+        const segEnd = toDateOnlyUtc(
+          new Date(
+            (target?.endDate as any) ||
+              (input.endDate ? ymd(input.endDate) : undefined) ||
+              (current.endDate ? current.endDate : undefined) ||
+              ''
+          )
+        );
+        if (!Number.isFinite(segEnd.getTime())) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'endDate is required for mid-term adds when subscription has no end date' });
+        }
+        if (segStart.getTime() > segEnd.getTime()) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'effectiveDate must be on/before endDate' });
+        }
+
+        // If adding to an existing segment, prorate within that segment so the added seats only
+        // contribute transaction price for the remaining service period.
+        const baseStart = target ? toDateOnlyUtc(new Date(target.startDate)) : toDateOnlyUtc(new Date(current.startDate));
+        const baseEnd = target
+          ? toDateOnlyUtc(new Date(target.endDate || ymd(segEnd)))
+          : toDateOnlyUtc(new Date((current.endDate || ymd(segEnd)) as any));
+        const remainingFraction = fractionOfSegmentUtc(baseStart, baseEnd, segStart, segEnd);
+        const proratedUnitPrice = round2(resolvedUnitPrice * remainingFraction);
+
+        currentItems.push({
+          id: `preview-${Date.now()}`,
+          itemId: input.itemId,
+          quantity: String(input.quantity),
+          unitPrice: String(proratedUnitPrice),
+          discountPercentage: '0',
+          startDate: ymd(segStart),
+          endDate: ymd(segEnd) as any,
+          metadata: {
+            revenueBehavior: itemDefaults.revenueBehavior,
+            sspAmount: itemDefaults.defaultSspAmount,
+            listPrice: itemDefaults.listPrice,
+          },
+        });
       }
 
       const baseline = await revenueService.previewAllocation(current.id, input.effectiveDate);
@@ -636,7 +753,16 @@ export const subscriptionsRouter = router({
         metadata: (item.metadata || undefined) as Record<string, unknown> | undefined,
       }));
 
-      const target = nextItems.find((i) => i.itemId === input.itemId);
+      const eff = toDateOnlyUtc(input.effectiveDate);
+      const contractEnd = input.endDate || (current.endDate ? new Date(current.endDate) : undefined);
+
+      const candidates = nextItems.filter((i) => i.itemId === input.itemId);
+      const target =
+        candidates.find((i) => {
+          const segStart = toDateOnlyUtc(i.startDate);
+          const segEnd = toDateOnlyUtc(i.endDate || contractEnd || i.startDate);
+          return eff.getTime() >= segStart.getTime() && eff.getTime() <= segEnd.getTime();
+        }) || candidates[0];
 
       if (input.action === 'remove') {
         if (!target) {
@@ -646,45 +772,118 @@ export const subscriptionsRouter = router({
           });
         }
 
-        const nextQty = target.quantity - input.quantity;
-        if (nextQty < 0) {
+        const segStart = toDateOnlyUtc(target.startDate);
+        const segEndRaw = target.endDate || contractEnd;
+        if (!segEndRaw) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'endDate is required for mid-term removals when subscription has no end date',
+          });
+        }
+        const segEnd = toDateOnlyUtc(segEndRaw);
+        if (eff.getTime() > segEnd.getTime()) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'effectiveDate is after the segment end date' });
+        }
+
+        const originalQty = target.quantity;
+        const remainingQty = originalQty - input.quantity;
+        if (remainingQty < 0) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'Removal quantity exceeds currently licensed quantity',
           });
         }
-        if (nextQty === 0) {
-          const idx = nextItems.findIndex((i) => i.itemId === input.itemId);
-          nextItems.splice(idx, 1);
+
+        // If removal is effective at or before the segment starts, reduce the whole segment quantity.
+        if (eff.getTime() <= segStart.getTime()) {
+          if (remainingQty === 0) {
+            const idx = nextItems.findIndex(
+              (i) =>
+                i.itemId === target.itemId &&
+                i.startDate.getTime() === target.startDate.getTime() &&
+                (i.endDate?.getTime() || 0) === (target.endDate?.getTime() || 0)
+            );
+            if (idx >= 0) nextItems.splice(idx, 1);
+          } else {
+            target.quantity = remainingQty;
+          }
         } else {
-          target.quantity = nextQty;
-        }
-      } else {
-        if (target) {
-          target.quantity += input.quantity;
-        } else {
-          const itemDefaults = await getItemRevenueDefaults(ctx, current.organizationId, input.itemId);
-          const resolvedUnitPrice = input.unitPrice ?? itemDefaults.listPrice;
-          if (!resolvedUnitPrice) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: 'unitPrice is required when adding a new licensed item (or set item listPrice)',
+          // Split the segment into before/after.
+          const beforeEnd = dayBeforeUtc(eff);
+          const fracBefore = fractionOfSegmentUtc(segStart, segEnd, segStart, beforeEnd);
+          const fracAfter = fractionOfSegmentUtc(segStart, segEnd, eff, segEnd);
+
+          const beforeUnitPrice = round2(target.unitPrice * fracBefore);
+          const afterUnitPrice = round2(target.unitPrice * fracAfter);
+
+          // Remove the original segment row.
+          const idx = nextItems.findIndex(
+            (i) =>
+              i.itemId === target.itemId &&
+              i.startDate.getTime() === target.startDate.getTime() &&
+              (i.endDate?.getTime() || 0) === (target.endDate?.getTime() || 0)
+          );
+          if (idx >= 0) nextItems.splice(idx, 1);
+
+          nextItems.push({
+            ...target,
+            quantity: originalQty,
+            unitPrice: beforeUnitPrice,
+            startDate: segStart,
+            endDate: beforeEnd,
+          });
+
+          if (remainingQty > 0) {
+            nextItems.push({
+              ...target,
+              quantity: remainingQty,
+              unitPrice: afterUnitPrice,
+              startDate: eff,
+              endDate: segEnd,
             });
           }
-          nextItems.push({
-            itemId: input.itemId,
-            quantity: input.quantity,
-            unitPrice: resolvedUnitPrice,
-            discountPercentage: 0,
-            startDate: input.effectiveDate,
-            endDate: input.endDate || (current.endDate ? new Date(current.endDate) : undefined),
-            metadata: {
-              revenueBehavior: itemDefaults.revenueBehavior,
-              sspAmount: itemDefaults.defaultSspAmount,
-              listPrice: itemDefaults.listPrice,
-            },
+        }
+      } else {
+        const itemDefaults = await getItemRevenueDefaults(ctx, current.organizationId, input.itemId);
+        const baseUnitPrice = input.unitPrice ?? (target ? target.unitPrice : itemDefaults.listPrice);
+        if (!baseUnitPrice) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'unitPrice is required when adding a new licensed item (or set item listPrice)',
           });
         }
+
+        const segEndRaw = (target?.endDate as Date | undefined) || contractEnd;
+        if (!segEndRaw) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'endDate is required for mid-term adds when subscription has no end date',
+          });
+        }
+        const segEnd = toDateOnlyUtc(segEndRaw);
+        if (eff.getTime() > segEnd.getTime()) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'effectiveDate must be on/before endDate' });
+        }
+
+        const baseStart = target ? toDateOnlyUtc(target.startDate) : toDateOnlyUtc(new Date(current.startDate));
+        const baseEnd = target ? toDateOnlyUtc(target.endDate || segEndRaw) : toDateOnlyUtc(segEndRaw);
+        const activeStart = eff.getTime() < baseStart.getTime() ? baseStart : eff;
+        const remainingFraction = fractionOfSegmentUtc(baseStart, baseEnd, activeStart, segEnd);
+        const proratedUnitPrice = round2(baseUnitPrice * remainingFraction);
+
+        nextItems.push({
+          itemId: input.itemId,
+          quantity: input.quantity,
+          unitPrice: proratedUnitPrice,
+          discountPercentage: 0,
+          startDate: activeStart,
+          endDate: segEnd,
+          metadata: target?.metadata || {
+            revenueBehavior: itemDefaults.revenueBehavior,
+            sspAmount: itemDefaults.defaultSspAmount,
+            listPrice: itemDefaults.listPrice,
+          },
+        });
       }
 
       if (nextItems.length === 0) {
@@ -699,7 +898,9 @@ export const subscriptionsRouter = router({
         effectiveDate: input.effectiveDate,
         reason: input.reason || `License ${input.action} (${input.quantity})`,
         changes: {
-          contractValue: String(nextItems.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0)),
+          // Contract value is modeled as the sum of segment amounts (qty * segment unitPrice).
+          // For mid-term changes we prorate unitPrice by the remaining segment fraction.
+          contractValue: String(round2(nextItems.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0))),
           items: nextItems.map((i) => ({
             itemId: i.itemId,
             quantity: i.quantity,

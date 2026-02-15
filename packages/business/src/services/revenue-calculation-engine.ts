@@ -18,7 +18,7 @@ import {
   type Subscription,
   type SubscriptionItem
 } from '@glapi/database/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { ASC605Comparison } from '../types/revenue-reporting-types';
 
 export interface CalculationParams {
@@ -485,7 +485,11 @@ export class RevenueCalculationEngine {
     const consolidated = new Map<string, PerformanceObligationResult>();
     
     for (const obligation of obligations) {
-      const key = `${obligation.itemId}-${obligation.obligationType}-${obligation.satisfactionMethod}-${obligation.sspOverrideAmount ?? 'na'}`;
+      // IMPORTANT: include start/end dates so mid-term modifications (seat adds/removals) can create
+      // separate obligation segments that recognize over different periods.
+      const startKey = obligation.startDate.toISOString().slice(0, 10);
+      const endKey = obligation.endDate?.toISOString().slice(0, 10) || 'open';
+      const key = `${obligation.itemId}-${obligation.obligationType}-${obligation.satisfactionMethod}-${startKey}-${endKey}-${obligation.sspOverrideAmount ?? 'na'}`;
       if (consolidated.has(key)) {
         const existing = consolidated.get(key)!;
         existing.allocatedAmount += obligation.allocatedAmount;
@@ -818,6 +822,56 @@ export class RevenueCalculationEngine {
     organizationId: string,
     results: any
   ): Promise<void> {
+    // Replace prior scheduled outputs for this subscription (idempotent calc).
+    // We intentionally do NOT allow recalculation if any revenue has been recognized,
+    // because that requires catch-up JEs rather than destructive rewrites.
+    const existingObligationIds = await this.db
+      .select({ id: performanceObligations.id })
+      .from(performanceObligations)
+      .where(and(
+        eq(performanceObligations.organizationId, organizationId),
+        eq(performanceObligations.subscriptionId, subscriptionId)
+      ));
+
+    const obligationIds = existingObligationIds.map(r => r.id);
+    if (obligationIds.length > 0) {
+      const [{ recognizedCount }] = await this.db
+        .select({
+          recognizedCount: sql<number>`count(*)::int`.mapWith(Number),
+        })
+        .from(revenueSchedules)
+        .where(and(
+          eq(revenueSchedules.organizationId, organizationId),
+          inArray(revenueSchedules.performanceObligationId, obligationIds),
+          sql`(${revenueSchedules.status} = 'recognized' OR COALESCE(${revenueSchedules.recognizedAmount}, '0')::numeric > 0)`
+        ));
+
+      if ((recognizedCount || 0) > 0) {
+        throw new Error('Cannot force-recalculate ASC606 schedules after revenue has been recognized; use catch-up adjustments.');
+      }
+
+      await this.db
+        .delete(revenueSchedules)
+        .where(and(
+          eq(revenueSchedules.organizationId, organizationId),
+          inArray(revenueSchedules.performanceObligationId, obligationIds)
+        ));
+
+      await this.db
+        .delete(contractSspAllocations)
+        .where(and(
+          eq(contractSspAllocations.organizationId, organizationId),
+          eq(contractSspAllocations.subscriptionId, subscriptionId)
+        ));
+
+      await this.db
+        .delete(performanceObligations)
+        .where(and(
+          eq(performanceObligations.organizationId, organizationId),
+          eq(performanceObligations.subscriptionId, subscriptionId)
+        ));
+    }
+
     const mapAllocationMethod = (method: string): 'proportional' | 'residual' | 'specific_evidence' => {
       switch (method) {
         case 'residual':
