@@ -119,7 +119,8 @@ export class SubscriptionService extends BaseService {
   async getSubscriptionByNumber(subscriptionNumber: string): Promise<SubscriptionWithItems | null> {
     const organizationId = this.requireOrganizationContext();
 
-    const subscription = await this.subscriptionRepository.findByNumber(subscriptionNumber, organizationId);
+    // Repository signature is (organizationId, subscriptionNumber)
+    const subscription = await this.subscriptionRepository.findByNumber(organizationId, subscriptionNumber);
     if (!subscription) {
       return null;
     }

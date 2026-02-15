@@ -215,10 +215,15 @@ export class RevenueCalculationEngine {
           lineBehavior ||
           itemBehavior ||
           await this.determineSatisfactionMethod(item.itemId, organizationId, itemDetails);
-        const sspOverrideAmount =
+        // Treat SSP defaults/overrides as per-unit SSP; allocation should be based on the
+        // total SSP for the obligation (SSP per unit * quantity).
+        const lineQty = Number(item.quantity ?? 1);
+        const baseSsp =
           lineSspAmount ??
           this.toOptionalNumber(itemDetails?.defaultSspAmount) ??
           this.toOptionalNumber(itemDetails?.defaultPrice);
+        const sspOverrideAmount =
+          baseSsp === undefined ? undefined : baseSsp * (Number.isFinite(lineQty) && lineQty > 0 ? lineQty : 1);
 
         obligations.push({
           itemId: item.itemId,

@@ -176,3 +176,19 @@ For a software company seat-based model:
 3. On seat-change scenario, call `preview` endpoint for what-if impact.
 4. On user confirm, call `apply` endpoint.
 5. Refresh plan endpoint and re-render waterfall/schedule.
+
+## Demo Seeding (Software Scenarios)
+
+For sales demos and sandbox environments, you can seed typical software-company scenarios (prepaid annual, monthly billing, discount with SSP allocation, upsell, downsell, cancellation).
+
+`POST /api/revenue/asc606/demo/seed`
+
+Optional body:
+
+```json
+{ "forceRecalculate": false }
+```
+
+`GET /api/revenue/asc606/demo/scenarios`
+
+Returns a list of seeded demo subscriptions for quick selection in the UI.

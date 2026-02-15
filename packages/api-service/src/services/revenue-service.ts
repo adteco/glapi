@@ -162,6 +162,7 @@ export class RevenueService extends BaseService {
       throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
     }
 
+    const contractValue = parseFloat(subscription.contractValue || '0');
     const conditions = [
       eq(revenueSchedules.organizationId, organizationId),
       eq(performanceObligations.subscriptionId, input.subscriptionId),
@@ -250,6 +251,72 @@ export class RevenueService extends BaseService {
         return acc;
       }, [] as Array<{ period: string; scheduled: number; recognized: number; deferredBalance: number }>);
 
+    const allocations = await this.db.select({
+      id: contractSspAllocations.id,
+      performanceObligationId: contractSspAllocations.performanceObligationId,
+      itemId: performanceObligations.itemId,
+      obligationType: performanceObligations.obligationType,
+      satisfactionMethod: performanceObligations.satisfactionMethod,
+      sspAmount: contractSspAllocations.sspAmount,
+      allocatedAmount: contractSspAllocations.allocatedAmount,
+      allocationPercentage: contractSspAllocations.allocationPercentage,
+      allocationMethod: contractSspAllocations.allocationMethod,
+    })
+      .from(contractSspAllocations)
+      .innerJoin(
+        performanceObligations,
+        eq(contractSspAllocations.performanceObligationId, performanceObligations.id)
+      )
+      .where(and(
+        eq(contractSspAllocations.organizationId, organizationId),
+        eq(contractSspAllocations.subscriptionId, input.subscriptionId),
+      ))
+      .orderBy(desc(contractSspAllocations.createdAt));
+
+    const normalizedAllocations = allocations.map((row) => ({
+      ...row,
+      sspAmount: parseFloat(row.sspAmount || '0'),
+      allocatedAmount: parseFloat(row.allocatedAmount || '0'),
+      allocationPercentage: row.allocationPercentage === null ? null : parseFloat(row.allocationPercentage),
+    }));
+
+    const invoiceSchedule = (() => {
+      const parseDate = (value: string) => new Date(`${value}T00:00:00Z`);
+      const toIso = (d: Date) => d.toISOString().slice(0, 10);
+
+      const start = parseDate(subscription.startDate);
+      const lastSchedule = normalizedSchedules.length > 0 ? normalizedSchedules[normalizedSchedules.length - 1] : null;
+      const fallbackEndValue =
+        (lastSchedule?.periodEndDate || lastSchedule?.periodStartDate || subscription.endDate || subscription.startDate) as string;
+      const fallbackEnd = parseDate(fallbackEndValue);
+      const end = subscription.endDate ? parseDate(subscription.endDate) : fallbackEnd;
+
+      const frequency = subscription.billingFrequency || 'monthly';
+      const stepMonths =
+        frequency === 'annual' ? 12 :
+          frequency === 'semi_annual' ? 6 :
+            frequency === 'quarterly' ? 3 : 1;
+
+      const dates: string[] = [];
+      let cursor = new Date(start);
+      for (let i = 0; i < 240; i++) {
+        if (cursor.getTime() > end.getTime()) break;
+        dates.push(toIso(cursor));
+        cursor = new Date(cursor);
+        cursor.setUTCMonth(cursor.getUTCMonth() + stepMonths);
+      }
+
+      const count = Math.max(dates.length, 1);
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const base = round2(contractValue / count);
+      const schedule = dates.map((invoiceDate, idx) => ({
+        invoiceDate,
+        amount: idx === count - 1 ? round2(contractValue - base * (count - 1)) : base,
+      }));
+
+      return schedule;
+    })();
+
     return {
       subscription: {
         id: subscription.id,
@@ -257,7 +324,7 @@ export class RevenueService extends BaseService {
         status: subscription.status,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
-        contractValue: parseFloat(subscription.contractValue || '0'),
+        contractValue,
         billingFrequency: subscription.billingFrequency,
       },
       summary: {
@@ -269,6 +336,8 @@ export class RevenueService extends BaseService {
         ...o,
         allocatedAmount: parseFloat(o.allocatedAmount || '0'),
       })),
+      allocations: normalizedAllocations,
+      invoiceSchedule,
       schedules: normalizedSchedules,
       waterfall,
     };

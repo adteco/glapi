@@ -318,6 +318,7 @@ export { sspEvidence } from './ssp-evidence';
 export { contractSspAllocations } from './contract-ssp-allocations';
 export { revenueJournalEntries } from './revenue-journal-entries';
 export { items } from './items';
+export { unitsOfMeasure } from './units-of-measure';
 export { kitComponents } from './kit-components';
 export type { KitComponent } from './kit-components';
 export { subscriptions } from './subscriptions';
