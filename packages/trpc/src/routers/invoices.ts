@@ -135,6 +135,51 @@ export const invoicesRouter = router({
       }
     }),
 
+  // Generate invoice from billable tasks
+  createFromTasks: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_invoice_from_tasks', 'Create an invoice from completed billable project tasks', {
+      scopes: ['invoices', 'project-tasks', 'billing'],
+      permissions: ['write:invoices', 'read:project-tasks'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'staff',
+    }) })
+    .input(z.object({
+      projectId: z.string().uuid(),
+      entityId: z.string().uuid(),
+      taskIds: z.array(z.string().uuid()).min(1),
+      invoiceDate: z.coerce.date().optional(),
+      dueDate: z.coerce.date().optional()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
+
+      try {
+        return await service.createInvoiceFromBillableTasks({
+          projectId: input.projectId,
+          entityId: input.entityId,
+          taskIds: input.taskIds,
+          invoiceDate: input.invoiceDate,
+          dueDate: input.dueDate,
+        });
+      } catch (error: any) {
+        if (error.code === 'TASK_NOT_FOUND' || error.code === 'NOT_FOUND') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: error.message
+          });
+        }
+        if (error.code === 'NO_TASKS' || error.code === 'TASK_NOT_COMPLETED' ||
+            error.code === 'TASK_NOT_BILLABLE' || error.code === 'TASK_ALREADY_INVOICED' ||
+            error.code === 'TASK_PROJECT_MISMATCH') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: error.message
+          });
+        }
+        throw error;
+      }
+    }),
+
   // Update invoice
   update: authenticatedProcedure
     .meta({ ai: createWriteAIMeta('update_invoice', 'Update an existing invoice', {
@@ -177,7 +222,6 @@ export const invoicesRouter = router({
       scopes: ['invoices', 'billing'],
       permissions: ['write:invoices'],
       riskLevel: 'MEDIUM',
-      requiresConfirmation: true,
     }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
@@ -208,7 +252,6 @@ export const invoicesRouter = router({
       scopes: ['invoices', 'billing'],
       permissions: ['write:invoices'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
       minimumRole: 'manager',
     }) })
     .input(z.object({

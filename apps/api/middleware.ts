@@ -4,16 +4,21 @@ import type { NextRequest } from 'next/server';
 // Temporary hardcoded API keys for development
 const VALID_API_KEYS: Record<string, {
   organizationId: string;
+  actorEntityId: string;
   name: string;
   scopes: string[];
 }> = {
   'glapi_test_sk_1234567890abcdef': {
     organizationId: 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2', // Adteco org UUID
+    // Must be a UUID because many tables store audit fields as uuid.
+    // In dev we use a stable "system actor" UUID; it does not need to exist in `entities`.
+    actorEntityId: '00000000-0000-0000-0000-000000000001',
     name: 'Development API Key (Adteco)',
     scopes: ['read', 'write']
   },
   'glapi_test_sk_orgb_0987654321fedcba': {
     organizationId: '456c2475-2277-4d90-929b-ae694a2a8577', // CJD-Consulting org UUID
+    actorEntityId: '00000000-0000-0000-0000-000000000002',
     name: 'Development API Key (CJD-Consulting)',
     scopes: ['read', 'write']
   }
@@ -62,7 +67,7 @@ export function middleware(request: NextRequest): NextResponse | Response {
 
         // Add organization context to request headers for API routes to use
         requestHeaders.set('x-organization-id', keyData.organizationId);
-        requestHeaders.set('x-user-id', 'api-key-user');
+        requestHeaders.set('x-user-id', keyData.actorEntityId);
         requestHeaders.set('x-api-key-name', keyData.name);
       } else {
         return new Response(JSON.stringify({ error: 'Invalid API key' }), {

@@ -113,7 +113,7 @@ export const revenueRouter = router({
     list: authenticatedProcedure
       .input(z.object({
         subscriptionId: z.string().uuid().optional(),
-        status: z.enum(['active', 'satisfied', 'cancelled']).optional(),
+        status: z.enum(['Pending', 'InProcess', 'Fulfilled', 'PartiallyFulfilled', 'Cancelled']).optional(),
         obligationType: z.enum([
           'product_license',
           'maintenance_support', 
@@ -219,10 +219,10 @@ export const revenueRouter = router({
       .input(z.object({
         itemId: z.string().uuid().optional(),
         evidenceType: z.enum([
-          'standalone_sale',
-          'competitor_pricing',
-          'cost_plus_margin',
-          'market_assessment'
+          'customer_pricing',
+          'comparable_sales',
+          'market_research',
+          'cost_plus'
         ]).optional(),
         isActive: z.boolean().optional(),
         page: z.number().min(1).default(1),
@@ -238,10 +238,10 @@ export const revenueRouter = router({
       .input(z.object({
         itemId: z.string().uuid(),
         evidenceType: z.enum([
-          'standalone_sale',
-          'competitor_pricing',
-          'cost_plus_margin',
-          'market_assessment'
+          'customer_pricing',
+          'comparable_sales',
+          'market_research',
+          'cost_plus'
         ]),
         evidenceDate: z.coerce.date(),
         sspAmount: z.number().positive(),
@@ -523,5 +523,25 @@ export const revenueRouter = router({
         }
         throw error;
       }
+    }),
+
+  // Subscription-level plan for UI/API waterfall + schedules
+  subscriptionPlan: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_subscription_revenue_plan', 'Get ASC 606 plan for a subscription', {
+      scopes: ['revenue', 'subscriptions', 'accounting'],
+      permissions: ['read:revenue'],
+    }) })
+    .input(z.object({
+      subscriptionId: z.string().uuid(),
+      startDate: z.coerce.date().optional(),
+      endDate: z.coerce.date().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new RevenueService(ctx.serviceContext, { db: ctx.db });
+      return service.getSubscriptionPlan({
+        subscriptionId: input.subscriptionId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
     })
 });

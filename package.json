@@ -36,7 +36,9 @@
     "test:reports": "playwright test --project=reports",
     "test:construction": "playwright test --project=construction",
     "test:admin": "playwright test --project=admin",
-    "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari"
+    "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
+    "test:karate": "bash ./scripts/karate/run.sh",
+    "test:karate:asc606": "bash ./scripts/karate/run.sh tests/karate/asc606-revenue.feature"
   },
   "workspaces": [
     "packages/*",

@@ -297,3 +297,41 @@ export {
   type PromptHandler,
   type BaselineComparison,
 } from './eval';
+
+// Memory Service (Magneteco integration)
+export {
+  // Client
+  MagnetoClient,
+  createMagnetoClient,
+  MagnetoError,
+  MagnetoNetworkError,
+  // Service
+  MemoryService,
+  getMemoryService,
+  resetMemoryService,
+  formatMemoryContext,
+  formatConversation,
+  formatExchange,
+  // GLAPI Domain Config
+  glapiDomainConfig,
+  createGlapiDomainConfig,
+  GLAPI_CATEGORIES,
+  GLAPI_ENTITY_TYPES,
+  GLAPI_RELATIONSHIP_TYPES,
+  GLAPI_RELEVANCE_RULES,
+  GLAPI_EXTRACTION_PROMPT,
+  // Types
+  type MagnetoClientConfig,
+  type MemoryContext,
+  type MemoryItem,
+  type MemorizeResponse,
+  type MemoryServiceConfig,
+  type RetrieveOptions,
+  type MemorizeOptions,
+  type DomainConfig,
+  type CategoryDefinition,
+  type EntityTypeDefinition,
+  type EntityProperty,
+  type RelationshipDefinition,
+  type RelevanceRule,
+} from './memory';

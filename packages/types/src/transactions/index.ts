@@ -765,6 +765,9 @@ export interface CreateSalesOrderLineInput {
   projectId?: string;
   revenueAccountId?: string;
   deferredRevenueAccountId?: string;
+  revenueBehavior?: 'point_in_time' | 'over_time';
+  sspAmount?: number | string;
+  listPrice?: number | string;
   memo?: string;
   metadata?: Record<string, unknown>;
 }

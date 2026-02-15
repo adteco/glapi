@@ -16,7 +16,7 @@ import { organizations } from './organizations';
 import { entities } from './entities';
 import { subsidiaries } from './subsidiaries';
 import { items } from './items';
-import { invoices } from './invoices';
+import { projectTasks } from './project-tasks';
 
 // ============================================================================
 // Enums
@@ -220,6 +220,9 @@ export const salesOrderLines = pgTable('sales_order_lines', {
   revenueAccountId: uuid('revenue_account_id'),
   deferredRevenueAccountId: uuid('deferred_revenue_account_id'),
 
+  // Linked project task (for task-based billing workflow)
+  linkedTaskId: uuid('linked_task_id').references(() => projectTasks.id),
+
   // Notes
   memo: text('memo'),
   metadata: jsonb('metadata'),
@@ -269,9 +272,10 @@ export const salesOrderInvoices = pgTable('sales_order_invoices', {
   salesOrderId: uuid('sales_order_id')
     .references(() => salesOrders.id, { onDelete: 'cascade' })
     .notNull(),
-  invoiceId: uuid('invoice_id')
-    .references(() => invoices.id, { onDelete: 'cascade' })
-    .notNull(),
+  // We intentionally do NOT FK to an invoice header table here because some
+  // deployments represent invoices via transaction tables (and do not have
+  // a dedicated `invoices` table).
+  invoiceId: uuid('invoice_id').notNull(),
 
   // Tracking
   invoicedAmount: decimal('invoiced_amount', { precision: 18, scale: 4 }).notNull(),
@@ -312,6 +316,11 @@ export const salesOrderLinesRelations = relations(salesOrderLines, ({ one }) => 
     fields: [salesOrderLines.itemId],
     references: [items.id],
   }),
+  linkedTask: one(projectTasks, {
+    fields: [salesOrderLines.linkedTaskId],
+    references: [projectTasks.id],
+    relationName: 'salesOrderLineTask',
+  }),
 }));
 
 export const salesOrderApprovalHistoryRelations = relations(
@@ -328,10 +337,6 @@ export const salesOrderInvoicesRelations = relations(salesOrderInvoices, ({ one 
   salesOrder: one(salesOrders, {
     fields: [salesOrderInvoices.salesOrderId],
     references: [salesOrders.id],
-  }),
-  invoice: one(invoices, {
-    fields: [salesOrderInvoices.invoiceId],
-    references: [invoices.id],
   }),
 }));
 

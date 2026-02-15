@@ -1,31 +1,33 @@
-import { pgTable, uuid, varchar, timestamp, decimal, pgEnum, date, boolean, jsonb, integer, text } from "drizzle-orm/pg-core";
+import { pgTable, uuid, timestamp, pgEnum, jsonb, integer, text, foreignKey } from "drizzle-orm/pg-core";
 import { subscriptions } from "./subscriptions";
 import { organizations } from "./organizations";
+import { users } from "./users";
 import { relations } from "drizzle-orm";
 
-// Enum for version type - what triggered this version
+// Enum for version type - what triggered this version.
+// Keep this aligned with the live Postgres enum `subscription_version_type`.
 export const subscriptionVersionTypeEnum = pgEnum("subscription_version_type", [
-  "creation",           // Initial subscription creation
-  "amendment",          // Terms/items changed
-  "status_change",      // Status transition
-  "renewal",            // Subscription renewed
-  "cancellation",       // Subscription cancelled
-  "reactivation",       // Subscription reactivated
-  "price_change",       // Pricing updated
-  "term_extension",     // Extended contract term
-  "item_modification"   // Items added/removed/changed
+  "creation",
+  "activation",
+  "amendment",
+  "modification",
+  "suspension",
+  "resumption",
+  "cancellation",
+  "renewal",
 ]);
 
-// Enum for the source of the version change
+// Enum for the source of the version change.
+// Keep this aligned with the live Postgres enum `subscription_version_source`.
 export const subscriptionVersionSourceEnum = pgEnum("subscription_version_source", [
-  "user",               // Manual change by user
-  "system",             // System-triggered (e.g., auto-renewal)
-  "api",                // External API call
-  "workflow",           // Workflow automation
-  "migration"           // Data migration
+  "system",
+  "user",
+  "integration",
+  "import",
 ]);
 
-// Main subscription versions table - tracks all changes with full snapshot
+// Main subscription versions table - tracks all changes with full snapshot.
+// This mirrors the live RDS table (see `\\d+ subscription_versions`).
 export const subscriptionVersions = pgTable("subscription_versions", {
   id: uuid("id").defaultRandom().primaryKey(),
   organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
@@ -34,37 +36,36 @@ export const subscriptionVersions = pgTable("subscription_versions", {
   // Version tracking
   versionNumber: integer("version_number").notNull(),
   versionType: subscriptionVersionTypeEnum("version_type").notNull(),
-  versionSource: subscriptionVersionSourceEnum("version_source").notNull().default("user"),
-
-  // State at this version (snapshot)
-  previousStatus: varchar("previous_status", { length: 50 }),
-  newStatus: varchar("new_status", { length: 50 }).notNull(),
-
-  // Full snapshot of subscription data at this version
-  subscriptionSnapshot: jsonb("subscription_snapshot").notNull(), // Full subscription record
-  itemsSnapshot: jsonb("items_snapshot"), // Array of subscription items
+  versionSource: subscriptionVersionSourceEnum("version_source").notNull().default("system"),
 
   // Change details
-  changedFields: jsonb("changed_fields"), // Array of field names that changed
-  changeSummary: text("change_summary"), // Human-readable summary
-  changeReason: text("change_reason"), // User-provided reason
+  changeSummary: text("change_summary"),
+  changeReason: text("change_reason"),
 
-  // Financial impact
-  previousContractValue: decimal("previous_contract_value", { precision: 12, scale: 2 }),
-  newContractValue: decimal("new_contract_value", { precision: 12, scale: 2 }),
-  contractValueDelta: decimal("contract_value_delta", { precision: 12, scale: 2 }),
+  // When this version took effect
+  effectiveDate: timestamp("effective_date", { withTimezone: true }).defaultNow().notNull(),
 
-  // Effective dates
-  effectiveDate: date("effective_date").notNull(),
-
-  // Audit fields
-  createdBy: uuid("created_by"), // User ID who made the change
-  createdByName: varchar("created_by_name", { length: 255 }), // Cached for audit purposes
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  // Optional link to a contract modification (used by the 606 engine)
+  modificationId: text("modification_id"),
 
   // Additional metadata
-  metadata: jsonb("metadata") // Any additional context
-});
+  metadata: jsonb("metadata"),
+
+  // Full snapshot of subscription data at this version
+  subscriptionSnapshot: jsonb("subscription_snapshot").notNull(),
+  itemsSnapshot: jsonb("items_snapshot").notNull(),
+
+  // Audit fields
+  createdBy: uuid("created_by").references(() => users.id),
+  // Defined as a self-referencing foreign key in the table config below to avoid TS circular inference issues.
+  previousVersionId: uuid("previous_version_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  previousVersionFk: foreignKey({
+    columns: [table.previousVersionId],
+    foreignColumns: [table.id],
+  }),
+}));
 
 // Relations
 export const subscriptionVersionsRelations = relations(subscriptionVersions, ({ one }) => ({
@@ -75,7 +76,17 @@ export const subscriptionVersionsRelations = relations(subscriptionVersions, ({ 
   subscription: one(subscriptions, {
     fields: [subscriptionVersions.subscriptionId],
     references: [subscriptions.id]
-  })
+  }),
+  previousVersion: one(subscriptionVersions, {
+    fields: [subscriptionVersions.previousVersionId],
+    references: [subscriptionVersions.id],
+    relationName: "subscriptionVersionPrevious",
+  }),
+  createdByUser: one(users, {
+    fields: [subscriptionVersions.createdBy],
+    references: [users.id],
+    relationName: "subscriptionVersionCreatedBy",
+  }),
 }));
 
 // Type exports

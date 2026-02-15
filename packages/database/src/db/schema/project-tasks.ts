@@ -62,6 +62,16 @@ export const projectTaskPriorityEnum = pgEnum('project_task_priority', [
 ]);
 
 /**
+ * Task billing type:
+ * - flat_fee: Fixed amount for the task
+ * - time_and_materials: Billing based on hours worked × billing rate
+ */
+export const taskBillingTypeEnum = pgEnum('task_billing_type', [
+  'flat_fee',
+  'time_and_materials',
+]);
+
+/**
  * Project milestone status lifecycle
  */
 export const projectMilestoneStatusEnum = pgEnum('project_milestone_status', [
@@ -100,6 +110,13 @@ export const PROJECT_MILESTONE_STATUS = {
 } as const;
 
 export type ProjectMilestoneStatus = typeof PROJECT_MILESTONE_STATUS[keyof typeof PROJECT_MILESTONE_STATUS];
+
+export const TASK_BILLING_TYPE = {
+  FLAT_FEE: 'flat_fee',
+  TIME_AND_MATERIALS: 'time_and_materials',
+} as const;
+
+export type TaskBillingType = typeof TASK_BILLING_TYPE[keyof typeof TASK_BILLING_TYPE];
 
 // ============================================================================
 // Project Milestones Table
@@ -267,6 +284,11 @@ export const projectTasks = pgTable('project_tasks', {
   // Billing
   isBillable: boolean('is_billable').default(true).notNull(),
   billingRate: numeric('billing_rate', { precision: 15, scale: 4 }),
+  billingType: taskBillingTypeEnum('billing_type').default('flat_fee'),
+  flatFeeAmount: numeric('flat_fee_amount', { precision: 12, scale: 2 }),
+  invoicedAt: timestamp('invoiced_at', { withTimezone: true }),
+  // Avoid schema-level circular imports (invoice_line_items already links back to tasks).
+  invoiceLineId: uuid('invoice_line_id'),
 
   // Metadata
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),

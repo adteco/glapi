@@ -1,8 +1,8 @@
 import { 
-  db,
   SubscriptionRepository,
   SubscriptionItemRepository,
-  ItemsRepository
+  ItemsRepository,
+  type ContextualDatabase,
 } from '@glapi/database';
 import { 
   performanceObligations,
@@ -55,6 +55,7 @@ export interface PerformanceObligationResult {
   allocatedAmount: number;
   startDate: Date;
   endDate: Date;
+  sspOverrideAmount?: number;
 }
 
 export interface PriceAllocation {
@@ -68,6 +69,9 @@ export interface PriceAllocation {
 
 export interface RevenueScheduleResult {
   performanceObligationId?: string;
+  // Used to re-link schedules to the inserted performance obligation IDs (because IDs don't
+  // exist until we persist obligations).
+  obligationIndex?: number;
   periodStartDate: Date;
   periodEndDate: Date;
   scheduledAmount: number;
@@ -85,14 +89,16 @@ export interface ContractModification {
 }
 
 export class RevenueCalculationEngine {
+  private db: ContextualDatabase;
   private subscriptionRepo: SubscriptionRepository;
   private subscriptionItemRepo: SubscriptionItemRepository;
   private itemRepo: ItemsRepository;
 
-  constructor() {
-    this.subscriptionRepo = new SubscriptionRepository();
-    this.subscriptionItemRepo = new SubscriptionItemRepository();
-    this.itemRepo = new ItemsRepository();
+  constructor(db: ContextualDatabase) {
+    this.db = db;
+    this.subscriptionRepo = new SubscriptionRepository(db);
+    this.subscriptionItemRepo = new SubscriptionItemRepository(db);
+    this.itemRepo = new ItemsRepository(db);
   }
 
   async calculate(params: CalculationParams): Promise<CalculationResult> {
@@ -159,35 +165,70 @@ export class RevenueCalculationEngine {
     const obligations: PerformanceObligationResult[] = [];
     
     for (const item of contract.items) {
+      const lineMetadata = this.toMetadataRecord(item.metadata);
+      const lineBehavior = this.parseSatisfactionMethod(lineMetadata.revenueBehavior);
+      const lineSspAmount = this.toOptionalNumber(lineMetadata.sspAmount);
       const isKit = await this.isKitItem(item.itemId);
       
       if (isKit) {
         // Explode kit items into components
-        const components = await this.explodeKit(item.itemId, parseFloat(item.unitPrice) * parseFloat(item.quantity));
+        const components = await this.explodeKit(item.itemId);
         
         for (const component of components) {
           const itemDetails = await this.itemRepo.findById(component.componentItemId, organizationId);
+          const itemBehavior = this.parseSatisfactionMethod(itemDetails?.revenueBehavior);
+          const resolvedBehavior =
+            lineBehavior ||
+            itemBehavior ||
+            await this.determineSatisfactionMethod(component.componentItemId, organizationId, itemDetails);
+          // For kits, SSP should reflect quantity of each component as included in the kit line.
+          const parentQty = Number(item.quantity ?? 1);
+          const componentQty = Number(component.quantity ?? 1);
+          const baseSsp =
+            this.toOptionalNumber(itemDetails?.defaultSspAmount) ??
+            this.toOptionalNumber(itemDetails?.defaultPrice);
+          const resolvedBaseSsp =
+            baseSsp ??
+            (await this.getCurrentSSP(component.componentItemId, organizationId))?.amount ??
+            0;
+          const sspOverrideAmount =
+            // If the line provides an SSP override (rare for kits), treat it as authoritative for all components.
+            // Otherwise compute component SSP * total included quantity.
+            (lineSspAmount ?? resolvedBaseSsp) * parentQty * componentQty;
+
           obligations.push({
             itemId: component.componentItemId,
             itemName: itemDetails?.name || 'Unknown',
-            obligationType: await this.determineObligationType(component.componentItemId, organizationId),
-            satisfactionMethod: await this.determineSatisfactionMethod(component.componentItemId, organizationId),
+            obligationType: await this.determineObligationType(component.componentItemId, organizationId, itemDetails),
+            satisfactionMethod: resolvedBehavior,
             allocatedAmount: 0, // Set in step 4
             startDate: new Date(item.startDate),
-            endDate: new Date(item.endDate)
+            endDate: new Date(item.endDate),
+            sspOverrideAmount,
           });
         }
       } else {
         // Regular item - single performance obligation
         const itemDetails = await this.itemRepo.findById(item.itemId, organizationId);
+        const itemBehavior = this.parseSatisfactionMethod(itemDetails?.revenueBehavior);
+        const resolvedBehavior =
+          lineBehavior ||
+          itemBehavior ||
+          await this.determineSatisfactionMethod(item.itemId, organizationId, itemDetails);
+        const sspOverrideAmount =
+          lineSspAmount ??
+          this.toOptionalNumber(itemDetails?.defaultSspAmount) ??
+          this.toOptionalNumber(itemDetails?.defaultPrice);
+
         obligations.push({
           itemId: item.itemId,
           itemName: itemDetails?.name || 'Unknown',
-          obligationType: await this.determineObligationType(item.itemId, organizationId),
-          satisfactionMethod: await this.determineSatisfactionMethod(item.itemId, organizationId),
+          obligationType: await this.determineObligationType(item.itemId, organizationId, itemDetails),
+          satisfactionMethod: resolvedBehavior,
           allocatedAmount: 0, // Set in step 4
           startDate: new Date(item.startDate),
-          endDate: new Date(item.endDate)
+          endDate: new Date(item.endDate),
+          sspOverrideAmount,
         });
       }
     }
@@ -225,7 +266,7 @@ export class RevenueCalculationEngine {
     // Get SSP for each obligation
     const sspValues = await Promise.all(
       obligations.map(async (obligation) => {
-        const ssp = await this.getCurrentSSP(obligation.itemId, organizationId);
+        const ssp = await this.getCurrentSSP(obligation.itemId, organizationId, obligation.sspOverrideAmount);
         return {
           itemId: obligation.itemId,
           ssp: ssp || { amount: 0, confidence: 'low' }
@@ -280,6 +321,7 @@ export class RevenueCalculationEngine {
         // Recognize immediately when control transfers
         schedules.push({
           performanceObligationId: obligation.id,
+          obligationIndex: i,
           periodStartDate: obligation.startDate,
           periodEndDate: obligation.startDate,
           scheduledAmount: allocation.allocatedAmount,
@@ -292,7 +334,8 @@ export class RevenueCalculationEngine {
         const periodSchedules = await this.generateOverTimeSchedules(
           allocation,
           obligation,
-          pattern
+          pattern,
+          i
         );
         schedules.push(...periodSchedules);
       }
@@ -339,28 +382,45 @@ export class RevenueCalculationEngine {
   }
 
   private async isKitItem(itemId: string): Promise<boolean> {
-    const [kit] = await db.select()
+    const [kit] = await this.db.select()
       .from(kitComponents)
-      .where(eq(kitComponents.parentItemId, itemId))
+      .where(eq(kitComponents.kitItemId, itemId))
       .limit(1);
     
     return !!kit;
   }
 
-  private async explodeKit(kitItemId: string, totalPrice: number): Promise<any[]> {
-    const components = await db.select()
+  private async explodeKit(kitItemId: string): Promise<Array<{ componentItemId: string; quantity: number }>> {
+    const components = await this.db.select()
       .from(kitComponents)
-      .where(eq(kitComponents.parentItemId, kitItemId));
+      .where(eq(kitComponents.kitItemId, kitItemId));
     
-    // Allocate kit price to components based on allocation percentages or SSP
-    return components.map(component => ({
+    return components.map((component) => ({
       componentItemId: component.componentItemId,
-      allocatedPrice: totalPrice * (parseFloat(component.allocationPercentage || '0') / 100)
+      quantity: Number(component.quantity ?? 1),
     }));
   }
 
-  private async determineObligationType(itemId: string, organizationId?: string): Promise<string> {
-    const item = organizationId ? await this.itemRepo.findById(itemId, organizationId) : null;
+  private toMetadataRecord(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== 'object') return {};
+    return value as Record<string, unknown>;
+  }
+
+  private toOptionalNumber(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === '') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  private parseSatisfactionMethod(value: unknown): 'point_in_time' | 'over_time' | undefined {
+    if (value === 'point_in_time' || value === 'over_time') {
+      return value;
+    }
+    return undefined;
+  }
+
+  private async determineObligationType(itemId: string, organizationId?: string, itemOverride?: any): Promise<string> {
+    const item = itemOverride || (organizationId ? await this.itemRepo.findById(itemId, organizationId) : null);
     
     if (!item) return 'other';
     
@@ -375,10 +435,15 @@ export class RevenueCalculationEngine {
     return 'other';
   }
 
-  private async determineSatisfactionMethod(itemId: string, organizationId?: string): Promise<'point_in_time' | 'over_time'> {
-    const item = organizationId ? await this.itemRepo.findById(itemId, organizationId) : null;
+  private async determineSatisfactionMethod(itemId: string, organizationId?: string, itemOverride?: any): Promise<'point_in_time' | 'over_time'> {
+    const item = itemOverride || (organizationId ? await this.itemRepo.findById(itemId, organizationId) : null);
     
     if (!item) return 'point_in_time';
+
+    const explicitBehavior = this.parseSatisfactionMethod(item.revenueBehavior);
+    if (explicitBehavior) {
+      return explicitBehavior;
+    }
     
     const itemType = item.name?.toLowerCase() || '';
     
@@ -387,14 +452,26 @@ export class RevenueCalculationEngine {
     // 2. Customer controls asset as entity creates/enhances it
     // 3. Asset has no alternative use and entity has enforceable right to payment
     
-    if (itemType.includes('hosting') || itemType.includes('maintenance') || itemType.includes('support')) {
+    if (
+      itemType.includes('hosting') ||
+      itemType.includes('maintenance') ||
+      itemType.includes('support') ||
+      itemType.includes('saas') ||
+      itemType.includes('subscription') ||
+      itemType.includes('seat') ||
+      itemType.includes('term license')
+    ) {
       return 'over_time'; // Customer simultaneously receives benefits
     }
-    
+
     if (itemType.includes('consulting') || itemType.includes('professional')) {
       return 'over_time'; // No alternative use + enforceable right to payment
     }
-    
+
+    if (itemType.includes('perpetual license')) {
+      return 'point_in_time';
+    }
+
     return 'point_in_time'; // Default for software licenses, standard products
   }
 
@@ -403,7 +480,7 @@ export class RevenueCalculationEngine {
     const consolidated = new Map<string, PerformanceObligationResult>();
     
     for (const obligation of obligations) {
-      const key = `${obligation.itemId}-${obligation.obligationType}`;
+      const key = `${obligation.itemId}-${obligation.obligationType}-${obligation.satisfactionMethod}-${obligation.sspOverrideAmount ?? 'na'}`;
       if (consolidated.has(key)) {
         const existing = consolidated.get(key)!;
         existing.allocatedAmount += obligation.allocatedAmount;
@@ -415,9 +492,16 @@ export class RevenueCalculationEngine {
     return Array.from(consolidated.values());
   }
 
-  private async getCurrentSSP(itemId: string, organizationId: string): Promise<any> {
+  private async getCurrentSSP(itemId: string, organizationId: string, overrideSspAmount?: number): Promise<any> {
+    if (overrideSspAmount && overrideSspAmount > 0) {
+      return {
+        amount: overrideSspAmount,
+        confidence: 'high',
+      };
+    }
+
     // Get the best available SSP evidence for the item
-    const evidence = await db.select()
+    const evidence = await this.db.select()
       .from(sspEvidence)
       .where(
         and(
@@ -427,14 +511,13 @@ export class RevenueCalculationEngine {
         )
       )
       .orderBy(
-        // Priority: standalone_sale > competitor_pricing > cost_plus_margin > market_assessment
-        // @ts-ignore - SQL template compatibility
+        // Priority: customer_pricing > comparable_sales > market_research > cost_plus
         sql`
           CASE ${sspEvidence.evidenceType}
-            WHEN 'standalone_sale' THEN 1
-            WHEN 'competitor_pricing' THEN 2
-            WHEN 'cost_plus_margin' THEN 3
-            WHEN 'market_assessment' THEN 4
+            WHEN 'customer_pricing' THEN 1
+            WHEN 'comparable_sales' THEN 2
+            WHEN 'market_research' THEN 3
+            WHEN 'cost_plus' THEN 4
           END
         `
       )
@@ -444,6 +527,24 @@ export class RevenueCalculationEngine {
       return {
         amount: parseFloat(evidence[0].sspAmount),
         confidence: evidence[0].confidenceLevel
+      };
+    }
+
+    // Fallback to item-level defaults if no SSP evidence is available.
+    const item = await this.itemRepo.findById(itemId, organizationId);
+    const itemDefaultSsp = this.toOptionalNumber(item?.defaultSspAmount);
+    if (itemDefaultSsp && itemDefaultSsp > 0) {
+      return {
+        amount: itemDefaultSsp,
+        confidence: 'medium',
+      };
+    }
+
+    const itemListPrice = this.toOptionalNumber(item?.defaultPrice);
+    if (itemListPrice && itemListPrice > 0) {
+      return {
+        amount: itemListPrice,
+        confidence: 'medium',
       };
     }
     
@@ -555,33 +656,98 @@ export class RevenueCalculationEngine {
   private async generateOverTimeSchedules(
     allocation: PriceAllocation,
     obligation: PerformanceObligationResult,
-    pattern: string
+    pattern: string,
+    obligationIndex: number
   ): Promise<RevenueScheduleResult[]> {
+    // Date-only accounting: operate in UTC to avoid timezone drift / month-overflow bugs.
+    const toDateOnlyUtc = (d: Date): Date =>
+      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+
+    const ymd = (d: Date) => d.toISOString().slice(0, 10);
+
+    const startDate = toDateOnlyUtc(new Date(obligation.startDate));
+    const endDate = toDateOnlyUtc(new Date(obligation.endDate));
+
+    // Inclusive month count (e.g. Jan 1..Dec 31 => 12)
+    const totalMonths =
+      (endDate.getUTCFullYear() - startDate.getUTCFullYear()) * 12 +
+      (endDate.getUTCMonth() - startDate.getUTCMonth()) +
+      1;
+
+    const clamp = (d: Date, min: Date, max: Date) =>
+      d.getTime() < min.getTime() ? min : d.getTime() > max.getTime() ? max : d;
+
+    const startOfMonthUtc = (d: Date) =>
+      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+
+    const endOfMonthUtc = (d: Date) =>
+      // Day 0 of next month == last day of current month
+      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+
+    const addMonthsUtc = (d: Date, months: number) =>
+      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, d.getUTCDate()));
+
+    const daysInclusive = (a: Date, b: Date) => {
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diff = Math.floor((toDateOnlyUtc(b).getTime() - toDateOnlyUtc(a).getTime()) / msPerDay);
+      return diff + 1;
+    };
+
+    // Build periods and weights (prorate partial months by day count)
+    const periods: Array<{ start: Date; end: Date; weight: number }> = [];
+
+    for (let m = 0; m < totalMonths; m++) {
+      const monthAnchor = addMonthsUtc(startDate, m);
+      const monthStart = startOfMonthUtc(monthAnchor);
+      const monthEnd = endOfMonthUtc(monthAnchor);
+
+      const periodStart = clamp(startDate, monthStart, monthEnd);
+      const periodEnd = clamp(endDate, monthStart, monthEnd);
+
+      if (periodEnd.getTime() < periodStart.getTime()) continue;
+
+      const activeDays = daysInclusive(periodStart, periodEnd);
+      const monthDays = daysInclusive(monthStart, monthEnd);
+      const weight = monthDays > 0 ? activeDays / monthDays : 0;
+
+      periods.push({ start: periodStart, end: periodEnd, weight });
+    }
+
+    const totalWeight = periods.reduce((s, p) => s + p.weight, 0) || 1;
+
+    // Allocate with cents rounding; adjust the last period to match exactly.
     const schedules: RevenueScheduleResult[] = [];
-    
-    const startDate = new Date(obligation.startDate);
-    const endDate = new Date(obligation.endDate);
-    const totalMonths = this.getMonthsDifference(startDate, endDate);
-    const monthlyAmount = allocation.allocatedAmount / totalMonths;
-    
-    for (let month = 0; month < totalMonths; month++) {
-      const periodStart = new Date(startDate);
-      periodStart.setMonth(periodStart.getMonth() + month);
-      
-      const periodEnd = new Date(periodStart);
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
-      periodEnd.setDate(periodEnd.getDate() - 1);
-      
+    let allocatedSoFar = 0;
+
+    for (let i = 0; i < periods.length; i++) {
+      const p = periods[i];
+      const raw = (allocation.allocatedAmount * p.weight) / totalWeight;
+      const rounded = i === periods.length - 1 ? 0 : Math.round(raw * 100) / 100;
+      const amount =
+        i === periods.length - 1
+          ? Math.round((allocation.allocatedAmount - allocatedSoFar) * 100) / 100
+          : rounded;
+
+      allocatedSoFar += amount;
+
       schedules.push({
         performanceObligationId: obligation.id,
-        periodStartDate: periodStart,
-        periodEndDate: periodEnd,
-        scheduledAmount: monthlyAmount,
+        obligationIndex,
+        periodStartDate: p.start,
+        periodEndDate: p.end,
+        scheduledAmount: amount,
         recognitionPattern: pattern as any,
-        status: 'scheduled'
+        status: "scheduled",
       });
     }
-    
+
+    // Defensive: if rounding drift still exists, force exact match on the last entry.
+    const drift = Math.round((allocation.allocatedAmount - allocatedSoFar) * 100) / 100;
+    if (schedules.length > 0 && Math.abs(drift) >= 0.01) {
+      schedules[schedules.length - 1].scheduledAmount =
+        Math.round((schedules[schedules.length - 1].scheduledAmount + drift) * 100) / 100;
+    }
+
     return schedules;
   }
 
@@ -613,7 +779,7 @@ export class RevenueCalculationEngine {
 
   private async getExistingCalculation(subscriptionId: string, organizationId: string): Promise<any> {
     // Get existing calculation results from database
-    const obligations = await db.select()
+    const obligations = await this.db.select()
       .from(performanceObligations)
       .where(
         and(
@@ -647,22 +813,42 @@ export class RevenueCalculationEngine {
     organizationId: string,
     results: any
   ): Promise<void> {
+    const mapAllocationMethod = (method: string): 'proportional' | 'residual' | 'specific_evidence' => {
+      switch (method) {
+        case 'residual':
+          return 'residual';
+        case 'ssp_proportional':
+        case 'proportional':
+          return 'proportional';
+        default:
+          return 'specific_evidence';
+      }
+    };
+
     // Save performance obligations
-    for (const obligation of results.performanceObligations) {
-      const [created] = await db.insert(performanceObligations)
+    for (let i = 0; i < results.performanceObligations.length; i++) {
+      const obligation = results.performanceObligations[i];
+      const allocation = results.allocations[i];
+
+      const [created] = await this.db.insert(performanceObligations)
         .values({
           organizationId,
           subscriptionId,
           itemId: obligation.itemId,
+          contractLineItemId: null,
+          name: obligation.itemName,
+          ssp: String(allocation?.sspAmount ?? obligation.sspOverrideAmount ?? 0),
+          allocatedTransactionPrice: String(obligation.allocatedAmount),
           obligationType: obligation.obligationType as any,
           satisfactionMethod: obligation.satisfactionMethod as any,
           satisfactionPeriodMonths: obligation.satisfactionPeriodMonths,
           allocatedAmount: String(obligation.allocatedAmount),
           startDate: obligation.startDate.toISOString().split('T')[0],
           endDate: obligation.endDate ? obligation.endDate.toISOString().split('T')[0] : null,
-          status: 'active'
+          status: 'Pending',
+          revenueRecognized: '0',
         })
-        .returning();
+        .returning({ id: performanceObligations.id });
       
       obligation.id = created.id;
     }
@@ -673,32 +859,47 @@ export class RevenueCalculationEngine {
       const obligationId = results.performanceObligations[i]?.id;
       
       if (obligationId) {
-        await db.insert(contractSspAllocations)
+        await this.db.insert(contractSspAllocations)
           .values({
             organizationId,
             subscriptionId,
             performanceObligationId: obligationId,
+            contractId: null,
+            lineItemId: null,
             sspAmount: String(allocation.sspAmount),
             allocatedAmount: String(allocation.allocatedAmount),
             allocationPercentage: String(allocation.allocationPercentage),
-            allocationMethod: allocation.allocationMethod as any
+            allocationMethod: mapAllocationMethod(allocation.allocationMethod),
+            allocationDate: new Date(),
           });
       }
     }
     
     // Save revenue schedules
     for (const schedule of results.schedules) {
-      await db.insert(revenueSchedules)
+      const scheduleDate = schedule.periodStartDate.toISOString().split('T')[0];
+      const resolvedObligationId =
+        schedule.performanceObligationId ??
+        (typeof schedule.obligationIndex === 'number'
+          ? results.performanceObligations?.[schedule.obligationIndex]?.id
+          : undefined);
+
+      if (!resolvedObligationId) {
+        throw new Error('Revenue schedule is missing performance obligation linkage');
+      }
+      await this.db.insert(revenueSchedules)
         .values({
           organizationId,
-          performanceObligationId: schedule.performanceObligationId!,
+          performanceObligationId: resolvedObligationId,
+          scheduleDate,
           periodStartDate: schedule.periodStartDate.toISOString().split('T')[0],
           periodEndDate: schedule.periodEndDate.toISOString().split('T')[0],
           scheduledAmount: String(schedule.scheduledAmount),
           recognizedAmount: '0',
           recognitionDate: null,
-          recognitionPattern: schedule.recognitionPattern as any,
-          status: schedule.status as any
+          recognitionSource: 'automatic',
+          recognitionPattern: schedule.recognitionPattern,
+          status: schedule.status,
         });
     }
   }

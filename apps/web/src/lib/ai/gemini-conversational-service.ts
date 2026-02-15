@@ -32,6 +32,10 @@ import {
   type ActionResult,
   type MCPClient,
 } from './action-executor';
+import {
+  getMemoryService,
+  type MemoryServiceConfig,
+} from './memory';
 
 // ============================================================================
 // Types
@@ -51,6 +55,11 @@ export interface GeminiServiceConfig {
   systemPrompt?: string;
   /** Enable logging */
   enableLogging?: boolean;
+  /** Memory service configuration */
+  memory?: MemoryServiceConfig & {
+    /** Enable memory features (default: true if Magneteco is configured) */
+    enabled?: boolean;
+  };
 }
 
 /**
@@ -523,6 +532,7 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
     model = 'gemini-2.0-flash',
     systemPrompt: systemPromptOverride,
     enableLogging = false,
+    memory: memoryConfig,
   } = config;
 
   // Initialize Gemini client
@@ -530,6 +540,14 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
 
   // Generate function declarations
   const functionDeclarations = generateFunctionDeclarations();
+
+  // Initialize memory service (if configured)
+  const memoryService = getMemoryService(memoryConfig);
+  const memoryEnabled = memoryConfig?.enabled !== false && memoryService.isAvailable();
+
+  if (enableLogging) {
+    console.log('[GeminiService] Memory service:', memoryEnabled ? 'enabled' : 'disabled');
+  }
 
   // Create the model with tools
   const generativeModel = genAI.getGenerativeModel({
@@ -649,8 +667,42 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
     }
 
     try {
+      // Retrieve memory context if available
+      let memoryContext = '';
+      if (memoryEnabled) {
+        try {
+          memoryContext = await memoryService.getFormattedContext(
+            userContext.userId,
+            message,
+            { maxTokens: memoryConfig?.maxTokens ?? 2000 }
+          );
+          if (enableLogging && memoryContext) {
+            console.log('[GeminiService] Retrieved memory context:', memoryContext.length, 'chars');
+          }
+        } catch (memoryError) {
+          // Don't fail the request if memory retrieval fails
+          if (enableLogging) {
+            console.error('[GeminiService] Memory retrieval failed:', memoryError);
+          }
+        }
+      }
+
+      // Build enhanced system instruction with memory context
+      const systemInstruction = memoryContext
+        ? `${systemPromptOverride || GLAPI_SYSTEM_PROMPT}\n\n${memoryContext}`
+        : (systemPromptOverride || GLAPI_SYSTEM_PROMPT);
+
+      // Create a model instance with memory-enhanced system instruction
+      const modelWithMemory = memoryContext
+        ? genAI.getGenerativeModel({
+            model,
+            tools: [{ functionDeclarations }],
+            systemInstruction,
+          })
+        : generativeModel;
+
       // Start a chat session with history
-      const chat = generativeModel.startChat({
+      const chat = modelWithMemory.startChat({
         history: messagesToContents(conversationHistory),
       });
 
@@ -709,6 +761,20 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
 
           actionExecutor.addAssistantMessage(conversationId, finalMessage, userContext);
 
+          // Store exchange in memory (fire and forget)
+          if (memoryEnabled) {
+            memoryService.memorizeExchange(
+              userContext.userId,
+              message,
+              finalMessage,
+              conversationId
+            ).catch((err) => {
+              if (enableLogging) {
+                console.error('[GeminiService] Memory storage failed:', err);
+              }
+            });
+          }
+
           return {
             message: finalMessage,
             actionAttempted: true,
@@ -730,6 +796,20 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
       // No function call - return text response
       const textResponse = response.text() || "I'm not sure how to help with that. Could you rephrase your request?";
       actionExecutor.addAssistantMessage(conversationId, textResponse, userContext);
+
+      // Store exchange in memory (fire and forget)
+      if (memoryEnabled) {
+        memoryService.memorizeExchange(
+          userContext.userId,
+          message,
+          textResponse,
+          conversationId
+        ).catch((err) => {
+          if (enableLogging) {
+            console.error('[GeminiService] Memory storage failed:', err);
+          }
+        });
+      }
 
       return {
         message: textResponse,

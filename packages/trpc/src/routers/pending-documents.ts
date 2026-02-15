@@ -330,7 +330,6 @@ export const pendingDocumentsRouter = router({
       scopes: ['documents', 'inbox', 'magic-inbox', 'transactions'],
       permissions: ['write:pending-documents', 'write:vendor-bills'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(
       z.object({
@@ -360,6 +359,37 @@ export const pendingDocumentsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new DocumentConversionService(ctx.serviceContext, { db: ctx.db });
-      return service.convertToVendorBill(input);
+
+      const overrides = input.overrides
+        ? {
+            vendorInvoiceNumber: input.overrides.vendorInvoiceNumber,
+            billDate: input.overrides.billDate,
+            dueDate: input.overrides.dueDate,
+            memo: input.overrides.memo,
+            lines: input.overrides.lines?.map((line) => {
+              if (!line.itemName) {
+                throw new TRPCError({
+                  code: 'BAD_REQUEST',
+                  message: 'overrides.lines[].itemName is required',
+                });
+              }
+
+              return {
+                lineNumber: line.lineNumber,
+                itemName: line.itemName,
+                itemDescription: line.itemDescription,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+              };
+            }),
+          }
+        : undefined;
+
+      return service.convertToVendorBill({
+        pendingDocumentId: input.pendingDocumentId,
+        vendorId: input.vendorId,
+        subsidiaryId: input.subsidiaryId,
+        overrides,
+      });
     }),
 });

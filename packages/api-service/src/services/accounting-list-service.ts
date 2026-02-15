@@ -837,8 +837,10 @@ export class AccountingListService extends BaseService {
 
       case 'end_of_month':
         // End of month + net days
-        const endOfMonth = getEndOfMonth(invoiceDate);
-        dueDate = addDays(endOfMonth, netDays);
+        {
+          const endOfMonth = getEndOfMonth(invoiceDate);
+          dueDate = addDays(endOfMonth, netDays);
+        }
         break;
 
       default:
@@ -847,7 +849,7 @@ export class AccountingListService extends BaseService {
 
     // Calculate discount date
     let discountDate: Date | null = null;
-    let discountAmount: number | null = null;
+    const discountAmount: number | null = null;
     const discountPercentNum = parseFloat(String(discountPercent));
 
     if (discountDays > 0 && discountPercentNum > 0) {

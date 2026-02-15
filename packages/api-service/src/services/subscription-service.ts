@@ -37,6 +37,7 @@ export interface CreateSubscriptionData extends Omit<NewSubscription, 'id' | 'or
     discountPercentage?: string | number;
     startDate: Date | string;
     endDate?: Date | string | null;
+    metadata?: Record<string, unknown>;
   }>;
 }
 
@@ -49,6 +50,7 @@ export interface UpdateSubscriptionData extends Partial<UpdateSubscription> {
     discountPercentage?: string | number;
     startDate: Date | string;
     endDate?: Date | string | null;
+    metadata?: Record<string, unknown>;
   }>;
   changeReason?: string;
   metadata?: Record<string, unknown>;
@@ -191,7 +193,8 @@ export class SubscriptionService extends BaseService {
       unitPrice: String(item.unitPrice),
       discountPercentage: item.discountPercentage ? String(item.discountPercentage) : undefined,
       startDate: typeof item.startDate === 'string' ? item.startDate : item.startDate.toISOString().split('T')[0],
-      endDate: item.endDate ? (typeof item.endDate === 'string' ? item.endDate : item.endDate.toISOString().split('T')[0]) : undefined
+      endDate: item.endDate ? (typeof item.endDate === 'string' ? item.endDate : item.endDate.toISOString().split('T')[0]) : undefined,
+      metadata: item.metadata
     })) || [];
 
     const subscription = await this.subscriptionRepository.createWithItems(subscriptionToCreate, itemsToCreate);
@@ -253,7 +256,8 @@ export class SubscriptionService extends BaseService {
         unitPrice: String(item.unitPrice),
         discountPercentage: item.discountPercentage ? String(item.discountPercentage) : undefined,
         startDate: typeof item.startDate === 'string' ? item.startDate : item.startDate.toISOString().split('T')[0],
-        endDate: item.endDate ? (typeof item.endDate === 'string' ? item.endDate : item.endDate.toISOString().split('T')[0]) : undefined
+        endDate: item.endDate ? (typeof item.endDate === 'string' ? item.endDate : item.endDate.toISOString().split('T')[0]) : undefined,
+        metadata: item.metadata
       }));
 
       currentItems = await Promise.all(
@@ -273,7 +277,7 @@ export class SubscriptionService extends BaseService {
       await this.recordVersion(
         result,
         existingSubscription,
-        items ? 'item_modification' : 'amendment',
+        items ? 'modification' : 'amendment',
         changeReason || 'Subscription updated',
         changedFields
       );
@@ -298,21 +302,23 @@ export class SubscriptionService extends BaseService {
           );
         }
       },
-      reason: 'Subscription activated'
+      reason: 'Subscription activated',
+      versionType: 'activation',
     });
   }
 
   async suspendSubscription(subscriptionId: string, reason?: string): Promise<SubscriptionWithItems> {
     return this.transitionStatus(subscriptionId, 'suspended', {
       reason: reason || 'Subscription suspended',
-      metadata: { suspensionReason: reason }
+      metadata: { suspensionReason: reason },
+      versionType: 'suspension'
     });
   }
 
   async resumeSubscription(subscriptionId: string): Promise<SubscriptionWithItems> {
     const result = await this.transitionStatus(subscriptionId, 'active', {
       reason: 'Subscription resumed from suspension',
-      versionType: 'reactivation'
+      versionType: 'resumption'
     });
     return result;
   }
@@ -528,10 +534,18 @@ export class SubscriptionService extends BaseService {
     } as SubscriptionWithItems;
 
     // Record version
+    const inferredVersionType: NewSubscriptionVersion['versionType'] =
+      options.versionType ||
+      (newStatus === 'active' && previousStatus === 'draft' ? 'activation'
+        : newStatus === 'suspended' ? 'suspension'
+          : newStatus === 'active' && previousStatus === 'suspended' ? 'resumption'
+            : newStatus === 'cancelled' ? 'cancellation'
+              : 'modification');
+
     await this.recordVersion(
       result,
       subscription,
-      options.versionType || 'status_change',
+      inferredVersionType,
       options.reason || `Status changed to ${newStatus}`,
       [{ field: 'status', oldValue: previousStatus, newValue: newStatus }]
     );
@@ -549,7 +563,7 @@ export class SubscriptionService extends BaseService {
     const organizationId = this.requireOrganizationContext();
 
     const snapshot = this.createSnapshot(subscription);
-    const itemsSnapshot = subscription.items?.map(item => ({
+    const itemsSnapshot = (subscription.items || []).map(item => ({
       id: item.id,
       itemId: item.itemId,
       quantity: String(item.quantity),
@@ -564,17 +578,21 @@ export class SubscriptionService extends BaseService {
       subscriptionId: subscription.id,
       versionType,
       versionSource: 'user',
-      previousStatus: previousSubscription?.status,
-      newStatus: subscription.status,
       subscriptionSnapshot: snapshot,
       itemsSnapshot,
-      changedFields,
       changeSummary,
-      previousContractValue: previousSubscription?.contractValue || undefined,
-      newContractValue: subscription.contractValue || undefined,
+      changeReason: undefined,
       effectiveDate: new Date(),
-      createdBy: this.context.userId,
-      createdByName: this.context.userName,
+      // Do not set createdBy by default: the live schema FK's to `users(id)` and
+      // many callers use entity UUIDs or API keys instead of user UUIDs.
+      createdBy: undefined,
+      metadata: {
+        previousStatus: previousSubscription?.status,
+        newStatus: subscription.status,
+        changedFields,
+        previousContractValue: previousSubscription?.contractValue || undefined,
+        newContractValue: subscription.contractValue || undefined,
+      },
     });
   }
 

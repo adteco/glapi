@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
-import { SubscriptionService } from '@glapi/api-service';
+import { RevenueService, SubscriptionService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
 import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
+import { and, eq, items, subscriptionItems, subscriptions } from '@glapi/database';
 
 // Zod schemas for validation
 const subscriptionItemSchema = z.object({
@@ -11,7 +12,8 @@ const subscriptionItemSchema = z.object({
   unitPrice: z.number().positive(),
   discountPercentage: z.number().min(0).max(1).default(0),
   startDate: z.coerce.date(),
-  endDate: z.coerce.date().optional().nullable()
+  endDate: z.coerce.date().optional().nullable(),
+  metadata: z.record(z.any()).optional().nullable(),
 });
 
 const subscriptionSchema = z.object({
@@ -27,6 +29,53 @@ const subscriptionSchema = z.object({
   metadata: z.record(z.any()).optional().nullable(),
   items: z.array(subscriptionItemSchema).min(1).optional()
 });
+
+const licenseChangeSchema = z.object({
+  subscriptionId: z.string().uuid(),
+  itemId: z.string().uuid(),
+  action: z.enum(['add', 'remove']),
+  quantity: z.number().positive(),
+  unitPrice: z.number().positive().optional(),
+  effectiveDate: z.coerce.date(),
+  endDate: z.coerce.date().optional(),
+  reason: z.string().optional(),
+});
+
+function num(value: string | number | null | undefined, fallback: number = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+async function getItemRevenueDefaults(
+  ctx: any,
+  organizationId: string,
+  itemId: string
+): Promise<{ listPrice?: number; revenueBehavior?: string | null; defaultSspAmount?: number }> {
+  const [row] = await ctx.db
+    .select({
+      defaultPrice: items.defaultPrice,
+      revenueBehavior: items.revenueBehavior,
+      defaultSspAmount: items.defaultSspAmount,
+    })
+    .from(items)
+    .where(
+      and(
+        eq(items.organizationId, organizationId),
+        eq(items.id, itemId)
+      )
+    )
+    .limit(1);
+
+  if (!row) {
+    return {};
+  }
+
+  return {
+    listPrice: row.defaultPrice ? Number(row.defaultPrice) : undefined,
+    revenueBehavior: row.revenueBehavior,
+    defaultSspAmount: row.defaultSspAmount ? Number(row.defaultSspAmount) : undefined,
+  };
+}
 
 // Helper to map service errors to TRPC errors
 function handleServiceError(error: any): never {
@@ -156,7 +205,6 @@ export const subscriptionsRouter = router({
       scopes: ['subscriptions'],
       permissions: ['delete:subscriptions'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
@@ -212,7 +260,6 @@ export const subscriptionsRouter = router({
       scopes: ['subscriptions', 'billing'],
       permissions: ['write:subscriptions'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(z.object({
       id: z.string().uuid(),
@@ -387,13 +434,14 @@ export const subscriptionsRouter = router({
       effectiveDate: z.coerce.date()
     }))
     .mutation(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
+      const service = new RevenueService(ctx.serviceContext, { db: ctx.db });
       
       try {
         return await service.calculateRevenue(
           input.id, 
-          input.calculationType, 
-          input.effectiveDate
+          input.calculationType,
+          input.effectiveDate,
+          { forceRecalculation: true }
         );
       } catch (error: any) {
         if (error.code === 'NOT_FOUND') {
@@ -410,10 +458,18 @@ export const subscriptionsRouter = router({
   getRevenueSchedule: authenticatedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const service = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
+      const service = new RevenueService(ctx.serviceContext, { db: ctx.db });
       
       try {
-        return await service.getRevenueSchedule(input.id);
+        const plan = await service.getSubscriptionPlan({
+          subscriptionId: input.id,
+        });
+        return {
+          subscriptionId: input.id,
+          schedules: plan.schedules,
+          waterfall: plan.waterfall,
+          summary: plan.summary,
+        };
       } catch (error: any) {
         if (error.code === 'NOT_FOUND') {
           throw new TRPCError({
@@ -423,6 +479,255 @@ export const subscriptionsRouter = router({
         }
         throw error;
       }
+    }),
+
+  // Preview license add/remove impact without persisting changes
+  previewLicenseChange: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('preview_license_change', 'Preview add/remove license impact on ASC 606 plan', {
+      scopes: ['subscriptions', 'revenue'],
+      permissions: ['read:subscriptions', 'read:revenue'],
+    }) })
+    .input(licenseChangeSchema)
+    .mutation(async ({ ctx, input }) => {
+      const subscriptionService = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
+      const revenueService = new RevenueService(ctx.serviceContext, { db: ctx.db });
+
+      const current = await subscriptionService.getSubscriptionById(input.subscriptionId);
+      if (!current) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Subscription not found',
+        });
+      }
+
+      const currentItems = [...(current.items || [])];
+      const target = currentItems.find((i) => i.itemId === input.itemId);
+
+      if (input.action === 'remove') {
+        if (!target) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Cannot remove licenses for an item that is not on the subscription',
+          });
+        }
+        const remaining = num(target.quantity) - input.quantity;
+        if (remaining < 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Removal quantity exceeds currently licensed quantity',
+          });
+        }
+        if (remaining === 0) {
+          const index = currentItems.findIndex((i) => i.id === target.id);
+          if (index >= 0) currentItems.splice(index, 1);
+        } else {
+          target.quantity = String(remaining);
+        }
+      } else {
+        if (target) {
+          target.quantity = String(num(target.quantity) + input.quantity);
+        } else {
+          const itemDefaults = await getItemRevenueDefaults(ctx, current.organizationId, input.itemId);
+          const resolvedUnitPrice = input.unitPrice ?? itemDefaults.listPrice;
+          if (!resolvedUnitPrice) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'unitPrice is required when adding a new licensed item (or set item listPrice)',
+            });
+          }
+          currentItems.push({
+            id: `preview-${Date.now()}`,
+            itemId: input.itemId,
+            quantity: String(input.quantity),
+            unitPrice: String(resolvedUnitPrice),
+            discountPercentage: '0',
+            startDate: input.effectiveDate.toISOString().split('T')[0],
+            endDate: (input.endDate || current.endDate || null) as any,
+            metadata: {
+              revenueBehavior: itemDefaults.revenueBehavior,
+              sspAmount: itemDefaults.defaultSspAmount,
+              listPrice: itemDefaults.listPrice,
+            },
+          });
+        }
+      }
+
+      const baseline = await revenueService.previewAllocation(current.id, input.effectiveDate);
+      const baselinePrice = num((baseline as any).transactionPrice, 0);
+
+      // Build a temporary subscription snapshot for scenario preview.
+      const [tempSubscription] = await ctx.db.insert(subscriptions).values({
+        organizationId: current.organizationId,
+        entityId: current.entityId,
+        subscriptionNumber: `WHATIF-${Date.now()}`,
+        status: 'active',
+        startDate: current.startDate,
+        endDate: (current.endDate || input.endDate || null) as any,
+        contractValue: String(currentItems.reduce((sum, item) => {
+          return sum + (num(item.quantity) * num(item.unitPrice));
+        }, 0)),
+        billingFrequency: current.billingFrequency || 'monthly',
+        autoRenew: false,
+        renewalTermMonths: current.renewalTermMonths,
+        metadata: {
+          whatIf: true,
+          sourceSubscriptionId: current.id,
+        },
+      }).returning();
+
+      try {
+        await ctx.db.insert(subscriptionItems).values(
+          currentItems.map((item) => ({
+            organizationId: current.organizationId,
+            subscriptionId: tempSubscription.id,
+            itemId: item.itemId,
+            quantity: String(item.quantity),
+            unitPrice: String(item.unitPrice),
+            discountPercentage: item.discountPercentage || '0',
+            startDate: item.startDate,
+            endDate: (item.endDate || null) as any,
+            metadata: (item.metadata || null) as any,
+          }))
+        );
+
+        const scenario = await revenueService.previewAllocation(tempSubscription.id, input.effectiveDate);
+        const scenarioPrice = num((scenario as any).transactionPrice, 0);
+
+        return {
+          baseline,
+          scenario,
+          delta: {
+            transactionPrice: scenarioPrice - baselinePrice,
+          },
+        };
+      } finally {
+        await ctx.db.delete(subscriptionItems).where(eq(subscriptionItems.subscriptionId, tempSubscription.id));
+        await ctx.db.delete(subscriptions).where(eq(subscriptions.id, tempSubscription.id));
+      }
+    }),
+
+  // Apply license add/remove and recalculate ASC 606 schedules
+  applyLicenseChange: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('apply_license_change', 'Apply license quantity change and recalculate revenue', {
+      scopes: ['subscriptions', 'revenue'],
+      permissions: ['write:subscriptions', 'write:revenue'],
+      riskLevel: 'HIGH',
+    }) })
+    .input(licenseChangeSchema)
+    .mutation(async ({ ctx, input }) => {
+      const subscriptionService = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
+      const revenueService = new RevenueService(ctx.serviceContext, { db: ctx.db });
+
+      const current = await subscriptionService.getSubscriptionById(input.subscriptionId);
+      if (!current) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Subscription not found',
+        });
+      }
+
+      const nextItems = (current.items || []).map((item) => ({
+        itemId: item.itemId,
+        quantity: num(item.quantity, 0),
+        unitPrice: num(item.unitPrice, 0),
+        discountPercentage: num(item.discountPercentage || 0, 0),
+        startDate: new Date(item.startDate),
+        endDate: item.endDate ? new Date(item.endDate) : undefined,
+        metadata: (item.metadata || undefined) as Record<string, unknown> | undefined,
+      }));
+
+      const target = nextItems.find((i) => i.itemId === input.itemId);
+
+      if (input.action === 'remove') {
+        if (!target) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Cannot remove licenses for an item that is not on the subscription',
+          });
+        }
+
+        const nextQty = target.quantity - input.quantity;
+        if (nextQty < 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Removal quantity exceeds currently licensed quantity',
+          });
+        }
+        if (nextQty === 0) {
+          const idx = nextItems.findIndex((i) => i.itemId === input.itemId);
+          nextItems.splice(idx, 1);
+        } else {
+          target.quantity = nextQty;
+        }
+      } else {
+        if (target) {
+          target.quantity += input.quantity;
+        } else {
+          const itemDefaults = await getItemRevenueDefaults(ctx, current.organizationId, input.itemId);
+          const resolvedUnitPrice = input.unitPrice ?? itemDefaults.listPrice;
+          if (!resolvedUnitPrice) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'unitPrice is required when adding a new licensed item (or set item listPrice)',
+            });
+          }
+          nextItems.push({
+            itemId: input.itemId,
+            quantity: input.quantity,
+            unitPrice: resolvedUnitPrice,
+            discountPercentage: 0,
+            startDate: input.effectiveDate,
+            endDate: input.endDate || (current.endDate ? new Date(current.endDate) : undefined),
+            metadata: {
+              revenueBehavior: itemDefaults.revenueBehavior,
+              sspAmount: itemDefaults.defaultSspAmount,
+              listPrice: itemDefaults.listPrice,
+            },
+          });
+        }
+      }
+
+      if (nextItems.length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Subscription must keep at least one licensed item',
+        });
+      }
+
+      const amended = await subscriptionService.amendSubscription({
+        subscriptionId: input.subscriptionId,
+        effectiveDate: input.effectiveDate,
+        reason: input.reason || `License ${input.action} (${input.quantity})`,
+        changes: {
+          contractValue: String(nextItems.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0)),
+          items: nextItems.map((i) => ({
+            itemId: i.itemId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            discountPercentage: i.discountPercentage,
+            startDate: i.startDate,
+            endDate: i.endDate,
+            metadata: i.metadata,
+          })),
+        },
+      });
+
+      const calculation = await revenueService.calculateRevenue(
+        input.subscriptionId,
+        'modification',
+        input.effectiveDate,
+        { forceRecalculation: true }
+      );
+
+      const plan = await revenueService.getSubscriptionPlan({
+        subscriptionId: input.subscriptionId,
+      });
+
+      return {
+        subscription: amended,
+        calculation,
+        plan,
+      };
     }),
 
   // Get subscription metrics

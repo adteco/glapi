@@ -324,41 +324,43 @@ export function TaskForm({
         );
 
       case 'select':
-        const options = (field.fieldOptions as { options?: Array<{ value: string; label: string }> })?.options ?? [];
-        return (
-          <FormField
-            key={field.id}
-            control={form.control}
-            name={fieldKey as keyof TaskFormValues}
-            render={({ field: formField }) => (
-              <FormItem>
-                <FormLabel>
-                  {field.fieldLabel}
-                  {field.isRequired && <span className="text-destructive ml-1">*</span>}
-                </FormLabel>
-                <Select
-                  onValueChange={formField.onChange}
-                  value={(formField.value as string) ?? undefined}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={field.placeholder ?? 'Select...'} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {options.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {field.helpText && <FormDescription>{field.helpText}</FormDescription>}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        );
+        {
+          const options = (field.fieldOptions as { options?: Array<{ value: string; label: string }> })?.options ?? [];
+          return (
+            <FormField
+              key={field.id}
+              control={form.control}
+              name={fieldKey as keyof TaskFormValues}
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>
+                    {field.fieldLabel}
+                    {field.isRequired && <span className="text-destructive ml-1">*</span>}
+                  </FormLabel>
+                  <Select
+                    onValueChange={formField.onChange}
+                    value={(formField.value as string) ?? undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={field.placeholder ?? 'Select...'} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {options.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {field.helpText && <FormDescription>{field.helpText}</FormDescription>}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          );
+        }
 
       default:
         return null;

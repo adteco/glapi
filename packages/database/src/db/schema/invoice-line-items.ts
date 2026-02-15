@@ -3,6 +3,7 @@ import { invoices } from "./invoices";
 import { subscriptionItems } from "./subscription-items";
 import { items } from "./items";
 import { relations } from "drizzle-orm";
+import { projectTasks } from "./project-tasks";
 
 // Invoice line items table
 export const invoiceLineItems = pgTable("invoice_line_items", {
@@ -14,6 +15,7 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
   quantity: decimal("quantity", { precision: 10, scale: 4 }).notNull().default("1"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  linkedProjectTaskId: uuid("linked_project_task_id").references(() => projectTasks.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow()
 });
 
@@ -30,6 +32,11 @@ export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) =
   item: one(items, {
     fields: [invoiceLineItems.itemId],
     references: [items.id]
+  }),
+  linkedProjectTask: one(projectTasks, {
+    fields: [invoiceLineItems.linkedProjectTaskId],
+    references: [projectTasks.id],
+    relationName: 'invoiceLineTask'
   })
 }));
 

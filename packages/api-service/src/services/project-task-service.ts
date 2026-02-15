@@ -143,6 +143,10 @@ export class ProjectTaskService extends BaseService {
       sortOrder: dbTask.sortOrder,
       isBillable: dbTask.isBillable,
       billingRate: dbTask.billingRate ? Number(dbTask.billingRate) : null,
+      billingType: dbTask.billingType ?? 'flat_fee',
+      flatFeeAmount: dbTask.flatFeeAmount ? Number(dbTask.flatFeeAmount) : null,
+      invoicedAt: dbTask.invoicedAt,
+      invoiceLineId: dbTask.invoiceLineId,
       metadata: dbTask.metadata,
       createdBy: dbTask.createdBy,
       createdAt: dbTask.createdAt,
@@ -500,6 +504,8 @@ export class ProjectTaskService extends BaseService {
       sortOrder: data.sortOrder ?? 0,
       isBillable: data.isBillable ?? true,
       billingRate: data.billingRate?.toString() ?? null,
+      billingType: (data.billingType ?? 'flat_fee') as any,
+      flatFeeAmount: data.flatFeeAmount?.toString() ?? null,
       metadata: data.metadata ?? null,
       createdBy: userId ?? null,
     });
@@ -551,6 +557,8 @@ export class ProjectTaskService extends BaseService {
     if (data.sortOrder !== undefined) updates.sortOrder = data.sortOrder;
     if (data.isBillable !== undefined) updates.isBillable = data.isBillable;
     if (data.billingRate !== undefined) updates.billingRate = data.billingRate?.toString() ?? null;
+    if (data.billingType !== undefined) updates.billingType = data.billingType;
+    if (data.flatFeeAmount !== undefined) updates.flatFeeAmount = data.flatFeeAmount?.toString() ?? null;
     if (data.metadata !== undefined) updates.metadata = data.metadata;
 
     const updated = await this.repository.updateTask(id, organizationId, updates);
@@ -705,6 +713,34 @@ export class ProjectTaskService extends BaseService {
       totalEstimatedHours: Number(summary.totalEstimatedHours ?? 0),
       totalActualHours: Number(summary.totalActualHours ?? 0),
     };
+  }
+
+  /**
+   * Get billable completed tasks that have not been invoiced yet
+   */
+  async getBillableCompletedTasks(projectId: string): Promise<ProjectTask[]> {
+    const organizationId = this.requireOrganizationContext();
+
+    const tasks = await this.repository.findBillableCompletedTasks(projectId, organizationId);
+    return tasks.map((t) => this.transformTask(t));
+  }
+
+  /**
+   * Mark a task as invoiced and link it to an invoice line item
+   */
+  async markAsInvoiced(taskId: string, invoiceLineId: string): Promise<ProjectTask> {
+    const organizationId = this.requireOrganizationContext();
+
+    const updated = await this.repository.updateTask(taskId, organizationId, {
+      invoicedAt: new Date(),
+      invoiceLineId,
+    });
+
+    if (!updated) {
+      throw new ServiceError('Task not found', 'TASK_NOT_FOUND', 404);
+    }
+
+    return this.transformTask(updated);
   }
 
   /**

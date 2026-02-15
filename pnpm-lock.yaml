@@ -498,6 +498,9 @@ importers:
 
   apps/workers:
     dependencies:
+      '@glapi/api-service':
+        specifier: workspace:*
+        version: link:../../packages/api-service
       '@glapi/database':
         specifier: workspace:*
         version: link:../../packages/database

@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
-import { SalesOrderService } from '@glapi/api-service';
+import { RevenueService, SalesOrderService, SubscriptionService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
 import {
   SalesOrderStatus,
   ApprovalActionType,
+  items,
+  and,
+  eq,
+  inArray,
 } from '@glapi/database';
 import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
@@ -53,6 +57,9 @@ const salesOrderLineInputSchema = z.object({
   projectId: z.string().uuid().optional(),
   revenueAccountId: z.string().uuid().optional(),
   deferredRevenueAccountId: z.string().uuid().optional(),
+  revenueBehavior: z.enum(['point_in_time', 'over_time']).optional(),
+  sspAmount: z.union([z.number().min(0), z.string()]).optional(),
+  listPrice: z.union([z.number().min(0), z.string()]).optional(),
   memo: z.string().optional(),
   metadata: z.record(z.any()).optional(),
   _delete: z.boolean().optional(),
@@ -120,9 +127,259 @@ const salesOrderFiltersSchema = z.object({
   pendingApproval: z.boolean().optional(),
 });
 
+const revenuePlanConfigSchema = z.object({
+  billingFrequency: z.enum(['monthly', 'quarterly', 'annual']).default('monthly'),
+  termMonths: z.number().int().min(1).max(120).default(12),
+  autoActivateSubscription: z.boolean().default(true),
+  contractStartDate: z.coerce.date().optional(),
+  contractEndDate: z.coerce.date().optional(),
+  recognitionEffectiveDate: z.coerce.date().optional(),
+});
+
+function addMonths(date: Date, months: number): Date {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  d.setDate(d.getDate() - 1);
+  return d;
+}
+
+function parseDateLike(value: unknown): Date | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }
+  return undefined;
+}
+
+function toNumber(value: unknown, fallback: number = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function asErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function buildRevenueLineMetadata(line: Record<string, unknown>) {
+  return {
+    ...(line.metadata && typeof line.metadata === 'object' ? line.metadata as Record<string, unknown> : {}),
+    revenueBehavior: line.revenueBehavior as string | undefined,
+    sspAmount: toOptionalNumber(line.sspAmount),
+    listPrice: toOptionalNumber(line.listPrice),
+  };
+}
+
 // ============================================================================
 // Sales Orders Router
 // ============================================================================
+
+async function generateRevenuePlanFromOrder(
+  params: {
+    order: any;
+    serviceContext: any;
+    db: any;
+    planInput: z.infer<typeof revenuePlanConfigSchema>;
+  }
+) {
+  const { order, serviceContext, db, planInput } = params;
+  const subscriptionService = new SubscriptionService(serviceContext, { db });
+  const revenueService = new RevenueService(serviceContext, { db });
+
+  const fallbackStart = parseDateLike(order.orderDate) || new Date();
+  const contractStart =
+    planInput.contractStartDate ||
+    parseDateLike(order.requestedDeliveryDate) ||
+    fallbackStart;
+  const contractEnd =
+    planInput.contractEndDate ||
+    parseDateLike(order.promisedDeliveryDate) ||
+    addMonths(contractStart, planInput.termMonths);
+
+  const orderLines = (order.lines || []) as Array<Record<string, unknown>>;
+  const itemIds = Array.from(
+    new Set(
+      orderLines
+        .map((line) => (typeof line.itemId === 'string' ? line.itemId : undefined))
+        .filter((id): id is string => !!id)
+    )
+  );
+  const itemDefaultsById = new Map<
+    string,
+    { revenueBehavior?: string | null; defaultSspAmount?: number; listPrice?: number }
+  >();
+  const organizationId = typeof order.organizationId === 'string' ? order.organizationId : undefined;
+
+  if (itemIds.length > 0 && organizationId) {
+    let defaultRows: Array<{
+      id: string;
+      revenueBehavior: string | null;
+      defaultSspAmount: unknown;
+      defaultPrice: unknown;
+    }> = [];
+
+    try {
+      // Work around intermittent Next.js RSC bundling issues with `select({ ... })`
+      // by selecting full rows and projecting in JS.
+      defaultRows = await db
+        .select()
+        .from(items)
+        .where(
+          and(
+            eq(items.organizationId, organizationId),
+            inArray(items.id, itemIds)
+          )
+        );
+    } catch (error) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Failed loading item defaults for ASC606 planning: ${asErrorMessage(error)}`,
+        cause: error,
+      });
+    }
+
+    for (const row of defaultRows) {
+      itemDefaultsById.set(row.id, {
+        revenueBehavior: row.revenueBehavior,
+        defaultSspAmount: toOptionalNumber(row.defaultSspAmount),
+        listPrice: toOptionalNumber(row.defaultPrice),
+      });
+    }
+  }
+
+  const lineItems = orderLines.map((line: any) => {
+    if (!line.itemId) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Sales order line "${line.description}" is missing itemId. Item IDs are required for ASC 606 plan generation.`,
+      });
+    }
+
+    const metadata = (line.metadata || {}) as Record<string, unknown>;
+    const lineStart =
+      parseDateLike(metadata.serviceStartDate) ||
+      parseDateLike(line.requestedDeliveryDate) ||
+      contractStart;
+    const lineEnd =
+      parseDateLike(metadata.serviceEndDate) ||
+      parseDateLike(line.promisedDeliveryDate) ||
+      contractEnd;
+    const itemDefaults = itemDefaultsById.get(line.itemId);
+    const revenueBehavior =
+      typeof line.revenueBehavior === 'string'
+        ? line.revenueBehavior
+        : typeof metadata.revenueBehavior === 'string'
+          ? metadata.revenueBehavior
+          : itemDefaults?.revenueBehavior || undefined;
+    const sspAmount =
+      toOptionalNumber(line.sspAmount) ??
+      toOptionalNumber(metadata.sspAmount) ??
+      itemDefaults?.defaultSspAmount;
+    const listPrice =
+      toOptionalNumber(line.listPrice) ??
+      toOptionalNumber(metadata.listPrice) ??
+      itemDefaults?.listPrice;
+    const unitPrice = toNumber(line.unitPrice, listPrice ?? 0);
+
+    return {
+      itemId: line.itemId,
+      quantity: toNumber(line.quantity, 1),
+      unitPrice,
+      discountPercentage: toNumber(line.discountPercent, 0),
+      startDate: lineStart,
+      endDate: lineEnd,
+      metadata: {
+        ...metadata,
+        serviceStartDate: lineStart.toISOString().split('T')[0],
+        serviceEndDate: lineEnd.toISOString().split('T')[0],
+        revenueBehavior,
+        sspAmount,
+        listPrice,
+      },
+    };
+  });
+
+  let subscription: any;
+  try {
+    subscription = await subscriptionService.createSubscription({
+      entityId: order.entityId,
+      subscriptionNumber: `SO-${order.orderNumber}-${Date.now().toString().slice(-6)}`,
+      status: planInput.autoActivateSubscription ? 'active' : 'draft',
+      startDate: contractStart.toISOString().split('T')[0],
+      endDate: contractEnd.toISOString().split('T')[0],
+      contractValue: String(toNumber(order.totalAmount, 0)),
+      billingFrequency: planInput.billingFrequency,
+      autoRenew: false,
+      renewalTermMonths: planInput.termMonths,
+      metadata: {
+        source: 'sales_order',
+        salesOrderId: order.id,
+        salesOrderNumber: order.orderNumber,
+      },
+      items: lineItems,
+    });
+  } catch (error) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Failed creating subscription from sales order for ASC606 planning: ${asErrorMessage(error)}`,
+      cause: error,
+    });
+  }
+
+  if (planInput.autoActivateSubscription && subscription.status !== 'active') {
+    await subscriptionService.activateSubscription(subscription.id);
+  }
+
+  const effectiveDate = planInput.recognitionEffectiveDate || contractStart;
+  let calculation: any;
+  try {
+    calculation = await revenueService.calculateRevenue(
+      subscription.id,
+      'initial',
+      effectiveDate,
+      { forceRecalculation: true }
+    );
+  } catch (error) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Failed calculating subscription revenue for ASC606 planning: ${asErrorMessage(error)}`,
+      cause: error,
+    });
+  }
+
+  let plan: any;
+  try {
+    plan = await revenueService.getSubscriptionPlan({
+      subscriptionId: subscription.id,
+      startDate: contractStart,
+      endDate: contractEnd,
+    });
+  } catch (error) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Failed building subscription plan (waterfall/schedule) for ASC606 planning: ${asErrorMessage(error)}`,
+      cause: error,
+    });
+  }
+
+  return {
+    subscription,
+    calculation,
+    plan,
+  };
+}
 
 export const salesOrdersRouter = router({
   // ========================================================================
@@ -254,7 +511,7 @@ export const salesOrdersRouter = router({
             revenueAccountId: line.revenueAccountId,
             deferredRevenueAccountId: line.deferredRevenueAccountId,
             memo: line.memo,
-            metadata: line.metadata,
+            metadata: buildRevenueLineMetadata(line as Record<string, unknown>),
           })),
         });
       } catch (error: any) {
@@ -266,6 +523,143 @@ export const salesOrdersRouter = router({
         }
         throw error;
       }
+    }),
+
+  /**
+   * Create sales order and immediately generate ASC 606 plan + waterfall
+   */
+  createWithRevenuePlan: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_sales_order_with_revenue_plan', 'Create sales order and return ASC 606 plan', {
+      scopes: ['sales', 'orders', 'revenue'],
+      permissions: ['write:sales-orders', 'write:subscriptions', 'write:revenue'],
+      riskLevel: 'HIGH',
+    }) })
+    .input(
+      z.object({
+        order: createSalesOrderSchema,
+        revenuePlan: revenuePlanConfigSchema.optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const service = new SalesOrderService(ctx.serviceContext, { db: ctx.db });
+      const revenuePlan = input.revenuePlan || revenuePlanConfigSchema.parse({});
+
+      let order: any;
+      try {
+        order = await service.createSalesOrder({
+          subsidiaryId: input.order.subsidiaryId,
+          entityId: input.order.entityId,
+          orderDate: input.order.orderDate,
+          externalReference: input.order.externalReference,
+          billingAddressId: input.order.billingAddressId,
+          shippingAddressId: input.order.shippingAddressId,
+          requestedDeliveryDate: input.order.requestedDeliveryDate,
+          promisedDeliveryDate: input.order.promisedDeliveryDate,
+          expirationDate: input.order.expirationDate,
+          currencyCode: input.order.currencyCode,
+          exchangeRate: input.order.exchangeRate,
+          discountAmount: input.order.discountAmount,
+          discountPercent: input.order.discountPercent,
+          shippingAmount: input.order.shippingAmount,
+          paymentTerms: input.order.paymentTerms,
+          shippingMethod: input.order.shippingMethod,
+          memo: input.order.memo,
+          internalNotes: input.order.internalNotes,
+          metadata: input.order.metadata,
+          requiresApproval: input.order.requiresApproval,
+          approvalThreshold: input.order.approvalThreshold,
+          lines: input.order.lines.map((line) => ({
+            itemId: line.itemId,
+            description: line.description,
+            sku: line.sku,
+            quantity: line.quantity,
+            unitOfMeasure: line.unitOfMeasure,
+            unitPrice: line.unitPrice,
+            discountAmount: line.discountAmount,
+            discountPercent: line.discountPercent,
+            taxAmount: line.taxAmount,
+            taxCode: line.taxCode,
+            requestedDeliveryDate: line.requestedDeliveryDate,
+            promisedDeliveryDate: line.promisedDeliveryDate,
+            departmentId: line.departmentId,
+            locationId: line.locationId,
+            classId: line.classId,
+            projectId: line.projectId,
+            revenueAccountId: line.revenueAccountId,
+            deferredRevenueAccountId: line.deferredRevenueAccountId,
+            memo: line.memo,
+            metadata: buildRevenueLineMetadata(line as Record<string, unknown>),
+          })),
+        });
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed creating sales order for ASC606 planning: ${asErrorMessage(error)}`,
+          cause: error,
+        });
+      }
+
+      let revenue: any;
+      try {
+        revenue = await generateRevenuePlanFromOrder({
+          order,
+          serviceContext: ctx.serviceContext,
+          db: ctx.db,
+          planInput: revenuePlan,
+        });
+      } catch (error) {
+        // generateRevenuePlanFromOrder already throws TRPCError with stage-specific messages
+        throw error;
+      }
+
+      return {
+        order,
+        subscription: revenue.subscription,
+        calculation: revenue.calculation,
+        plan: revenue.plan,
+      };
+    }),
+
+  /**
+   * Generate ASC 606 plan for an existing sales order
+   */
+  generateRevenuePlan: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('generate_sales_order_revenue_plan', 'Generate ASC 606 plan for existing sales order', {
+      scopes: ['sales', 'orders', 'revenue'],
+      permissions: ['read:sales-orders', 'write:subscriptions', 'write:revenue'],
+      riskLevel: 'HIGH',
+    }) })
+    .input(
+      z.object({
+        salesOrderId: z.string().uuid(),
+        revenuePlan: revenuePlanConfigSchema.optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const service = new SalesOrderService(ctx.serviceContext, { db: ctx.db });
+      const order = await service.getSalesOrderById(input.salesOrderId);
+
+      if (!order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Sales order not found',
+        });
+      }
+
+      const revenuePlan = input.revenuePlan || revenuePlanConfigSchema.parse({});
+      const revenue = await generateRevenuePlanFromOrder({
+        order,
+        serviceContext: ctx.serviceContext,
+        db: ctx.db,
+        planInput: revenuePlan,
+      });
+
+      return {
+        order,
+        subscription: revenue.subscription,
+        calculation: revenue.calculation,
+        plan: revenue.plan,
+      };
     }),
 
   /**
@@ -285,9 +679,18 @@ export const salesOrdersRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new SalesOrderService(ctx.serviceContext);
+      const normalizedData = input.data.lines
+        ? {
+            ...input.data,
+            lines: input.data.lines.map((line) => ({
+              ...line,
+              metadata: buildRevenueLineMetadata(line as Record<string, unknown>),
+            })),
+          }
+        : input.data;
 
       try {
-        const updated = await service.updateSalesOrder(input.id, input.data);
+        const updated = await service.updateSalesOrder(input.id, normalizedData);
 
         if (!updated) {
           throw new TRPCError({
@@ -485,7 +888,6 @@ export const salesOrdersRouter = router({
       scopes: ['sales', 'orders'],
       permissions: ['write:sales-orders'],
       riskLevel: 'HIGH',
-      requiresConfirmation: true,
     }) })
     .input(
       z.object({

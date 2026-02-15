@@ -45,6 +45,8 @@ export const items = pgTable('items', {
   
   // Pricing
   defaultPrice: decimal('default_price', { precision: 18, scale: 2 }),
+  defaultSspAmount: decimal('default_ssp_amount', { precision: 18, scale: 2 }),
+  revenueBehavior: text('revenue_behavior'),
   defaultCost: decimal('default_cost', { precision: 18, scale: 2 }),
   
   // Tax Information
