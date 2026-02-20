@@ -55,6 +55,20 @@ This phase directly addresses immediate billing of existing time entries and pro
    - `time_entries.invoice_line_id` nullable
    - `expense_entries.invoice_line_id` nullable
 
+## Concurrency and Idempotency Controls
+
+1. `billingQueue.createDraftInvoices` requires request idempotency key
+2. Candidate selection must validate source eligibility again at write time
+3. Draft generation must run in a transaction with lock/version checks on source rows
+4. Duplicate request replay must return prior draft result rather than create new invoices
+
+## Rebill and Reversal Lifecycle
+
+1. Source allocations remain locked while invoice is active
+2. Voids/credits must transition allocation state so rebill is explicit and auditable
+3. Partial rebill supports quantity/hour/amount-level transfer
+4. Allocation lineage links original invoice, reversal document, and replacement invoice
+
 ## API Design
 
 ### New router: `billingQueue`
@@ -74,6 +88,7 @@ This phase directly addresses immediate billing of existing time entries and pro
      - Create invoices + lines
      - Create source allocations
      - Mark task/time source as invoiced in same transaction
+     - Persist idempotency and allocation lineage metadata
 
 ## UI Components
 
@@ -86,6 +101,9 @@ This phase directly addresses immediate billing of existing time entries and pro
      - per customer
      - per project
      - per customer+project
+4. Rebill dialog (phase extension)
+   - select reversal mode
+   - choose allocation transfer behavior
 
 ## Reporting Impact
 
@@ -101,6 +119,8 @@ This phase directly addresses immediate billing of existing time entries and pro
 3. Draft invoice creation is transactional and auditable
 4. Existing invoices flow continues to work unchanged
 5. Dashboard pending billing decreases immediately after draft creation
+6. Replayed create request does not create duplicate drafts
+7. Voided/credited source items can be rebilled only through explicit rebill workflow
 
 ## Testing
 
@@ -110,11 +130,14 @@ This phase directly addresses immediate billing of existing time entries and pro
   - double-billing prevention
 - Integration:
   - draft generation transaction rollback behavior
+  - concurrent draft generation race (same candidate set)
+  - idempotent replay behavior
+  - reversal and rebill allocation transfer
 - E2E:
   - select pending items, create draft, send invoice
+  - rebill after void/credit path
 
 ## Complexity and Estimate
 
 - Complexity: Medium
 - Estimate: 1-2 weeks
-

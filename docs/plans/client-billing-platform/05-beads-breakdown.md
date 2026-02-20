@@ -60,6 +60,25 @@
 4. `P2`: Epic D
 5. `P2`: Epic E
 
+## Recommended Post-Review Additions (Not Yet Added to Beads)
+
+## Hardening track (Phase 0)
+
+1. Threat model and trust-boundary review for customer center and payment flows
+2. Idempotency framework for invoice send and webhook processing
+3. Payment/invoice lifecycle policy and posting/reversal rules
+4. Tenant-domain hardening controls (host validation and custom-domain verification)
+5. Migration/backfill reconciliation runbook for existing unbilled and billed records
+6. Observability/SLO dashboards and alert policy
+7. Incident runbooks for webhook backlog, reconciliation drift, and duplicate charge reports
+
+## Test track
+
+1. AuthZ matrix tests for portal access boundaries
+2. Race-condition integration tests for draft generation and invoice send
+3. Replay tests for webhook idempotency and out-of-order events
+4. Accounting reconciliation assertions for success/failure/refund/dispute paths
+
 ## Created Beads (2026-02-20)
 
 - Program epic: `glapi-2nwo`

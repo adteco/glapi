@@ -31,6 +31,30 @@ Use `business_transactions` with transaction type `OPPORTUNITY` and existing opp
 
 This avoids adding a parallel opportunity table.
 
+## Opportunity Lifecycle and Validation Rules
+
+## Stage model
+
+1. `LEAD`
+2. `QUALIFIED`
+3. `PROPOSAL`
+4. `NEGOTIATION`
+5. `CLOSED_WON`
+6. `CLOSED_LOST`
+
+## Validation
+
+1. `expected_close_date` required for `PROPOSAL` and later stages
+2. `probability` must be bounded `0..100`
+3. Closed stages require close reason metadata
+4. Stage transitions must be audit logged with actor and timestamp
+
+## Forecast Integrity Controls
+
+1. Weighted metrics exclude closed-lost items
+2. Closed-won items move from pipeline metrics to realized conversion metrics
+3. Snapshotted daily forecast values support trend and variance reporting
+
 ## Key metrics
 
 1. Pipeline amount: sum(`total_amount`)
@@ -64,9 +88,10 @@ Add `opportunities` router:
 2. Weighted pipeline totals are visible on opportunity page and dashboard
 3. Users can filter by stage, close date, probability, and source
 4. Conversion to estimate is functional and tracked
+5. Stage transition rules enforce required data and audit trail
+6. Forecast metrics reconcile to opportunity snapshot data
 
 ## Complexity and Estimate
 
 - Complexity: Medium
 - Estimate: 1-2 weeks
-

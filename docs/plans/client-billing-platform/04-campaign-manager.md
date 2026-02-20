@@ -41,6 +41,14 @@ Missing:
 4. Promote qualified member to opportunity or lead
 5. Measure campaign-to-revenue conversion
 
+## Consent and Compliance Guardrails
+
+1. Campaign sends must respect unsubscribe and suppression lists
+2. Member-level communication eligibility is evaluated before each send
+3. Frequency caps prevent over-contact
+4. Consent source and timestamp are stored for each member when required
+5. Jurisdiction-specific policy hooks are supported via metadata-driven rules
+
 ## API
 
 New router: `campaigns`
@@ -62,6 +70,10 @@ New router: `campaigns`
    - member count by stage
    - progression rate
    - opportunity conversion rate
+5. Compliance indicators:
+   - suppressed members
+   - consent coverage
+   - frequency-cap violations
 
 ## Acceptance Criteria
 
@@ -69,9 +81,10 @@ New router: `campaigns`
 2. Members move through configured stages with audit trail
 3. Campaign engagement and progression are visible in analytics
 4. Campaign members can be converted into opportunities/leads
+5. Suppression and unsubscribe policies are enforced on campaign sends
+6. Campaign event trail is auditable per member
 
 ## Complexity and Estimate
 
 - Complexity: Medium-High
 - Estimate: 2-4 weeks
-

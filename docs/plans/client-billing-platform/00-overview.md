@@ -12,6 +12,7 @@ This plan expands GLAPI from internal invoicing workflows into a full quote-to-c
 6. Campaign manager for prospect nurture
 
 The immediate business priority is accelerating cash collection from already-approved time/work.
+The immediate engineering priority is adding safety controls before scaling payment and portal surfaces.
 
 ## Current State
 
@@ -63,29 +64,40 @@ The immediate business priority is accelerating cash collection from already-app
    - Weighted pipeline forecast on opportunities
    - Campaign stages and communication automation for prospects/leads
 
+## Non-Functional Architecture Requirements
+
+1. Tenant-safe authorization for customer portal and payment resources
+2. Idempotent payment/invoice command handling and webhook ingestion
+3. Explicit accounting lifecycle policy for payment success/failure/reversal/dispute
+4. Full auditability for allocation, rebill, and reconciliation flows
+5. Observability with SLO-backed operational alerting
+
 ## Phases and Difficulty
 
 | Phase | Outcome | Complexity | Estimate |
 |---|---|---:|---:|
+| Phase 0 | Hardening and control plane | Medium-High | 1-2 weeks |
 | Phase 1 | Billing queue + draft creation + source locking | Medium | 1-2 weeks |
 | Phase 2 | Stripe Connect onboarding + invoice payment links + webhooks | High | 2-4 weeks |
 | Phase 3 | Customer center (history + pay now + receipts) | Medium-High | 2-3 weeks |
 | Phase 4 | Weighted opportunity pipeline (real backend + dashboard) | Medium | 1-2 weeks |
 | Phase 5 | Campaign manager with nurture workflow integration | Medium-High | 2-4 weeks |
 
-Total: 8-15 weeks for full production-grade rollout.
+Total: 9-17 weeks for full production-grade rollout.
 
 ## Sequencing Recommendation
 
 To prioritize profit stream acceleration:
 
-1. Deliver Phase 1 first
-2. Deliver Phase 2 minimum path (invoice payment link + webhook sync)
-3. Roll out customer center once payment reliability is in place
-4. Build pipeline and campaigns after billing cashflow is stable
+1. Deliver Phase 0 controls first
+2. Deliver Phase 1 billing queue
+3. Deliver Phase 2 minimum path (invoice payment link + webhook sync)
+4. Roll out customer center once payment reliability is in place
+5. Build pipeline and campaigns after billing cashflow is stable
 
 ## Deliverables in This Plan Set
 
+- `docs/plans/client-billing-platform/00a-hardening-and-controls.md`
 - `docs/plans/client-billing-platform/01-billing-queue-and-invoice-orchestration.md`
 - `docs/plans/client-billing-platform/02-stripe-connect-and-customer-center.md`
 - `docs/plans/client-billing-platform/03-weighted-sales-pipeline.md`
