@@ -4,6 +4,7 @@ import { subscriptionItems } from "./subscription-items";
 import { items } from "./items";
 import { relations } from "drizzle-orm";
 import { projectTasks } from "./project-tasks";
+import { invoiceSourceAllocations } from "./invoice-source-allocations";
 
 // Invoice line items table
 export const invoiceLineItems = pgTable("invoice_line_items", {
@@ -20,7 +21,7 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
 });
 
 // Relations
-export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one, many }) => ({
   invoice: one(invoices, {
     fields: [invoiceLineItems.invoiceId],
     references: [invoices.id]
@@ -37,7 +38,8 @@ export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) =
     fields: [invoiceLineItems.linkedProjectTaskId],
     references: [projectTasks.id],
     relationName: 'invoiceLineTask'
-  })
+  }),
+  sourceAllocations: many(invoiceSourceAllocations),
 }));
 
 // Type exports

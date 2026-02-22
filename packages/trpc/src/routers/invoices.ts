@@ -246,6 +246,47 @@ export const invoicesRouter = router({
       }
     }),
 
+  // Send invoice with Stripe-hosted payment link (connected account)
+  sendWithPaymentLink: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('send_invoice_with_payment_link', 'Send an invoice and generate Stripe-hosted payment link', {
+      scopes: ['invoices', 'billing', 'payments'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+    }) })
+    .input(z.object({
+      id: z.string().uuid(),
+      successUrl: z.string().url().optional(),
+      cancelUrl: z.string().url().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
+
+      try {
+        return await service.sendWithPaymentLink(input.id, {
+          successUrl: input.successUrl,
+          cancelUrl: input.cancelUrl,
+        });
+      } catch (error: any) {
+        if (error.code === 'NOT_FOUND') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: error.message
+          });
+        }
+        if (
+          error.code === 'INVALID_STATUS' ||
+          error.code === 'STRIPE_CONNECT_NOT_CONFIGURED' ||
+          error.code === 'INVALID_INVOICE_TOTAL'
+        ) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: error.message
+          });
+        }
+        throw error;
+      }
+    }),
+
   // Void invoice
   void: authenticatedProcedure
     .meta({ ai: createWriteAIMeta('void_invoice', 'Void an invoice with a reason', {

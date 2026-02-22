@@ -5,6 +5,8 @@ import {
   SubscriptionRepository,
   SubscriptionItemRepository,
   ProjectTaskRepository,
+  OrganizationRepository,
+  EntityRepository,
   type Invoice,
   type NewInvoice,
   type UpdateInvoice,
@@ -90,6 +92,10 @@ export interface InvoiceWithLineItems {
   taxAmount?: string | null;
   totalAmount: string;
   status: 'draft' | 'sent' | 'paid' | 'partial' | 'overdue' | 'cancelled' | 'void';
+  paymentLinkUrl?: string | null;
+  stripeCheckoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  sentAt?: Date | null;
   metadata?: unknown;
   createdAt?: Date | null;
   updatedAt?: Date | null;
@@ -106,11 +112,21 @@ export interface InvoiceWithLineItems {
   }>;
 }
 
+type SendWithPaymentLinkResult = {
+  invoice: InvoiceWithLineItems;
+  paymentLinkUrl: string;
+  stripeCheckoutSessionId: string;
+  stripePaymentIntentId?: string;
+};
+
 export class InvoiceService extends BaseService {
   private invoiceRepository: InvoiceRepository;
   private subscriptionRepository: SubscriptionRepository;
   private subscriptionItemRepository: SubscriptionItemRepository;
   private projectTaskRepository: ProjectTaskRepository;
+  private organizationRepository: OrganizationRepository;
+  private entityRepository: EntityRepository;
+  private static stripeClient: any = null;
 
   constructor(context: ServiceContext = {}, options: InvoiceServiceOptions = {}) {
     super(context);
@@ -119,6 +135,35 @@ export class InvoiceService extends BaseService {
     this.subscriptionRepository = new SubscriptionRepository(options.db);
     this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
     this.projectTaskRepository = new ProjectTaskRepository(options.db);
+    this.organizationRepository = new OrganizationRepository(options.db);
+    this.entityRepository = new EntityRepository(options.db);
+  }
+
+  private getStripeClient(): any {
+    if (InvoiceService.stripeClient) {
+      return InvoiceService.stripeClient;
+    }
+
+    const secretKey = process.env.STRIPE_SECRET_KEY;
+    if (!secretKey) {
+      throw new ServiceError('STRIPE_SECRET_KEY is not configured', 'STRIPE_CONFIG_MISSING', 500);
+    }
+
+    // Stripe is available in the API runtime workspace, but this package does not declare
+    // a hard dependency to keep install requirements minimal.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const StripeCtor = require('stripe');
+    InvoiceService.stripeClient = new StripeCtor(secretKey, {
+      apiVersion: '2024-06-20',
+    });
+
+    return InvoiceService.stripeClient;
+  }
+
+  private toMinorUnits(amount: string | number): number {
+    const parsed = typeof amount === 'number' ? amount : Number(amount);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.round(parsed * 100);
   }
 
   async listInvoices(input: ListInvoicesInput = {}): Promise<PaginatedResult<Invoice>> {
@@ -332,6 +377,151 @@ export class InvoiceService extends BaseService {
       ...updatedInvoice,
       lineItems: invoice.lineItems
     } as InvoiceWithLineItems;
+  }
+
+  async sendWithPaymentLink(
+    id: string,
+    overrides?: { successUrl?: string; cancelUrl?: string }
+  ): Promise<SendWithPaymentLinkResult> {
+    const organizationId = this.requireOrganizationContext();
+
+    const invoice = await this.invoiceRepository.findByIdWithDetails(id);
+    if (!invoice || invoice.organizationId !== organizationId) {
+      throw new ServiceError('Invoice not found', 'NOT_FOUND', 404);
+    }
+
+    if (invoice.status !== 'draft' && invoice.status !== 'sent') {
+      throw new ServiceError('Can only send draft or sent invoices', 'INVALID_STATUS', 400);
+    }
+
+    if (invoice.status === 'sent' && invoice.paymentLinkUrl && invoice.stripeCheckoutSessionId) {
+      return {
+        invoice: this.transformInvoice(invoice),
+        paymentLinkUrl: invoice.paymentLinkUrl,
+        stripeCheckoutSessionId: invoice.stripeCheckoutSessionId,
+        stripePaymentIntentId: invoice.stripePaymentIntentId ?? undefined,
+      };
+    }
+
+    const organization = await this.organizationRepository.findById(organizationId);
+    if (!organization || !organization.stripeAccountId) {
+      throw new ServiceError(
+        'Stripe Connect account is not configured for this organization',
+        'STRIPE_CONNECT_NOT_CONFIGURED',
+        400
+      );
+    }
+
+    const stripe = this.getStripeClient();
+    const entity = await this.entityRepository.findById(invoice.entityId, organizationId);
+
+    const sessionLineItems =
+      invoice.lineItems
+        ?.map((lineItem) => {
+          const amountMinor = this.toMinorUnits(lineItem.amount);
+          if (amountMinor <= 0) return null;
+
+          return {
+            quantity: 1,
+            price_data: {
+              currency: 'usd',
+              unit_amount: amountMinor,
+              product_data: {
+                name: lineItem.description || `Invoice ${invoice.invoiceNumber}`,
+              },
+            },
+          };
+        })
+        .filter((lineItem) => !!lineItem) || [];
+
+    if (sessionLineItems.length === 0) {
+      const invoiceTotalMinor = this.toMinorUnits(invoice.totalAmount);
+      if (invoiceTotalMinor <= 0) {
+        throw new ServiceError('Invoice total must be greater than zero', 'INVALID_INVOICE_TOTAL', 400);
+      }
+
+      sessionLineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: 'usd',
+          unit_amount: invoiceTotalMinor,
+          product_data: {
+            name: `Invoice ${invoice.invoiceNumber}`,
+          },
+        },
+      });
+    }
+
+    const baseAppUrl = process.env.APP_URL || 'https://app.glapi.com';
+    const successUrl =
+      overrides?.successUrl ||
+      process.env.STRIPE_INVOICE_PAYMENT_SUCCESS_URL ||
+      `${baseAppUrl}/billing/invoices/${invoice.id}?payment=success`;
+    const cancelUrl =
+      overrides?.cancelUrl ||
+      process.env.STRIPE_INVOICE_PAYMENT_CANCEL_URL ||
+      `${baseAppUrl}/billing/invoices/${invoice.id}?payment=cancelled`;
+
+    const checkoutSession = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        line_items: sessionLineItems,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        client_reference_id: invoice.id,
+        customer_email: entity?.email || undefined,
+        metadata: {
+          invoiceId: invoice.id,
+          organizationId,
+          entityId: invoice.entityId,
+          invoiceNumber: invoice.invoiceNumber,
+        },
+        payment_intent_data: {
+          metadata: {
+            invoiceId: invoice.id,
+            organizationId,
+          },
+        },
+      },
+      { stripeAccount: organization.stripeAccountId }
+    );
+
+    if (!checkoutSession.url) {
+      throw new ServiceError('Failed to generate hosted payment URL', 'CHECKOUT_URL_MISSING', 500);
+    }
+
+    const stripePaymentIntentId =
+      typeof checkoutSession.payment_intent === 'string'
+        ? checkoutSession.payment_intent
+        : undefined;
+
+    await this.invoiceRepository.update(invoice.id, {
+      status: 'sent',
+      paymentLinkUrl: checkoutSession.url,
+      stripeCheckoutSessionId: checkoutSession.id,
+      stripePaymentIntentId,
+      sentAt: new Date(),
+      metadata: {
+        ...(invoice.metadata as Record<string, unknown> || {}),
+        stripePayment: {
+          checkoutSessionId: checkoutSession.id,
+          paymentIntentId: stripePaymentIntentId || null,
+          paymentLinkUrl: checkoutSession.url,
+        },
+      },
+    });
+
+    const updatedInvoice = await this.getInvoiceById(invoice.id);
+    if (!updatedInvoice) {
+      throw new ServiceError('Invoice not found after update', 'NOT_FOUND', 404);
+    }
+
+    return {
+      invoice: updatedInvoice,
+      paymentLinkUrl: checkoutSession.url,
+      stripeCheckoutSessionId: checkoutSession.id,
+      stripePaymentIntentId,
+    };
   }
 
   async voidInvoice(id: string, reason: string): Promise<InvoiceWithLineItems> {

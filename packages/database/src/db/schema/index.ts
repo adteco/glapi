@@ -51,7 +51,9 @@ import * as subscriptionVersions from './subscription-versions';
 import * as billingSchedulesSchemas from './billing-schedules';
 import * as invoices from './invoices';
 import * as invoiceLineItemsSchemas from './invoice-line-items';
+import * as invoiceSourceAllocationsSchemas from './invoice-source-allocations';
 import * as payments from './payments';
+import * as externalEventReceiptsSchemas from './external-event-receipts';
 import * as revenueEnums from './revenue-enums';
 import * as performanceObligationsNew from './performance-obligations';
 import * as revenueSchedulesNew from './revenue-schedules';
@@ -151,6 +153,7 @@ import * as emailTemplatesSchemas from './email-templates';
 import * as communicationEventsSchemas from './communication-events';
 import * as communicationWorkflowsSchemas from './communication-workflows';
 import * as emailTrackingSchemas from './email-tracking';
+import * as customerPortalAuthSchemas from './customer-portal-auth';
 
 // Entity Contacts junction table (many-to-many contacts)
 import * as entityContactsSchemas from './entity-contacts';
@@ -216,7 +219,9 @@ export const schema = {
   ...billingSchedulesSchemas,
   ...invoices,
   ...invoiceLineItemsSchemas,
+  ...invoiceSourceAllocationsSchemas,
   ...payments,
+  ...externalEventReceiptsSchemas,
   ...revenueEnums,
   ...performanceObligationsNew,
   ...revenueSchedulesNew,
@@ -290,6 +295,7 @@ export const schema = {
   ...communicationEventsSchemas,
   ...communicationWorkflowsSchemas,
   ...emailTrackingSchemas,
+  ...customerPortalAuthSchemas,
   // Entity Contacts junction table (many-to-many contacts)
   ...entityContactsSchemas,
   // Pending Documents schemas (Magic Inbox integration)
@@ -305,6 +311,31 @@ export type { SubscriptionVersion, NewSubscriptionVersion, UpdateSubscriptionVer
 export { subscriptionVersions, subscriptionVersionTypeEnum, subscriptionVersionSourceEnum } from './subscription-versions';
 export type { Invoice, NewInvoice, UpdateInvoice } from './invoices';
 export type { Payment, NewPayment, UpdatePayment } from './payments';
+export type {
+  CustomerPortalUser,
+  NewCustomerPortalUser,
+  UpdateCustomerPortalUser,
+  CustomerPortalMembership,
+  NewCustomerPortalMembership,
+  UpdateCustomerPortalMembership,
+  CustomerPortalInvite,
+  NewCustomerPortalInvite,
+  UpdateCustomerPortalInvite,
+  CustomerPortalSession,
+  NewCustomerPortalSession,
+  UpdateCustomerPortalSession,
+  CustomerPortalPasswordReset,
+  NewCustomerPortalPasswordReset,
+  UpdateCustomerPortalPasswordReset,
+  CustomerPortalUserStatus,
+  CustomerPortalRole,
+} from './customer-portal-auth';
+export type {
+  ExternalEventReceipt,
+  NewExternalEventReceipt,
+  UpdateExternalEventReceipt,
+  ExternalEventProcessingStatus,
+} from './external-event-receipts';
 export type { PerformanceObligation, NewPerformanceObligation } from './performance-obligations';
 export type { RevenueSchedule, NewRevenueSchedule } from './revenue-schedules';
 export type { SspEvidence as SSPEvidence, NewSspEvidence as NewSSPEvidence } from './ssp-evidence';
@@ -327,6 +358,16 @@ export { invoices } from './invoices';
 export { invoiceLineItems } from './invoice-line-items';
 export type { InvoiceLineItem, NewInvoiceLineItem, UpdateInvoiceLineItem } from './invoice-line-items';
 export { payments } from './payments';
+export {
+  customerPortalUsers,
+  customerPortalMemberships,
+  customerPortalInvites,
+  customerPortalSessions,
+  customerPortalPasswordResets,
+  customerPortalUserStatusEnum,
+  customerPortalRoleEnum,
+} from './customer-portal-auth';
+export { externalEventReceipts, externalEventProcessingStatusEnum } from './external-event-receipts';
 
 // Re-export contract modification schemas
 export {

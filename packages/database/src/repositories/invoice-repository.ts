@@ -42,6 +42,10 @@ export class InvoiceRepository extends BaseRepository {
     taxAmount: invoices.taxAmount,
     totalAmount: invoices.totalAmount,
     status: invoices.status,
+    paymentLinkUrl: invoices.paymentLinkUrl,
+    stripeCheckoutSessionId: invoices.stripeCheckoutSessionId,
+    stripePaymentIntentId: invoices.stripePaymentIntentId,
+    sentAt: invoices.sentAt,
     metadata: invoices.metadata,
     createdAt: invoices.createdAt,
     updatedAt: invoices.updatedAt,
@@ -73,6 +77,19 @@ export class InvoiceRepository extends BaseRepository {
       .values(data)
       .returning(this.invoiceReturning);
     return result;
+  }
+
+  /**
+   * Find invoice by ID
+   */
+  async findById(id: string): Promise<Invoice | null> {
+    const [result] = await this.db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.id, id))
+      .limit(1);
+
+    return result ?? null;
   }
 
   /**
@@ -137,6 +154,44 @@ export class InvoiceRepository extends BaseRepository {
       .limit(1);
 
     return result || null;
+  }
+
+  /**
+   * Find invoice by Stripe Checkout Session ID
+   */
+  async findByStripeCheckoutSessionId(
+    stripeCheckoutSessionId: string
+  ): Promise<InvoiceWithLineItems | null> {
+    const [result] = await this.db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(eq(invoices.stripeCheckoutSessionId, stripeCheckoutSessionId))
+      .limit(1);
+
+    if (!result) {
+      return null;
+    }
+
+    return await this.findByIdWithDetails(result.id);
+  }
+
+  /**
+   * Find invoice by Stripe Payment Intent ID
+   */
+  async findByStripePaymentIntentId(
+    stripePaymentIntentId: string
+  ): Promise<InvoiceWithLineItems | null> {
+    const [result] = await this.db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(eq(invoices.stripePaymentIntentId, stripePaymentIntentId))
+      .limit(1);
+
+    if (!result) {
+      return null;
+    }
+
+    return await this.findByIdWithDetails(result.id);
   }
 
   /**

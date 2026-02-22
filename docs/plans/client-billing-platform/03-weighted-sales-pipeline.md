@@ -57,8 +57,8 @@ This avoids adding a parallel opportunity table.
 
 ## Key metrics
 
-1. Pipeline amount: sum(`total_amount`)
-2. Weighted pipeline: sum(`total_amount * probability / 100`)
+1. Pipeline amount: sum(`total_amount`) grouped by `currency`
+2. Weighted pipeline: sum(`total_amount * probability / 100`) grouped by `currency`
 3. Stage velocity and aging
 4. Forecast by close-date bucket (this month, next month, quarter)
 5. Win/loss rates by source and rep

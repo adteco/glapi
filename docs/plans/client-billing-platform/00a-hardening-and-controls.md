@@ -21,7 +21,7 @@ Establish non-functional controls before feature rollout so billing, payments, a
 3. Customer portal context (customer account users)
 4. External payment network context (Stripe webhooks and redirects)
 
-No context may infer access from URL/subdomain alone. Every request must resolve tenant + principal + explicit authorization policy.
+No context may infer access from URL/subdomain alone. Every request must resolve tenant + principal + explicit authorization policy enforced at the database level (PostgreSQL Row-Level Security).
 
 ## Idempotency and Concurrency Model
 
@@ -74,7 +74,7 @@ No context may infer access from URL/subdomain alone. Every request must resolve
 3. Partial rebill must be supported with quantity/hour/amount granularity
 4. Audit log must preserve original invoice lineage
 
-## Customer Center AuthZ Model
+## Customer Center AuthZ and Security Model
 
 ## Required objects
 
@@ -85,11 +85,11 @@ No context may infer access from URL/subdomain alone. Every request must resolve
    - billing viewer
    - payer
 
-## Authorization rules
+## Security controls
 
-1. Users can only view invoices/payments for mapped entities
-2. Users can only initiate payment for allowed entities
-3. All mutation endpoints must enforce role capability checks
+1. **Row-Level Security (RLS):** All portal and payment tables must have RLS policies ensuring users can only see records for their mapped entities.
+2. **Rate Limiting:** Strict per-IP and per-tenant rate limits for portal login, invoice search, and payment initiation.
+3. **Impersonation Audit:** When a GLAPI admin views the portal "as a customer," the session must be explicitly flagged and every action logged to a privileged audit trail.
 
 ## Tenant Domain Hardening
 
@@ -99,12 +99,12 @@ No context may infer access from URL/subdomain alone. Every request must resolve
 4. Host header and forwarded header normalization
 5. Block tenant resolution fallback when host is ambiguous
 
-## Webhook Security Controls
+## Webhook Security and Resilience Controls
 
 1. Verify Stripe signatures for every event
 2. Store event IDs to block replay processing
 3. Enforce bounded replay windows
-4. Dead-letter queue for invalid/unprocessable events
+4. **Manual Reconciler UI:** Provide a specialized admin interface for viewing the Webhook Dead-Letter Queue (DLQ), diagnosing failures (e.g., missing entity mappings), and re-triggering processing once corrected.
 5. Alert on signature failure spikes and processing lag
 
 ## Migration and Backfill Plan
@@ -140,10 +140,16 @@ No context may infer access from URL/subdomain alone. Every request must resolve
    - duplicate payment report
    - stuck processing payments
 
+## Rollout Blocking Rule
+
+1. Release gates above are hard blockers for production rollout of:
+   - `invoices.sendWithPaymentLink`
+   - webhook handlers that mutate invoice/payment state
+   - any customer-center authenticated routes
+
 ## Deliverables
 
 1. Architecture decision record for auth/idempotency/lifecycle policy
 2. Control checklist mapped to implementation tasks
 3. Test strategy covering concurrency and replay scenarios
 4. Go-live checklist and rollback plan
-

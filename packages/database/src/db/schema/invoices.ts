@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, decimal, pgEnum, date, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, decimal, pgEnum, date, jsonb, index } from "drizzle-orm/pg-core";
 import { entities } from "./entities";
 import { organizations } from "./organizations";
 import { subscriptions } from "./subscriptions";
@@ -31,13 +31,21 @@ export const invoices = pgTable("invoices", {
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
   status: invoiceStatusEnum("status").notNull().default("draft"),
+  paymentLinkUrl: varchar("payment_link_url", { length: 2048 }),
+  stripeCheckoutSessionId: varchar("stripe_checkout_session_id", { length: 255 }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow()
-});
+}, (table) => ({
+  stripeCheckoutSessionIdIdx: index("invoices_stripe_checkout_session_id_idx").on(table.stripeCheckoutSessionId),
+  stripePaymentIntentIdIdx: index("invoices_stripe_payment_intent_id_idx").on(table.stripePaymentIntentId),
+}));
 
 // Import after defining invoices to avoid circular dependency
 import { invoiceLineItems } from "./invoice-line-items";
+import { invoiceSourceAllocations } from "./invoice-source-allocations";
 import { payments } from "./payments";
 
 // Relations
@@ -55,6 +63,7 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
     references: [subscriptions.id]
   }),
   lineItems: many(invoiceLineItems),
+  sourceAllocations: many(invoiceSourceAllocations),
   payments: many(payments)
 }));
 

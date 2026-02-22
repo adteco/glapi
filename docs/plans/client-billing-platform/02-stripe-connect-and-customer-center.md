@@ -36,10 +36,18 @@ Add Stripe Connect configuration fields on `organizations`:
 
 Store external customer mapping (entity -> Stripe customer):
 
-- Option A: dedicated table `entity_payment_profiles`
-- Option B: entity metadata keys
-
-Recommendation: Option A for queryability and integrity.
+- Decision: dedicated table `entity_payment_profiles` (not entity metadata keys)
+- Required fields:
+  - `id`
+  - `organization_id`
+  - `entity_id`
+  - `stripe_account_id`
+  - `stripe_customer_id`
+  - `created_at`
+  - `updated_at`
+- Constraints:
+  - Unique on `(organization_id, entity_id, stripe_account_id)`
+  - Unique on `(organization_id, stripe_account_id, stripe_customer_id)`
 
 ### Idempotency and event ledger
 
@@ -63,16 +71,30 @@ Add control tables:
 
 1. `invoices.sendWithPaymentLink`
    - Creates or updates Stripe customer (connected account context)
-   - Creates Stripe invoice or hosted payment flow
-   - Stores hosted payment URL and external IDs
+   - Creates Stripe Checkout Session in connected-account context (card + ACH + Apple/Google Pay where available)
+   - **ACH Flow:** Supports Stripe Financial Connections for instant verification or micro-deposits for `requires_action` states.
+   - **Notification Strategy:** GLAPI generates and sends the delivery email (via Resend/Postmark) rather than Stripe, ensuring full brand control and auditability in the "Communication Events" router.
+   - Stores hosted checkout URL, checkout session ID, and PaymentIntent/Charge references
    - Requires idempotency key and semantic duplicate protection
+   - First release explicitly does **not** create Stripe Invoice objects; GLAPI invoice remains source of truth
 2. `payments.captureWebhookEvent`
    - Receives Stripe events and reconciles:
      - paid
-     - payment_failed
+     - payment_failed (triggers retry/alert)
      - refunded
      - dispute opened/closed
+   - **Stale Link Handling:** If an organization's Stripe account is disconnected or restricted, active payment links must be marked as stale and optionally voided or refreshed.
    - Must be replay-safe and idempotent by external event id
+
+### Customer portal auth endpoints
+
+1. `customerPortalAuth.inviteUser`
+2. `customerPortalAuth.acceptInvite`
+3. `customerPortalAuth.requestLoginLink` (or `loginWithPassword` if password auth is selected)
+4. `customerPortalAuth.resetPasswordRequest` and `customerPortalAuth.resetPasswordConfirm` (password auth only)
+5. `customerPortalAuth.getSession`
+6. `customerPortalAuth.logout`
+7. `customerPortalMemberships.create` / `customerPortalMemberships.revoke`
 
 ## Customer Center Authorization Model
 
@@ -188,6 +210,10 @@ Per-tenant custom domain:
 7. Replayed send-payment-link requests are idempotent
 8. Unauthorized customer cannot read or pay unrelated invoices
 9. Dispute/refund/reversal state transitions reconcile correctly in GLAPI
+
+## Release Gating
+
+1. No production rollout of invoice payment links, webhook write processing, or customer portal access before Phase 0 release gates are satisfied.
 
 ## Complexity and Estimate
 

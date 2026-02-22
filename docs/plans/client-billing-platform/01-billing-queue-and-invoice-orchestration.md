@@ -43,13 +43,21 @@ This phase directly addresses immediate billing of existing time entries and pro
      - `organization_id`
      - `invoice_id`
      - `invoice_line_item_id`
-     - `source_type` (`TIME_ENTRY`, `PROJECT_TASK`, `SALES_ORDER_LINE`, `EXPENSE_ENTRY`)
+     - `source_type` (`TIME_ENTRY`, `PROJECT_TASK`, `SALES_ORDER_LINE`, `EXPENSE_ENTRY`, `CREDIT_MEMO`, `DISCOUNT`)
      - `source_id`
      - `source_hours` (nullable)
-     - `source_amount`
+     - `source_amount` (stored in minor units/cents)
+     - `currency` (ISO 4217 code)
+     - `tax_amount` (nullable, for tax-inclusive sources)
+     - `allocation_status` (`active`, `released`, `transferred`)
+     - `released_at` (nullable)
+     - `release_reason` (`void`, `credit`, `writeoff`, `rebill_transfer`, nullable)
+     - `replaced_by_allocation_id` (nullable self-reference)
      - `created_at`
    - Constraints:
-     - Unique on `(source_type, source_id)` for active allocations
+     - Partial unique index on `(organization_id, source_type, source_id)` where `allocation_status = 'active'`
+     - Check constraint requiring `released_at` when `allocation_status != 'active'`
+     - Foreign keys from replacement/transfers to preserve lineage
 
 2. Optional helper columns (performance/ergonomics)
    - `time_entries.invoice_line_id` nullable
@@ -64,10 +72,11 @@ This phase directly addresses immediate billing of existing time entries and pro
 
 ## Rebill and Reversal Lifecycle
 
-1. Source allocations remain locked while invoice is active
-2. Voids/credits must transition allocation state so rebill is explicit and auditable
-3. Partial rebill supports quantity/hour/amount-level transfer
-4. Allocation lineage links original invoice, reversal document, and replacement invoice
+1. Source allocations are immutable records; rebill/void operations append state transitions rather than mutating history
+2. Source allocations remain `active` while invoice is active
+3. Voids/credits release or transfer allocation state so rebill is explicit and auditable
+4. Partial rebill supports quantity/hour/amount-level transfer via new allocation records linked to prior records
+5. Allocation lineage links original invoice, reversal document, and replacement invoice
 
 ## API Design
 

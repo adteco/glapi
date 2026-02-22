@@ -48,13 +48,14 @@ The immediate engineering priority is adding safety controls before scaling paym
 ## Target Architecture
 
 1. Internal Billing Queue
-   - Unified list of invoice-eligible work items (time entries, tasks, sales-order lines, expenses)
+   - Unified list of invoice-eligible work items (time entries, tasks, sales-order lines, expenses, credits)
    - Bulk selection and draft invoice generation
 
 2. Invoice + Payment Rails
    - Internal invoice record remains GLAPI system of record
-   - Stripe used for payment orchestration and hosted payment links
+   - Stripe Connect (Express) used for payment orchestration and hosted payment links
    - Webhook-driven payment state synchronization
+   - Support for Card, ACH (via Financial Connections), and Apple/Google Pay
 
 3. Customer Center
    - Authenticated customer portal for transaction history, invoices, receipts, and payments
@@ -66,11 +67,12 @@ The immediate engineering priority is adding safety controls before scaling paym
 
 ## Non-Functional Architecture Requirements
 
-1. Tenant-safe authorization for customer portal and payment resources
+1. Tenant-safe authorization (PostgreSQL RLS) for customer portal and payment resources
 2. Idempotent payment/invoice command handling and webhook ingestion
 3. Explicit accounting lifecycle policy for payment success/failure/reversal/dispute
 4. Full auditability for allocation, rebill, and reconciliation flows
 5. Observability with SLO-backed operational alerting
+6. Currency-aware and tax-ready: All amounts stored in minor units (cents) with ISO 4217 currency codes and hooks for Stripe Tax.
 
 ## Phases and Difficulty
 
@@ -94,6 +96,10 @@ To prioritize profit stream acceleration:
 3. Deliver Phase 2 minimum path (invoice payment link + webhook sync)
 4. Roll out customer center once payment reliability is in place
 5. Build pipeline and campaigns after billing cashflow is stable
+
+Production gating policy:
+
+- No production enablement for payment-link send, webhook write processing, or customer-center access until Phase 0 release gates are complete.
 
 ## Deliverables in This Plan Set
 

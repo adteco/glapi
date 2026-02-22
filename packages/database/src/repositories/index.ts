@@ -35,6 +35,8 @@ export * from './subscription-version-repository';
 export * from './billing-schedule-repository';
 export * from './invoice-repository';
 export * from './payment-repository';
+export * from './external-event-receipt-repository';
+export * from './customer-portal-auth-repository';
 export * from './change-request-repository';
 
 // Export SSP analytics repository
