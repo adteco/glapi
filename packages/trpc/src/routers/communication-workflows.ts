@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure, adminProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   db,
   communicationWorkflows,
@@ -259,6 +260,10 @@ export const communicationWorkflowsRouter = router({
   // ===========================================================================
 
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_communication_workflows', 'Search and list communication workflows', {
+      scopes: ['communications', 'workflows', 'global'],
+      permissions: ['read:communication-workflows'],
+    }) })
     .input(listWorkflowsSchema)
     .query(async ({ ctx, input }) => {
       const { isActive, isTemplate, triggerType, search, page, limit } = input;
@@ -315,6 +320,10 @@ export const communicationWorkflowsRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_communication_workflow', 'Get a communication workflow by ID', {
+      scopes: ['communications', 'workflows'],
+      permissions: ['read:communication-workflows'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const workflow = await db.query.communicationWorkflows.findFirst({
@@ -340,6 +349,11 @@ export const communicationWorkflowsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_communication_workflow', 'Create a new communication workflow', {
+      scopes: ['communications', 'workflows'],
+      permissions: ['write:communication-workflows'],
+      riskLevel: 'LOW',
+    }) })
     .input(createWorkflowSchema)
     .mutation(async ({ ctx, input }) => {
       // Check for duplicate name
@@ -419,6 +433,11 @@ export const communicationWorkflowsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_communication_workflow', 'Delete a communication workflow', {
+      scopes: ['communications', 'workflows'],
+      permissions: ['delete:communication-workflows'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await verifyWorkflowOwnership(input.id, ctx.organizationId);

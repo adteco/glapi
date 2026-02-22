@@ -48,6 +48,11 @@ Thumbs.db
 # Temporary files
 temp/
 tmp/
+target/
+
+# Tool caches
+.tools/
+.claude/tsc-cache/
 
 # Docker
 docker-compose.override.yml
@@ -72,3 +77,6 @@ packages/web/out/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# TypeScript build info
+*.tsbuildinfo

@@ -15,6 +15,7 @@
 import { test, expect } from '@playwright/test';
 import { authAssertions, navigationAssertions, tableAssertions } from './helpers/assertions';
 import { createTestTRPCClient, waitForApi, TEST_CONFIG } from './helpers/api-client';
+import { waitForPageReady } from './utils/test-helpers';
 
 test.describe('Smoke Tests - Authentication', () => {
   test('should show sign-in page for unauthenticated users', async ({ page }) => {
@@ -37,7 +38,7 @@ test.describe('Smoke Tests - Authentication', () => {
 
     // Navigate to another page
     await page.goto('/relationships/customers');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Should still be authenticated
     await authAssertions.expectAuthenticated(page);
@@ -49,7 +50,7 @@ test.describe('Smoke Tests - Dashboard', () => {
     await page.goto('/');
 
     // Wait for page to load
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify we're authenticated
     await authAssertions.expectAuthenticated(page);
@@ -61,7 +62,7 @@ test.describe('Smoke Tests - Dashboard', () => {
 
   test('should display sidebar navigation', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify sidebar is visible
     const sidebar = page.locator('aside, nav[role="navigation"], [data-testid="sidebar"]');
@@ -81,7 +82,7 @@ test.describe('Smoke Tests - Key List Pages', () => {
   test('should load customers list', async ({ page }) => {
     // Customers are under relationships, not lists
     await page.goto('/relationships/customers');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify page loaded
     await navigationAssertions.expectHeading(page, /customers/i);
@@ -98,7 +99,7 @@ test.describe('Smoke Tests - Key List Pages', () => {
 
   test('should load items list', async ({ page }) => {
     await page.goto('/lists/items');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify page loaded
     await navigationAssertions.expectHeading(page, /items/i);
@@ -109,7 +110,7 @@ test.describe('Smoke Tests - Key List Pages', () => {
 
   test('should load departments list', async ({ page }) => {
     await page.goto('/lists/departments');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify page loaded
     await navigationAssertions.expectHeading(page, /departments/i);
@@ -117,7 +118,7 @@ test.describe('Smoke Tests - Key List Pages', () => {
 
   test('should load accounts list', async ({ page }) => {
     await page.goto('/lists/accounts');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify page loaded
     await navigationAssertions.expectHeading(page, /accounts/i);
@@ -127,7 +128,7 @@ test.describe('Smoke Tests - Key List Pages', () => {
 test.describe('Smoke Tests - Relationship Pages', () => {
   test('should load vendors list', async ({ page }) => {
     await page.goto('/relationships/vendors');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify page loaded
     await navigationAssertions.expectHeading(page, /vendors/i);
@@ -135,7 +136,7 @@ test.describe('Smoke Tests - Relationship Pages', () => {
 
   test('should load employees list', async ({ page }) => {
     await page.goto('/relationships/employees');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify page loaded
     await navigationAssertions.expectHeading(page, /employees/i);
@@ -222,7 +223,7 @@ test.describe('Smoke Tests - Basic CRUD', () => {
 test.describe('Smoke Tests - Form Operations (UI)', () => {
   test('should open create customer dialog', async ({ page }) => {
     await page.goto('/lists/customers');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Look for create/add button
     const createButton = page.locator(
@@ -252,7 +253,7 @@ test.describe('Smoke Tests - Form Operations (UI)', () => {
 
   test('should show search functionality on list page', async ({ page }) => {
     await page.goto('/lists/customers');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Look for search input
     const searchInput = page.locator(
@@ -275,7 +276,7 @@ test.describe('Smoke Tests - Form Operations (UI)', () => {
 test.describe('Smoke Tests - Navigation', () => {
   test('should navigate between main sections', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Navigate to Lists
     await page.goto('/lists/customers');
@@ -306,7 +307,7 @@ test.describe('Smoke Tests - Performance', () => {
     const startTime = Date.now();
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     const loadTime = Date.now() - startTime;
 
@@ -318,7 +319,7 @@ test.describe('Smoke Tests - Performance', () => {
     const startTime = Date.now();
 
     await page.goto('/lists/customers');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     const loadTime = Date.now() - startTime;
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, authenticatedProcedure } from '../trpc';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   businessTransactions,
   businessTransactionLines,
@@ -196,6 +197,10 @@ export const estimatesRouter = router({
    * List estimates with filtering and pagination
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_estimates', 'Search and list sales estimates', {
+      scopes: ['sales', 'estimates', 'global'],
+      permissions: ['read:estimates'],
+    }) })
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -324,6 +329,10 @@ export const estimatesRouter = router({
    * Get a single estimate by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_estimate', 'Get a single estimate by ID', {
+      scopes: ['sales', 'estimates', 'global'],
+      permissions: ['read:estimates'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const { db, serviceContext } = ctx;
@@ -418,6 +427,11 @@ export const estimatesRouter = router({
    * Create a new estimate
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_estimate', 'Create a new sales estimate', {
+      scopes: ['sales', 'estimates'],
+      permissions: ['write:estimates'],
+      riskLevel: 'LOW',
+    }) })
     .input(createEstimateSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, serviceContext, user } = ctx;
@@ -522,6 +536,11 @@ export const estimatesRouter = router({
    * Update an estimate (only in DRAFT status)
    */
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_estimate', 'Update an existing estimate', {
+      scopes: ['sales', 'estimates'],
+      permissions: ['write:estimates'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -645,6 +664,11 @@ export const estimatesRouter = router({
    * Delete an estimate (soft delete - set to CANCELLED)
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_estimate', 'Cancel an estimate', {
+      scopes: ['sales', 'estimates'],
+      permissions: ['delete:estimates'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { db, serviceContext, user } = ctx;
@@ -869,6 +893,11 @@ export const estimatesRouter = router({
    * Convert estimate to sales order
    */
   convertToSalesOrder: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('convert_estimate_to_sales_order', 'Convert an estimate to a sales order', {
+      scopes: ['sales', 'estimates', 'orders'],
+      permissions: ['write:estimates', 'write:sales-orders'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       orderDate: z.coerce.date().optional(),

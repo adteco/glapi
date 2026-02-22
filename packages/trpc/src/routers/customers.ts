@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { CustomerService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const customerSchema = z.object({
   companyName: z.string().min(1),
@@ -31,6 +32,10 @@ const customerSchema = z.object({
 
 export const customersRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_customers', 'Search and list customer records', {
+      scopes: ['customers', 'sales', 'global'],
+      permissions: ['read:customers'],
+    }) })
     .input(
       z.object({
         includeInactive: z.boolean().optional(),
@@ -47,6 +52,10 @@ export const customersRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_customer', 'Get a single customer by ID', {
+      scopes: ['customers', 'sales', 'global'],
+      permissions: ['read:customers'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
@@ -63,6 +72,11 @@ export const customersRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_customer', 'Create a new customer record', {
+      scopes: ['customers', 'sales'],
+      permissions: ['write:customers'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(customerSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
@@ -79,6 +93,11 @@ export const customersRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_customer', 'Update an existing customer record', {
+      scopes: ['customers', 'sales'],
+      permissions: ['write:customers'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -110,6 +129,11 @@ export const customersRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_customer', 'Delete a customer record', {
+      scopes: ['customers'],
+      permissions: ['delete:customers'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
@@ -118,6 +142,10 @@ export const customersRouter = router({
     }),
 
   getChildren: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_customer_children', 'Get child customers for a parent customer', {
+      scopes: ['customers'],
+      permissions: ['read:customers'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new CustomerService(ctx.serviceContext, { db: ctx.db });
@@ -135,6 +163,10 @@ export const customersRouter = router({
     }),
 
   getWarehouseAssignments: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_customer_warehouse_assignments', 'Get warehouse assignments for a customer', {
+      scopes: ['customers', 'inventory'],
+      permissions: ['read:customers', 'read:warehouses'],
+    }) })
     .input(z.object({ customerId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new CustomerService(ctx.serviceContext, { db: ctx.db });

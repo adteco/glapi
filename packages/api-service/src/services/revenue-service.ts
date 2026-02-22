@@ -15,7 +15,7 @@ import {
   type NewPerformanceObligation,
   type NewRevenueSchedule
 } from '@glapi/database';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, inArray, sql } from 'drizzle-orm';
 import { RevenueCalculationEngine, type CalculationResult } from '@glapi/business';
 
 export interface RevenueServiceOptions {
@@ -47,7 +47,7 @@ export interface RevenueCalculationResult {
 
 export interface ListPerformanceObligationsInput {
   subscriptionId?: string;
-  status?: 'active' | 'satisfied' | 'cancelled';
+  status?: 'Pending' | 'InProcess' | 'Fulfilled' | 'PartiallyFulfilled' | 'Cancelled';
   obligationType?: string;
   page?: number;
   limit?: number;
@@ -76,6 +76,12 @@ export interface RevenueWaterfallInput {
   compareToASC605?: boolean;
 }
 
+export interface SubscriptionPlanInput {
+  subscriptionId: string;
+  startDate?: Date | string;
+  endDate?: Date | string;
+}
+
 export class RevenueService extends BaseService {
   private db: ContextualDatabase;
   private subscriptionRepository: SubscriptionRepository;
@@ -91,7 +97,7 @@ export class RevenueService extends BaseService {
     this.subscriptionRepository = new SubscriptionRepository(options.db);
     this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
     this.invoiceRepository = new InvoiceRepository(options.db);
-    this.calculationEngine = new RevenueCalculationEngine();
+    this.calculationEngine = new RevenueCalculationEngine(this.db);
   }
 
   async calculateRevenue(
@@ -106,6 +112,11 @@ export class RevenueService extends BaseService {
     const subscription = await this.subscriptionRepository.findByIdWithItems(subscriptionId);
     if (!subscription || subscription.organizationId !== organizationId) {
       throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
+    }
+
+    // Prevent duplicate schedule/obligation rows on recalculation.
+    if (options.forceRecalculation) {
+      await this.clearExistingCalculationData(subscriptionId, organizationId);
     }
 
     // Use the RevenueCalculationEngine for ASC 606 compliant calculation
@@ -140,6 +151,195 @@ export class RevenueService extends BaseService {
         periodEnd: s.periodEndDate.toISOString().split('T')[0],
         amount: s.scheduledAmount
       }))
+    };
+  }
+
+  async getSubscriptionPlan(input: SubscriptionPlanInput): Promise<any> {
+    const organizationId = this.requireOrganizationContext();
+
+    const subscription = await this.subscriptionRepository.findByIdWithItems(input.subscriptionId);
+    if (!subscription || subscription.organizationId !== organizationId) {
+      throw new ServiceError('Subscription not found', 'NOT_FOUND', 404);
+    }
+
+    const contractValue = parseFloat(subscription.contractValue || '0');
+    const conditions = [
+      eq(revenueSchedules.organizationId, organizationId),
+      eq(performanceObligations.subscriptionId, input.subscriptionId),
+    ];
+
+    if (input.startDate) {
+      const startDate = typeof input.startDate === 'string' ? input.startDate : input.startDate.toISOString().split('T')[0];
+      conditions.push(gte(revenueSchedules.periodStartDate, startDate));
+    }
+
+    if (input.endDate) {
+      const endDate = typeof input.endDate === 'string' ? input.endDate : input.endDate.toISOString().split('T')[0];
+      conditions.push(lte(revenueSchedules.periodEndDate, endDate));
+    }
+
+    const obligations = await this.db.select({
+      id: performanceObligations.id,
+      itemId: performanceObligations.itemId,
+      obligationType: performanceObligations.obligationType,
+      satisfactionMethod: performanceObligations.satisfactionMethod,
+      startDate: performanceObligations.startDate,
+      endDate: performanceObligations.endDate,
+      status: performanceObligations.status,
+      allocatedAmount: performanceObligations.allocatedAmount,
+    })
+      .from(performanceObligations)
+      .where(and(
+        eq(performanceObligations.organizationId, organizationId),
+        eq(performanceObligations.subscriptionId, input.subscriptionId)
+      ))
+      .orderBy(desc(performanceObligations.createdAt));
+
+    const schedules = await this.db.select({
+      id: revenueSchedules.id,
+      performanceObligationId: revenueSchedules.performanceObligationId,
+      periodStartDate: revenueSchedules.periodStartDate,
+      periodEndDate: revenueSchedules.periodEndDate,
+      scheduledAmount: revenueSchedules.scheduledAmount,
+      recognizedAmount: revenueSchedules.recognizedAmount,
+      recognitionDate: revenueSchedules.recognitionDate,
+      recognitionPattern: revenueSchedules.recognitionPattern,
+      status: revenueSchedules.status,
+      obligationType: performanceObligations.obligationType,
+    })
+      .from(revenueSchedules)
+      .innerJoin(
+        performanceObligations,
+        eq(revenueSchedules.performanceObligationId, performanceObligations.id)
+      )
+      .where(and(...conditions))
+      .orderBy(revenueSchedules.periodStartDate, revenueSchedules.periodEndDate);
+
+    const normalizedSchedules = schedules.map((s) => ({
+      ...s,
+      scheduledAmount: parseFloat(s.scheduledAmount || '0'),
+      recognizedAmount: parseFloat(s.recognizedAmount || '0'),
+    }));
+
+    const totals = normalizedSchedules.reduce((acc, s) => {
+      acc.scheduled += s.scheduledAmount;
+      acc.recognized += s.recognizedAmount;
+      acc.deferred += (s.scheduledAmount - s.recognizedAmount);
+      return acc;
+    }, { scheduled: 0, recognized: 0, deferred: 0 });
+
+    const monthly = new Map<string, { scheduled: number; recognized: number; deferredBalance: number }>();
+    for (const s of normalizedSchedules) {
+      const monthKey = s.periodStartDate ? s.periodStartDate.slice(0, 7) : 'unknown';
+      const current = monthly.get(monthKey) || { scheduled: 0, recognized: 0, deferredBalance: 0 };
+      current.scheduled += s.scheduledAmount;
+      current.recognized += s.recognizedAmount;
+      monthly.set(monthKey, current);
+    }
+
+    const waterfall = Array.from(monthly.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .reduce((acc, [period, v]) => {
+        const previousBalance = acc.length > 0 ? acc[acc.length - 1].deferredBalance : 0;
+        const deferredBalance = previousBalance + v.scheduled - v.recognized;
+        acc.push({
+          period,
+          scheduled: v.scheduled,
+          recognized: v.recognized,
+          deferredBalance,
+        });
+        return acc;
+      }, [] as Array<{ period: string; scheduled: number; recognized: number; deferredBalance: number }>);
+
+    const allocations = await this.db.select({
+      id: contractSspAllocations.id,
+      performanceObligationId: contractSspAllocations.performanceObligationId,
+      itemId: performanceObligations.itemId,
+      obligationType: performanceObligations.obligationType,
+      satisfactionMethod: performanceObligations.satisfactionMethod,
+      sspAmount: contractSspAllocations.sspAmount,
+      allocatedAmount: contractSspAllocations.allocatedAmount,
+      allocationPercentage: contractSspAllocations.allocationPercentage,
+      allocationMethod: contractSspAllocations.allocationMethod,
+    })
+      .from(contractSspAllocations)
+      .innerJoin(
+        performanceObligations,
+        eq(contractSspAllocations.performanceObligationId, performanceObligations.id)
+      )
+      .where(and(
+        eq(contractSspAllocations.organizationId, organizationId),
+        eq(contractSspAllocations.subscriptionId, input.subscriptionId),
+      ))
+      .orderBy(desc(contractSspAllocations.createdAt));
+
+    const normalizedAllocations = allocations.map((row) => ({
+      ...row,
+      sspAmount: parseFloat(row.sspAmount || '0'),
+      allocatedAmount: parseFloat(row.allocatedAmount || '0'),
+      allocationPercentage: row.allocationPercentage === null ? null : parseFloat(row.allocationPercentage),
+    }));
+
+    const invoiceSchedule = (() => {
+      const parseDate = (value: string) => new Date(`${value}T00:00:00Z`);
+      const toIso = (d: Date) => d.toISOString().slice(0, 10);
+
+      const start = parseDate(subscription.startDate);
+      const lastSchedule = normalizedSchedules.length > 0 ? normalizedSchedules[normalizedSchedules.length - 1] : null;
+      const fallbackEndValue =
+        (lastSchedule?.periodEndDate || lastSchedule?.periodStartDate || subscription.endDate || subscription.startDate) as string;
+      const fallbackEnd = parseDate(fallbackEndValue);
+      const end = subscription.endDate ? parseDate(subscription.endDate) : fallbackEnd;
+
+      const frequency = subscription.billingFrequency || 'monthly';
+      const stepMonths =
+        frequency === 'annual' ? 12 :
+          frequency === 'semi_annual' ? 6 :
+            frequency === 'quarterly' ? 3 : 1;
+
+      const dates: string[] = [];
+      let cursor = new Date(start);
+      for (let i = 0; i < 240; i++) {
+        if (cursor.getTime() > end.getTime()) break;
+        dates.push(toIso(cursor));
+        cursor = new Date(cursor);
+        cursor.setUTCMonth(cursor.getUTCMonth() + stepMonths);
+      }
+
+      const count = Math.max(dates.length, 1);
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const base = round2(contractValue / count);
+      const schedule = dates.map((invoiceDate, idx) => ({
+        invoiceDate,
+        amount: idx === count - 1 ? round2(contractValue - base * (count - 1)) : base,
+      }));
+
+      return schedule;
+    })();
+
+    return {
+      subscription: {
+        id: subscription.id,
+        subscriptionNumber: subscription.subscriptionNumber,
+        status: subscription.status,
+        startDate: subscription.startDate,
+        endDate: subscription.endDate,
+        contractValue,
+        billingFrequency: subscription.billingFrequency,
+      },
+      summary: {
+        totalScheduled: totals.scheduled,
+        totalRecognized: totals.recognized,
+        totalDeferred: totals.deferred,
+      },
+      obligations: obligations.map((o) => ({
+        ...o,
+        allocatedAmount: parseFloat(o.allocatedAmount || '0'),
+      })),
+      allocations: normalizedAllocations,
+      invoiceSchedule,
+      schedules: normalizedSchedules,
+      waterfall,
     };
   }
 
@@ -206,14 +406,14 @@ export class RevenueService extends BaseService {
       throw new ServiceError('Performance obligation not found', 'NOT_FOUND', 404);
     }
     
-    if (obligation.status !== 'active') {
-      throw new ServiceError('Can only satisfy active obligations', 'INVALID_STATUS', 400);
+    if (obligation.status !== 'Pending' && obligation.status !== 'InProcess' && obligation.status !== 'PartiallyFulfilled') {
+      throw new ServiceError('Can only satisfy pending obligations', 'INVALID_STATUS', 400);
     }
     
     // Update obligation status
     const [updated] = await this.db.update(performanceObligations)
       .set({
-        status: 'satisfied',
+        status: 'Fulfilled',
         endDate: typeof satisfactionDate === 'string' ? satisfactionDate : satisfactionDate.toISOString().split('T')[0],
         updatedAt: new Date()
       })
@@ -1107,5 +1307,35 @@ export class RevenueService extends BaseService {
           eq(revenueSchedules.status, 'scheduled')
         )
       );
+  }
+
+  private async clearExistingCalculationData(subscriptionId: string, organizationId: string): Promise<void> {
+    const obligationIds = await this.db.select({ id: performanceObligations.id })
+      .from(performanceObligations)
+      .where(and(
+        eq(performanceObligations.organizationId, organizationId),
+        eq(performanceObligations.subscriptionId, subscriptionId)
+      ));
+
+    if (obligationIds.length === 0) {
+      return;
+    }
+
+    const obligationIdList = obligationIds.map((o) => o.id);
+
+    await this.db.delete(revenueSchedules)
+      .where(inArray(revenueSchedules.performanceObligationId, obligationIdList));
+
+    await this.db.delete(contractSspAllocations)
+      .where(and(
+        eq(contractSspAllocations.organizationId, organizationId),
+        eq(contractSspAllocations.subscriptionId, subscriptionId)
+      ));
+
+    await this.db.delete(performanceObligations)
+      .where(and(
+        eq(performanceObligations.organizationId, organizationId),
+        eq(performanceObligations.subscriptionId, subscriptionId)
+      ));
   }
 }

@@ -22,7 +22,7 @@ import {
   index,
   integer,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { users } from './users';
@@ -130,6 +130,9 @@ export const expenseEntries = pgTable('expense_entries', {
   isBillable: boolean('is_billable').default(false).notNull(),
   billingMarkup: numeric('billing_markup', { precision: 6, scale: 4 }),
   billableAmount: numeric('billable_amount', { precision: 18, scale: 4 }),
+  invoicedAt: timestamp('invoiced_at', { withTimezone: true }),
+  // Avoid schema-level circular imports (invoice_line_items references multiple billing sources).
+  invoiceLineId: uuid('invoice_line_id'),
 
   // Notes
   internalNotes: text('internal_notes'),
@@ -171,6 +174,9 @@ export const expenseEntries = pgTable('expense_entries', {
   statusIdx: index('idx_expense_entries_status').on(table.organizationId, table.status),
   approvalIdx: index('idx_expense_entries_pending_approval').on(table.organizationId, table.status, table.submittedAt),
   categoryIdx: index('idx_expense_entries_category').on(table.organizationId, table.category),
+  billableQueueIdx: index('idx_expense_entries_billable_queue')
+    .on(table.organizationId, table.projectId, table.expenseDate)
+    .where(sql`${table.isBillable} = true AND ${table.status} = 'APPROVED' AND ${table.invoicedAt} IS NULL`),
   // Unique constraint for external ID per organization
   externalIdIdx: uniqueIndex('idx_expense_entries_external').on(table.organizationId, table.externalSource, table.externalId),
 }));

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { DeliveryConnectorsService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 // Schema definitions
 const deliveryStatusSchema = z.enum(['pending', 'processing', 'delivered', 'failed', 'dead_letter']);
@@ -61,6 +62,11 @@ export const deliveryQueueRouter = router({
 
   // Queue a new delivery
   queue: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('queue_delivery', 'Queue a new delivery', {
+      scopes: ['deliveries', 'reports'],
+      permissions: ['write:delivery-queue'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({
       reportScheduleId: z.string().uuid().optional(),
       jobExecutionId: z.string().uuid().optional(),
@@ -156,6 +162,10 @@ export const deliveryQueueRouter = router({
 
   // List deliveries with filters
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_deliveries', 'List queued deliveries', {
+      scopes: ['deliveries', 'reports', 'global'],
+      permissions: ['read:delivery-queue'],
+    }) })
     .input(z.object({
       status: z.union([
         deliveryStatusSchema,

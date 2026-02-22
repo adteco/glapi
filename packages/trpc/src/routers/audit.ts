@@ -5,6 +5,7 @@ import {
   AuditSeverity,
   createAuditService,
 } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 const evidenceFiltersSchema = z
   .object({
@@ -24,6 +25,11 @@ const paginationSchema = z
 
 export const auditRouter = router({
   createEvidencePackage: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_evidence_package', 'Create an audit evidence package', {
+      scopes: ['audit', 'compliance'],
+      permissions: ['write:audit'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z.object({
         packageName: z.string().min(3),
@@ -51,6 +57,10 @@ export const auditRouter = router({
     }),
 
   listEvidencePackages: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_evidence_packages', 'List audit evidence packages', {
+      scopes: ['audit', 'compliance', 'global'],
+      permissions: ['read:audit'],
+    }) })
     .input(paginationSchema)
     .query(async ({ ctx, input }) => {
       const service = createAuditService(ctx.serviceContext);
@@ -61,6 +71,10 @@ export const auditRouter = router({
     }),
 
   getEvidencePackage: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_evidence_package', 'Get an audit evidence package by ID', {
+      scopes: ['audit', 'compliance'],
+      permissions: ['read:audit'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = createAuditService(ctx.serviceContext);

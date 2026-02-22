@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { DepartmentService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const departmentSchema = z.object({
   name: z.string().min(1),
@@ -12,6 +13,10 @@ const departmentSchema = z.object({
 
 export const departmentsRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_departments', 'Search and list departments', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:departments'],
+    }) })
     .input(
       z.object({
         subsidiaryId: z.string().uuid().optional(),
@@ -30,6 +35,10 @@ export const departmentsRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_department', 'Get a single department by ID', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:departments'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });
@@ -46,6 +55,11 @@ export const departmentsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_department', 'Create a new department', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:departments'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(departmentSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });
@@ -56,6 +70,11 @@ export const departmentsRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_department', 'Update an existing department', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:departments'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -77,6 +96,11 @@ export const departmentsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_department', 'Delete a department', {
+      scopes: ['accounting'],
+      permissions: ['delete:departments'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new DepartmentService(ctx.serviceContext, { db: ctx.db });

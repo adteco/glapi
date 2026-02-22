@@ -72,6 +72,28 @@ export class PaymentRepository extends BaseRepository {
   }
 
   /**
+   * Find payment by transaction reference
+   */
+  async findByTransactionReference(
+    organizationId: string,
+    transactionReference: string
+  ): Promise<Payment | null> {
+    const [result] = await this.db
+      .select()
+      .from(payments)
+      .where(
+        and(
+          eq(payments.organizationId, organizationId),
+          eq(payments.transactionReference, transactionReference)
+        )
+      )
+      .orderBy(desc(payments.createdAt))
+      .limit(1);
+
+    return result ?? null;
+  }
+
+  /**
    * List payments with filtering
    */
   async list(options: PaymentListOptions): Promise<{ data: PaymentWithInvoice[]; total: number }> {

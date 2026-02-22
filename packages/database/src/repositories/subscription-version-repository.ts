@@ -10,6 +10,24 @@ import {
 
 export class SubscriptionVersionRepository {
   private db: NodePgDatabase<any>;
+  private versionReturning = {
+    id: subscriptionVersions.id,
+    organizationId: subscriptionVersions.organizationId,
+    subscriptionId: subscriptionVersions.subscriptionId,
+    versionNumber: subscriptionVersions.versionNumber,
+    versionType: subscriptionVersions.versionType,
+    versionSource: subscriptionVersions.versionSource,
+    changeSummary: subscriptionVersions.changeSummary,
+    changeReason: subscriptionVersions.changeReason,
+    effectiveDate: subscriptionVersions.effectiveDate,
+    modificationId: subscriptionVersions.modificationId,
+    metadata: subscriptionVersions.metadata,
+    subscriptionSnapshot: subscriptionVersions.subscriptionSnapshot,
+    itemsSnapshot: subscriptionVersions.itemsSnapshot,
+    createdBy: subscriptionVersions.createdBy,
+    previousVersionId: subscriptionVersions.previousVersionId,
+    createdAt: subscriptionVersions.createdAt,
+  } as const;
 
   constructor(db?: ContextualDatabase | NodePgDatabase<any>) {
     this.db = db ?? globalDb;
@@ -21,7 +39,7 @@ export class SubscriptionVersionRepository {
     const [version] = await this.db
       .insert(subscriptionVersions)
       .values(data)
-      .returning();
+      .returning(this.versionReturning);
     return version;
   }
 
@@ -204,9 +222,11 @@ export class SubscriptionVersionRepository {
     const versions = await this.db
       .select({
         versionNumber: subscriptionVersions.versionNumber,
-        effectiveDate: subscriptionVersions.effectiveDate,
-        contractValue: subscriptionVersions.newContractValue,
-        delta: subscriptionVersions.contractValueDelta,
+        // Normalize to text for callers (avoid timezone surprises in UI).
+        effectiveDate: sql<string>`${subscriptionVersions.effectiveDate}::text`,
+        contractValue: sql<string | null>`${subscriptionVersions.subscriptionSnapshot} ->> 'contractValue'`,
+        // Not stored as a dedicated column in the live table. Caller can compute from snapshots if needed.
+        delta: sql<string | null>`null`,
       })
       .from(subscriptionVersions)
       .where(eq(subscriptionVersions.subscriptionId, subscriptionId))
@@ -223,28 +243,17 @@ export class SubscriptionVersionRepository {
     subscriptionId: string;
     versionType: NewSubscriptionVersion['versionType'];
     versionSource?: NewSubscriptionVersion['versionSource'];
-    previousStatus?: string;
-    newStatus: string;
     subscriptionSnapshot: Record<string, unknown>;
-    itemsSnapshot?: Record<string, unknown>[];
-    changedFields?: { field: string; oldValue: unknown; newValue: unknown }[];
+    itemsSnapshot: Record<string, unknown>[];
     changeSummary?: string;
     changeReason?: string;
-    previousContractValue?: string;
-    newContractValue?: string;
     effectiveDate: Date;
     createdBy?: string;
-    createdByName?: string;
+    modificationId?: string;
+    previousVersionId?: string;
     metadata?: Record<string, unknown>;
   }): Promise<SubscriptionVersion> {
     const nextVersion = await this.getNextVersionNumber(params.subscriptionId);
-
-    // Calculate contract value delta if both values provided
-    let contractValueDelta: string | undefined;
-    if (params.previousContractValue && params.newContractValue) {
-      const delta = parseFloat(params.newContractValue) - parseFloat(params.previousContractValue);
-      contractValueDelta = delta.toFixed(2);
-    }
 
     return this.create({
       organizationId: params.organizationId,
@@ -252,19 +261,14 @@ export class SubscriptionVersionRepository {
       versionNumber: nextVersion,
       versionType: params.versionType,
       versionSource: params.versionSource || 'user',
-      previousStatus: params.previousStatus,
-      newStatus: params.newStatus,
       subscriptionSnapshot: params.subscriptionSnapshot,
       itemsSnapshot: params.itemsSnapshot,
-      changedFields: params.changedFields,
       changeSummary: params.changeSummary,
       changeReason: params.changeReason,
-      previousContractValue: params.previousContractValue,
-      newContractValue: params.newContractValue,
-      contractValueDelta,
-      effectiveDate: params.effectiveDate.toISOString().split('T')[0],
+      effectiveDate: params.effectiveDate,
       createdBy: params.createdBy,
-      createdByName: params.createdByName,
+      modificationId: params.modificationId,
+      previousVersionId: params.previousVersionId,
       metadata: params.metadata,
     });
   }

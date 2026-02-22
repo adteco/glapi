@@ -6,6 +6,8 @@
  * 2. Maps to intents via LLM
  * 3. Enforces guardrails and approvals
  * 4. Executes actions and returns responses
+ *
+ * Now uses generated AI tools from OpenAPI spec for tool declarations.
  */
 
 import OpenAI from 'openai';
@@ -13,17 +15,18 @@ import {
   type UserContext,
   createDefaultUserContext,
 } from './guardrails';
-import {
-  INTENT_CATALOG,
-  type Intent,
-  getEnabledIntents,
-} from './intents';
+// Legacy types removed - now using generated tools via tool-adapter
 import {
   createActionExecutor,
   type ActionExecutor,
   type ActionResult,
   type MCPClient,
 } from './action-executor';
+import {
+  AI_TOOLS,
+  getOpenAITools,
+  type GeneratedAITool,
+} from './generated';
 
 // ============================================================================
 // Types
@@ -88,21 +91,10 @@ export interface PendingConfirmation {
 // ============================================================================
 
 /**
- * Generate OpenAI tool definitions from intent catalog
+ * Confirmation and control tools that are always available
  */
-function generateToolDefinitions(): OpenAI.Chat.Completions.ChatCompletionTool[] {
-  const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [];
-
-  for (const intent of getEnabledIntents()) {
-    // Map intent to tool definition based on category
-    const toolDef = getToolDefinitionForIntent(intent);
-    if (toolDef) {
-      tools.push(toolDef);
-    }
-  }
-
-  // Add confirmation tools
-  tools.push({
+const CONTROL_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
     type: 'function',
     function: {
       name: 'confirm_action',
@@ -118,9 +110,8 @@ function generateToolDefinitions(): OpenAI.Chat.Completions.ChatCompletionTool[]
         required: ['pending_action_id'],
       },
     },
-  });
-
-  tools.push({
+  },
+  {
     type: 'function',
     function: {
       name: 'cancel_action',
@@ -136,228 +127,28 @@ function generateToolDefinitions(): OpenAI.Chat.Completions.ChatCompletionTool[]
         required: ['pending_action_id'],
       },
     },
-  });
-
-  return tools;
-}
+  },
+];
 
 /**
- * Map an intent to an OpenAI tool definition
+ * Generate OpenAI tool definitions from generated AI tools.
+ *
+ * This function now uses the auto-generated tools from OpenAPI spec,
+ * which provides complete, accurate tool definitions with proper
+ * parameter schemas derived from tRPC router definitions.
+ *
+ * @param scopes Optional scopes to filter tools. If not provided, uses 'global' scope to get all tools.
+ * @returns Array of OpenAI-compatible tool definitions
  */
-function getToolDefinitionForIntent(
-  intent: Intent
-): OpenAI.Chat.Completions.ChatCompletionTool | null {
-  // Define parameter schemas for each tool type
-  const toolSchemas: Record<string, object> = {
-    // Customer tools
-    list_customers: {
-      type: 'object',
-      properties: {
-        search: { type: 'string', description: 'Search term' },
-        status: {
-          type: 'string',
-          enum: ['active', 'inactive', 'all'],
-          default: 'active',
-        },
-        limit: { type: 'number', default: 50 },
-      },
-    },
-    get_customer: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: 'Customer ID' },
-      },
-      required: ['id'],
-    },
-    create_customer: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', description: 'Customer name' },
-        email: { type: 'string', description: 'Email address' },
-        phone: { type: 'string', description: 'Phone number' },
-      },
-      required: ['name'],
-    },
-    update_customer: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: 'Customer ID' },
-        name: { type: 'string' },
-        email: { type: 'string' },
-        phone: { type: 'string' },
-        status: { type: 'string', enum: ['active', 'inactive'] },
-      },
-      required: ['id'],
-    },
+function generateToolDefinitions(
+  scopes?: string[]
+): OpenAI.Chat.Completions.ChatCompletionTool[] {
+  // Use generated tools - they are already in OpenAI format
+  // Default to 'global' scope which includes all tools
+  const generatedTools = getOpenAITools(scopes ?? ['global']);
 
-    // Vendor tools
-    list_vendors: {
-      type: 'object',
-      properties: {
-        search: { type: 'string' },
-        status: { type: 'string', enum: ['active', 'inactive', 'all'] },
-        limit: { type: 'number', default: 50 },
-      },
-    },
-    create_vendor: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        email: { type: 'string' },
-        phone: { type: 'string' },
-      },
-      required: ['name'],
-    },
-
-    // Employee tools
-    list_employees: {
-      type: 'object',
-      properties: {
-        search: { type: 'string' },
-        status: { type: 'string', enum: ['active', 'inactive', 'all'] },
-        limit: { type: 'number', default: 50 },
-      },
-    },
-    create_employee: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        email: { type: 'string' },
-        phone: { type: 'string' },
-      },
-      required: ['name'],
-    },
-
-    // Lead/Prospect/Contact tools
-    list_leads: {
-      type: 'object',
-      properties: {
-        search: { type: 'string' },
-        status: { type: 'string', enum: ['active', 'inactive', 'all'] },
-        limit: { type: 'number', default: 50 },
-      },
-    },
-    create_lead: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        email: { type: 'string' },
-        phone: { type: 'string' },
-      },
-      required: ['name'],
-    },
-    list_prospects: {
-      type: 'object',
-      properties: {
-        search: { type: 'string' },
-        limit: { type: 'number', default: 50 },
-      },
-    },
-    list_contacts: {
-      type: 'object',
-      properties: {
-        search: { type: 'string' },
-        limit: { type: 'number', default: 50 },
-      },
-    },
-
-    // Invoice tools
-    list_invoices: {
-      type: 'object',
-      properties: {
-        customerId: { type: 'string' },
-        status: { type: 'string', enum: ['draft', 'sent', 'paid', 'overdue'] },
-        limit: { type: 'number', default: 50 },
-      },
-    },
-    create_invoice: {
-      type: 'object',
-      properties: {
-        customerId: { type: 'string', description: 'Customer ID' },
-        dueDate: { type: 'string', description: 'Due date (ISO format)' },
-        lineItems: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              description: { type: 'string' },
-              quantity: { type: 'number' },
-              rate: { type: 'number' },
-            },
-          },
-        },
-      },
-      required: ['customerId'],
-    },
-
-    // Journal entry tools
-    create_journal_entry: {
-      type: 'object',
-      properties: {
-        date: { type: 'string', description: 'Entry date' },
-        description: { type: 'string' },
-        lines: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              accountId: { type: 'string' },
-              debit: { type: 'number' },
-              credit: { type: 'number' },
-            },
-          },
-        },
-      },
-      required: ['date', 'lines'],
-    },
-
-    // Report tools
-    generate_balance_sheet: {
-      type: 'object',
-      properties: {
-        asOfDate: { type: 'string', description: 'Report date' },
-        subsidiaryId: { type: 'string' },
-      },
-    },
-    generate_income_statement: {
-      type: 'object',
-      properties: {
-        startDate: { type: 'string' },
-        endDate: { type: 'string' },
-        subsidiaryId: { type: 'string' },
-      },
-    },
-
-    // Help tools
-    help: {
-      type: 'object',
-      properties: {
-        topic: { type: 'string', description: 'Help topic' },
-      },
-    },
-    explain_concept: {
-      type: 'object',
-      properties: {
-        concept: { type: 'string', description: 'Concept to explain' },
-      },
-      required: ['concept'],
-    },
-  };
-
-  const schema = toolSchemas[intent.mcpTool];
-  if (!schema) {
-    return null;
-  }
-
-  return {
-    type: 'function',
-    function: {
-      name: intent.mcpTool,
-      description: intent.description,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      parameters: schema as any,
-    },
-  };
+  // Combine with control tools
+  return [...generatedTools, ...CONTROL_TOOLS];
 }
 
 // ============================================================================

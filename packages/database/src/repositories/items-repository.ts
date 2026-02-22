@@ -272,6 +272,8 @@ export class ItemsRepository extends BaseRepository {
         assetAccountId: parentItem.assetAccountId,
         cogsAccountId: parentItem.cogsAccountId,
         defaultPrice: parentItem.defaultPrice,
+        defaultSspAmount: parentItem.defaultSspAmount,
+        revenueBehavior: parentItem.revenueBehavior,
         defaultCost: parentItem.defaultCost,
         isTaxable: parentItem.isTaxable,
         taxCode: parentItem.taxCode,

@@ -4,8 +4,11 @@
  * This module provides the action execution layer that:
  * 1. Evaluates guardrails before execution
  * 2. Manages approval flows for high-risk operations
- * 3. Executes MCP tool calls
+ * 3. Executes MCP tool calls (or generated executor)
  * 4. Handles conversation state and context
+ *
+ * Now supports the generated tool executor from OpenAPI spec,
+ * which provides built-in validation, rate limiting, and caching.
  */
 
 import {
@@ -15,9 +18,16 @@ import {
 } from './guardrails';
 import {
   type Intent,
-  getIntentByMcpTool,
-  INTENT_CATALOG,
 } from './intents';
+import {
+  getAllEnabledTools,
+  type UnifiedToolInfo,
+} from './tool-adapter';
+import {
+  createToolExecutor,
+  type ExecutionContext,
+  type ExecutionResult,
+} from './generated';
 
 // ============================================================================
 // Types
@@ -59,6 +69,10 @@ export interface ActionResult {
   guardrailResult: GuardrailResult;
   /** Execution metadata */
   metadata: ActionMetadata;
+  /** Whether dry-run preview is supported */
+  supportsDryRun?: boolean;
+  /** Dry-run preview result (if executed with dryRun=true) */
+  dryRunResult?: unknown;
 }
 
 /**
@@ -147,8 +161,12 @@ export interface MCPClient {
  * Action executor configuration
  */
 export interface ActionExecutorConfig {
-  /** MCP client for tool execution */
+  /** MCP client for tool execution (legacy) */
   mcpClient: MCPClient;
+  /** Use generated tool executor instead of MCP client */
+  useGeneratedExecutor?: boolean;
+  /** tRPC caller for generated executor (required if useGeneratedExecutor is true) */
+  trpcCaller?: unknown;
   /** Pending action timeout in ms (default: 5 minutes) */
   pendingActionTimeoutMs?: number;
   /** Maximum pending actions per conversation */
@@ -165,11 +183,19 @@ export interface ActionExecutorConfig {
 export function createActionExecutor(config: ActionExecutorConfig) {
   const {
     mcpClient,
+    useGeneratedExecutor = false,
+    trpcCaller,
     pendingActionTimeoutMs = 5 * 60 * 1000, // 5 minutes
     maxPendingActions = 5,
     enableLogging = true,
     logger = defaultLogger,
   } = config;
+
+  // Create generated tool executor if enabled
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const generatedExecutor = useGeneratedExecutor && trpcCaller
+    ? createToolExecutor({ trpcCaller: trpcCaller as any })
+    : null;
 
   // Conversation state store (in production, use Redis or similar)
   const conversationStore = new Map<string, ConversationState>();
@@ -314,17 +340,47 @@ export function createActionExecutor(config: ActionExecutorConfig) {
       };
     }
 
-    // Execute the action
+    // Execute the action using generated executor or MCP client
     try {
-      if (enableLogging) {
-        logger(`[${requestId}] Executing MCP tool: ${request.toolName}`);
-      }
+      let result: unknown;
 
-      const result = await mcpClient.callTool(
-        request.toolName,
-        request.parameters,
-        authToken
-      );
+      if (generatedExecutor) {
+        // Use generated executor with built-in validation, rate limiting, caching
+        if (enableLogging) {
+          logger(`[${requestId}] Executing via generated executor: ${request.toolName}`);
+        }
+
+        const executionContext: ExecutionContext = {
+          userId: userContext.userId,
+          organizationId: userContext.organizationId,
+          userRole: userContext.role,
+          authToken,
+        };
+
+        const execResult = await generatedExecutor.executeTool(
+          request.toolName,
+          request.parameters,
+          executionContext
+        );
+
+        if (!execResult.success) {
+          const errorMsg = execResult.error?.message || 'Tool execution failed';
+          throw new Error(errorMsg);
+        }
+
+        result = execResult.data;
+      } else {
+        // Fall back to MCP client
+        if (enableLogging) {
+          logger(`[${requestId}] Executing MCP tool: ${request.toolName}`);
+        }
+
+        result = await mcpClient.callTool(
+          request.toolName,
+          request.parameters,
+          authToken
+        );
+      }
 
       // Add message to conversation history
       conversation.messages.push({
@@ -345,6 +401,7 @@ export function createActionExecutor(config: ActionExecutorConfig) {
         requiresConfirmation: false,
         intent: guardrailResult.intent,
         guardrailResult,
+        supportsDryRun: guardrailResult.supportsDryRun,
         metadata: {
           ...metadata,
           durationMs: Date.now() - startTime,
@@ -363,6 +420,7 @@ export function createActionExecutor(config: ActionExecutorConfig) {
         requiresConfirmation: false,
         intent: guardrailResult.intent,
         guardrailResult,
+        supportsDryRun: guardrailResult.supportsDryRun,
         metadata: {
           ...metadata,
           durationMs: Date.now() - startTime,
@@ -544,14 +602,16 @@ export function createActionExecutor(config: ActionExecutorConfig) {
 
   /**
    * Get available actions for the user's role
+   *
+   * Now uses generated tools via tool-adapter instead of legacy intent catalog.
    */
-  function getAvailableActions(userContext: UserContext): Intent[] {
-    return Object.values(INTENT_CATALOG).filter((intent) => {
+  function getAvailableActions(userContext: UserContext): UnifiedToolInfo[] {
+    return getAllEnabledTools().filter((tool) => {
       // Check if user has required permissions
-      const hasPermissions = intent.requiredPermissions.every((perm) =>
+      const hasPermissions = tool.requiredPermissions.every((perm) =>
         userContext.permissions.includes(perm)
       );
-      return intent.enabled && hasPermissions;
+      return tool.enabled && hasPermissions;
     });
   }
 

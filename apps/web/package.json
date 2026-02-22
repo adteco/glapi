@@ -16,6 +16,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@glapi/database": "workspace:*",
+    "@glapi/shared-types": "workspace:*",
     "@glapi/trpc": "workspace:*",
     "@glapi/types": "workspace:*",
     "@google/generative-ai": "^0.24.1",

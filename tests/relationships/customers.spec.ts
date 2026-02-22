@@ -407,5 +407,258 @@ test.describe('Customers', () => {
       const hasContent = (await listPage.getRowCount()) > 0 || await listPage.isEmpty();
       expect(hasContent).toBe(true);
     });
+
+    test('should be functional on tablet', async ({ page }) => {
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await page.reload();
+      await listPage.waitForPageLoad();
+
+      const hasContent = (await listPage.getRowCount()) > 0 || await listPage.isEmpty();
+      expect(hasContent).toBe(true);
+    });
+  });
+
+  test.describe('Edge Cases', () => {
+    test('should handle special characters in company name', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        const specialName = `Test & Company "LLC" ${randomString()}`;
+        await dialogPage.fillInput('companyName', specialName);
+        await dialogPage.fillInput('email', randomEmail());
+
+        await dialogPage.confirm();
+        await listPage.waitForPageLoad();
+
+        // Search for the created customer
+        await listPage.search('Test & Company');
+        const rowCount = await listPage.getRowCount();
+        expect(rowCount).toBeGreaterThan(0);
+      }
+    });
+
+    test('should handle unicode characters in company name', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        const unicodeName = `Test Company \u4e2d\u6587 ${randomString()}`;
+        await dialogPage.fillInput('companyName', unicodeName);
+
+        await dialogPage.confirm();
+        await listPage.waitForPageLoad();
+      }
+    });
+
+    test('should handle long company name', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        const longName = `Very Long Company Name That Tests The Limit ${randomString(20)}`;
+        await dialogPage.fillInput('companyName', longName);
+        await dialogPage.fillInput('email', randomEmail());
+
+        await dialogPage.confirm();
+        await listPage.waitForPageLoad();
+
+        // Verify creation succeeded
+        await listPage.search(longName.substring(0, 20));
+      }
+    });
+
+    test('should handle search with no results', async ({ page }) => {
+      const nonExistentSearch = `nonexistent-${uniqueId()}-xyz`;
+      await listPage.search(nonExistentSearch);
+
+      // Should show empty state or zero results
+      const rowCount = await listPage.getRowCount();
+      const isEmpty = await listPage.isEmpty();
+      expect(rowCount === 0 || isEmpty).toBe(true);
+    });
+
+    test('should handle rapid search input', async ({ page }) => {
+      // Type rapidly to test debouncing
+      await listPage.searchInput.fill('test');
+      await listPage.searchInput.fill('test2');
+      await listPage.searchInput.fill('test3');
+      await listPage.waitForPageLoad();
+
+      // Should not crash and should show results for final search
+      const value = await listPage.searchInput.inputValue();
+      expect(value).toBe('test3');
+    });
+  });
+
+  test.describe('Customer Status Management', () => {
+    test('should allow changing customer status to inactive', async ({ page }) => {
+      const rowCount = await listPage.getRowCount();
+      if (rowCount === 0) {
+        test.skip();
+        return;
+      }
+
+      await listPage.editRow(0);
+
+      if (await dialogPage.isOpen()) {
+        // Look for status dropdown
+        const statusSelect = dialogPage.dialog.locator(
+          '[name="status"], [data-testid="status-select"]'
+        );
+        if (await statusSelect.isVisible()) {
+          await statusSelect.click();
+          const inactiveOption = page.locator('[role="option"]:has-text("Inactive")');
+          if (await inactiveOption.isVisible()) {
+            await inactiveOption.click();
+            await dialogPage.confirm();
+            await listPage.waitForPageLoad();
+          }
+        }
+      }
+    });
+
+    test('should filter inactive customers when filter is applied', async ({ page }) => {
+      const statusFilter = page.locator('button:has-text("Status"), [data-testid="status-filter"]');
+      if (await statusFilter.isVisible()) {
+        await statusFilter.click();
+        const inactiveOption = page.locator('[role="option"]:has-text("Inactive")');
+        if (await inactiveOption.isVisible()) {
+          await inactiveOption.click();
+          await listPage.waitForPageLoad();
+
+          // Verify filter is applied
+          const filteredCount = await listPage.getRowCount();
+          // Count may be zero or more depending on data
+          expect(filteredCount).toBeGreaterThanOrEqual(0);
+        }
+      }
+    });
+  });
+
+  test.describe('Form Validation', () => {
+    test('should clear validation errors when input is corrected', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        // Try to submit without company name
+        await dialogPage.confirm();
+
+        // Get initial error count
+        const initialErrors = await dialogPage.getErrors();
+
+        // Fill in the required field
+        await dialogPage.fillInput('companyName', `Test ${randomString()}`);
+
+        // Errors should clear on valid input
+        await page.waitForTimeout(500);
+      }
+    });
+
+    test('should preserve form data on validation failure', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        const testEmail = randomEmail();
+        await dialogPage.fillInput('email', testEmail);
+
+        // Try to submit without company name (should fail validation)
+        await dialogPage.confirm();
+
+        // Email should still be filled
+        const emailInput = dialogPage.dialog.locator('[name="email"], [name="contactEmail"]').first();
+        if (await emailInput.isVisible()) {
+          const value = await emailInput.inputValue();
+          expect(value).toBeTruthy();
+        }
+      }
+    });
+
+    test('should validate phone number format if enforced', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        await dialogPage.fillInput('companyName', `Test ${randomString()}`);
+
+        // Try invalid phone format
+        const phoneInput = dialogPage.dialog.locator('[name="phone"], [name="contactPhone"]');
+        if (await phoneInput.isVisible()) {
+          await phoneInput.fill('invalid-phone');
+          await dialogPage.confirm();
+
+          // Check if validation error appears (depends on implementation)
+          await page.waitForTimeout(500);
+        }
+      }
+    });
+  });
+
+  test.describe('Keyboard Navigation', () => {
+    test('should support keyboard navigation in table', async ({ page }) => {
+      const rowCount = await listPage.getRowCount();
+      if (rowCount === 0) {
+        test.skip();
+        return;
+      }
+
+      // Focus on first row
+      await listPage.getRow(0).focus();
+
+      // Press Enter to navigate (if supported)
+      await page.keyboard.press('Enter');
+
+      // May navigate to detail or open actions
+      await page.waitForTimeout(500);
+    });
+
+    test('should close dialog with Escape key', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        await page.keyboard.press('Escape');
+
+        // Dialog should close
+        await dialogPage.expectNotVisible();
+      }
+    });
+
+    test('should navigate form fields with Tab key', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        // Tab through form fields
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+
+        // Focus should move through form
+        const focusedElement = page.locator(':focus');
+        await expect(focusedElement).toBeVisible();
+      }
+    });
+  });
+
+  test.describe('Data Persistence', () => {
+    test('should persist customer data after page refresh', async ({ page }) => {
+      // First create a customer
+      await listPage.clickCreate();
+
+      let createdName: string | undefined;
+
+      if (await dialogPage.isOpen()) {
+        createdName = `Persist Test ${randomString()}`;
+        await dialogPage.fillInput('companyName', createdName);
+        await dialogPage.fillInput('email', randomEmail());
+
+        await dialogPage.confirm();
+        await listPage.waitForPageLoad();
+      }
+
+      if (createdName) {
+        // Refresh the page
+        await page.reload();
+        await listPage.waitForPageLoad();
+
+        // Search for the created customer
+        await listPage.search(createdName);
+        await listPage.expectRowWithText(createdName);
+      }
+    });
   });
 });

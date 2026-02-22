@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { EmployeeService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const employeeSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -33,6 +34,10 @@ const employeeQuerySchema = z.object({
 
 export const employeesRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_employees', 'Search and list employee records', {
+      scopes: ['employees', 'hr', 'global'],
+      permissions: ['read:employees'],
+    }) })
     .input(employeeQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
@@ -49,6 +54,10 @@ export const employeesRouter = router({
     }),
 
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_employee', 'Get a single employee by ID', {
+      scopes: ['employees', 'hr', 'global'],
+      permissions: ['read:employees'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
@@ -57,6 +66,10 @@ export const employeesRouter = router({
 
   // Alias for getById (some components use get)
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_employee_by_id', 'Get a single employee by ID (alias)', {
+      scopes: ['employees', 'hr'],
+      permissions: ['read:employees'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
@@ -64,6 +77,11 @@ export const employeesRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_employee', 'Create a new employee record', {
+      scopes: ['employees', 'hr'],
+      permissions: ['write:employees'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(employeeSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });
@@ -75,6 +93,11 @@ export const employeesRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_employee', 'Update an existing employee record', {
+      scopes: ['employees', 'hr'],
+      permissions: ['write:employees'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       id: z.string(),
       data: updateEmployeeSchema,
@@ -85,6 +108,11 @@ export const employeesRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_employee', 'Delete an employee record', {
+      scopes: ['employees'],
+      permissions: ['delete:employees'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const service = new EmployeeService(ctx.serviceContext, { db: ctx.db });

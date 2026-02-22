@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { PayApplicationService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const PayAppStatusEnum = z.enum([
   'DRAFT',
@@ -91,6 +92,10 @@ export const payApplicationsRouter = router({
    * List pay applications with optional filters
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_pay_applications', 'List pay applications with optional filters', {
+      scopes: ['pay-applications', 'construction', 'billing'],
+      permissions: ['read:pay-applications'],
+    }) })
     .input(
       z
         .object({
@@ -130,6 +135,10 @@ export const payApplicationsRouter = router({
    * Get a single pay application by ID
    */
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_pay_application', 'Get a single pay application by ID', {
+      scopes: ['pay-applications', 'construction', 'billing'],
+      permissions: ['read:pay-applications'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new PayApplicationService(ctx.serviceContext);
@@ -158,7 +167,13 @@ export const payApplicationsRouter = router({
   /**
    * Create a new pay application
    */
-  create: authenticatedProcedure.input(createPayAppSchema).mutation(async ({ ctx, input }) => {
+  create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_pay_application', 'Create a new pay application', {
+      scopes: ['pay-applications', 'construction', 'billing'],
+      permissions: ['write:pay-applications'],
+      riskLevel: 'MEDIUM',
+    }) })
+    .input(createPayAppSchema).mutation(async ({ ctx, input }) => {
     const service = new PayApplicationService(ctx.serviceContext);
     return service.create({
       organizationId: ctx.serviceContext.organizationId!,
@@ -199,7 +214,13 @@ export const payApplicationsRouter = router({
   /**
    * Delete a pay application (DRAFT only)
    */
-  delete: authenticatedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+  delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_pay_application', 'Delete a pay application (DRAFT only)', {
+      scopes: ['pay-applications', 'construction', 'billing'],
+      permissions: ['delete:pay-applications'],
+      riskLevel: 'MEDIUM',
+    }) })
+    .input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
     const service = new PayApplicationService(ctx.serviceContext);
     await service.delete(input.id);
     return { success: true };
@@ -211,6 +232,11 @@ export const payApplicationsRouter = router({
    * Submit pay application for review
    */
   submit: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('submit_pay_application', 'Submit pay application for review', {
+      scopes: ['pay-applications', 'construction', 'billing'],
+      permissions: ['write:pay-applications'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         payApplicationId: z.string().uuid(),
@@ -230,6 +256,11 @@ export const payApplicationsRouter = router({
    * Approve pay application
    */
   approve: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('approve_pay_application', 'Approve pay application', {
+      scopes: ['pay-applications', 'construction', 'billing'],
+      permissions: ['approve:pay-applications'],
+      riskLevel: 'HIGH',
+    }) })
     .input(
       z.object({
         payApplicationId: z.string().uuid(),
@@ -391,6 +422,10 @@ export const payApplicationsRouter = router({
    * Generate AIA G702 Application and Certificate for Payment
    */
   generateG702: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('generate_g702', 'Generate AIA G702 Application and Certificate for Payment', {
+      scopes: ['pay-applications', 'construction', 'reporting'],
+      permissions: ['read:pay-applications'],
+    }) })
     .input(z.object({ payApplicationId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new PayApplicationService(ctx.serviceContext);

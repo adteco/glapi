@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { PendingDocumentsService, DocumentConversionService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 // ============================================================================
 // Schemas
@@ -123,6 +124,10 @@ export const pendingDocumentsRouter = router({
    * List pending documents with filters and pagination
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_pending_documents', 'List pending documents from Magic Inbox with filters and pagination', {
+      scopes: ['documents', 'inbox', 'magic-inbox'],
+      permissions: ['read:pending-documents'],
+    }) })
     .input(
       z
         .object({
@@ -150,6 +155,10 @@ export const pendingDocumentsRouter = router({
    * Get a single pending document by ID
    */
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_pending_document', 'Get a single pending document by ID', {
+      scopes: ['documents', 'inbox', 'magic-inbox'],
+      permissions: ['read:pending-documents'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new PendingDocumentsService(ctx.serviceContext, { db: ctx.db });
@@ -203,6 +212,11 @@ export const pendingDocumentsRouter = router({
    * Approve a pending document for conversion
    */
   approve: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('approve_pending_document', 'Approve a pending document for conversion', {
+      scopes: ['documents', 'inbox', 'magic-inbox'],
+      permissions: ['write:pending-documents'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -223,6 +237,11 @@ export const pendingDocumentsRouter = router({
    * Reject a pending document
    */
   reject: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('reject_pending_document', 'Reject a pending document', {
+      scopes: ['documents', 'inbox', 'magic-inbox'],
+      permissions: ['write:pending-documents'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -307,6 +326,11 @@ export const pendingDocumentsRouter = router({
    * Convert a pending document to a vendor bill
    */
   convertToVendorBill: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('convert_to_vendor_bill', 'Convert a pending document to a vendor bill', {
+      scopes: ['documents', 'inbox', 'magic-inbox', 'transactions'],
+      permissions: ['write:pending-documents', 'write:vendor-bills'],
+      riskLevel: 'HIGH',
+    }) })
     .input(
       z.object({
         pendingDocumentId: z.string().uuid(),
@@ -335,6 +359,37 @@ export const pendingDocumentsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const service = new DocumentConversionService(ctx.serviceContext, { db: ctx.db });
-      return service.convertToVendorBill(input);
+
+      const overrides = input.overrides
+        ? {
+            vendorInvoiceNumber: input.overrides.vendorInvoiceNumber,
+            billDate: input.overrides.billDate,
+            dueDate: input.overrides.dueDate,
+            memo: input.overrides.memo,
+            lines: input.overrides.lines?.map((line) => {
+              if (!line.itemName) {
+                throw new TRPCError({
+                  code: 'BAD_REQUEST',
+                  message: 'overrides.lines[].itemName is required',
+                });
+              }
+
+              return {
+                lineNumber: line.lineNumber,
+                itemName: line.itemName,
+                itemDescription: line.itemDescription,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+              };
+            }),
+          }
+        : undefined;
+
+      return service.convertToVendorBill({
+        pendingDocumentId: input.pendingDocumentId,
+        vendorId: input.vendorId,
+        subsidiaryId: input.subsidiaryId,
+        overrides,
+      });
     }),
 });

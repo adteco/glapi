@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { ContactService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const contactSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -33,6 +34,10 @@ const contactQuerySchema = z.object({
 
 export const contactsRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_contacts', 'Search and list contacts', {
+      scopes: ['contacts', 'crm', 'global'],
+      permissions: ['read:contacts'],
+    }) })
     .input(contactQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new ContactService(ctx.serviceContext);
@@ -49,6 +54,10 @@ export const contactsRouter = router({
     }),
 
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_contact', 'Get a single contact by ID', {
+      scopes: ['contacts', 'crm', 'global'],
+      permissions: ['read:contacts'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new ContactService(ctx.serviceContext);
@@ -56,6 +65,11 @@ export const contactsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_contact', 'Create a new contact', {
+      scopes: ['contacts', 'crm'],
+      permissions: ['write:contacts'],
+      riskLevel: 'LOW',
+    }) })
     .input(contactSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ContactService(ctx.serviceContext);
@@ -67,6 +81,11 @@ export const contactsRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_contact', 'Update an existing contact', {
+      scopes: ['contacts', 'crm'],
+      permissions: ['write:contacts'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({
       id: z.string(),
       data: updateContactSchema,
@@ -77,6 +96,11 @@ export const contactsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_contact', 'Delete a contact', {
+      scopes: ['contacts'],
+      permissions: ['delete:contacts'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ContactService(ctx.serviceContext);

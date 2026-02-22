@@ -116,6 +116,9 @@ export const createItemSchema = z.object({
   assetAccountId: z.string().uuid().optional().nullable(),
   cogsAccountId: z.string().uuid().optional().nullable(),
   defaultPrice: z.number().nonnegative().optional(),
+  listPrice: z.number().nonnegative().optional(),
+  defaultSspAmount: z.number().nonnegative().optional(),
+  revenueBehavior: z.enum(['point_in_time', 'over_time']).optional(),
   defaultCost: z.number().nonnegative().optional(),
   isTaxable: z.boolean().default(true),
   taxCode: z.string().optional(),
@@ -170,6 +173,9 @@ export interface Item {
   assetAccountId: string | null;
   cogsAccountId: string | null;
   defaultPrice: number | null;
+  listPrice?: number | null;
+  defaultSspAmount: number | null;
+  revenueBehavior: 'point_in_time' | 'over_time' | null;
   defaultCost: number | null;
   isTaxable: boolean;
   taxCode: string | null;

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { PaymentService, type CreatePaymentData } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 // Zod schemas for validation
 const paymentSchema = z.object({
@@ -19,6 +20,10 @@ const paymentSchema = z.object({
 export const paymentsRouter = router({
   // List payments
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_payments', 'Search and list payments', {
+      scopes: ['payments', 'billing', 'ar', 'global'],
+      permissions: ['read:payments'],
+    }) })
     .input(z.object({
       invoiceId: z.string().uuid().optional(),
       entityId: z.string().uuid().optional(),
@@ -35,6 +40,10 @@ export const paymentsRouter = router({
 
   // Get payment details
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_payment', 'Get a single payment by ID', {
+      scopes: ['payments', 'billing', 'ar', 'global'],
+      permissions: ['read:payments'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
@@ -52,6 +61,11 @@ export const paymentsRouter = router({
 
   // Create payment
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_payment', 'Record a payment against an invoice', {
+      scopes: ['payments', 'billing', 'ar'],
+      permissions: ['write:payments'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(paymentSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
@@ -87,6 +101,12 @@ export const paymentsRouter = router({
 
   // Process refund
   refund: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('refund_payment', 'Process a refund for a payment', {
+      scopes: ['payments', 'billing'],
+      permissions: ['write:payments'],
+      riskLevel: 'HIGH',
+      minimumRole: 'manager',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       amount: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
@@ -118,6 +138,10 @@ export const paymentsRouter = router({
 
   // Get payments for an invoice
   getByInvoice: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_payments_by_invoice', 'Get all payments for an invoice', {
+      scopes: ['payments', 'billing', 'ar'],
+      permissions: ['read:payments'],
+    }) })
     .input(z.object({ invoiceId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
@@ -137,6 +161,10 @@ export const paymentsRouter = router({
 
   // Get payment summary for an invoice
   getSummaryByInvoice: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_payment_summary_by_invoice', 'Get payment summary for an invoice', {
+      scopes: ['payments', 'billing', 'ar'],
+      permissions: ['read:payments'],
+    }) })
     .input(z.object({ invoiceId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new PaymentService(ctx.serviceContext, { db: ctx.db });
@@ -156,6 +184,11 @@ export const paymentsRouter = router({
 
   // Batch payment creation (for processing multiple payments)
   createBatch: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_batch_payments', 'Create multiple payments in batch', {
+      scopes: ['payments', 'billing'],
+      permissions: ['write:payments'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({
       payments: z.array(paymentSchema).min(1).max(100)
     }))
@@ -193,6 +226,10 @@ export const paymentsRouter = router({
 
   // Get payment statistics
   statistics: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_payment_statistics', 'Get payment statistics and analytics', {
+      scopes: ['payments', 'billing', 'reports'],
+      permissions: ['read:payments'],
+    }) })
     .input(z.object({
       entityId: z.string().uuid().optional(),
       dateFrom: z.coerce.date().optional(),

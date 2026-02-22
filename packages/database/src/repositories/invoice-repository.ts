@@ -27,6 +27,43 @@ export interface InvoiceListOptions {
 }
 
 export class InvoiceRepository extends BaseRepository {
+  private invoiceReturning = {
+    id: invoices.id,
+    organizationId: invoices.organizationId,
+    invoiceNumber: invoices.invoiceNumber,
+    entityId: invoices.entityId,
+    subscriptionId: invoices.subscriptionId,
+    salesOrderId: invoices.salesOrderId,
+    invoiceDate: invoices.invoiceDate,
+    dueDate: invoices.dueDate,
+    billingPeriodStart: invoices.billingPeriodStart,
+    billingPeriodEnd: invoices.billingPeriodEnd,
+    subtotal: invoices.subtotal,
+    taxAmount: invoices.taxAmount,
+    totalAmount: invoices.totalAmount,
+    status: invoices.status,
+    paymentLinkUrl: invoices.paymentLinkUrl,
+    stripeCheckoutSessionId: invoices.stripeCheckoutSessionId,
+    stripePaymentIntentId: invoices.stripePaymentIntentId,
+    sentAt: invoices.sentAt,
+    metadata: invoices.metadata,
+    createdAt: invoices.createdAt,
+    updatedAt: invoices.updatedAt,
+  } as const;
+
+  private invoiceLineReturning = {
+    id: invoiceLineItems.id,
+    invoiceId: invoiceLineItems.invoiceId,
+    subscriptionItemId: invoiceLineItems.subscriptionItemId,
+    itemId: invoiceLineItems.itemId,
+    description: invoiceLineItems.description,
+    quantity: invoiceLineItems.quantity,
+    unitPrice: invoiceLineItems.unitPrice,
+    amount: invoiceLineItems.amount,
+    linkedProjectTaskId: invoiceLineItems.linkedProjectTaskId,
+    createdAt: invoiceLineItems.createdAt,
+  } as const;
+
   constructor(db?: ContextualDatabase) {
     super(db);
   }
@@ -38,8 +75,21 @@ export class InvoiceRepository extends BaseRepository {
     const [result] = await this.db
       .insert(invoices)
       .values(data)
-      .returning();
+      .returning(this.invoiceReturning);
     return result;
+  }
+
+  /**
+   * Find invoice by ID
+   */
+  async findById(id: string): Promise<Invoice | null> {
+    const [result] = await this.db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.id, id))
+      .limit(1);
+
+    return result ?? null;
   }
 
   /**
@@ -104,6 +154,44 @@ export class InvoiceRepository extends BaseRepository {
       .limit(1);
 
     return result || null;
+  }
+
+  /**
+   * Find invoice by Stripe Checkout Session ID
+   */
+  async findByStripeCheckoutSessionId(
+    stripeCheckoutSessionId: string
+  ): Promise<InvoiceWithLineItems | null> {
+    const [result] = await this.db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(eq(invoices.stripeCheckoutSessionId, stripeCheckoutSessionId))
+      .limit(1);
+
+    if (!result) {
+      return null;
+    }
+
+    return await this.findByIdWithDetails(result.id);
+  }
+
+  /**
+   * Find invoice by Stripe Payment Intent ID
+   */
+  async findByStripePaymentIntentId(
+    stripePaymentIntentId: string
+  ): Promise<InvoiceWithLineItems | null> {
+    const [result] = await this.db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(eq(invoices.stripePaymentIntentId, stripePaymentIntentId))
+      .limit(1);
+
+    if (!result) {
+      return null;
+    }
+
+    return await this.findByIdWithDetails(result.id);
   }
 
   /**
@@ -204,7 +292,7 @@ export class InvoiceRepository extends BaseRepository {
       const [newInvoice] = await tx
         .insert(invoices)
         .values(invoice)
-        .returning();
+        .returning(this.invoiceReturning);
 
       // Create line items if provided
       let createdLineItems: InvoiceLineItem[] = [];
@@ -217,7 +305,7 @@ export class InvoiceRepository extends BaseRepository {
         createdLineItems = await tx
           .insert(invoiceLineItems)
           .values(itemsToCreate)
-          .returning();
+          .returning(this.invoiceLineReturning);
       }
 
       return {
@@ -240,7 +328,7 @@ export class InvoiceRepository extends BaseRepository {
         updatedAt: new Date()
       })
       .where(eq(invoices.id, id))
-      .returning();
+      .returning(this.invoiceReturning);
 
     return updated || null;
   }
@@ -252,7 +340,7 @@ export class InvoiceRepository extends BaseRepository {
     const [newLineItem] = await this.db
       .insert(invoiceLineItems)
       .values(lineItem)
-      .returning();
+      .returning(this.invoiceLineReturning);
 
     // Update invoice totals
     await this.recalculateInvoiceTotals(lineItem.invoiceId);

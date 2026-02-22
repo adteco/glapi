@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { ProjectTaskService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   // Milestone schemas
   createProjectMilestoneSchema,
@@ -40,6 +41,10 @@ export const projectTasksRouter = router({
    * List milestones with optional filters and pagination
    */
   listMilestones: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_project_milestones', 'List milestones with optional filters and pagination', {
+      scopes: ['project-tasks', 'projects', 'milestones'],
+      permissions: ['read:project-tasks'],
+    }) })
     .input(projectMilestoneListInputSchema)
     .query(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
@@ -84,6 +89,11 @@ export const projectTasksRouter = router({
    * Create a new milestone
    */
   createMilestone: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_project_milestone', 'Create a new project milestone', {
+      scopes: ['project-tasks', 'projects', 'milestones'],
+      permissions: ['write:project-tasks'],
+      riskLevel: 'LOW',
+    }) })
     .input(createProjectMilestoneSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
@@ -119,6 +129,11 @@ export const projectTasksRouter = router({
    * Delete a milestone
    */
   deleteMilestone: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_project_milestone', 'Delete a project milestone', {
+      scopes: ['project-tasks', 'projects', 'milestones'],
+      permissions: ['delete:project-tasks'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(byIdInputSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
@@ -263,6 +278,10 @@ export const projectTasksRouter = router({
    * List tasks with optional filters and pagination
    */
   listTasks: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_project_tasks', 'List project tasks with optional filters and pagination', {
+      scopes: ['project-tasks', 'projects'],
+      permissions: ['read:project-tasks'],
+    }) })
     .input(projectTaskListInputSchema)
     .query(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
@@ -278,6 +297,10 @@ export const projectTasksRouter = router({
    * Get a single task by ID
    */
   getTask: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_project_task', 'Get a single project task by ID', {
+      scopes: ['project-tasks', 'projects'],
+      permissions: ['read:project-tasks'],
+    }) })
     .input(byIdInputSchema)
     .query(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
@@ -301,6 +324,20 @@ export const projectTasksRouter = router({
     .query(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
       return service.getTasksByProject(input.projectId);
+    }),
+
+  /**
+   * Get billable completed tasks that have not been invoiced yet
+   */
+  getBillableCompletedTasks: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_billable_completed_tasks', 'Get billable completed tasks ready for invoicing', {
+      scopes: ['project-tasks', 'projects', 'invoicing'],
+      permissions: ['read:project-tasks'],
+    }) })
+    .input(z.object({ projectId: uuidSchema }))
+    .query(async ({ ctx, input }) => {
+      const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
+      return service.getBillableCompletedTasks(input.projectId);
     }),
 
   /**
@@ -367,6 +404,11 @@ export const projectTasksRouter = router({
    * Create a new task
    */
   createTask: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_project_task', 'Create a new project task', {
+      scopes: ['project-tasks', 'projects'],
+      permissions: ['write:project-tasks'],
+      riskLevel: 'LOW',
+    }) })
     .input(createProjectTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });
@@ -449,6 +491,11 @@ export const projectTasksRouter = router({
    * Delete a task
    */
   deleteTask: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_project_task', 'Delete a project task', {
+      scopes: ['project-tasks', 'projects'],
+      permissions: ['delete:project-tasks'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(byIdInputSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectTaskService(ctx.serviceContext, { db: ctx.db });

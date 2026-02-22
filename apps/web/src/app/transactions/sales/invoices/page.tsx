@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Eye, Send, DollarSign, Check, Clock, FileText, XCircle } from 'lucide-react';
+import { Plus, Trash2, Eye, Send, DollarSign, FileText, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import {
@@ -86,6 +86,7 @@ export default function SalesInvoicesPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentLinkInvoiceId, setPaymentLinkInvoiceId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const { orgId } = useAuth();
 
@@ -162,6 +163,28 @@ export default function SalesInvoicesPage() {
     },
   });
 
+  const sendWithPaymentLinkMutation = trpc.invoices.sendWithPaymentLink.useMutation({
+    onSuccess: async (data) => {
+      toast.success('Payment link ready');
+      if (data.paymentLinkUrl) {
+        try {
+          await navigator.clipboard.writeText(data.paymentLinkUrl);
+          toast.success('Payment link copied to clipboard');
+        } catch {
+          // Clipboard APIs can fail in some browser contexts; continue.
+        }
+        window.open(data.paymentLinkUrl, '_blank', 'noopener,noreferrer');
+      }
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to generate payment link');
+    },
+    onSettled: () => {
+      setPaymentLinkInvoiceId(null);
+    },
+  });
+
   // Data extraction
   const invoices = invoicesData?.data || [];
   const customers = customersData || [];
@@ -235,6 +258,11 @@ export default function SalesInvoicesPage() {
     if (selectedInvoice && voidReason) {
       voidMutation.mutate({ id: selectedInvoice.id, reason: voidReason });
     }
+  };
+
+  const handleSendWithPaymentLink = (invoice: Invoice) => {
+    setPaymentLinkInvoiceId(invoice.id);
+    sendWithPaymentLinkMutation.mutate({ id: invoice.id });
   };
 
   // Helpers
@@ -360,6 +388,20 @@ export default function SalesInvoicesPage() {
                         title="Send Invoice"
                       >
                         <Send className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {['draft', 'sent'].includes(invoice.status?.toLowerCase() || '') && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSendWithPaymentLink(invoice)}
+                        title="Generate Stripe Payment Link"
+                        disabled={
+                          sendWithPaymentLinkMutation.isPending &&
+                          paymentLinkInvoiceId === invoice.id
+                        }
+                      >
+                        <DollarSign className="h-4 w-4" />
                       </Button>
                     )}
                     {['draft', 'sent'].includes(invoice.status?.toLowerCase() || '') && (

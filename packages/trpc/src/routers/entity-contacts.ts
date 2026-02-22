@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   entityContacts,
   entities,
@@ -21,6 +22,10 @@ export const entityContactsRouter = router({
    * List contacts for an entity (company/lead/customer)
    */
   listContacts: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_entity_contacts', 'List contacts for an entity (company/lead/customer)', {
+      scopes: ['contacts', 'entities', 'relationships'],
+      permissions: ['read:entity-contacts'],
+    }) })
     .input(z.object({ entityId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const { db, serviceContext } = ctx;
@@ -84,6 +89,10 @@ export const entityContactsRouter = router({
    * List entities a contact is associated with (reverse lookup)
    */
   listEntitiesForContact: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_entities_for_contact', 'List entities a contact is associated with (reverse lookup)', {
+      scopes: ['contacts', 'entities', 'relationships'],
+      permissions: ['read:entity-contacts'],
+    }) })
     .input(z.object({ contactId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const { db, serviceContext } = ctx;
@@ -149,6 +158,11 @@ export const entityContactsRouter = router({
    * Associate a contact with an entity
    */
   addContact: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('add_entity_contact', 'Associate a contact with an entity', {
+      scopes: ['contacts', 'entities', 'relationships'],
+      permissions: ['write:entity-contacts'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({
       entityId: z.string().uuid(),
       contactId: z.string().uuid(),
@@ -256,6 +270,11 @@ export const entityContactsRouter = router({
    * Update contact association (role, isPrimary, notes)
    */
   updateContact: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_entity_contact', 'Update contact association (role, isPrimary, notes)', {
+      scopes: ['contacts', 'entities', 'relationships'],
+      permissions: ['write:entity-contacts'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({
       entityId: z.string().uuid(),
       contactId: z.string().uuid(),
@@ -328,6 +347,11 @@ export const entityContactsRouter = router({
    * Remove contact association
    */
   removeContact: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('remove_entity_contact', 'Remove contact association from entity', {
+      scopes: ['contacts', 'entities', 'relationships'],
+      permissions: ['delete:entity-contacts'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({
       entityId: z.string().uuid(),
       contactId: z.string().uuid(),
@@ -374,6 +398,10 @@ export const entityContactsRouter = router({
    * Get available contact roles
    */
   getRoles: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_contact_roles', 'Get available contact roles', {
+      scopes: ['contacts', 'entities', 'relationships'],
+      permissions: ['read:entity-contacts'],
+    }) })
     .query(() => {
       return Object.values(CONTACT_ROLES);
     }),
@@ -382,6 +410,11 @@ export const entityContactsRouter = router({
    * Set primary contact for an entity
    */
   setPrimaryContact: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('set_primary_contact', 'Set primary contact for an entity', {
+      scopes: ['contacts', 'entities', 'relationships'],
+      permissions: ['write:entity-contacts'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({
       entityId: z.string().uuid(),
       contactId: z.string().uuid(),

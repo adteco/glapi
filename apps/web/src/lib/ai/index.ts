@@ -6,19 +6,12 @@
  * conversational service.
  */
 
-// Intent definitions and catalog
+// Intent types (deprecated - use generated tools via tool-adapter)
 export {
-  INTENT_CATALOG,
   type Intent,
   type IntentCategory,
   type IntentRiskLevel,
   type PermissionScope,
-  getIntentsByCategory,
-  getHighRiskIntents,
-  getIntentById,
-  getIntentByMcpTool,
-  isIntentEnabled,
-  getEnabledIntents,
 } from './intents';
 
 // Guardrails and safety system
@@ -42,7 +35,7 @@ export {
   type IntentMiddlewareOptions,
   type MiddlewareContext,
   type MiddlewareResult,
-  type AuditLogEntry,
+  // Note: AuditLogEntry is exported from observability module
 } from './middleware';
 
 // Action executor
@@ -81,3 +74,264 @@ export {
   createTRPCMCPClient,
   type TRPCMCPClientConfig,
 } from './trpc-mcp-client';
+
+// Tool Adapter (bridges generated tools with guardrails)
+export {
+  getToolInfo,
+  getToolInfoById,
+  isToolEnabled,
+  getAllEnabledTools,
+  getToolsByScope as getToolsByScopeAdapter,
+  getToolsByCategory,
+  getHighRiskTools,
+  roleAtLeast,
+  canAccessTool,
+  generatedToolToUnified,
+  intentToUnified,
+  type UnifiedToolInfo,
+  type ExtendedUserRole,
+} from './tool-adapter';
+
+// Tool Scoping (dynamic tool selection)
+export {
+  getScopedTools,
+  getToolsForRole,
+  getToolsForTask,
+  getReadOnlyTools,
+  getConfirmationRequiredTools,
+  filterByPermissions,
+  filterByMinimumRole,
+  filterByRiskLevel,
+  inferScopesFromContext,
+  SCOPE_BUNDLES,
+  type ScopingContext,
+  type ScopingResult,
+} from './tool-scoping';
+
+// Generated AI Tools (from OpenAPI spec)
+export {
+  AI_TOOLS,
+  AI_TOOLS_BY_NAME,
+  AI_TOOLS_BY_SCOPE,
+  getToolsByScope,
+  getToolByName,
+  getOpenAITools,
+  TOOL_COUNT,
+  createToolExecutor,
+  type GeneratedAITool,
+  type AIToolMetadata,
+  type RiskLevel,
+  type ExecutionContext,
+  type ExecutionResult,
+  type ToolExecutorConfig,
+} from './generated';
+
+// Error Handling & Retry Guidance
+export {
+  parseError,
+  parseGuardrailError,
+  formatErrorForUser,
+  getRetryGuidance,
+  type AIError,
+  type AIErrorCategory,
+} from './error-handling';
+
+// Policy Evaluator (x-ai-policy enforcement)
+export {
+  evaluatePolicy,
+  validateRowScope,
+  policyViolationsToError,
+  isPolicyErrorRetryable,
+  getPolicyViolationGuidance,
+  tierAtLeast,
+  getMinimumRequiredTier,
+  POLICY_ERRORS,
+  STANDARD_TIERS,
+  type AIPolicy,
+  type PolicyContext,
+  type PolicyResult,
+  type PolicyViolation,
+  type PolicyViolationType,
+  type PolicyErrorCode,
+  type StandardTier,
+} from './policy-evaluator';
+
+// Tool Caching
+export {
+  ToolCache,
+  buildCacheKey,
+  getToolCache,
+  createCacheInterface,
+  type CacheStats,
+  type ToolCacheConfig,
+} from './caching';
+
+// Rate Limiting
+export {
+  RateLimiter,
+  getRateLimiter,
+  createRateLimiterInterface,
+  type RateLimitResult,
+  type RateLimiterStats,
+  type RateLimiterConfig,
+} from './rate-limit';
+
+// Reliability (idempotency, retry, circuit breaker, async polling)
+export {
+  // Idempotency
+  IdempotencyStore,
+  getIdempotencyStore,
+  generateIdempotencyKey,
+  shouldUseIdempotency,
+  type IdempotencyRecord,
+  type IdempotencyCheckResult,
+  type IdempotencyConfig,
+  type IdempotencyStats,
+  // Retry & Circuit Breaker
+  withRetry,
+  withTimeout,
+  withReliability,
+  CircuitBreaker,
+  getCircuitBreaker,
+  getAllCircuitBreakerStats,
+  resetAllCircuitBreakers,
+  type RetryConfig,
+  type RetryResult,
+  type CircuitState,
+  type CircuitBreakerConfig,
+  type CircuitBreakerStats,
+  // Async Tools
+  AsyncOperationStore,
+  getAsyncStore,
+  pollForCompletion,
+  isAsyncResult,
+  generateJobId,
+  executeWithAsyncSupport,
+  type AsyncOperationStatus,
+  type AsyncOperation,
+  type PollingConfig,
+  type AsyncToolResult,
+  type PollingResult,
+  type AsyncToolStats,
+} from './reliability';
+
+// Observability (events, tracing, audit)
+export {
+  // Events
+  getToolEventEmitter,
+  createStartEvent,
+  createSuccessEvent,
+  createErrorEvent,
+  createConsoleListener,
+  createMetricsListener,
+  type ToolInvocationEvent,
+  type ToolInvocationEventType,
+  type ToolInvocationListener,
+  // Tracing
+  generateTraceId,
+  generateSpanId,
+  createTraceContext,
+  createChildContext,
+  getCurrentContext,
+  setCurrentContext,
+  withContext,
+  startSpan,
+  endSpanSuccess,
+  endSpanError,
+  addSpanEvent,
+  addSpanAttributes,
+  serializeTraceparent,
+  parseTraceparent,
+  getTraceHeaders,
+  extractTraceFromHeaders,
+  createToolInvocationContext,
+  type TraceContext,
+  type Span,
+  type SpanEvent,
+  type TraceHeaders,
+  // Audit
+  AuditLogger,
+  getAuditLogger,
+  createAuditLoggerInterface,
+  redactObject,
+  redactPII,
+  type AuditLogEntry,
+  type AuditLoggerConfig,
+  type AuditLoggerStats,
+} from './observability';
+
+// Evaluation Harness
+export {
+  // Golden Prompts
+  ALL_GOLDEN_PROMPTS,
+  TOOL_SELECTION_PROMPTS,
+  VALIDATION_RECOVERY_PROMPTS,
+  CONFIRMATION_COMPLIANCE_PROMPTS,
+  PERMISSION_HANDLING_PROMPTS,
+  ERROR_HANDLING_PROMPTS,
+  MULTI_STEP_PROMPTS,
+  AMBIGUITY_HANDLING_PROMPTS,
+  getPromptsByCategory,
+  getPromptsByTag,
+  getPromptById,
+  // Harness
+  runEvalHarness,
+  evaluatePrompt,
+  scoreResult,
+  didPass,
+  calculateSummary,
+  compareToBaseline,
+  formatSummaryMarkdown,
+  formatComparisonMarkdown,
+  type GoldenPrompt,
+  type EvalCategory,
+  type ExpectedBehavior,
+  type EvalConfig,
+  type EvalProgress,
+  type EvalResult,
+  type EvalDetails,
+  type EvalSummary,
+  type CategorySummary,
+  type MockToolCall,
+  type MockResponse,
+  type PromptHandler,
+  type BaselineComparison,
+} from './eval';
+
+// Memory Service (Magneteco integration)
+export {
+  // Client
+  MagnetoClient,
+  createMagnetoClient,
+  MagnetoError,
+  MagnetoNetworkError,
+  // Service
+  MemoryService,
+  getMemoryService,
+  resetMemoryService,
+  formatMemoryContext,
+  formatConversation,
+  formatExchange,
+  // GLAPI Domain Config
+  glapiDomainConfig,
+  createGlapiDomainConfig,
+  GLAPI_CATEGORIES,
+  GLAPI_ENTITY_TYPES,
+  GLAPI_RELATIONSHIP_TYPES,
+  GLAPI_RELEVANCE_RULES,
+  GLAPI_EXTRACTION_PROMPT,
+  // Types
+  type MagnetoClientConfig,
+  type MemoryContext,
+  type MemoryItem,
+  type MemorizeResponse,
+  type MemoryServiceConfig,
+  type RetrieveOptions,
+  type MemorizeOptions,
+  type DomainConfig,
+  type CategoryDefinition,
+  type EntityTypeDefinition,
+  type EntityProperty,
+  type RelationshipDefinition,
+  type RelevanceRule,
+} from './memory';

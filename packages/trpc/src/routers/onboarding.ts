@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { onboardingService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 // =============================================================================
 // Input Schemas
@@ -54,6 +55,10 @@ export const onboardingRouter = router({
    * If onboarding doesn't exist, it will be created with default steps.
    */
   getOrInitialize: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_onboarding', 'Get or initialize onboarding for the current organization', {
+      scopes: ['onboarding', 'organization'],
+      permissions: ['read:onboarding'],
+    }) })
     .query(async ({ ctx }) => {
       return onboardingService.getOrInitializeOnboarding(
         ctx.organizationId,
@@ -65,6 +70,10 @@ export const onboardingRouter = router({
    * Get current onboarding progress summary.
    */
   getProgress: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_onboarding_progress', 'Get current onboarding progress summary', {
+      scopes: ['onboarding', 'organization'],
+      permissions: ['read:onboarding'],
+    }) })
     .query(async ({ ctx }) => {
       return onboardingService.getProgress(ctx.organizationId);
     }),
@@ -98,6 +107,11 @@ export const onboardingRouter = router({
    * Start a step (marks it as in_progress).
    */
   startStep: protectedProcedure
+    .meta({ ai: createWriteAIMeta('start_onboarding_step', 'Start an onboarding step (marks it as in_progress)', {
+      scopes: ['onboarding', 'organization'],
+      permissions: ['write:onboarding'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({ stepKey: stepKeyEnum }))
     .mutation(async ({ input, ctx }) => {
       return onboardingService.startStep(
@@ -112,6 +126,11 @@ export const onboardingRouter = router({
    * Will validate that all required checklist items are done.
    */
   completeStep: protectedProcedure
+    .meta({ ai: createWriteAIMeta('complete_onboarding_step', 'Complete an onboarding step', {
+      scopes: ['onboarding', 'organization'],
+      permissions: ['write:onboarding'],
+      riskLevel: 'LOW',
+    }) })
     .input(completeStepInput)
     .mutation(async ({ input, ctx }) => {
       return onboardingService.completeStep(
@@ -126,6 +145,11 @@ export const onboardingRouter = router({
    * Skip a step (only if step.canSkip is true).
    */
   skipStep: protectedProcedure
+    .meta({ ai: createWriteAIMeta('skip_onboarding_step', 'Skip an onboarding step (only if step.canSkip is true)', {
+      scopes: ['onboarding', 'organization'],
+      permissions: ['write:onboarding'],
+      riskLevel: 'LOW',
+    }) })
     .input(skipStepInput)
     .mutation(async ({ input, ctx }) => {
       return onboardingService.skipStep(
@@ -157,6 +181,11 @@ export const onboardingRouter = router({
    * Mark a checklist item as complete.
    */
   completeChecklistItem: protectedProcedure
+    .meta({ ai: createWriteAIMeta('complete_checklist_item', 'Mark a checklist item as complete', {
+      scopes: ['onboarding', 'organization'],
+      permissions: ['write:onboarding'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({ itemId: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       return onboardingService.completeChecklistItem(

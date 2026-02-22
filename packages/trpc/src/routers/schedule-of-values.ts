@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { SovService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const SovStatusEnum = z.enum(['DRAFT', 'ACTIVE', 'REVISED', 'CLOSED']);
 
@@ -66,6 +67,10 @@ export const scheduleOfValuesRouter = router({
    * List schedules of values with optional filters
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_schedules_of_values', 'List schedules of values with optional filters', {
+      scopes: ['schedule-of-values', 'projects', 'construction'],
+      permissions: ['read:schedule-of-values'],
+    }) })
     .input(
       z
         .object({
@@ -92,6 +97,10 @@ export const scheduleOfValuesRouter = router({
    * Get a single SOV by ID
    */
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_schedule_of_values', 'Get a single schedule of values by ID', {
+      scopes: ['schedule-of-values', 'projects', 'construction'],
+      permissions: ['read:schedule-of-values'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new SovService(ctx.serviceContext);
@@ -120,7 +129,13 @@ export const scheduleOfValuesRouter = router({
   /**
    * Create a new Schedule of Values
    */
-  create: authenticatedProcedure.input(createSovSchema).mutation(async ({ ctx, input }) => {
+  create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_schedule_of_values', 'Create a new schedule of values', {
+      scopes: ['schedule-of-values', 'projects', 'construction'],
+      permissions: ['write:schedule-of-values'],
+      riskLevel: 'MEDIUM',
+    }) })
+    .input(createSovSchema).mutation(async ({ ctx, input }) => {
     const service = new SovService(ctx.serviceContext);
     return service.create({
       organizationId: ctx.serviceContext.organizationId!,
@@ -171,6 +186,11 @@ export const scheduleOfValuesRouter = router({
    * Delete an SOV (DRAFT only)
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_schedule_of_values', 'Delete a schedule of values (DRAFT only)', {
+      scopes: ['schedule-of-values', 'projects', 'construction'],
+      permissions: ['delete:schedule-of-values'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new SovService(ctx.serviceContext);
@@ -326,6 +346,10 @@ export const scheduleOfValuesRouter = router({
    * Generate AIA G703 Continuation Sheet
    */
   generateG703: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('generate_aia_g703', 'Generate AIA G703 Continuation Sheet', {
+      scopes: ['schedule-of-values', 'projects', 'construction', 'reporting'],
+      permissions: ['read:schedule-of-values'],
+    }) })
     .input(z.object({ sovId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new SovService(ctx.serviceContext);

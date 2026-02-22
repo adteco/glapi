@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { InvoiceService, type CreateInvoiceData, type GenerateInvoiceParams, type UpdateInvoiceData } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // Zod schemas for validation
 const invoiceLineItemSchema = z.object({
@@ -34,6 +35,10 @@ const invoiceSchema = z.object({
 export const invoicesRouter = router({
   // List invoices with filtering
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_invoices', 'Search and list invoices with filtering', {
+      scopes: ['invoices', 'billing', 'ar', 'global'],
+      permissions: ['read:invoices'],
+    }) })
     .input(z.object({
       entityId: z.string().uuid().optional(),
       subscriptionId: z.string().uuid().optional(),
@@ -50,6 +55,10 @@ export const invoicesRouter = router({
 
   // Get invoice with line items
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_invoice', 'Get a single invoice by ID with line items', {
+      scopes: ['invoices', 'billing', 'ar', 'global'],
+      permissions: ['read:invoices'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
@@ -67,6 +76,12 @@ export const invoicesRouter = router({
 
   // Create invoice manually
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_invoice', 'Create a new invoice manually', {
+      scopes: ['invoices', 'billing', 'ar'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'staff',
+    }) })
     .input(invoiceSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
@@ -86,6 +101,12 @@ export const invoicesRouter = router({
 
   // Generate invoice from subscription
   generateFromSubscription: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('generate_invoice_from_subscription', 'Generate an invoice from a subscription billing period', {
+      scopes: ['invoices', 'subscriptions', 'billing'],
+      permissions: ['write:invoices', 'read:subscriptions'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'staff',
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       billingPeriodStart: z.coerce.date(),
@@ -114,8 +135,58 @@ export const invoicesRouter = router({
       }
     }),
 
+  // Generate invoice from billable tasks
+  createFromTasks: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_invoice_from_tasks', 'Create an invoice from completed billable project tasks', {
+      scopes: ['invoices', 'project-tasks', 'billing'],
+      permissions: ['write:invoices', 'read:project-tasks'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'staff',
+    }) })
+    .input(z.object({
+      projectId: z.string().uuid(),
+      entityId: z.string().uuid(),
+      taskIds: z.array(z.string().uuid()).min(1),
+      invoiceDate: z.coerce.date().optional(),
+      dueDate: z.coerce.date().optional()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
+
+      try {
+        return await service.createInvoiceFromBillableTasks({
+          projectId: input.projectId,
+          entityId: input.entityId,
+          taskIds: input.taskIds,
+          invoiceDate: input.invoiceDate,
+          dueDate: input.dueDate,
+        });
+      } catch (error: any) {
+        if (error.code === 'TASK_NOT_FOUND' || error.code === 'NOT_FOUND') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: error.message
+          });
+        }
+        if (error.code === 'NO_TASKS' || error.code === 'TASK_NOT_COMPLETED' ||
+            error.code === 'TASK_NOT_BILLABLE' || error.code === 'TASK_ALREADY_INVOICED' ||
+            error.code === 'TASK_PROJECT_MISMATCH') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: error.message
+          });
+        }
+        throw error;
+      }
+    }),
+
   // Update invoice
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_invoice', 'Update an existing invoice', {
+      scopes: ['invoices', 'billing', 'ar'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       data: invoiceSchema.partial()
@@ -147,6 +218,11 @@ export const invoicesRouter = router({
 
   // Send invoice
   send: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('send_invoice', 'Send an invoice to the customer', {
+      scopes: ['invoices', 'billing'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
@@ -170,8 +246,55 @@ export const invoicesRouter = router({
       }
     }),
 
+  // Send invoice with Stripe-hosted payment link (connected account)
+  sendWithPaymentLink: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('send_invoice_with_payment_link', 'Send an invoice and generate Stripe-hosted payment link', {
+      scopes: ['invoices', 'billing', 'payments'],
+      permissions: ['write:invoices'],
+      riskLevel: 'MEDIUM',
+    }) })
+    .input(z.object({
+      id: z.string().uuid(),
+      successUrl: z.string().url().optional(),
+      cancelUrl: z.string().url().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new InvoiceService(ctx.serviceContext, { db: ctx.db });
+
+      try {
+        return await service.sendWithPaymentLink(input.id, {
+          successUrl: input.successUrl,
+          cancelUrl: input.cancelUrl,
+        });
+      } catch (error: any) {
+        if (error.code === 'NOT_FOUND') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: error.message
+          });
+        }
+        if (
+          error.code === 'INVALID_STATUS' ||
+          error.code === 'STRIPE_CONNECT_NOT_CONFIGURED' ||
+          error.code === 'INVALID_INVOICE_TOTAL'
+        ) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: error.message
+          });
+        }
+        throw error;
+      }
+    }),
+
   // Void invoice
   void: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('void_invoice', 'Void an invoice with a reason', {
+      scopes: ['invoices', 'billing'],
+      permissions: ['write:invoices'],
+      riskLevel: 'HIGH',
+      minimumRole: 'manager',
+    }) })
     .input(z.object({
       id: z.string().uuid(),
       reason: z.string().min(1)

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { ProjectBudgetService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const BudgetVersionStatusEnum = z.enum(['DRAFT', 'SUBMITTED', 'APPROVED', 'LOCKED', 'SUPERSEDED']);
 
@@ -82,6 +83,10 @@ export const projectBudgetsRouter = router({
    * List budget versions with optional filters
    */
   listVersions: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_budget_versions', 'List budget versions with optional filters', {
+      scopes: ['project-budgets', 'projects', 'accounting'],
+      permissions: ['read:project-budgets'],
+    }) })
     .input(
       z.object({
         page: z.number().int().positive().optional(),
@@ -134,6 +139,11 @@ export const projectBudgetsRouter = router({
    * Create a new budget version
    */
   createVersion: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_budget_version', 'Create a new budget version', {
+      scopes: ['project-budgets', 'projects', 'accounting'],
+      permissions: ['write:project-budgets'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createVersionSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectBudgetService(ctx.serviceContext);
@@ -199,6 +209,11 @@ export const projectBudgetsRouter = router({
    * Delete a budget version (DRAFT only)
    */
   deleteVersion: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_budget_version', 'Delete a budget version (DRAFT only)', {
+      scopes: ['project-budgets', 'projects', 'accounting'],
+      permissions: ['delete:project-budgets'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ProjectBudgetService(ctx.serviceContext);
@@ -299,6 +314,10 @@ export const projectBudgetsRouter = router({
    * Get variance summary for a budget version
    */
   getVarianceSummary: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_budget_variance_summary', 'Get variance summary for a budget version', {
+      scopes: ['project-budgets', 'projects', 'reporting'],
+      permissions: ['read:project-budgets'],
+    }) })
     .input(z.object({ budgetVersionId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ProjectBudgetService(ctx.serviceContext);

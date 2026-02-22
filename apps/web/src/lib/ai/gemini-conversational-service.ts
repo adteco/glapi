@@ -21,17 +21,21 @@ import {
   type UserContext,
   createDefaultUserContext,
 } from './guardrails';
+// Legacy types removed - now using generated tools via tool-adapter
 import {
-  INTENT_CATALOG,
-  type Intent,
-  getEnabledIntents,
-} from './intents';
+  getAllEnabledTools,
+  type UnifiedToolInfo,
+} from './tool-adapter';
 import {
   createActionExecutor,
   type ActionExecutor,
   type ActionResult,
   type MCPClient,
 } from './action-executor';
+import {
+  getMemoryService,
+  type MemoryServiceConfig,
+} from './memory';
 
 // ============================================================================
 // Types
@@ -51,6 +55,11 @@ export interface GeminiServiceConfig {
   systemPrompt?: string;
   /** Enable logging */
   enableLogging?: boolean;
+  /** Memory service configuration */
+  memory?: MemoryServiceConfig & {
+    /** Enable memory features (default: true if Magneteco is configured) */
+    enabled?: boolean;
+  };
 }
 
 /**
@@ -89,6 +98,15 @@ export interface PendingConfirmation {
   riskLevel: string;
   /** Expiration time */
   expiresAt: Date;
+  /** Tool name for execution (for serverless) */
+  toolName?: string;
+  /** Tool parameters (for serverless) */
+  parameters?: Record<string, unknown>;
+  /** Intent info */
+  intent?: {
+    id: string;
+    name: string;
+  };
 }
 
 // ============================================================================
@@ -211,13 +229,15 @@ Remember: You're helping users manage their business operations efficiently. Acc
 // ============================================================================
 
 /**
- * Generate Gemini function declarations from intent catalog
+ * Generate Gemini function declarations from enabled tools
+ *
+ * Now uses generated tools via tool-adapter instead of legacy intent catalog.
  */
 function generateFunctionDeclarations(): FunctionDeclaration[] {
   const declarations: FunctionDeclaration[] = [];
 
-  for (const intent of getEnabledIntents()) {
-    const decl = getFunctionDeclarationForIntent(intent);
+  for (const tool of getAllEnabledTools()) {
+    const decl = getFunctionDeclarationForTool(tool);
     if (decl) {
       declarations.push(decl);
     }
@@ -258,11 +278,15 @@ function generateFunctionDeclarations(): FunctionDeclaration[] {
 }
 
 /**
- * Map an intent to a Gemini function declaration
+ * Map a unified tool to a Gemini function declaration
+ *
+ * Uses the tool name to look up the parameter schema.
  */
-function getFunctionDeclarationForIntent(
-  intent: Intent
+function getFunctionDeclarationForTool(
+  tool: UnifiedToolInfo
 ): FunctionDeclaration | null {
+  // Get the tool name for schema lookup (from generated tool or convert from legacy)
+  const toolName = tool.generatedTool?.metadata.name || tool.id.toLowerCase();
   // Define parameter schemas for each tool type
   const toolSchemas: Record<string, FunctionDeclarationSchema> = {
     // Customer tools
@@ -482,14 +506,14 @@ function getFunctionDeclarationForIntent(
     },
   };
 
-  const schema = toolSchemas[intent.mcpTool];
+  const schema = toolSchemas[toolName];
   if (!schema) {
     return null;
   }
 
   return {
-    name: intent.mcpTool,
-    description: intent.description,
+    name: toolName,
+    description: tool.description,
     parameters: schema,
   };
 }
@@ -508,6 +532,7 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
     model = 'gemini-2.0-flash',
     systemPrompt: systemPromptOverride,
     enableLogging = false,
+    memory: memoryConfig,
   } = config;
 
   // Initialize Gemini client
@@ -515,6 +540,14 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
 
   // Generate function declarations
   const functionDeclarations = generateFunctionDeclarations();
+
+  // Initialize memory service (if configured)
+  const memoryService = getMemoryService(memoryConfig);
+  const memoryEnabled = memoryConfig?.enabled !== false && memoryService.isAvailable();
+
+  if (enableLogging) {
+    console.log('[GeminiService] Memory service:', memoryEnabled ? 'enabled' : 'disabled');
+  }
 
   // Create the model with tools
   const generativeModel = genAI.getGenerativeModel({
@@ -634,8 +667,42 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
     }
 
     try {
+      // Retrieve memory context if available
+      let memoryContext = '';
+      if (memoryEnabled) {
+        try {
+          memoryContext = await memoryService.getFormattedContext(
+            userContext.userId,
+            message,
+            { maxTokens: memoryConfig?.maxTokens ?? 2000 }
+          );
+          if (enableLogging && memoryContext) {
+            console.log('[GeminiService] Retrieved memory context:', memoryContext.length, 'chars');
+          }
+        } catch (memoryError) {
+          // Don't fail the request if memory retrieval fails
+          if (enableLogging) {
+            console.error('[GeminiService] Memory retrieval failed:', memoryError);
+          }
+        }
+      }
+
+      // Build enhanced system instruction with memory context
+      const systemInstruction = memoryContext
+        ? `${systemPromptOverride || GLAPI_SYSTEM_PROMPT}\n\n${memoryContext}`
+        : (systemPromptOverride || GLAPI_SYSTEM_PROMPT);
+
+      // Create a model instance with memory-enhanced system instruction
+      const modelWithMemory = memoryContext
+        ? genAI.getGenerativeModel({
+            model,
+            tools: [{ functionDeclarations }],
+            systemInstruction,
+          })
+        : generativeModel;
+
       // Start a chat session with history
-      const chat = generativeModel.startChat({
+      const chat = modelWithMemory.startChat({
         history: messagesToContents(conversationHistory),
       });
 
@@ -694,6 +761,20 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
 
           actionExecutor.addAssistantMessage(conversationId, finalMessage, userContext);
 
+          // Store exchange in memory (fire and forget)
+          if (memoryEnabled) {
+            memoryService.memorizeExchange(
+              userContext.userId,
+              message,
+              finalMessage,
+              conversationId
+            ).catch((err) => {
+              if (enableLogging) {
+                console.error('[GeminiService] Memory storage failed:', err);
+              }
+            });
+          }
+
           return {
             message: finalMessage,
             actionAttempted: true,
@@ -715,6 +796,20 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
       // No function call - return text response
       const textResponse = response.text() || "I'm not sure how to help with that. Could you rephrase your request?";
       actionExecutor.addAssistantMessage(conversationId, textResponse, userContext);
+
+      // Store exchange in memory (fire and forget)
+      if (memoryEnabled) {
+        memoryService.memorizeExchange(
+          userContext.userId,
+          message,
+          textResponse,
+          conversationId
+        ).catch((err) => {
+          if (enableLogging) {
+            console.error('[GeminiService] Memory storage failed:', err);
+          }
+        });
+      }
 
       return {
         message: textResponse,
@@ -745,6 +840,13 @@ export function createGeminiConversationalService(config: GeminiServiceConfig) {
       description: p.guardrailResult.confirmationMessage || p.request.toolName,
       riskLevel: p.guardrailResult.intent?.riskLevel || 'UNKNOWN',
       expiresAt: p.expiresAt,
+      // Include action details for serverless execution
+      toolName: p.request.toolName,
+      parameters: p.request.parameters,
+      intent: p.guardrailResult.intent ? {
+        id: p.guardrailResult.intent.id,
+        name: p.guardrailResult.intent.name,
+      } : undefined,
     }));
   }
 

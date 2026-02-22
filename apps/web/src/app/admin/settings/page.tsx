@@ -5,6 +5,7 @@ import { OrganizationProfile, useAuth, useUser } from '@clerk/nextjs';
 import { SeedAccountsButton } from '@/components/SeedAccountsButton';
 import { StripePaymentMethods } from '@/components/billing/stripe-payment-methods';
 import { MagicInboxSettings } from '@/components/admin/magic-inbox-settings';
+import { CustomerPortalAccess } from '@/components/admin/customer-portal-access';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -370,6 +371,17 @@ export default function AdminSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin ? (
+        <CustomerPortalAccess />
+      ) : (
+        <Alert variant="destructive">
+          <AlertTitle>Admin access required</AlertTitle>
+          <AlertDescription>
+            Only organization admins can issue customer portal invites.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>

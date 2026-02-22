@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForPageReady } from '../utils/test-helpers';
 
 /**
  * Financial Statements E2E Tests
@@ -11,7 +12,7 @@ test.describe('Financial Statements', () => {
   test.beforeEach(async ({ page }) => {
     // Auth is handled by auth.setup.ts
     await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
   });
 
   test.describe('Balance Sheet', () => {
@@ -762,7 +763,7 @@ test.describe('Financial Statements', () => {
       await page.goto('/reports/financial/balance-sheet?periodId=invalid-uuid');
 
       // Should either show error or gracefully handle
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
       // Page should not crash
       await expect(page.locator('body')).toBeVisible();
     });

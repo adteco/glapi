@@ -1,9 +1,13 @@
 import { AppRouter } from './router';
 import { z } from 'zod';
+import type { AIProcedureMeta, ProcedureMeta } from './ai-meta';
 
 /**
  * Custom OpenAPI generator for tRPC routers
  * Generates OpenAPI 3.0 specification from tRPC router definitions
+ *
+ * Enhanced to emit x-ai-* extensions for AI-enabled endpoints.
+ * @see packages/api-service/src/ai/openapi-extensions.ts for extension schemas
  */
 
 interface OpenAPISpec {
@@ -29,6 +33,7 @@ interface RouterMeta {
     type: 'query' | 'mutation';
     input?: z.ZodType<any>;
     output?: z.ZodType<any>;
+    meta?: ProcedureMeta;
   }>;
 }
 
@@ -154,6 +159,222 @@ function getHttpMethod(type: 'query' | 'mutation'): string {
   return type === 'query' ? 'get' : 'post';
 }
 
+// =============================================================================
+// AI Extension Emitters
+// =============================================================================
+
+/**
+ * Emit x-ai-tool extension from AI metadata
+ */
+function emitXAiTool(ai: AIProcedureMeta): Record<string, any> {
+  const tool = ai.tool;
+  return {
+    'x-ai-tool': {
+      name: tool.name,
+      version: tool.version ?? 1,
+      stability: tool.stability ?? 'stable',
+      deprecated: tool.deprecated ?? false,
+      ...(tool.replacement && { replacement: tool.replacement }),
+      description: tool.description,
+      scopes: tool.scopes ?? ['global'],
+      enabled: tool.enabled ?? true,
+      ...(tool.exampleUtterances && { exampleUtterances: tool.exampleUtterances }),
+    },
+  };
+}
+
+/**
+ * Emit x-ai-risk extension from AI metadata
+ */
+function emitXAiRisk(ai: AIProcedureMeta): Record<string, any> {
+  const risk = ai.risk;
+  return {
+    'x-ai-risk': {
+      level: risk.level,
+      requiresConfirmation: risk.requiresConfirmation ?? false,
+      supportsDryRun: risk.supportsDryRun ?? false,
+      ...(risk.confirmationMessage && { confirmationMessage: risk.confirmationMessage }),
+    },
+  };
+}
+
+/**
+ * Emit x-ai-permissions extension from AI metadata
+ */
+function emitXAiPermissions(ai: AIProcedureMeta): Record<string, any> {
+  return {
+    'x-ai-permissions': {
+      required: ai.permissions.required,
+      minimumRole: ai.permissions.minimumRole,
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-policy extension from AI metadata
+ */
+function emitXAiPolicy(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.policy) return {};
+  const policy = ai.policy;
+  return {
+    'x-ai-policy': {
+      ...(policy.allowTiers && { allowTiers: policy.allowTiers }),
+      ...(policy.requireMfaForRisk && { requireMfaForRisk: policy.requireMfaForRisk }),
+      ...(policy.rowScope && { rowScope: policy.rowScope }),
+      ...(policy.maxAffectedRecords && { maxAffectedRecords: policy.maxAffectedRecords }),
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-rate-limit extension from AI metadata
+ */
+function emitXAiRateLimit(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.rateLimit) return {};
+  const rateLimit = ai.rateLimit;
+  return {
+    'x-ai-rate-limit': {
+      requestsPerMinute: rateLimit.requestsPerMinute,
+      ...(rateLimit.burstLimit && { burstLimit: rateLimit.burstLimit }),
+      scope: rateLimit.scope ?? 'user',
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-output extension from AI metadata
+ */
+function emitXAiOutput(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.output) return {};
+  const output = ai.output;
+  return {
+    'x-ai-output': {
+      ...(output.includeFields && { includeFields: output.includeFields }),
+      ...(output.redactFields && { redactFields: output.redactFields }),
+      ...(output.maxItems && { maxItems: output.maxItems }),
+      ...(output.maxTokens && { maxTokens: output.maxTokens }),
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-idempotency extension from AI metadata
+ */
+function emitXAiIdempotency(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.idempotency) return {};
+  return {
+    'x-ai-idempotency': {
+      keySource: ai.idempotency.keySource ?? 'auto',
+      ttlSeconds: ai.idempotency.ttlSeconds ?? 86400,
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-timeouts extension from AI metadata
+ */
+function emitXAiTimeouts(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.timeouts) return {};
+  return {
+    'x-ai-timeouts': {
+      softMs: ai.timeouts.softMs ?? 3000,
+      hardMs: ai.timeouts.hardMs ?? 10000,
+      retryable: ai.timeouts.retryable ?? true,
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-cache extension from AI metadata
+ */
+function emitXAiCache(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.cache) return {};
+  const cache = ai.cache;
+  return {
+    'x-ai-cache': {
+      enabled: cache.enabled ?? false,
+      ttlSeconds: cache.ttlSeconds ?? 300,
+      ...(cache.varyBy && { varyBy: cache.varyBy }),
+      ...(cache.invalidateOn && { invalidateOn: cache.invalidateOn }),
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-errors extension from AI metadata
+ */
+function emitXAiErrors(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.errors || ai.errors.length === 0) return {};
+  return {
+    'x-ai-errors': ai.errors.map((e) => ({
+      code: e.code,
+      retryable: e.retryable ?? false,
+      userSafeMessage: e.userSafeMessage,
+    })),
+  };
+}
+
+/**
+ * Emit optional x-ai-async extension from AI metadata
+ */
+function emitXAiAsync(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.async) return {};
+  const async = ai.async;
+  return {
+    'x-ai-async': {
+      enabled: async.enabled ?? false,
+      ...(async.statusEndpoint && { statusEndpoint: async.statusEndpoint }),
+      terminalStates: async.terminalStates ?? ['succeeded', 'failed', 'canceled'],
+      ...(async.polling && {
+        polling: {
+          minMs: async.polling.minMs ?? 500,
+          maxMs: async.polling.maxMs ?? 5000,
+        },
+      }),
+    },
+  };
+}
+
+/**
+ * Emit optional x-ai-financial-limits extension from AI metadata
+ */
+function emitXAiFinancialLimits(ai: AIProcedureMeta): Record<string, any> {
+  if (!ai.financialLimits) return {};
+  const limits = ai.financialLimits;
+  return {
+    'x-ai-financial-limits': {
+      ...(limits.staff !== undefined && { staff: limits.staff }),
+      ...(limits.manager !== undefined && { manager: limits.manager }),
+      ...(limits.accountant !== undefined && { accountant: limits.accountant }),
+      ...(limits.admin !== undefined && { admin: limits.admin }),
+    },
+  };
+}
+
+/**
+ * Emit all x-ai-* extensions for an AI-enabled procedure
+ */
+export function emitAIExtensions(ai: AIProcedureMeta): Record<string, any> {
+  return {
+    ...emitXAiTool(ai),
+    ...emitXAiRisk(ai),
+    ...emitXAiPermissions(ai),
+    ...emitXAiPolicy(ai),
+    ...emitXAiRateLimit(ai),
+    ...emitXAiOutput(ai),
+    ...emitXAiIdempotency(ai),
+    ...emitXAiTimeouts(ai),
+    ...emitXAiCache(ai),
+    ...emitXAiErrors(ai),
+    ...emitXAiAsync(ai),
+    ...emitXAiFinancialLimits(ai),
+  };
+}
+
+// =============================================================================
+// Route Descriptions
+// =============================================================================
+
 /**
  * Generate route metadata with descriptions
  */
@@ -261,10 +482,188 @@ function getOperationDescription(resource: string, operation: string): string {
   return descriptions[operation] || `${operation} operation for ${resource}`;
 }
 
+// =============================================================================
+// Default AI Metadata for CRUD Operations
+// =============================================================================
+
+/**
+ * Generate default AI metadata for common CRUD operations
+ * This provides sensible defaults when procedures don't have explicit AI meta
+ */
+function getDefaultAIMeta(
+  routerName: string,
+  operation: string
+): AIProcedureMeta | null {
+  const resource = routerName.replace(/s$/, ''); // customers -> customer
+
+  switch (operation) {
+    case 'list':
+      return {
+        tool: {
+          name: `list_${routerName}`,
+          description: `Search and list ${routerName} records`,
+          scopes: ['global'],
+          version: 1,
+          stability: 'stable',
+          enabled: true,
+        },
+        risk: {
+          level: 'LOW',
+          requiresConfirmation: false,
+          supportsDryRun: false,
+        },
+        permissions: {
+          required: [`read:${routerName}`],
+          minimumRole: 'viewer',
+        },
+        cache: {
+          enabled: true,
+          ttlSeconds: 60,
+          varyBy: ['search', 'limit', 'offset'],
+        },
+        rateLimit: {
+          requestsPerMinute: 60,
+        },
+      };
+
+    case 'get':
+      return {
+        tool: {
+          name: `get_${resource}`,
+          description: `Get a specific ${resource} by ID`,
+          scopes: ['global'],
+          version: 1,
+          stability: 'stable',
+          enabled: true,
+        },
+        risk: {
+          level: 'LOW',
+          requiresConfirmation: false,
+          supportsDryRun: false,
+        },
+        permissions: {
+          required: [`read:${routerName}`],
+          minimumRole: 'viewer',
+        },
+        cache: {
+          enabled: true,
+          ttlSeconds: 60,
+          varyBy: ['id'],
+        },
+        rateLimit: {
+          requestsPerMinute: 60,
+        },
+      };
+
+    case 'create':
+      return {
+        tool: {
+          name: `create_${resource}`,
+          description: `Create a new ${resource}`,
+          scopes: ['global'],
+          version: 1,
+          stability: 'stable',
+          enabled: true,
+        },
+        risk: {
+          level: 'MEDIUM',
+          requiresConfirmation: true,
+          supportsDryRun: true,
+        },
+        permissions: {
+          required: [`write:${routerName}`],
+          minimumRole: 'staff',
+        },
+        rateLimit: {
+          requestsPerMinute: 30,
+        },
+        idempotency: {
+          keySource: 'auto',
+          ttlSeconds: 86400,
+        },
+      };
+
+    case 'update':
+      return {
+        tool: {
+          name: `update_${resource}`,
+          description: `Update an existing ${resource}`,
+          scopes: ['global'],
+          version: 1,
+          stability: 'stable',
+          enabled: true,
+        },
+        risk: {
+          level: 'MEDIUM',
+          requiresConfirmation: true,
+          supportsDryRun: true,
+        },
+        permissions: {
+          required: [`write:${routerName}`],
+          minimumRole: 'staff',
+        },
+        rateLimit: {
+          requestsPerMinute: 30,
+        },
+        idempotency: {
+          keySource: 'auto',
+          ttlSeconds: 86400,
+        },
+      };
+
+    case 'delete':
+      return {
+        tool: {
+          name: `delete_${resource}`,
+          description: `Delete a ${resource}`,
+          scopes: ['global'],
+          version: 1,
+          stability: 'stable',
+          enabled: true,
+        },
+        risk: {
+          level: 'HIGH',
+          requiresConfirmation: true,
+          supportsDryRun: true,
+          confirmationMessage: `Are you sure you want to delete this ${resource}? This action cannot be undone.`,
+        },
+        permissions: {
+          required: [`delete:${routerName}`],
+          minimumRole: 'manager',
+        },
+        rateLimit: {
+          requestsPerMinute: 10,
+        },
+      };
+
+    default:
+      return null;
+  }
+}
+
+// =============================================================================
+// OpenAPI Spec Generation
+// =============================================================================
+
+export interface GenerateOpenAPIOptions {
+  /** Include x-ai-* extensions for AI tooling (default: true) */
+  includeAIExtensions?: boolean;
+  /** Use default AI metadata for procedures without explicit meta (default: true) */
+  useDefaultAIMeta?: boolean;
+  /** Custom AI metadata overrides by operationId */
+  aiMetaOverrides?: Record<string, AIProcedureMeta>;
+}
+
 /**
  * Generate OpenAPI specification from tRPC router
  */
-export function generateOpenAPISpec(): OpenAPISpec {
+export function generateOpenAPISpec(options: GenerateOpenAPIOptions = {}): OpenAPISpec {
+  const {
+    includeAIExtensions = true,
+    useDefaultAIMeta = true,
+    aiMetaOverrides = {},
+  } = options;
+
   const spec: OpenAPISpec = {
     openapi: '3.0.3',
     info: {
@@ -283,6 +682,7 @@ GLAPI provides a complete accounting dimensions API with advanced revenue recogn
 - **Inventory Management**: Items, Warehouses, Price Lists
 - **Financial Operations**: Invoices, Payments, Subscriptions
 - **General Ledger**: Chart of Accounts, GL Transactions
+- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling
 
 ## Authentication
 
@@ -291,6 +691,11 @@ All endpoints require authentication using Clerk. Include your authentication to
 \`\`\`
 Authorization: Bearer YOUR_TOKEN
 \`\`\`
+
+## AI Extensions
+
+Endpoints with \`x-ai-tool\` extensions can be used by AI assistants for automated operations.
+See the x-ai-* extension fields for risk levels, permissions, and rate limits.
 
 ## Base URL
 
@@ -348,10 +753,12 @@ The API is accessible at:
         spec.paths[path] = {};
       }
 
+      const operationId = `${routerName}.${operation}`;
+
       const operationSpec: any = {
         summary: getOperationDescription(routerName, operation),
         tags: [routeMeta.tag],
-        operationId: `${routerName}.${operation}`,
+        operationId,
         responses: {
           '200': {
             description: 'Successful response',
@@ -406,6 +813,18 @@ The API is accessible at:
         };
       }
 
+      // Add AI extensions if enabled
+      if (includeAIExtensions) {
+        // Check for override first, then default meta
+        const aiMeta = aiMetaOverrides[operationId]
+          ?? (useDefaultAIMeta ? getDefaultAIMeta(routerName, operation) : null);
+
+        if (aiMeta) {
+          const aiExtensions = emitAIExtensions(aiMeta);
+          Object.assign(operationSpec, aiExtensions);
+        }
+      }
+
       spec.paths[path][method] = operationSpec;
     }
   }
@@ -416,16 +835,16 @@ The API is accessible at:
 /**
  * Generate OpenAPI spec as JSON string
  */
-export function generateOpenAPIJSON(): string {
-  const spec = generateOpenAPISpec();
+export function generateOpenAPIJSON(options?: GenerateOpenAPIOptions): string {
+  const spec = generateOpenAPISpec(options);
   return JSON.stringify(spec, null, 2);
 }
 
 /**
  * Generate OpenAPI spec as YAML string (simplified)
  */
-export function generateOpenAPIYAML(): string {
-  const spec = generateOpenAPISpec();
+export function generateOpenAPIYAML(options?: GenerateOpenAPIOptions): string {
+  const spec = generateOpenAPISpec(options);
 
   // Simple YAML conversion (for production, use a proper YAML library)
   function toYAML(obj: any, indent: number = 0): string {
@@ -461,3 +880,10 @@ export function generateOpenAPIYAML(): string {
 
   return toYAML(spec);
 }
+
+// =============================================================================
+// Exports
+// =============================================================================
+
+export { zodToOpenAPI };
+export type { OpenAPISpec, RouterMeta, AIProcedureMeta };

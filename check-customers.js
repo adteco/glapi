@@ -2,7 +2,11 @@ const { Client } = require('pg');
 
 async function checkCustomers() {
   // Get database URL from environment
-  const databaseUrl = process.env.DATABASE_URL || 'postgresql://<redacted-credential>';
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL environment variable is required');
+  }
   
   const client = new Client({
     connectionString: databaseUrl,

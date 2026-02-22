@@ -69,14 +69,24 @@ else
     echo "  Consider removing debugging statements"
 fi
 
-# 2. Check for hardcoded secrets
+# 2. Check for hardcoded secrets (staged files only; reduce false positives)
 echo -n "Checking for potential secrets... "
-SECRETS=$(find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.json" \) \
-    -not -path "*/node_modules/*" \
-    -not -path "*/.next/*" \
-    -not -path "*/dist/*" \
-    -not -name "package*.json" \
-    -exec grep -E -l "(api_key|apiKey|API_KEY|secret|SECRET|password|PASSWORD|token|TOKEN).*=.*['\"][^'\"]*['\"]" {} \; 2>/dev/null | head -10)
+
+# Only scan staged changes. Scanning the whole working tree will flag local/ignored files
+# like playwright auth state and editor settings, and will produce many false positives.
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E "\.(ts|tsx|js|jsx|json)$" | grep -v -E "^(pnpm-lock\.yaml|package(-lock)?\.json)$" || true)
+
+# High-confidence patterns:
+# - Assigning secret-ish keys to long string literals
+# - Common credential formats
+SECRET_REGEX_1="(api_key|apiKey|API_KEY|secret|SECRET|password|PASSWORD|token|TOKEN)[^\\n]{0,40}=.{0,20}['\\\"][A-Za-z0-9_\\\-]{20,}['\\\"]"
+SECRET_REGEX_2="(postgres(ql)?://[^\\s'\\\"]+|AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----|sk-[A-Za-z0-9]{20,})"
+
+SECRETS=""
+if [ -n "$STAGED_FILES" ]; then
+  # Grep staged files; ignore binary errors and stop after first 10 hits.
+  SECRETS=$(echo "$STAGED_FILES" | xargs -I {} grep -E -l "$SECRET_REGEX_1|$SECRET_REGEX_2" {} 2>/dev/null | head -10)
+fi
 
 if [ -z "$SECRETS" ]; then
     echo -e "${GREEN}✓${NC}"
@@ -114,6 +124,35 @@ else
     echo "  Found uncommitted schema/migration files:"
     echo "$SCHEMA_CHANGES" | sed 's/^/    /'
     echo "  Make sure to run: pnpm db:generate && pnpm db:migrate"
+fi
+
+# 6.5. Auto-regenerate AI tools if TRPC routers changed
+TRPC_ROUTER_CHANGES=$(git diff --cached --name-only | grep -E "packages/trpc/src/routers/.*\.ts$" | grep -v ".test.ts")
+TRPC_SCRIPT_CHANGES=$(git diff --cached --name-only | grep -E "packages/trpc/(scripts|src)/(generate|ai-meta|openapi)")
+
+if [ -n "$TRPC_ROUTER_CHANGES" ] || [ -n "$TRPC_SCRIPT_CHANGES" ]; then
+    echo ""
+    echo -e "${YELLOW}🔄 TRPC changes detected - regenerating AI tools and OpenAPI...${NC}"
+
+    # Run generation
+    if pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc > /dev/null 2>&1; then
+        # Check if generated files changed
+        GENERATED_CHANGES=$(git status --porcelain apps/docs/public/api/openapi.json apps/web/src/lib/ai/generated/ 2>/dev/null)
+
+        if [ -n "$GENERATED_CHANGES" ]; then
+            echo -e "${GREEN}✓${NC} Generated files updated. Staging changes..."
+            git add apps/docs/public/api/openapi.json apps/web/src/lib/ai/generated/
+            echo "  Staged:"
+            echo "$GENERATED_CHANGES" | sed 's/^/    /'
+        else
+            echo -e "${GREEN}✓${NC} Generated files already up to date"
+        fi
+    else
+        echo -e "${RED}✗${NC} Generation failed!"
+        echo "  Run manually: pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc"
+        FAILED=1
+    fi
+    echo ""
 fi
 
 # 7. Check for TODO comments

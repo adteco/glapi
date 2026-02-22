@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { FinancialStatementsService } from '@glapi/api-service';
+import { createReadOnlyAIMeta } from '../ai-meta';
 
 // Common dimension filters for all financial statements
 const dimensionFiltersSchema = z.object({
@@ -23,6 +24,10 @@ export const financialStatementsRouter = router({
    * Includes current assets, non-current assets, liabilities, and equity
    */
   balanceSheet: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('generate_balance_sheet', 'Generate a Balance Sheet for the specified period', {
+      scopes: ['financial-statements', 'reporting', 'accounting'],
+      permissions: ['read:financial-statements'],
+    }) })
     .input(
       z.object({
         periodId: z.string().uuid(),
@@ -50,6 +55,10 @@ export const financialStatementsRouter = router({
    * Shows revenue, COGS, gross profit, operating expenses, and net income
    */
   incomeStatement: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('generate_income_statement', 'Generate an Income Statement for the specified period', {
+      scopes: ['financial-statements', 'reporting', 'accounting'],
+      permissions: ['read:financial-statements'],
+    }) })
     .input(
       z.object({
         periodId: z.string().uuid(),
@@ -78,6 +87,10 @@ export const financialStatementsRouter = router({
    * Shows operating, investing, and financing activities
    */
   cashFlowStatement: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('generate_cash_flow_statement', 'Generate a Cash Flow Statement for the specified period (Indirect Method)', {
+      scopes: ['financial-statements', 'reporting', 'accounting'],
+      permissions: ['read:financial-statements'],
+    }) })
     .input(
       z.object({
         periodId: z.string().uuid(),
@@ -105,6 +118,10 @@ export const financialStatementsRouter = router({
    * Shows all accounts with their debit/credit balances
    */
   trialBalance: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('generate_trial_balance', 'Generate a Trial Balance for the specified period', {
+      scopes: ['financial-statements', 'reporting', 'accounting'],
+      permissions: ['read:financial-statements'],
+    }) })
     .input(
       z.object({
         periodId: z.string().uuid(),
@@ -129,6 +146,10 @@ export const financialStatementsRouter = router({
    * Export a financial statement to various formats
    */
   export: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('export_financial_statement', 'Export a financial statement to various formats (pdf, xlsx, csv, json)', {
+      scopes: ['financial-statements', 'reporting', 'accounting'],
+      permissions: ['read:financial-statements'],
+    }) })
     .input(
       z.object({
         reportType: z.enum(['INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW_STATEMENT']),
@@ -173,6 +194,10 @@ export const financialStatementsRouter = router({
    * Generate report metadata for audit trail
    */
   metadata: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_report_metadata', 'Generate report metadata for audit trail', {
+      scopes: ['financial-statements', 'reporting', 'accounting'],
+      permissions: ['read:financial-statements'],
+    }) })
     .input(
       z.object({
         reportType: z.enum(['INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW', 'TRIAL_BALANCE']),

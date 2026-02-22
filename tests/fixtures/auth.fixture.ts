@@ -1,5 +1,6 @@
 import { test as base, expect, type Page, type BrowserContext } from '@playwright/test';
 import * as path from 'path';
+import { waitForPageReady } from '../utils/test-helpers';
 
 const STORAGE_STATE = path.join(__dirname, '../../playwright/.auth/user.json');
 
@@ -105,7 +106,7 @@ export async function switchOrganization(page: Page, orgName: string): Promise<v
   if (await orgSwitcher.isVisible()) {
     await orgSwitcher.click();
     await page.locator(`text="${orgName}"`).click();
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
   }
 }
 

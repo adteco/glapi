@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { ChangeManagementService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 const createSchema = z.object({
   title: z.string().min(3),
@@ -17,6 +18,11 @@ const createSchema = z.object({
 
 export const changeManagementRouter = router({
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_change_request', 'Create a new change request', {
+      scopes: ['change-management', 'compliance'],
+      permissions: ['write:change-requests'],
+      riskLevel: 'LOW',
+    }) })
     .input(createSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ChangeManagementService(ctx.serviceContext);
@@ -35,6 +41,10 @@ export const changeManagementRouter = router({
     }),
 
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_change_requests', 'Search and list change requests', {
+      scopes: ['change-management', 'compliance', 'global'],
+      permissions: ['read:change-requests'],
+    }) })
     .input(
       z
         .object({
@@ -54,6 +64,10 @@ export const changeManagementRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_change_request', 'Get a change request by ID', {
+      scopes: ['change-management', 'compliance'],
+      permissions: ['read:change-requests'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new ChangeManagementService(ctx.serviceContext);
@@ -72,6 +86,12 @@ export const changeManagementRouter = router({
     }),
 
   approve: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('approve_change_request', 'Approve a change request', {
+      scopes: ['change-management', 'approvals'],
+      permissions: ['approve:change-requests'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'manager',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ChangeManagementService(ctx.serviceContext);

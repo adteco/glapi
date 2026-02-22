@@ -5,6 +5,7 @@ import {
   ConsolidationEngine,
   ConsolidationReportingService,
 } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // ==========================================
 // Zod Schemas
@@ -126,6 +127,10 @@ export const consolidationRouter = router({
    * List all consolidation groups
    */
   listGroups: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_consolidation_groups', 'List consolidation groups', {
+      scopes: ['consolidation', 'accounting', 'global'],
+      permissions: ['read:consolidation'],
+    }) })
     .input(
       z
         .object({
@@ -161,6 +166,11 @@ export const consolidationRouter = router({
    * Create a new consolidation group
    */
   createGroup: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_consolidation_group', 'Create a new consolidation group', {
+      scopes: ['consolidation', 'accounting'],
+      permissions: ['write:consolidation'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(createGroupSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService(ctx.serviceContext);
@@ -201,6 +211,11 @@ export const consolidationRouter = router({
    * Delete a consolidation group
    */
   deleteGroup: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_consolidation_group', 'Delete a consolidation group', {
+      scopes: ['consolidation', 'accounting'],
+      permissions: ['delete:consolidation'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ConsolidationService(ctx.serviceContext);
@@ -477,6 +492,11 @@ export const consolidationRouter = router({
    * Execute a consolidation run
    */
   runConsolidation: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('run_consolidation', 'Execute a consolidation run', {
+      scopes: ['consolidation', 'accounting'],
+      permissions: ['execute:consolidation'],
+      riskLevel: 'HIGH',
+    }) })
     .input(
       z.object({
         groupId: z.string().uuid(),

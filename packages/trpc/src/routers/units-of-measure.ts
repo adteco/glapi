@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { UnitsOfMeasureService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const unitOfMeasureSchema = z.object({
   code: z.string().min(1, 'Code is required'),
@@ -22,6 +23,10 @@ const unitOfMeasureQuerySchema = z.object({
 
 export const unitsOfMeasureRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_units_of_measure', 'List units of measure', {
+      scopes: ['units-of-measure', 'inventory'],
+      permissions: ['read:units-of-measure'],
+    }) })
     .input(unitOfMeasureQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new UnitsOfMeasureService(ctx.serviceContext);
@@ -29,6 +34,10 @@ export const unitsOfMeasureRouter = router({
     }),
 
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_unit_of_measure', 'Get a unit of measure by ID', {
+      scopes: ['units-of-measure', 'inventory'],
+      permissions: ['read:units-of-measure'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new UnitsOfMeasureService(ctx.serviceContext);
@@ -36,6 +45,11 @@ export const unitsOfMeasureRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_unit_of_measure', 'Create a unit of measure', {
+      scopes: ['units-of-measure', 'inventory'],
+      permissions: ['write:units-of-measure'],
+      riskLevel: 'LOW',
+    }) })
     .input(unitOfMeasureSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new UnitsOfMeasureService(ctx.serviceContext);
@@ -53,6 +67,11 @@ export const unitsOfMeasureRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_unit_of_measure', 'Delete a unit of measure', {
+      scopes: ['units-of-measure', 'inventory'],
+      permissions: ['delete:units-of-measure'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const service = new UnitsOfMeasureService(ctx.serviceContext);
@@ -60,6 +79,10 @@ export const unitsOfMeasureRouter = router({
     }),
 
   convertQuantity: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('convert_quantity', 'Convert quantity between units of measure', {
+      scopes: ['units-of-measure', 'inventory'],
+      permissions: ['read:units-of-measure'],
+    }) })
     .input(z.object({
       quantity: z.number(),
       fromUnitId: z.string(),

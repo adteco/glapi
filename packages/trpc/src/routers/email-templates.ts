@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure, adminProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   db,
   emailTemplates,
@@ -193,6 +194,10 @@ export const emailTemplatesRouter = router({
   // ===========================================================================
 
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_email_templates', 'Search and list email templates', {
+      scopes: ['communications', 'templates', 'global'],
+      permissions: ['read:email-templates'],
+    }) })
     .input(listTemplatesSchema)
     .query(async ({ ctx, input }) => {
       const { status, category, search, page, limit, sortBy, sortOrder } = input;
@@ -261,6 +266,10 @@ export const emailTemplatesRouter = router({
   // ===========================================================================
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_email_template', 'Get an email template by ID', {
+      scopes: ['communications', 'templates'],
+      permissions: ['read:email-templates'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return verifyTemplateOwnership(input.id, ctx.organizationId);
@@ -295,6 +304,11 @@ export const emailTemplatesRouter = router({
   // ===========================================================================
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_email_template', 'Create a new email template', {
+      scopes: ['communications', 'templates'],
+      permissions: ['write:email-templates'],
+      riskLevel: 'LOW',
+    }) })
     .input(createTemplateSchema)
     .mutation(async ({ ctx, input }) => {
       // Check for duplicate slug
@@ -387,6 +401,11 @@ export const emailTemplatesRouter = router({
   // ===========================================================================
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_email_template', 'Delete an email template', {
+      scopes: ['communications', 'templates'],
+      permissions: ['delete:email-templates'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await verifyTemplateOwnership(input.id, ctx.organizationId);

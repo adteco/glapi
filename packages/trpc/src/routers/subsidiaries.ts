@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { SubsidiaryService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const subsidiarySchema = z.object({
   name: z.string().min(1),
@@ -12,6 +13,10 @@ const subsidiarySchema = z.object({
 
 export const subsidiariesRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_subsidiaries', 'Search and list subsidiaries', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:subsidiaries'],
+    }) })
     .input(
       z.object({
         includeInactive: z.boolean().optional(),
@@ -28,6 +33,10 @@ export const subsidiariesRouter = router({
     }),
 
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_subsidiary', 'Get a single subsidiary by ID', {
+      scopes: ['accounting', 'dimensions', 'global'],
+      permissions: ['read:subsidiaries'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });
@@ -44,6 +53,12 @@ export const subsidiariesRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_subsidiary', 'Create a new subsidiary', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:subsidiaries'],
+      riskLevel: 'HIGH',
+      minimumRole: 'admin',
+    }) })
     .input(subsidiarySchema)
     .mutation(async ({ ctx, input }) => {
       const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });
@@ -54,6 +69,12 @@ export const subsidiariesRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_subsidiary', 'Update an existing subsidiary', {
+      scopes: ['accounting', 'dimensions'],
+      permissions: ['write:subsidiaries'],
+      riskLevel: 'HIGH',
+      minimumRole: 'admin',
+    }) })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -75,6 +96,12 @@ export const subsidiariesRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_subsidiary', 'Delete a subsidiary', {
+      scopes: ['accounting'],
+      permissions: ['delete:subsidiaries'],
+      riskLevel: 'HIGH',
+      minimumRole: 'admin',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new SubsidiaryService(ctx.serviceContext, { db: ctx.db });

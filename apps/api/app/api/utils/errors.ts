@@ -52,7 +52,16 @@ export function handleApiError(error: unknown) {
   if (error instanceof Error) {
     return NextResponse.json(
       { 
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        ...(process.env.NODE_ENV === 'development'
+          ? {
+              name: error.name,
+              // `cause` is where many wrapped DB/service errors keep the real detail.
+              // NextResponse JSON serialization will drop non-plain objects, so keep it simple.
+              cause: (error as any).cause,
+              stack: error.stack,
+            }
+          : {}),
       },
       { status: 500 }
     );

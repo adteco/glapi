@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { AccountingListService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   createPaymentTermsSchema,
   updatePaymentTermsSchema,
@@ -22,6 +23,10 @@ export const accountingListsRouter = router({
   // ============================================================================
 
   listPaymentTerms: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_payment_terms', 'List payment terms configurations', {
+      scopes: ['accounting', 'billing', 'global'],
+      permissions: ['read:accounting-lists'],
+    }) })
     .input(accountingListQuerySchema.optional())
     .query(async ({ ctx, input }) => {
       const service = new AccountingListService(ctx.serviceContext);
@@ -38,6 +43,11 @@ export const accountingListsRouter = router({
     }),
 
   createPaymentTerms: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_payment_terms', 'Create a new payment terms configuration', {
+      scopes: ['accounting', 'billing'],
+      permissions: ['write:accounting-lists'],
+      riskLevel: 'LOW',
+    }) })
     .input(createPaymentTermsSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new AccountingListService(ctx.serviceContext);
@@ -55,6 +65,11 @@ export const accountingListsRouter = router({
     }),
 
   deletePaymentTerms: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_payment_terms', 'Delete a payment terms configuration', {
+      scopes: ['accounting', 'billing'],
+      permissions: ['delete:accounting-lists'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new AccountingListService(ctx.serviceContext);
@@ -66,6 +81,10 @@ export const accountingListsRouter = router({
   // ============================================================================
 
   listPaymentMethods: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_payment_methods', 'List payment method configurations', {
+      scopes: ['accounting', 'billing', 'global'],
+      permissions: ['read:accounting-lists'],
+    }) })
     .input(accountingListQuerySchema.optional())
     .query(async ({ ctx, input }) => {
       const service = new AccountingListService(ctx.serviceContext);
@@ -110,6 +129,10 @@ export const accountingListsRouter = router({
   // ============================================================================
 
   listChargeTypes: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_charge_types', 'List charge type configurations', {
+      scopes: ['accounting', 'billing', 'global'],
+      permissions: ['read:accounting-lists'],
+    }) })
     .input(accountingListQuerySchema.optional())
     .query(async ({ ctx, input }) => {
       const service = new AccountingListService(ctx.serviceContext);

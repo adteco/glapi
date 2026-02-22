@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { VendorService } from '@glapi/api-service';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 const vendorSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -31,6 +32,10 @@ const vendorQuerySchema = z.object({
 
 export const vendorsRouter = router({
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_vendors', 'Search and list vendor records', {
+      scopes: ['vendors', 'purchasing', 'global'],
+      permissions: ['read:vendors'],
+    }) })
     .input(vendorQuerySchema.optional())
     .query(async ({ ctx, input = {} }) => {
       const service = new VendorService(ctx.serviceContext, { db: ctx.db });
@@ -47,6 +52,10 @@ export const vendorsRouter = router({
     }),
 
   getById: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_vendor', 'Get a single vendor by ID', {
+      scopes: ['vendors', 'purchasing', 'global'],
+      permissions: ['read:vendors'],
+    }) })
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new VendorService(ctx.serviceContext, { db: ctx.db });
@@ -54,6 +63,11 @@ export const vendorsRouter = router({
     }),
 
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_vendor', 'Create a new vendor record', {
+      scopes: ['vendors', 'purchasing'],
+      permissions: ['write:vendors'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(vendorSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new VendorService(ctx.serviceContext, { db: ctx.db });
@@ -65,6 +79,11 @@ export const vendorsRouter = router({
     }),
 
   update: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('update_vendor', 'Update an existing vendor record', {
+      scopes: ['vendors', 'purchasing'],
+      permissions: ['write:vendors'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       id: z.string(),
       data: updateVendorSchema,
@@ -75,6 +94,11 @@ export const vendorsRouter = router({
     }),
 
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_vendor', 'Delete a vendor record', {
+      scopes: ['vendors'],
+      permissions: ['delete:vendors'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const service = new VendorService(ctx.serviceContext, { db: ctx.db });
@@ -82,6 +106,10 @@ export const vendorsRouter = router({
     }),
 
   findByEIN: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('find_vendor_by_ein', 'Find a vendor by EIN/tax ID number', {
+      scopes: ['vendors', 'purchasing'],
+      permissions: ['read:vendors'],
+    }) })
     .input(z.object({ ein: z.string() }))
     .query(async ({ ctx, input }) => {
       const service = new VendorService(ctx.serviceContext, { db: ctx.db });

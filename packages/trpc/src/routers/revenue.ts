@@ -1,11 +1,19 @@
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
-import { RevenueService, SSPService } from '@glapi/api-service';
+import { RevenueService, SSPService, SubscriptionService, CustomerService } from '@glapi/api-service';
+import { items, subscriptionItems, subscriptions, subsidiaries, unitsOfMeasure } from '@glapi/database/schema';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
+import { and, desc, eq, ilike } from 'drizzle-orm';
 
 export const revenueRouter = router({
   // Calculate revenue for subscription
   calculate: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('calculate_revenue', 'Calculate revenue for subscription (ASC 606)', {
+      scopes: ['revenue', 'subscriptions', 'accounting'],
+      permissions: ['write:revenue'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       calculationType: z.enum(['initial', 'modification', 'renewal', 'termination']),
@@ -107,7 +115,7 @@ export const revenueRouter = router({
     list: authenticatedProcedure
       .input(z.object({
         subscriptionId: z.string().uuid().optional(),
-        status: z.enum(['active', 'satisfied', 'cancelled']).optional(),
+        status: z.enum(['Pending', 'InProcess', 'Fulfilled', 'PartiallyFulfilled', 'Cancelled']).optional(),
         obligationType: z.enum([
           'product_license',
           'maintenance_support', 
@@ -176,6 +184,11 @@ export const revenueRouter = router({
 
   // Revenue recognition processing
   recognize: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('recognize_revenue', 'Process revenue recognition for a period', {
+      scopes: ['revenue', 'accounting'],
+      permissions: ['write:revenue'],
+      riskLevel: 'HIGH',
+    }) })
     .input(z.object({
       periodDate: z.coerce.date(),
       scheduleIds: z.array(z.string().uuid()).optional(),
@@ -208,10 +221,10 @@ export const revenueRouter = router({
       .input(z.object({
         itemId: z.string().uuid().optional(),
         evidenceType: z.enum([
-          'standalone_sale',
-          'competitor_pricing',
-          'cost_plus_margin',
-          'market_assessment'
+          'customer_pricing',
+          'comparable_sales',
+          'market_research',
+          'cost_plus'
         ]).optional(),
         isActive: z.boolean().optional(),
         page: z.number().min(1).default(1),
@@ -227,10 +240,10 @@ export const revenueRouter = router({
       .input(z.object({
         itemId: z.string().uuid(),
         evidenceType: z.enum([
-          'standalone_sale',
-          'competitor_pricing',
-          'cost_plus_margin',
-          'market_assessment'
+          'customer_pricing',
+          'comparable_sales',
+          'market_research',
+          'cost_plus'
         ]),
         evidenceDate: z.coerce.date(),
         sspAmount: z.number().positive(),
@@ -458,6 +471,10 @@ export const revenueRouter = router({
 
   // ASC 605 vs 606 comparison
   comparison: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('compare_asc_standards', 'Compare ASC 605 vs 606 revenue treatment', {
+      scopes: ['revenue', 'reporting', 'accounting'],
+      permissions: ['read:revenue'],
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       comparisonDate: z.coerce.date().optional()
@@ -483,6 +500,10 @@ export const revenueRouter = router({
 
   // Allocation preview
   allocationPreview: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('preview_revenue_allocation', 'Preview revenue allocation for subscription', {
+      scopes: ['revenue', 'subscriptions', 'accounting'],
+      permissions: ['read:revenue'],
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       effectiveDate: z.coerce.date()
@@ -504,5 +525,553 @@ export const revenueRouter = router({
         }
         throw error;
       }
-    })
+    }),
+
+  // Subscription-level plan for UI/API waterfall + schedules
+  subscriptionPlan: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_subscription_revenue_plan', 'Get ASC 606 plan for a subscription', {
+      scopes: ['revenue', 'subscriptions', 'accounting'],
+      permissions: ['read:revenue'],
+    }) })
+    .input(z.object({
+      subscriptionId: z.string().uuid(),
+      startDate: z.coerce.date().optional(),
+      endDate: z.coerce.date().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new RevenueService(ctx.serviceContext, { db: ctx.db });
+      return service.getSubscriptionPlan({
+        subscriptionId: input.subscriptionId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+    }),
+
+  /**
+   * Seed demo software-company ASC-606 scenarios (prepaid, monthly, discount, cancel, upsell, downsell).
+   *
+   * Intended for sales demos and sandbox environments.
+   */
+  seedSoftwareDemoScenarios: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('seed_asc606_software_demo', 'Seed ASC 606 demo scenarios for software subscriptions', {
+      scopes: ['revenue', 'subscriptions', 'sales'],
+      permissions: ['write:revenue', 'write:subscriptions', 'write:customers'],
+      riskLevel: 'HIGH',
+    }) })
+    .input(z.object({
+      /**
+       * Deprecated: kept for compatibility. Seeding is always deterministic and will
+       * reset + recalculate demo subscriptions on each run.
+       */
+      forceRecalculate: z.boolean().default(false),
+    }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const organizationId = ctx.organizationId;
+      const demoTag = 'asc606-software-v1';
+      void input?.forceRecalculate;
+
+      const subscriptionService = new SubscriptionService(ctx.serviceContext, { db: ctx.db });
+      const revenueService = new RevenueService(ctx.serviceContext, { db: ctx.db });
+      const customerService = new CustomerService(ctx.serviceContext, { db: ctx.db });
+
+      // 0) Ensure at least one subsidiary exists. Sales orders require `subsidiary_id`.
+      const [existingDemoSubsidiary] = await ctx.db
+        .select()
+        .from(subsidiaries)
+        .where(and(
+          eq(subsidiaries.organizationId, organizationId),
+          eq(subsidiaries.code, 'DEMO')
+        ))
+        .limit(1);
+
+      if (!existingDemoSubsidiary) {
+        const [anySubsidiary] = await ctx.db
+          .select({ id: subsidiaries.id })
+          .from(subsidiaries)
+          .where(eq(subsidiaries.organizationId, organizationId))
+          .limit(1);
+
+        if (!anySubsidiary) {
+          await ctx.db.insert(subsidiaries).values({
+            organizationId,
+            name: 'Demo Subsidiary',
+            code: 'DEMO',
+            description: 'Seeded automatically for ASC-606 demo scenarios.',
+            isActive: true,
+          });
+        }
+      }
+
+      // 1) Ensure unit-of-measure (EA) exists for demo items.
+      const [existingUom] = await ctx.db.select()
+        .from(unitsOfMeasure)
+        .where(and(
+          eq(unitsOfMeasure.organizationId, organizationId),
+          eq(unitsOfMeasure.code, 'EA')
+        ))
+        .limit(1);
+
+      const uom = existingUom || (await ctx.db.insert(unitsOfMeasure).values({
+        organizationId,
+        code: 'EA',
+        name: 'Each',
+        abbreviation: 'EA',
+        decimalPlaces: 0,
+        isActive: true,
+        createdBy: String(ctx.user?.id || ''),
+        updatedBy: String(ctx.user?.id || ''),
+      }).returning())[0];
+
+      // 2) Ensure demo items exist (created via direct insert to avoid GL-account validation).
+      async function ensureItem(params: {
+        itemCode: string;
+        name: string;
+        description: string;
+        defaultPrice: number;
+        defaultSspAmount: number;
+        revenueBehavior: 'over_time' | 'point_in_time';
+      }) {
+        const [existing] = await ctx.db.select()
+          .from(items)
+          .where(and(
+            eq(items.organizationId, organizationId),
+            eq(items.itemCode, params.itemCode)
+          ))
+          .limit(1);
+
+        if (existing) return existing;
+
+        const [created] = await ctx.db.insert(items).values({
+          organizationId,
+          itemCode: params.itemCode,
+          name: params.name,
+          description: params.description,
+          itemType: 'SERVICE',
+          unitOfMeasureId: uom.id,
+          // Avoid hard dependencies on chart-of-accounts seeding for demo environments.
+          isTaxable: false,
+          isSaleable: false,
+          isPurchasable: false,
+          defaultPrice: String(params.defaultPrice),
+          defaultSspAmount: String(params.defaultSspAmount),
+          revenueBehavior: params.revenueBehavior,
+          createdBy: null,
+          updatedBy: null,
+        }).returning();
+
+        return created;
+      }
+
+      const seatItem = await ensureItem({
+        itemCode: 'DEMO-SAAS-SEAT',
+        name: 'SaaS License Seat (Term)',
+        description: 'Seat-based term license recognized over time (straight-line).',
+        defaultPrice: 120,
+        defaultSspAmount: 120,
+        revenueBehavior: 'over_time',
+      });
+
+      const implItem = await ensureItem({
+        itemCode: 'DEMO-IMPL-SVC',
+        name: 'Implementation Services',
+        description: 'One-time implementation recognized at a point in time.',
+        defaultPrice: 4000,
+        defaultSspAmount: 4000,
+        revenueBehavior: 'point_in_time',
+      });
+
+      // 3) Ensure a demo customer exists.
+      const existingCustomers = await customerService.listCustomers({ page: 1, limit: 200 });
+      const demoCustomer =
+        existingCustomers.data.find((c) => c.companyName === 'Demo SaaSCo') ||
+        (await customerService.createCustomer({
+          organizationId,
+          companyName: 'Demo SaaSCo',
+          customerId: 'DEMO-SAASCO',
+          status: 'active',
+        } as any));
+
+      const startDate = new Date('2026-01-01T00:00:00Z');
+      const endDate = new Date('2026-12-31T00:00:00Z');
+
+      const toDateOnlyUtc = (d: Date): Date =>
+        new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+
+      const ymd = (d: Date): string => toDateOnlyUtc(d).toISOString().slice(0, 10);
+
+      const daysInclusiveUtc = (a: Date, b: Date): number => {
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const diff = Math.floor((toDateOnlyUtc(b).getTime() - toDateOnlyUtc(a).getTime()) / msPerDay);
+        return diff + 1;
+      };
+
+      const fractionOfSegmentUtc = (segmentStart: Date, segmentEnd: Date, activeStart: Date, activeEnd: Date): number => {
+        const segStart = toDateOnlyUtc(segmentStart);
+        const segEnd = toDateOnlyUtc(segmentEnd);
+        const actStart = toDateOnlyUtc(activeStart);
+        const actEnd = toDateOnlyUtc(activeEnd);
+        if (actEnd.getTime() < actStart.getTime()) return 0;
+        if (segEnd.getTime() < segStart.getTime()) return 0;
+        const denom = daysInclusiveUtc(segStart, segEnd);
+        const numer = daysInclusiveUtc(actStart, actEnd);
+        return denom > 0 ? Math.min(Math.max(numer / denom, 0), 1) : 0;
+      };
+
+      const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+
+      const scenarios: Array<{
+        id: string;
+        label: string;
+        subscriptionId: string;
+        subscriptionNumber: string;
+      }> = [];
+
+      async function recalc(subscriptionId: string, calculationType: 'initial' | 'modification' | 'termination', effectiveDate: Date) {
+        await revenueService.calculateRevenue(subscriptionId, calculationType, effectiveDate, { forceRecalculation: true });
+      }
+
+      // Hard-reset demo subscriptions in-place so "Seed Demo" is deterministic even after users
+      // apply additional license changes in the UI.
+      async function upsertDemoSubscription(params: {
+        subscriptionNumber: string;
+        status: 'active' | 'cancelled';
+        startDate: Date;
+        endDate: Date;
+        billingFrequency: 'monthly' | 'annual';
+        renewalTermMonths: number;
+        contractValue: number;
+        metadata: Record<string, unknown>;
+        items: Array<{
+          itemId: string;
+          quantity: number;
+          unitPrice: number;
+          startDate: Date;
+          endDate: Date;
+          metadata?: Record<string, unknown>;
+        }>;
+      }): Promise<string> {
+        const existing = await subscriptionService.getSubscriptionByNumber(params.subscriptionNumber);
+        if (!existing) {
+          const created = await subscriptionService.createSubscription({
+            entityId: demoCustomer.id,
+            subscriptionNumber: params.subscriptionNumber,
+            status: params.status,
+            startDate: params.startDate,
+            endDate: params.endDate,
+            billingFrequency: params.billingFrequency,
+            renewalTermMonths: params.renewalTermMonths,
+            contractValue: params.contractValue,
+            metadata: params.metadata,
+            items: params.items.map((i) => ({
+              itemId: i.itemId,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              startDate: i.startDate,
+              endDate: i.endDate,
+              metadata: i.metadata,
+            })),
+          } as any);
+          return created.id;
+        }
+
+        await ctx.db
+          .update(subscriptions)
+          .set({
+            status: params.status,
+            startDate: ymd(params.startDate),
+            endDate: ymd(params.endDate),
+            billingFrequency: params.billingFrequency,
+            renewalTermMonths: params.renewalTermMonths,
+            contractValue: String(params.contractValue),
+            metadata: params.metadata as any,
+          })
+          .where(and(eq(subscriptions.organizationId, organizationId), eq(subscriptions.id, existing.id)));
+
+        await ctx.db
+          .delete(subscriptionItems)
+          .where(and(eq(subscriptionItems.organizationId, organizationId), eq(subscriptionItems.subscriptionId, existing.id)));
+
+        await ctx.db.insert(subscriptionItems).values(
+          params.items.map((i) => ({
+            organizationId,
+            subscriptionId: existing.id,
+            itemId: i.itemId,
+            quantity: String(i.quantity),
+            unitPrice: String(i.unitPrice),
+            discountPercentage: '0',
+            startDate: ymd(i.startDate),
+            endDate: ymd(i.endDate),
+            metadata: (i.metadata || null) as any,
+          }))
+        );
+
+        return existing.id;
+      }
+
+      // A) $12,000 prepaid annually, recognized over 12 months
+      {
+        const subscriptionNumber = 'DEMO-ASC606-PREPAID-ANNUAL-12K';
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'annual',
+          renewalTermMonths: 12,
+          contractValue: 12000,
+          metadata: { demoTag, scenario: 'prepaid_annual_12k' },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 120,
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+          ],
+        });
+        await recalc(subscriptionId, 'initial', startDate);
+        scenarios.push({ id: 'prepaid_annual_12k', label: 'Prepaid Annual ($12k) Straight-Line', subscriptionId, subscriptionNumber });
+      }
+
+      // B) $12,000 billed monthly, same revenue recognition (billing vs recognition)
+      {
+        const subscriptionNumber = 'DEMO-ASC606-BILLED-MONTHLY-12K';
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: 12000,
+          metadata: { demoTag, scenario: 'billed_monthly_12k' },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 120,
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+          ],
+        });
+        await recalc(subscriptionId, 'initial', startDate);
+        scenarios.push({ id: 'billed_monthly_12k', label: 'Monthly Billed ($12k) Straight-Line', subscriptionId, subscriptionNumber });
+      }
+
+      // C) Discounted bundle (SSP reallocation across subscription + implementation)
+      {
+        const subscriptionNumber = 'DEMO-ASC606-BUNDLE-DISCOUNT-SSP';
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'annual',
+          renewalTermMonths: 12,
+          // Transaction price discounted vs total SSP.
+          contractValue: 14000, // 100 seats @ $100 (10k) + impl $4k
+          metadata: { demoTag, scenario: 'bundle_discount_ssp_realloc' },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 100, // discounted vs listPrice/SSP
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+            {
+              itemId: implItem.id,
+              quantity: 1,
+              unitPrice: 4000,
+              startDate,
+              endDate: startDate,
+              metadata: { revenueBehavior: 'point_in_time', sspAmount: 4000, listPrice: 4000 },
+            },
+          ],
+        });
+        await recalc(subscriptionId, 'initial', startDate);
+        scenarios.push({ id: 'bundle_discount_ssp_realloc', label: 'Bundle Discount (SSP Allocation)', subscriptionId, subscriptionNumber });
+      }
+
+      // D) Add seats mid-term (upsell)
+      {
+        const subscriptionNumber = 'DEMO-ASC606-UPSELL-ADD-SEATS';
+        const effectiveDate = new Date('2026-04-01T00:00:00Z');
+        // Deterministic mid-term upsell: keep original seats for full term, add a new segment
+        // for additional seats effective mid-term with unitPrice prorated to the remaining service period.
+        const baseUnitPrice = 120;
+        const remainingFraction = fractionOfSegmentUtc(startDate, endDate, effectiveDate, endDate);
+        const addedUnitPrice = round2(baseUnitPrice * remainingFraction);
+        const totalContractValue = round2(100 * baseUnitPrice + 20 * addedUnitPrice);
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: totalContractValue,
+          metadata: { demoTag, scenario: 'upsell_add_seats', lastEvent: 'upsell', lastAmendmentDate: effectiveDate.toISOString() },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: baseUnitPrice,
+              startDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+            {
+              itemId: seatItem.id,
+              quantity: 20,
+              unitPrice: addedUnitPrice,
+              startDate: effectiveDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120, demoSegment: 'upsell' },
+            },
+          ],
+        });
+        await recalc(subscriptionId, 'modification', effectiveDate);
+        scenarios.push({ id: 'upsell_add_seats', label: 'Upsell (Add Seats) Mid-Term', subscriptionId, subscriptionNumber });
+      }
+
+      // E) Remove seats mid-term (downsell)
+      {
+        const subscriptionNumber = 'DEMO-ASC606-DOWNSELL-REMOVE-SEATS';
+        const effectiveDate = new Date('2026-07-01T00:00:00Z');
+        // Deterministic mid-term downsell: split into before/after segments and reduce quantity after effective date.
+        const baseUnitPrice = 120;
+        const beforeEnd = new Date('2026-06-30T00:00:00Z');
+        const fracBefore = fractionOfSegmentUtc(startDate, endDate, startDate, beforeEnd);
+        const fracAfter = fractionOfSegmentUtc(startDate, endDate, effectiveDate, endDate);
+        const beforeUnitPrice = round2(baseUnitPrice * fracBefore);
+        const afterUnitPrice = round2(baseUnitPrice * fracAfter);
+        const totalContractValue = round2(100 * beforeUnitPrice + 70 * afterUnitPrice);
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'active',
+          startDate,
+          endDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: totalContractValue,
+          metadata: { demoTag, scenario: 'downsell_remove_seats', lastEvent: 'downsell', lastAmendmentDate: effectiveDate.toISOString() },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: beforeUnitPrice,
+              startDate,
+              endDate: beforeEnd,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120, demoSegment: 'pre-downsell' },
+            },
+            {
+              itemId: seatItem.id,
+              quantity: 70,
+              unitPrice: afterUnitPrice,
+              startDate: effectiveDate,
+              endDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120, demoSegment: 'post-downsell' },
+            },
+          ],
+        });
+        await recalc(subscriptionId, 'modification', effectiveDate);
+        scenarios.push({ id: 'downsell_remove_seats', label: 'Downsell (Remove Seats) Mid-Term', subscriptionId, subscriptionNumber });
+      }
+
+      // F) Cancellation mid-term (prorated contract value through cancellation date)
+      {
+        const subscriptionNumber = 'DEMO-ASC606-CANCELLATION-MIDTERM';
+        const cancellationDate = new Date('2026-06-30T00:00:00Z');
+        const subscriptionId = await upsertDemoSubscription({
+          subscriptionNumber,
+          status: 'cancelled',
+          startDate,
+          endDate: cancellationDate,
+          billingFrequency: 'monthly',
+          renewalTermMonths: 12,
+          contractValue: 6000,
+          metadata: {
+            demoTag,
+            scenario: 'cancellation_midterm',
+            amendmentReason: 'Customer cancellation (prorated)',
+            cancellationDate: cancellationDate.toISOString(),
+            lastAmendmentDate: cancellationDate.toISOString(),
+            cancellationReason: 'Cancelled at end of June',
+            lastEvent: 'cancellation',
+          },
+          items: [
+            {
+              itemId: seatItem.id,
+              quantity: 100,
+              unitPrice: 60, // 6/12 of $120 per seat
+              startDate,
+              endDate: cancellationDate,
+              metadata: { revenueBehavior: 'over_time', sspAmount: 120, listPrice: 120 },
+            },
+          ],
+        });
+        await recalc(subscriptionId, 'termination', cancellationDate);
+        scenarios.push({ id: 'cancellation_midterm', label: 'Cancellation Mid-Term (Prorated)', subscriptionId, subscriptionNumber });
+      }
+
+      return {
+        demoTag,
+        customer: { id: demoCustomer.id, companyName: demoCustomer.companyName },
+        items: {
+          seat: { id: seatItem.id, itemCode: seatItem.itemCode, name: seatItem.name },
+          implementation: { id: implItem.id, itemCode: implItem.itemCode, name: implItem.name },
+        },
+        scenarios,
+      };
+    }),
+
+  listSoftwareDemoScenarios: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_asc606_software_demo', 'List seeded ASC 606 software demo scenarios', {
+      scopes: ['revenue', 'subscriptions'],
+      permissions: ['read:revenue', 'read:subscriptions'],
+    }) })
+    .query(async ({ ctx }) => {
+      const organizationId = ctx.organizationId;
+      type DemoScenarioRow = {
+        id: string;
+        subscriptionNumber: string;
+        status: string;
+        startDate: string;
+        endDate: string | null;
+        contractValue: string | null;
+        billingFrequency: string | null;
+        metadata: unknown;
+        createdAt: Date | null;
+      };
+
+      const rows = await ctx.db.select({
+        id: subscriptions.id,
+        subscriptionNumber: subscriptions.subscriptionNumber,
+        status: subscriptions.status,
+        startDate: subscriptions.startDate,
+        endDate: subscriptions.endDate,
+        contractValue: subscriptions.contractValue,
+        billingFrequency: subscriptions.billingFrequency,
+        metadata: subscriptions.metadata,
+        createdAt: subscriptions.createdAt,
+      })
+        .from(subscriptions)
+        .where(and(
+          eq(subscriptions.organizationId, organizationId),
+          ilike(subscriptions.subscriptionNumber, 'DEMO-ASC606-%')
+        ))
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(50) as DemoScenarioRow[];
+
+      return rows.map((row: DemoScenarioRow) => ({
+        ...row,
+        contractValue: row.contractValue ? Number(row.contractValue) : 0,
+      }));
+    }),
 });

@@ -23,7 +23,7 @@ import {
   index,
   integer,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
 import { entities } from './entities';
@@ -103,6 +103,9 @@ export const timeEntries = pgTable('time_entries', {
   // Billing flags
   isBillable: boolean('is_billable').default(true).notNull(),
   billingRate: numeric('billing_rate', { precision: 15, scale: 4 }),
+  invoicedAt: timestamp('invoiced_at', { withTimezone: true }),
+  // Avoid circular schema imports; invoice_line_items already references other billing entities.
+  invoiceLineId: uuid('invoice_line_id'),
 
   // Cost calculation
   laborRate: numeric('labor_rate', { precision: 15, scale: 4 }),
@@ -150,6 +153,9 @@ export const timeEntries = pgTable('time_entries', {
   projectIdx: index('idx_time_entries_project').on(table.projectId),
   statusIdx: index('idx_time_entries_status').on(table.organizationId, table.status),
   approvalIdx: index('idx_time_entries_pending_approval').on(table.organizationId, table.status, table.submittedAt),
+  billableQueueIdx: index('idx_time_entries_billable_queue')
+    .on(table.organizationId, table.projectId, table.entryDate)
+    .where(sql`${table.isBillable} = true AND ${table.status} = 'APPROVED' AND ${table.invoicedAt} IS NULL`),
   // Unique constraint for external ID per organization
   externalIdIdx: uniqueIndex('idx_time_entries_external').on(table.organizationId, table.externalSource, table.externalId),
 }));

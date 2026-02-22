@@ -10,6 +10,7 @@
 import { z } from 'zod';
 import { router, authenticatedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 import {
   db,
   taskFieldDefinitions,
@@ -192,6 +193,10 @@ export const taskFieldsRouter = router({
    * Sorted by displayOrder
    */
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_task_fields', 'List task field definitions', {
+      scopes: ['task-fields', 'tasks'],
+      permissions: ['read:task-fields'],
+    }) })
     .input(listFieldsSchema.optional())
     .query(async ({ ctx, input }) => {
       const { entityType, includeInactive } = input ?? {};
@@ -229,6 +234,10 @@ export const taskFieldsRouter = router({
    * Get a single field definition by ID
    */
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_task_field', 'Get a task field definition by ID', {
+      scopes: ['task-fields', 'tasks'],
+      permissions: ['read:task-fields'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const field = await verifyFieldOwnership(input.id, ctx.organizationId);
@@ -244,6 +253,11 @@ export const taskFieldsRouter = router({
    * Validates fieldKey uniqueness per org+entityType
    */
   create: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_task_field', 'Create a task field definition', {
+      scopes: ['task-fields', 'tasks'],
+      permissions: ['write:task-fields'],
+      riskLevel: 'LOW',
+    }) })
     .input(createFieldSchema)
     .mutation(async ({ ctx, input }) => {
       // Check for duplicate field key
@@ -363,6 +377,11 @@ export const taskFieldsRouter = router({
    * Don't hard delete as tasks may reference this field
    */
   delete: authenticatedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_task_field', 'Soft delete a task field definition', {
+      scopes: ['task-fields', 'tasks'],
+      permissions: ['delete:task-fields'],
+      riskLevel: 'LOW',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await verifyFieldOwnership(input.id, ctx.organizationId);

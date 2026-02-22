@@ -153,54 +153,83 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const rawUserId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
 
-  if (rawOrganizationId && rawUserId) {
-    // Resolve Clerk org ID to database UUID and get organization name
-    const resolvedOrg = await resolveOrganization(rawOrganizationId);
+  const DEV_ORG_ID = 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2';
+  // Stable UUID used for dev/test contexts (Karate defaults to this value).
+  const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
 
-    // Resolve Clerk user ID to entity UUID
-    // This supports the consolidated auth model where entities (Employee) serve as users
-    const entityId = await resolveEntityId(rawUserId);
+  const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
+  const resolvedEntityId = rawUserId ? await resolveEntityId(rawUserId) : null;
 
-    // Create typed Clerk user ID
-    const clerkUserId = unsafeClerkUserId(rawUserId);
+  const isProduction = process.env.NODE_ENV === 'production';
 
-    if (resolvedOrg) {
-      return {
-        organizationId: resolvedOrg.id,
-        organizationName: resolvedOrg.name,
-        entityId: entityId,
-        clerkUserId: clerkUserId,
-        clerkOrganizationId: rawOrganizationId.startsWith('org_')
-          ? unsafeClerkOrgId(rawOrganizationId)
-          : undefined,
-        apiKeyName: apiKeyName || undefined,
-        // Deprecated alias - keep for backward compatibility
-        userId: entityId || rawUserId,
-      };
+  // In production, organization + user context MUST be present and resolvable.
+  // IMPORTANT: audit fields in many tables are UUIDs; therefore, `x-user-id` must
+  // resolve to an entity UUID (or itself be a UUID).
+  if (isProduction) {
+    if (!rawOrganizationId || !rawUserId) {
+      throw new AuthenticationError(
+        'Organization context required. Ensure x-organization-id and x-user-id headers are set.'
+      );
+    }
+    if (!resolvedOrg) {
+      throw new AuthenticationError(`Could not resolve organization ID: ${rawOrganizationId}`);
     }
 
-    console.warn(`Could not resolve organization ID: ${rawOrganizationId}`);
+    const dbUserId =
+      resolvedEntityId ??
+      (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null);
+
+    if (!dbUserId) {
+      throw new AuthenticationError(
+        'Invalid user context. x-user-id must be an entity UUID or map to an entity record.'
+      );
+    }
+
+    return {
+      organizationId: resolvedOrg.id,
+      organizationName: resolvedOrg.name,
+      entityId: resolvedEntityId ?? (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null),
+      clerkUserId: unsafeClerkUserId(rawUserId),
+      clerkOrganizationId: rawOrganizationId.startsWith('org_')
+        ? unsafeClerkOrgId(rawOrganizationId)
+        : undefined,
+      apiKeyName: apiKeyName || undefined,
+      // Deprecated alias - kept for backward compatibility in service layer.
+      // Always a UUID in production.
+      userId: dbUserId,
+    };
   }
 
-  // CRITICAL SECURITY: Never fallback to dev org in production - this would be a data breach
-  if (process.env.NODE_ENV === 'production') {
-    throw new AuthenticationError(
-      'Organization context required. Ensure x-organization-id and x-user-id headers are set.'
-    );
+  // Development fallback: allow partial headers, but always produce UUID-safe IDs so
+  // writes with UUID audit columns (e.g. sales_orders.created_by) don't explode.
+  const devOrgId = unsafeOrganizationId(DEV_ORG_ID);
+  const devEntityId = unsafeEntityId(DEV_USER_ID);
+
+  const organizationId = resolvedOrg?.id ?? devOrgId;
+  const organizationName = resolvedOrg?.name ?? 'Development';
+
+  // If the caller provided a UUID, treat it as an entity ID. Otherwise, use a stable dev UUID.
+  const entityId =
+    resolvedEntityId ??
+    (rawUserId && isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : devEntityId);
+
+  const dbUserId = entityId;
+  const clerkUserId = unsafeClerkUserId(rawUserId || DEV_USER_ID);
+
+  if (!rawOrganizationId || !rawUserId) {
+    console.warn('[DEV ONLY] Using development context - missing auth headers');
+  } else if (!resolvedOrg) {
+    console.warn(`[DEV ONLY] Could not resolve organization ID: ${rawOrganizationId}; falling back to dev org`);
   }
 
-  // Development fallback only - NEVER happens in production
-  console.warn('[DEV ONLY] Using development context - this should never appear in production logs');
-  const devOrgId = unsafeOrganizationId('ba3b8cdf-efc1-4a60-88be-ac203d263fe2');
-  const devClerkUserId = unsafeClerkUserId(rawUserId || 'user_development');
   return {
-    organizationId: devOrgId,
-    organizationName: 'Development',
-    entityId: null, // No entity in dev fallback
-    clerkUserId: devClerkUserId,
+    organizationId,
+    organizationName,
+    entityId,
+    clerkUserId,
     clerkOrganizationId: undefined,
     // Deprecated alias
-    userId: rawUserId || 'user_development',
+    userId: dbUserId,
   };
 }
 

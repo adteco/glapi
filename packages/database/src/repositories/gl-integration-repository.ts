@@ -60,17 +60,24 @@ export class GLIntegrationRepository {
         )
       );
 
-    const entries = schedules.map(schedule => ({
-      organizationId,
-      batchId,
-      revenueScheduleId: schedule.id,
-      entryDate: schedule.periodStartDate,
-      description: `Revenue recognition for ${schedule.periodStartDate}`,
-      amount: schedule.scheduledAmount,
-      deferredRevenueAmount: schedule.scheduledAmount,
-      recognizedRevenueAmount: '0',
-      status: GLJournalStatus.DRAFT as "draft" | "pending" | "posted" | "reversed" | "failed"
-    }));
+    const entries = schedules.map((schedule) => {
+      const entryDate = schedule.periodStartDate ?? schedule.scheduleDate;
+      if (!entryDate) {
+        throw new Error(`Revenue schedule ${schedule.id} missing entry date`);
+      }
+
+      return {
+        ...(batchId ? { batchId } : {}),
+        organizationId,
+        revenueScheduleId: schedule.id,
+        entryDate,
+        description: `Revenue recognition for ${entryDate}`,
+        amount: schedule.scheduledAmount ?? '0',
+        deferredRevenueAmount: schedule.scheduledAmount ?? '0',
+        recognizedRevenueAmount: '0',
+        status: GLJournalStatus.DRAFT as "draft" | "pending" | "posted" | "reversed" | "failed",
+      };
+    });
 
     if (entries.length > 0) {
       const created = await this.database

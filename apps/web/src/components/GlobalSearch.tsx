@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import {
-  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -25,43 +24,44 @@ import {
   Contact,
   Loader2,
   Command as CommandIcon,
+  ArrowRight,
 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
+import { filterPages, CATEGORY_CONFIG } from '@/lib/page-registry';
 
-// Type icons mapping
-const TYPE_ICONS: Record<string, React.ElementType> = {
-  customer: Users,
-  project: Briefcase,
-  invoice: FileText,
-  item: Package,
-  vendor: Building,
-  employee: UserCircle,
-  contact: Contact,
-};
+// Entity type configuration - single source of truth
+// Prefixes are first 4 letters of entity type + ":"
+const ENTITY_TYPES = [
+  { type: 'customer', prefix: 'cust:', label: 'Customers', icon: Users, color: 'bg-blue-500/10 text-blue-500', description: 'Search customers by name or ID' },
+  { type: 'project', prefix: 'proj:', label: 'Projects', icon: Briefcase, color: 'bg-purple-500/10 text-purple-500', description: 'Search projects by name or code' },
+  { type: 'invoice', prefix: 'invo:', label: 'Invoices', icon: FileText, color: 'bg-green-500/10 text-green-500', description: 'Search invoices by number' },
+  { type: 'item', prefix: 'item:', label: 'Items', icon: Package, color: 'bg-orange-500/10 text-orange-500', description: 'Search items by name or code' },
+  { type: 'vendor', prefix: 'vend:', label: 'Vendors', icon: Building, color: 'bg-yellow-500/10 text-yellow-500', description: 'Search vendors by name' },
+  { type: 'employee', prefix: 'empl:', label: 'Employees', icon: UserCircle, color: 'bg-pink-500/10 text-pink-500', description: 'Search employees by name' },
+  { type: 'contact', prefix: 'cont:', label: 'Contacts', icon: Contact, color: 'bg-cyan-500/10 text-cyan-500', description: 'Search contacts by name' },
+] as const;
 
-// Type colors for badges
-const TYPE_COLORS: Record<string, string> = {
-  customer: 'bg-blue-500/10 text-blue-500',
-  project: 'bg-purple-500/10 text-purple-500',
-  invoice: 'bg-green-500/10 text-green-500',
-  item: 'bg-orange-500/10 text-orange-500',
-  vendor: 'bg-yellow-500/10 text-yellow-500',
-  employee: 'bg-pink-500/10 text-pink-500',
-  contact: 'bg-cyan-500/10 text-cyan-500',
-};
+// Get prefix for a type (first 4 chars + ":")
+const getPrefix = (type: string) => ENTITY_TYPES.find(e => e.type === type)?.prefix ?? `${type.slice(0, 4)}:`;
 
-// Search prefixes for hints
-const SEARCH_HINTS = [
-  { prefix: 'cus:', label: 'Customers', description: 'Search customers by name or ID' },
-  { prefix: 'prj:', label: 'Projects', description: 'Search projects by name or code' },
-  { prefix: 'inv:', label: 'Invoices', description: 'Search invoices by number' },
-  { prefix: 'emp:', label: 'Employees', description: 'Search employees by name' },
-  { prefix: 'ven:', label: 'Vendors', description: 'Search vendors by name' },
-  { prefix: 'itm:', label: 'Items', description: 'Search items by name or code' },
-  { prefix: 'con:', label: 'Contacts', description: 'Search contacts by name' },
-];
+// Derived mappings
+const TYPE_ICONS: Record<string, React.ElementType> = Object.fromEntries(
+  ENTITY_TYPES.map((e) => [e.type, e.icon])
+);
+
+const TYPE_COLORS: Record<string, string> = Object.fromEntries(
+  ENTITY_TYPES.map((e) => [e.type, e.color])
+);
+
+// Derived search hints using explicit prefixes
+const SEARCH_HINTS = ENTITY_TYPES.map((e) => ({
+  prefix: e.prefix,
+  label: e.label,
+  description: e.description,
+  color: e.color,
+}));
 
 interface GlobalSearchProps {
   className?: string;
@@ -111,6 +111,9 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
     setQuery(prefix + ' ');
   }, []);
 
+  // Filter pages (instant, no debounce)
+  const filteredPages = React.useMemo(() => filterPages(query), [query]);
+
   // Group results by type
   const groupedResults = React.useMemo(() => {
     if (!searchResults?.results) return {};
@@ -128,6 +131,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
   }, [searchResults]);
 
   const hasResults = searchResults?.results && searchResults.results.length > 0;
+  const hasPageResults = filteredPages.length > 0;
   const showHints = query.length === 0;
 
   return (
@@ -150,10 +154,13 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
       </Button>
 
       {/* Search dialog */}
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <Command shouldFilter={false} className="rounded-lg border border-gray-700 bg-gray-900">
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        commandProps={{ shouldFilter: false, className: "rounded-lg border border-gray-700 bg-gray-900" }}
+      >
           <CommandInput
-            placeholder="Search customers, projects, invoices... (try 'cus: acme')"
+            placeholder="Search pages, customers, projects... (try 'proj:')"
             value={query}
             onValueChange={setQuery}
             className="border-none focus:ring-0"
@@ -166,14 +173,14 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
               </div>
             )}
 
-            {/* Empty state */}
-            {!isLoading && debouncedQuery.length > 0 && !hasResults && (
+            {/* Empty state - only show if no pages AND no entity results */}
+            {!isLoading && debouncedQuery.length > 0 && !hasResults && !hasPageResults && (
               <CommandEmpty>
                 <div className="text-center py-6">
                   <Search className="h-10 w-10 text-gray-500 mx-auto mb-2" />
                   <p className="text-gray-400">No results found for "{debouncedQuery}"</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Try using a prefix like "cus:" or "prj:" to filter by type
+                    Try using a prefix like "cust:" or "proj:" to filter by type
                   </p>
                 </div>
               </CommandEmpty>
@@ -188,7 +195,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                     onSelect={() => handlePrefixClick(hint.prefix)}
                     className="flex items-center gap-3 py-2"
                   >
-                    <div className={cn('p-1.5 rounded', TYPE_COLORS[hint.prefix.replace(':', '')] || 'bg-gray-700')}>
+                    <div className={cn('p-1.5 rounded', hint.color)}>
                       <CommandIcon className="h-3.5 w-3.5" />
                     </div>
                     <div className="flex-1">
@@ -201,6 +208,36 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                   </CommandItem>
                 ))}
               </CommandGroup>
+            )}
+
+            {/* Page navigation results (instant) */}
+            {hasPageResults && (
+              <>
+                <CommandGroup heading="Go to Page">
+                  {filteredPages.map((page) => {
+                    const Icon = page.icon;
+                    const categoryConfig = CATEGORY_CONFIG[page.category];
+                    return (
+                      <CommandItem
+                        key={page.path}
+                        value={`page-${page.path}`}
+                        onSelect={() => handleSelect(page.path)}
+                        className="flex items-center gap-3 py-2 cursor-pointer"
+                      >
+                        <div className={cn('p-1.5 rounded', categoryConfig.color)}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-200">{page.name}</div>
+                          <div className="text-xs text-gray-500 truncate">{page.path}</div>
+                        </div>
+                        <ArrowRight className="h-3.5 w-3.5 text-gray-500" />
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+                {(hasResults || isLoading) && <CommandSeparator className="bg-gray-800" />}
+              </>
             )}
 
             {/* Search results grouped by type */}
@@ -271,10 +308,9 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
               </span>
             </div>
             <div>
-              Type <code className="px-1 bg-gray-800 rounded">cus:</code> to filter by type
+              Type <code className="px-1 bg-gray-800 rounded">proj:</code> to filter by type
             </div>
           </div>
-        </Command>
       </CommandDialog>
     </>
   );

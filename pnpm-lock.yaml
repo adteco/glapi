@@ -302,6 +302,12 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.3)
+      '@glapi/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@glapi/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       '@glapi/trpc':
         specifier: workspace:*
         version: link:../../packages/trpc
@@ -492,6 +498,9 @@ importers:
 
   apps/workers:
     dependencies:
+      '@glapi/api-service':
+        specifier: workspace:*
+        version: link:../../packages/api-service
       '@glapi/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -3388,7 +3397,6 @@ packages:
   '@pact-foundation/pact-core@16.0.0':
     resolution: {integrity: sha512-Zdo/JIsReDrJLg0tCN0IinTmMi4tU+gmKPNc70J0wY0j/zMuL4xdpqotKhIDChf9yK4sEr2K24lKEZ9yQN2eWw==}
     engines: {node: '>=16'}
-    cpu: [x64, ia32, arm64]
     os: [darwin, linux, win32]
 
   '@pact-foundation/pact@15.0.1':

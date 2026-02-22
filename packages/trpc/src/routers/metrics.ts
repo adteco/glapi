@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { MetricsService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // ==========================================
 // Input Schemas
@@ -75,6 +76,10 @@ export const metricsRouter = router({
    * Get comprehensive dashboard data
    */
   getDashboard: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_metrics_dashboard', 'Get comprehensive dashboard data with KPIs and trends', {
+      scopes: ['metrics', 'reporting', 'dashboard'],
+      permissions: ['read:metrics'],
+    }) })
     .input(
       z.object({
         periodId: z.string().optional(),
@@ -99,6 +104,10 @@ export const metricsRouter = router({
    * Get KPI cards for specific metrics
    */
   getKpiCards: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_kpi_cards', 'Get KPI cards for specific metrics', {
+      scopes: ['metrics', 'reporting', 'dashboard'],
+      permissions: ['read:metrics'],
+    }) })
     .input(
       z.object({
         periodId: z.string(),
@@ -169,6 +178,10 @@ export const metricsRouter = router({
    * Get trend data for a metric over time
    */
   getTrend: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_metric_trend', 'Get trend data for a metric over time', {
+      scopes: ['metrics', 'reporting', 'analysis'],
+      permissions: ['read:metrics'],
+    }) })
     .input(
       z.object({
         metricId: z.string(),
@@ -239,6 +252,10 @@ export const metricsRouter = router({
    * List all available metric definitions
    */
   listMetricDefinitions: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_metric_definitions', 'List all available metric definitions', {
+      scopes: ['metrics', 'reporting', 'configuration'],
+      permissions: ['read:metrics'],
+    }) })
     .input(
       z
         .object({
@@ -257,6 +274,11 @@ export const metricsRouter = router({
    * Create a custom metric definition
    */
   createCustomMetric: protectedProcedure
+    .meta({ ai: createWriteAIMeta('create_custom_metric', 'Create a custom metric definition', {
+      scopes: ['metrics', 'reporting', 'configuration'],
+      permissions: ['write:metrics'],
+      riskLevel: 'LOW',
+    }) })
     .input(
       z.object({
         name: z.string().min(1).max(100),
@@ -334,6 +356,11 @@ export const metricsRouter = router({
    * Delete a custom metric definition
    */
   deleteCustomMetric: protectedProcedure
+    .meta({ ai: createDeleteAIMeta('delete_custom_metric', 'Delete a custom metric definition', {
+      scopes: ['metrics', 'reporting', 'configuration'],
+      permissions: ['delete:metrics'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new MetricsService({ organizationId: ctx.organizationId }, { db: ctx.db });
@@ -349,6 +376,10 @@ export const metricsRouter = router({
    * List saved views
    */
   listSavedViews: protectedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_saved_views', 'List saved dashboard/report views', {
+      scopes: ['metrics', 'reporting', 'dashboard'],
+      permissions: ['read:metrics'],
+    }) })
     .input(
       z
         .object({

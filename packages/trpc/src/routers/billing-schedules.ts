@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
 import { BillingScheduleService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
 // Helper to map service errors to TRPC errors
 function handleServiceError(error: any): never {
@@ -23,6 +24,11 @@ function handleServiceError(error: any): never {
 export const billingSchedulesRouter = router({
   // Generate billing schedule for a subscription
   generate: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('generate_billing_schedule', 'Generate billing schedule for a subscription', {
+      scopes: ['billing', 'subscriptions'],
+      permissions: ['write:billing-schedules'],
+      riskLevel: 'MEDIUM',
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid(),
       startDate: z.coerce.date().optional(),
@@ -48,6 +54,10 @@ export const billingSchedulesRouter = router({
 
   // Get billing schedule by ID
   get: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_billing_schedule', 'Get a billing schedule by ID', {
+      scopes: ['billing', 'subscriptions', 'global'],
+      permissions: ['read:billing-schedules'],
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
@@ -65,6 +75,10 @@ export const billingSchedulesRouter = router({
 
   // Get active schedule for a subscription
   getBySubscription: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_billing_schedule_by_subscription', 'Get active billing schedule for a subscription', {
+      scopes: ['billing', 'subscriptions'],
+      permissions: ['read:billing-schedules'],
+    }) })
     .input(z.object({ subscriptionId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const service = new BillingScheduleService(ctx.serviceContext, { db: ctx.db });
@@ -78,6 +92,10 @@ export const billingSchedulesRouter = router({
 
   // List billing schedules
   list: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_billing_schedules', 'Search and list billing schedules', {
+      scopes: ['billing', 'subscriptions', 'global'],
+      permissions: ['read:billing-schedules'],
+    }) })
     .input(z.object({
       subscriptionId: z.string().uuid().optional(),
       status: z.union([
@@ -100,6 +118,10 @@ export const billingSchedulesRouter = router({
 
   // Get lines due for billing
   getLinesDueToBill: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('get_billing_lines_due', 'Get billing schedule lines due for billing', {
+      scopes: ['billing'],
+      permissions: ['read:billing-schedules'],
+    }) })
     .input(z.object({
       asOfDate: z.coerce.date().optional()
     }).optional())

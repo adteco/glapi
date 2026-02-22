@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticatedProcedure, adminProcedure, router } from '../trpc';
 import { CloseManagementService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
+import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
 
 // Enums
 const CloseTaskStatusEnum = z.enum([
@@ -99,6 +100,10 @@ export const closeManagementRouter = router({
    * List all task templates
    */
   listTemplates: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_close_task_templates', 'List close task templates', {
+      scopes: ['close-management', 'accounting', 'global'],
+      permissions: ['read:close-management'],
+    }) })
     .input(
       z.object({
         page: z.number().int().positive().optional(),
@@ -142,6 +147,12 @@ export const closeManagementRouter = router({
    * Create a task template - ADMIN ONLY
    */
   createTemplate: adminProcedure
+    .meta({ ai: createWriteAIMeta('create_close_task_template', 'Create a close task template', {
+      scopes: ['close-management', 'accounting'],
+      permissions: ['admin:close-management'],
+      riskLevel: 'LOW',
+      minimumRole: 'admin',
+    }) })
     .input(createTaskTemplateSchema)
     .mutation(async ({ ctx, input }) => {
       const service = new CloseManagementService(ctx.serviceContext);
@@ -167,6 +178,12 @@ export const closeManagementRouter = router({
    * Delete a task template - ADMIN ONLY
    */
   deleteTemplate: adminProcedure
+    .meta({ ai: createDeleteAIMeta('delete_close_task_template', 'Delete a close task template', {
+      scopes: ['close-management', 'accounting'],
+      permissions: ['admin:close-management'],
+      riskLevel: 'MEDIUM',
+      minimumRole: 'admin',
+    }) })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const service = new CloseManagementService(ctx.serviceContext);
@@ -182,6 +199,10 @@ export const closeManagementRouter = router({
    * List all checklists
    */
   listChecklists: authenticatedProcedure
+    .meta({ ai: createReadOnlyAIMeta('list_close_checklists', 'List period close checklists', {
+      scopes: ['close-management', 'accounting', 'global'],
+      permissions: ['read:close-management'],
+    }) })
     .input(
       z.object({
         page: z.number().int().positive().optional(),

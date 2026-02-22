@@ -5,7 +5,7 @@
  * Creates pending documents for human review and manages the conversion workflow.
  */
 
-import { db, pendingDocuments, eq, organizations } from '@glapi/database';
+import { db, pendingDocuments, eq, organizations, withOrganizationContext } from '@glapi/database';
 import type {
   NewPendingDocument,
   PendingDocument,
@@ -33,23 +33,7 @@ import { MagicInboxUsageService } from './magic-inbox-usage-service';
 export async function processMagicInboxWebhook(
   payload: MagicInboxWebhookPayload
 ): Promise<MagicInboxWebhookResponse> {
-  // Check for duplicate by messageId
-  if (payload.messageId) {
-    const existing = await db.query.pendingDocuments.findFirst({
-      where: eq(pendingDocuments.messageId, payload.messageId),
-    });
-
-    if (existing) {
-      console.log(`[MagicInbox] Duplicate messageId: ${payload.messageId}`);
-      return {
-        received: true,
-        duplicate: true,
-        documentId: existing.id,
-      };
-    }
-  }
-
-  // Resolve organization ID from orgId (could be email prefix or actual org ID)
+  // Resolve organization ID first (needed for per-org duplicate check)
   const organizationId = await resolveOrganizationId(payload.orgId);
 
   if (!organizationId) {
@@ -58,6 +42,28 @@ export async function processMagicInboxWebhook(
       received: false,
       error: `Unknown organization: ${payload.orgId}`,
     };
+  }
+
+  // Check for duplicate by messageId WITHIN this organization
+  // (same email to different orgs should create separate documents)
+  if (payload.messageId) {
+    const existing = await withOrganizationContext(
+      { organizationId },
+      async (contextDb) => {
+        return contextDb.query.pendingDocuments.findFirst({
+          where: eq(pendingDocuments.messageId, payload.messageId),
+        });
+      }
+    );
+
+    if (existing) {
+      console.log(`[MagicInbox] Duplicate messageId for org ${organizationId}: ${payload.messageId}`);
+      return {
+        received: true,
+        duplicate: true,
+        documentId: existing.id,
+      };
+    }
   }
 
   // Build extracted data
@@ -101,10 +107,16 @@ export async function processMagicInboxWebhook(
     receivedAt: payload.receivedAt ? new Date(payload.receivedAt) : new Date(),
   };
 
-  const [document] = await db
-    .insert(pendingDocuments)
-    .values(newDocument)
-    .returning();
+  // Use RLS context for the insert - pendingDocuments table has RLS policies
+  const [document] = await withOrganizationContext(
+    { organizationId },
+    async (contextDb) => {
+      return contextDb
+        .insert(pendingDocuments)
+        .values(newDocument)
+        .returning();
+    }
+  );
 
   console.log(`[MagicInbox] Created pending document ${document.id} for org ${organizationId}`);
 
@@ -163,7 +175,7 @@ async function resolveOrganizationId(orgId: string): Promise<string | null> {
   if (orgId === 'test-org' || orgId === 'test') {
     const testOrg = await db.query.organizations.findFirst();
     if (testOrg) {
-      const testOrgId = testOrg.id as string;
+      const testOrgId = testOrg.id as unknown as string;
       console.log(`[MagicInbox] Using fallback org ${testOrgId} for test orgId: ${orgId}`);
       return testOrgId;
     }
