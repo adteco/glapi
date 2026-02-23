@@ -208,7 +208,8 @@ type DuplicateTemplateValues = z.infer<typeof duplicateTemplateSchema>;
 // =============================================================================
 
 export default function WorkflowsPage() {
-  const { orgId } = useAuth();
+  const { orgId, userId, isLoaded } = useAuth();
+  const canQueryWorkflows = isLoaded && Boolean(orgId) && Boolean(userId);
   const [activeTab, setActiveTab] = useState<'workflows' | 'templates'>('workflows');
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -219,12 +220,12 @@ export default function WorkflowsPage() {
   // tRPC queries
   const { data: workflows = [], isLoading, refetch } = trpc.workflows.list.useQuery(
     { includeInactive: true, templatesOnly: false },
-    { enabled: !!orgId }
+    { enabled: canQueryWorkflows }
   );
 
   const { data: templates = [] } = trpc.workflows.list.useQuery(
     { includeInactive: true, templatesOnly: true },
-    { enabled: !!orgId }
+    { enabled: canQueryWorkflows }
   );
 
   // Filter workflows and templates

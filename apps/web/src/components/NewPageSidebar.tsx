@@ -129,7 +129,8 @@ const getIconComponent = (iconName: string | null | undefined): React.ElementTyp
 const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = false, onMobileOpenChange }: NewPageSidebarProps) => {
   const pathname = usePathname();
   const { user } = useUser();
-  const { orgId } = useAuth();
+  const { orgId, userId, isLoaded } = useAuth();
+  const canQueryWorkflows = isLoaded && Boolean(orgId) && Boolean(userId);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -157,7 +158,7 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
   const { data: workflowsData, isLoading: isLoadingWorkflows } = trpc.workflows.list.useQuery(
     {},
     {
-      enabled: !!orgId && (isWorkflowsSectionOpen || isWorkflowsRoute),
+      enabled: canQueryWorkflows && (isWorkflowsSectionOpen || isWorkflowsRoute),
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnWindowFocus: false,
     }
