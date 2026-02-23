@@ -24,12 +24,22 @@ import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
 
 const DashboardPage = () => {
-  const { orgId } = useAuth();
+  const { orgId, userId, isLoaded } = useAuth();
+  const canQueryAnalytics = isLoaded && Boolean(orgId) && Boolean(userId);
 
   // Fetch project analytics
-  const { data: backlogData, isLoading: backlogLoading } = trpc.projectAnalytics.getBacklogByCustomer.useQuery();
-  const { data: unbilledData, isLoading: unbilledLoading } = trpc.projectAnalytics.getUnbilledTimeByCustomer.useQuery();
-  const { data: unfulfilledData, isLoading: unfulfilledLoading } = trpc.projectAnalytics.getUnfulfilledSalesOrdersByCustomer.useQuery();
+  const { data: backlogData, isLoading: backlogLoading } = trpc.projectAnalytics.getBacklogByCustomer.useQuery(
+    undefined,
+    { enabled: canQueryAnalytics }
+  );
+  const { data: unbilledData, isLoading: unbilledLoading } = trpc.projectAnalytics.getUnbilledTimeByCustomer.useQuery(
+    undefined,
+    { enabled: canQueryAnalytics }
+  );
+  const { data: unfulfilledData, isLoading: unfulfilledLoading } = trpc.projectAnalytics.getUnfulfilledSalesOrdersByCustomer.useQuery(
+    undefined,
+    { enabled: canQueryAnalytics }
+  );
 
   if (!orgId) {
     return (
