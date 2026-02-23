@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import {
   createGeminiConversationalService,
-  createTRPCMCPClient,
+  GLAPI_SYSTEM_PROMPT,
+} from '@/lib/ai/gemini-conversational-service';
+import {
   createDefaultUserContext,
   type UserRole,
-  GLAPI_SYSTEM_PROMPT,
-} from '@/lib/ai';
+} from '@/lib/ai/guardrails';
 
 // Create conversational service instance
 let conversationalService: ReturnType<typeof createGeminiConversationalService> | null = null;
 
-function getConversationalService(organizationId: string, userId: string) {
+async function getConversationalService(organizationId: string, userId: string) {
   // Create a fresh service for each request to use the correct org context
   // In production, you might want to cache these per-org
   const apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
@@ -25,6 +26,7 @@ function getConversationalService(organizationId: string, userId: string) {
     ? `${process.env.NEXT_PUBLIC_APP_URL}/api/trpc`
     : 'http://localhost:3030/api/trpc';
 
+  const { createTRPCMCPClient } = await import('@/lib/ai/trpc-mcp-client');
   const mcpClient = createTRPCMCPClient({
     organizationId,
     userId,
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
     const userContext = createDefaultUserContext(userId, organizationId, userRole);
 
     // Get or create conversational service with proper org context
-    const service = getConversationalService(organizationId, userId);
+    const service = await getConversationalService(organizationId, userId);
 
     // Process the message
     const response = await service.processMessage(

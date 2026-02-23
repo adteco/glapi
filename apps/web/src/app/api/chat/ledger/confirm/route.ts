@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { createTRPCMCPClient } from '@/lib/ai';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +38,7 @@ export async function POST(request: NextRequest) {
       ? `${process.env.NEXT_PUBLIC_APP_URL}/api/trpc`
       : 'http://localhost:3030/api/trpc';
 
+    const { createTRPCMCPClient } = await import('@/lib/ai/trpc-mcp-client');
     const mcpClient = createTRPCMCPClient({
       organizationId,
       userId,
