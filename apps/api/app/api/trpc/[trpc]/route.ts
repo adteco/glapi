@@ -40,7 +40,7 @@ const handler = async (req: NextRequest) => {
         resHeaders,
         user,
         db,
-        organizationName: context.organizationName,
+        organizationName: context?.organizationName,
       });
     },
     onError({ error, path }) {
