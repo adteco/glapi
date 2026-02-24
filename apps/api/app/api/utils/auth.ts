@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { verifyToken } from "@clerk/backend";
 import { PermissionService } from "@glapi/api-service";
 import { OrganizationRepository, AuthEntityRepository } from "@glapi/database";
 import type { ResourceType, Action, AccessLevel } from "@glapi/api-service";
@@ -70,6 +71,65 @@ const entityIdCache = new Map<string, string>();
 interface ResolvedOrganization {
   id: OrganizationId;
   name?: string;
+}
+
+interface ResolvedRequestIdentity {
+  rawUserId: string | null;
+  rawOrganizationId: string | null;
+}
+
+/**
+ * Resolve caller identity from request metadata.
+ *
+ * Priority:
+ * 1. Verified Clerk bearer token claims (trusted)
+ * 2. Explicit x-user-id / x-organization-id headers (fallback)
+ */
+async function resolveRequestIdentity(
+  headersList: Headers,
+): Promise<ResolvedRequestIdentity> {
+  const headerUserId = headersList.get("x-user-id");
+  const headerOrganizationId = headersList.get("x-organization-id");
+  const authHeader =
+    headersList.get("authorization") ?? headersList.get("Authorization");
+  const secretKey = process.env.CLERK_SECRET_KEY;
+
+  if (!authHeader?.startsWith("Bearer ") || !secretKey) {
+    return {
+      rawUserId: headerUserId,
+      rawOrganizationId: headerOrganizationId,
+    };
+  }
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return {
+      rawUserId: headerUserId,
+      rawOrganizationId: headerOrganizationId,
+    };
+  }
+
+  try {
+    const payload = await verifyToken(token, { secretKey });
+    const tokenUserId = payload.sub ?? null;
+    const tokenOrganizationId = ((payload.org_id ??
+      payload.organization_id) as string | undefined) ?? null;
+
+    return {
+      // Prefer verified token claims when available.
+      rawUserId: tokenUserId ?? headerUserId,
+      rawOrganizationId: tokenOrganizationId ?? headerOrganizationId,
+    };
+  } catch (error) {
+    console.warn(
+      "Failed to verify Clerk token while resolving request identity; falling back to headers",
+      error,
+    );
+    return {
+      rawUserId: headerUserId,
+      rawOrganizationId: headerOrganizationId,
+    };
+  }
 }
 
 /**
@@ -182,8 +242,8 @@ async function resolveEntityId(clerkUserId: string): Promise<EntityId | null> {
 export async function getServiceContext(): Promise<OrganizationContext> {
   const headersList = await headers();
 
-  const rawOrganizationId = headersList.get("x-organization-id");
-  const rawUserId = headersList.get("x-user-id");
+  const { rawOrganizationId, rawUserId } =
+    await resolveRequestIdentity(headersList);
   const apiKeyName = headersList.get("x-api-key-name");
 
   const DEV_ORG_ID = "ba3b8cdf-efc1-4a60-88be-ac203d263fe2";
@@ -208,7 +268,7 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   if (isProduction) {
     if (!rawUserId) {
       throw new AuthenticationError(
-        "User context required. Ensure x-user-id header is set.",
+        "User context required. Ensure Authorization token or x-user-id header is set.",
       );
     }
     if (!resolvedOrg) {
@@ -287,8 +347,8 @@ export async function getServiceContext(): Promise<OrganizationContext> {
 export async function getOptionalServiceContext(): Promise<OrganizationContext | null> {
   const headersList = await headers();
 
-  const rawOrganizationId = headersList.get("x-organization-id");
-  const rawUserId = headersList.get("x-user-id");
+  const { rawOrganizationId, rawUserId } =
+    await resolveRequestIdentity(headersList);
   const apiKeyName = headersList.get("x-api-key-name");
 
   if (!rawUserId) {
