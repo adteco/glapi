@@ -1,6 +1,7 @@
 # Karate API Tests
 
 This folder contains API acceptance tests for the ASC-606 intermediary flow.
+It also includes smoke checks for auth-sensitive tRPC endpoints.
 
 ## Run
 
@@ -14,6 +15,11 @@ pnpm dev:api
 
 ```bash
 pnpm test:karate
+
+# Targeted suites
+pnpm test:karate:asc606
+pnpm test:karate:demo-seed
+pnpm test:karate:trpc-auth
 ```
 
 ## Config

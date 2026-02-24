@@ -39,7 +39,8 @@
     "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
     "test:karate": "bash ./scripts/karate/run.sh",
     "test:karate:asc606": "bash ./scripts/karate/run.sh tests/karate/asc606-revenue.feature",
-    "test:karate:demo-seed": "bash ./scripts/karate/run.sh tests/karate/asc606-demo-seed.feature"
+    "test:karate:demo-seed": "bash ./scripts/karate/run.sh tests/karate/asc606-demo-seed.feature",
+    "test:karate:trpc-auth": "bash ./scripts/karate/run.sh tests/karate/trpc-auth-smoke.feature"
   },
   "workspaces": [
     "packages/*",
