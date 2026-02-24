@@ -1,20 +1,20 @@
-import { headers } from 'next/headers';
-import { PermissionService } from '@glapi/api-service';
-import { OrganizationRepository, AuthEntityRepository } from '@glapi/database';
-import type { ResourceType, Action, AccessLevel } from '@glapi/api-service';
+import { headers } from "next/headers";
+import { PermissionService } from "@glapi/api-service";
+import { OrganizationRepository, AuthEntityRepository } from "@glapi/database";
+import type { ResourceType, Action, AccessLevel } from "@glapi/api-service";
 import type {
   ClerkUserId,
   ClerkOrgId,
   EntityId,
   OrganizationId,
-} from '@glapi/shared-types';
+} from "@glapi/shared-types";
 import {
   isValidUuid,
   unsafeClerkUserId,
   unsafeClerkOrgId,
   unsafeEntityId,
   unsafeOrganizationId,
-} from '@glapi/shared-types';
+} from "@glapi/shared-types";
 
 export interface OrganizationContext {
   /**
@@ -57,7 +57,7 @@ export interface OrganizationContext {
 export class AuthenticationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AuthenticationError';
+    this.name = "AuthenticationError";
   }
 }
 
@@ -73,9 +73,42 @@ interface ResolvedOrganization {
 }
 
 /**
+ * Resolve organization from user identity when organization header is unavailable
+ * or points to a Clerk org ID that has not been provisioned yet.
+ */
+async function resolveOrganizationFromUser(
+  rawUserId: string,
+): Promise<ResolvedOrganization | null> {
+  try {
+    const authEntityRepo = new AuthEntityRepository();
+    const entity = isValidUuid(rawUserId)
+      ? await authEntityRepo.findById(rawUserId)
+      : await authEntityRepo.findByClerkId(rawUserId);
+
+    if (!entity?.organizationId) {
+      return null;
+    }
+
+    const orgRepo = new OrganizationRepository();
+    const org = await orgRepo.findById(entity.organizationId);
+    if (org) {
+      return { id: unsafeOrganizationId(org.id), name: org.name };
+    }
+
+    // Fall back to the entity's organization UUID even if lookup-by-id fails.
+    return { id: unsafeOrganizationId(entity.organizationId) };
+  } catch (error) {
+    console.error("Failed to resolve organization from user context:", error);
+    return null;
+  }
+}
+
+/**
  * Resolve a Clerk org ID (org_xxxxx) to a database organization UUID and name
  */
-async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganization | null> {
+async function resolveOrganization(
+  clerkOrgId: string,
+): Promise<ResolvedOrganization | null> {
   // Check cache first
   if (orgCache.has(clerkOrgId)) {
     const cached = orgCache.get(clerkOrgId)!;
@@ -93,7 +126,7 @@ async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganiza
         return { id: unsafeOrganizationId(org.id), name: org.name };
       }
     } catch (error) {
-      console.error('Failed to look up organization by UUID:', error);
+      console.error("Failed to look up organization by UUID:", error);
     }
     return { id: unsafeOrganizationId(clerkOrgId) };
   }
@@ -109,7 +142,7 @@ async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganiza
       return { id: unsafeOrganizationId(org.id), name: org.name };
     }
   } catch (error) {
-    console.error('Failed to resolve organization ID:', error);
+    console.error("Failed to resolve organization ID:", error);
   }
 
   return null;
@@ -140,7 +173,7 @@ async function resolveEntityId(clerkUserId: string): Promise<EntityId | null> {
       return unsafeEntityId(entity.id);
     }
   } catch (error) {
-    console.error('Failed to resolve entity ID from Clerk user ID:', error);
+    console.error("Failed to resolve entity ID from Clerk user ID:", error);
   }
 
   return null;
@@ -149,30 +182,41 @@ async function resolveEntityId(clerkUserId: string): Promise<EntityId | null> {
 export async function getServiceContext(): Promise<OrganizationContext> {
   const headersList = await headers();
 
-  const rawOrganizationId = headersList.get('x-organization-id');
-  const rawUserId = headersList.get('x-user-id');
-  const apiKeyName = headersList.get('x-api-key-name');
+  const rawOrganizationId = headersList.get("x-organization-id");
+  const rawUserId = headersList.get("x-user-id");
+  const apiKeyName = headersList.get("x-api-key-name");
 
-  const DEV_ORG_ID = 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2';
+  const DEV_ORG_ID = "ba3b8cdf-efc1-4a60-88be-ac203d263fe2";
   // Stable UUID used for dev/test contexts (Karate defaults to this value).
-  const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
+  const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
 
-  const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
+  const resolvedOrgFromHeader = rawOrganizationId
+    ? await resolveOrganization(rawOrganizationId)
+    : null;
+  const resolvedOrgFromUser =
+    !resolvedOrgFromHeader && rawUserId
+      ? await resolveOrganizationFromUser(rawUserId)
+      : null;
+  const resolvedOrg = resolvedOrgFromHeader ?? resolvedOrgFromUser;
   const resolvedEntityId = rawUserId ? await resolveEntityId(rawUserId) : null;
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env.NODE_ENV === "production";
 
   // In production, organization + user context MUST be present and resolvable.
   // IMPORTANT: audit fields in many tables are UUIDs; therefore, `x-user-id` must
   // resolve to an entity UUID (or itself be a UUID).
   if (isProduction) {
-    if (!rawOrganizationId || !rawUserId) {
+    if (!rawUserId) {
       throw new AuthenticationError(
-        'Organization context required. Ensure x-organization-id and x-user-id headers are set.'
+        "User context required. Ensure x-user-id header is set.",
       );
     }
     if (!resolvedOrg) {
-      throw new AuthenticationError(`Could not resolve organization ID: ${rawOrganizationId}`);
+      throw new AuthenticationError(
+        rawOrganizationId
+          ? `Could not resolve organization context from x-organization-id: ${rawOrganizationId}`
+          : "Could not resolve organization context from user identity",
+      );
     }
 
     const dbUserId =
@@ -181,16 +225,18 @@ export async function getServiceContext(): Promise<OrganizationContext> {
 
     if (!dbUserId) {
       throw new AuthenticationError(
-        'Invalid user context. x-user-id must be an entity UUID or map to an entity record.'
+        "Invalid user context. x-user-id must be an entity UUID or map to an entity record.",
       );
     }
 
     return {
       organizationId: resolvedOrg.id,
       organizationName: resolvedOrg.name,
-      entityId: resolvedEntityId ?? (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null),
+      entityId:
+        resolvedEntityId ??
+        (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null),
       clerkUserId: unsafeClerkUserId(rawUserId),
-      clerkOrganizationId: rawOrganizationId.startsWith('org_')
+      clerkOrganizationId: rawOrganizationId?.startsWith("org_")
         ? unsafeClerkOrgId(rawOrganizationId)
         : undefined,
       apiKeyName: apiKeyName || undefined,
@@ -206,20 +252,24 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const devEntityId = unsafeEntityId(DEV_USER_ID);
 
   const organizationId = resolvedOrg?.id ?? devOrgId;
-  const organizationName = resolvedOrg?.name ?? 'Development';
+  const organizationName = resolvedOrg?.name ?? "Development";
 
   // If the caller provided a UUID, treat it as an entity ID. Otherwise, use a stable dev UUID.
   const entityId =
     resolvedEntityId ??
-    (rawUserId && isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : devEntityId);
+    (rawUserId && isValidUuid(rawUserId)
+      ? unsafeEntityId(rawUserId)
+      : devEntityId);
 
   const dbUserId = entityId;
   const clerkUserId = unsafeClerkUserId(rawUserId || DEV_USER_ID);
 
   if (!rawOrganizationId || !rawUserId) {
-    console.warn('[DEV ONLY] Using development context - missing auth headers');
+    console.warn("[DEV ONLY] Using development context - missing auth headers");
   } else if (!resolvedOrg) {
-    console.warn(`[DEV ONLY] Could not resolve organization ID: ${rawOrganizationId}; falling back to dev org`);
+    console.warn(
+      `[DEV ONLY] Could not resolve organization ID: ${rawOrganizationId}; falling back to dev org`,
+    );
   }
 
   return {
@@ -237,16 +287,20 @@ export async function getServiceContext(): Promise<OrganizationContext> {
 export async function getOptionalServiceContext(): Promise<OrganizationContext | null> {
   const headersList = await headers();
 
-  const rawOrganizationId = headersList.get('x-organization-id');
-  const rawUserId = headersList.get('x-user-id');
-  const apiKeyName = headersList.get('x-api-key-name');
+  const rawOrganizationId = headersList.get("x-organization-id");
+  const rawUserId = headersList.get("x-user-id");
+  const apiKeyName = headersList.get("x-api-key-name");
 
-  if (!rawOrganizationId || !rawUserId) {
+  if (!rawUserId) {
     return null;
   }
 
-  // Resolve Clerk org ID to database UUID
-  const resolvedOrg = await resolveOrganization(rawOrganizationId);
+  // Resolve organization from header first; fall back to user-to-org mapping.
+  const resolvedOrgFromHeader = rawOrganizationId
+    ? await resolveOrganization(rawOrganizationId)
+    : null;
+  const resolvedOrg =
+    resolvedOrgFromHeader ?? (await resolveOrganizationFromUser(rawUserId));
   if (!resolvedOrg) {
     return null;
   }
@@ -260,7 +314,7 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
     organizationName: resolvedOrg.name,
     entityId: entityId,
     clerkUserId: clerkUserId,
-    clerkOrganizationId: rawOrganizationId.startsWith('org_')
+    clerkOrganizationId: rawOrganizationId?.startsWith("org_")
       ? unsafeClerkOrgId(rawOrganizationId)
       : undefined,
     apiKeyName: apiKeyName || undefined,
@@ -281,7 +335,7 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
 export async function checkPermission(
   resourceType: ResourceType,
   action: Action,
-  subsidiaryId?: string
+  subsidiaryId?: string,
 ): Promise<boolean> {
   const context = await getServiceContext();
   const permissionService = new PermissionService({
@@ -303,7 +357,7 @@ export async function checkPermission(
 export async function requirePermission(
   resourceType: ResourceType,
   action: Action,
-  subsidiaryId?: string
+  subsidiaryId?: string,
 ): Promise<void> {
   const context = await getServiceContext();
   const permissionService = new PermissionService({
@@ -322,7 +376,7 @@ export async function requirePermission(
  */
 export async function checkSubsidiaryAccess(
   subsidiaryId: string,
-  requiredLevel: AccessLevel
+  requiredLevel: AccessLevel,
 ): Promise<boolean> {
   const context = await getServiceContext();
   const permissionService = new PermissionService({
@@ -342,7 +396,7 @@ export async function checkSubsidiaryAccess(
  */
 export async function requireSubsidiaryAccess(
   subsidiaryId: string,
-  requiredLevel: AccessLevel
+  requiredLevel: AccessLevel,
 ): Promise<void> {
   const context = await getServiceContext();
   const permissionService = new PermissionService({
