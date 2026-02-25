@@ -7,6 +7,14 @@ import { trpc } from '@/lib/trpc';
 import { useAuth } from '@clerk/nextjs';
 import superjson from 'superjson';
 
+const AUTH_DEBUG_LOGS = process.env.NEXT_PUBLIC_AUTH_DEBUG_LOGS === 'true';
+
+function summarizeValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
 /**
  * Get the API URL based on environment.
  *
@@ -31,7 +39,7 @@ function getApiUrl(): string {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const { getToken, orgId, userId } = useAuth();
+  const { getToken, orgId, userId, isLoaded } = useAuth();
 
   // Store refs to avoid recreating client on every render
   const getTokenRef = useRef(getToken);
@@ -64,6 +72,17 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
     }
   }, [orgId, queryClient]);
 
+  useEffect(() => {
+    if (!AUTH_DEBUG_LOGS) return;
+    console.info('[auth-debug][trpc-provider] auth_state', {
+      isLoaded,
+      hasOrgId: Boolean(orgId),
+      hasUserId: Boolean(userId),
+      orgId: summarizeValue(orgId),
+      userId: summarizeValue(userId),
+    });
+  }, [isLoaded, orgId, userId]);
+
   // Create client once, use refs for dynamic values in headers
   const [trpcClient] = useState(() =>
     trpc.createClient({
@@ -71,13 +90,27 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
         httpBatchLink({
           url: `${getApiUrl()}/api/trpc`,
           transformer: superjson,
-          async headers() {
+          async headers(opts) {
             const token = await getTokenRef.current();
-            return {
+            const headerValues = {
               authorization: token ? `Bearer ${token}` : '',
               'x-organization-id': orgIdRef.current || '',
               'x-user-id': userIdRef.current || '',
             };
+
+            if (AUTH_DEBUG_LOGS) {
+              console.info('[auth-debug][trpc-provider] request_headers', {
+                hasToken: Boolean(token),
+                tokenLength: token?.length ?? 0,
+                hasOrgId: Boolean(orgIdRef.current),
+                hasUserId: Boolean(userIdRef.current),
+                orgId: summarizeValue(orgIdRef.current),
+                userId: summarizeValue(userIdRef.current),
+                opPaths: opts?.opList?.map((operation) => operation.path) ?? [],
+              });
+            }
+
+            return headerValues;
           },
         }),
       ],
