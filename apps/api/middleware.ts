@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const AUTH_DEBUG_LOGS = process.env.AUTH_DEBUG_LOGS === 'true';
+
+function summarizeValue(value: string | null): string | null {
+  if (!value) return null;
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function authDebug(event: string, payload: Record<string, unknown>) {
+  if (!AUTH_DEBUG_LOGS) return;
+  console.info(`[auth-debug][middleware] ${event}`, payload);
+}
+
 // Temporary hardcoded API keys for development
 const VALID_API_KEYS: Record<string, {
   organizationId: string;
@@ -59,6 +72,23 @@ export function middleware(request: NextRequest): NextResponse | Response {
   // Only apply auth to API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const apiKey = request.headers.get('x-api-key');
+    let authSource: 'none' | 'api_key' | 'client_headers' = 'none';
+
+    authDebug('incoming_request', {
+      method: request.method,
+      path: request.nextUrl.pathname,
+      hasAuthorization: Boolean(
+        request.headers.get('authorization') || request.headers.get('Authorization'),
+      ),
+      hasApiKey: Boolean(apiKey),
+      hasXOrganizationId: Boolean(request.headers.get('x-organization-id')),
+      hasXUserId: Boolean(request.headers.get('x-user-id')),
+      hasXClerkOrganizationId: Boolean(request.headers.get('x-clerk-organization-id')),
+      hasXClerkUserId: Boolean(request.headers.get('x-clerk-user-id')),
+      xOrganizationId: summarizeValue(request.headers.get('x-organization-id')),
+      xUserId: summarizeValue(request.headers.get('x-user-id')),
+      origin: origin || null,
+    });
 
     // Check API key authentication
     if (apiKey) {
@@ -69,7 +99,11 @@ export function middleware(request: NextRequest): NextResponse | Response {
         requestHeaders.set('x-organization-id', keyData.organizationId);
         requestHeaders.set('x-user-id', keyData.actorEntityId);
         requestHeaders.set('x-api-key-name', keyData.name);
+        authSource = 'api_key';
       } else {
+        authDebug('invalid_api_key', {
+          path: request.nextUrl.pathname,
+        });
         return new Response(JSON.stringify({ error: 'Invalid API key' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' }
@@ -86,9 +120,23 @@ export function middleware(request: NextRequest): NextResponse | Response {
         if (clientUserId) {
           requestHeaders.set('x-user-id', clientUserId);
         }
+        authSource = 'client_headers';
       }
       // No fallback - if no org ID is provided, the request should fail at the route handler level
     }
+
+    authDebug('normalized_headers', {
+      path: request.nextUrl.pathname,
+      authSource,
+      hasAuthorization: Boolean(
+        requestHeaders.get('authorization') || requestHeaders.get('Authorization'),
+      ),
+      hasXOrganizationId: Boolean(requestHeaders.get('x-organization-id')),
+      hasXUserId: Boolean(requestHeaders.get('x-user-id')),
+      xOrganizationId: summarizeValue(requestHeaders.get('x-organization-id')),
+      xUserId: summarizeValue(requestHeaders.get('x-user-id')),
+      apiKeyName: requestHeaders.get('x-api-key-name') || null,
+    });
   }
 
   // Create response with modified request headers that get passed to route handlers

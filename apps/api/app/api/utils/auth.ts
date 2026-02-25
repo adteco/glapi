@@ -76,6 +76,20 @@ interface ResolvedOrganization {
 interface ResolvedRequestIdentity {
   rawUserId: string | null;
   rawOrganizationId: string | null;
+  source: "token" | "headers";
+}
+
+const AUTH_DEBUG_LOGS = process.env.AUTH_DEBUG_LOGS === "true";
+
+function summarizeValue(value: string | null): string | null {
+  if (!value) return null;
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function authDebug(event: string, payload: Record<string, unknown>) {
+  if (!AUTH_DEBUG_LOGS) return;
+  console.info(`[auth-debug][service-context] ${event}`, payload);
 }
 
 /**
@@ -95,17 +109,34 @@ async function resolveRequestIdentity(
   const secretKey = process.env.CLERK_SECRET_KEY;
 
   if (!authHeader?.startsWith("Bearer ") || !secretKey) {
+    authDebug("identity_from_headers", {
+      reason: !authHeader?.startsWith("Bearer ")
+        ? "missing_authorization_bearer"
+        : "missing_clerk_secret",
+      hasAuthorization: Boolean(authHeader),
+      hasHeaderUserId: Boolean(headerUserId),
+      hasHeaderOrganizationId: Boolean(headerOrganizationId),
+      headerUserId: summarizeValue(headerUserId),
+      headerOrganizationId: summarizeValue(headerOrganizationId),
+    });
     return {
       rawUserId: headerUserId,
       rawOrganizationId: headerOrganizationId,
+      source: "headers",
     };
   }
 
   const token = authHeader.slice("Bearer ".length).trim();
   if (!token) {
+    authDebug("identity_from_headers", {
+      reason: "empty_bearer_token",
+      hasHeaderUserId: Boolean(headerUserId),
+      hasHeaderOrganizationId: Boolean(headerOrganizationId),
+    });
     return {
       rawUserId: headerUserId,
       rawOrganizationId: headerOrganizationId,
+      source: "headers",
     };
   }
 
@@ -119,15 +150,24 @@ async function resolveRequestIdentity(
       // Prefer verified token claims when available.
       rawUserId: tokenUserId ?? headerUserId,
       rawOrganizationId: tokenOrganizationId ?? headerOrganizationId,
+      source: "token",
     };
   } catch (error) {
     console.warn(
       "Failed to verify Clerk token while resolving request identity; falling back to headers",
       error,
     );
+    authDebug("identity_from_headers", {
+      reason: "token_verification_failed",
+      hasHeaderUserId: Boolean(headerUserId),
+      hasHeaderOrganizationId: Boolean(headerOrganizationId),
+      headerUserId: summarizeValue(headerUserId),
+      headerOrganizationId: summarizeValue(headerOrganizationId),
+    });
     return {
       rawUserId: headerUserId,
       rawOrganizationId: headerOrganizationId,
+      source: "headers",
     };
   }
 }
@@ -242,7 +282,7 @@ async function resolveEntityId(clerkUserId: string): Promise<EntityId | null> {
 export async function getServiceContext(): Promise<OrganizationContext> {
   const headersList = await headers();
 
-  const { rawOrganizationId, rawUserId } =
+  const { rawOrganizationId, rawUserId, source } =
     await resolveRequestIdentity(headersList);
   const apiKeyName = headersList.get("x-api-key-name");
 
@@ -259,6 +299,17 @@ export async function getServiceContext(): Promise<OrganizationContext> {
       : null;
   const resolvedOrg = resolvedOrgFromHeader ?? resolvedOrgFromUser;
   const resolvedEntityId = rawUserId ? await resolveEntityId(rawUserId) : null;
+
+  authDebug("get_service_context_resolved", {
+    identitySource: source,
+    rawUserId: summarizeValue(rawUserId),
+    rawOrganizationId: summarizeValue(rawOrganizationId),
+    hasResolvedOrgFromHeader: Boolean(resolvedOrgFromHeader),
+    hasResolvedOrgFromUser: Boolean(resolvedOrgFromUser),
+    hasResolvedEntityId: Boolean(resolvedEntityId),
+    apiKeyName: apiKeyName || null,
+    nodeEnv: process.env.NODE_ENV,
+  });
 
   const isProduction = process.env.NODE_ENV === "production";
 
@@ -347,11 +398,17 @@ export async function getServiceContext(): Promise<OrganizationContext> {
 export async function getOptionalServiceContext(): Promise<OrganizationContext | null> {
   const headersList = await headers();
 
-  const { rawOrganizationId, rawUserId } =
+  const { rawOrganizationId, rawUserId, source } =
     await resolveRequestIdentity(headersList);
   const apiKeyName = headersList.get("x-api-key-name");
 
   if (!rawUserId) {
+    authDebug("get_optional_context_null", {
+      reason: "missing_user_id",
+      identitySource: source,
+      rawOrganizationId: summarizeValue(rawOrganizationId),
+      apiKeyName: apiKeyName || null,
+    });
     return null;
   }
 
@@ -362,12 +419,29 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
   const resolvedOrg =
     resolvedOrgFromHeader ?? (await resolveOrganizationFromUser(rawUserId));
   if (!resolvedOrg) {
+    authDebug("get_optional_context_null", {
+      reason: "unresolved_organization",
+      identitySource: source,
+      rawUserId: summarizeValue(rawUserId),
+      rawOrganizationId: summarizeValue(rawOrganizationId),
+      hasResolvedOrgFromHeader: Boolean(resolvedOrgFromHeader),
+      apiKeyName: apiKeyName || null,
+    });
     return null;
   }
 
   // Resolve Clerk user ID to entity UUID
   const entityId = await resolveEntityId(rawUserId);
   const clerkUserId = unsafeClerkUserId(rawUserId);
+
+  authDebug("get_optional_context_success", {
+    identitySource: source,
+    rawUserId: summarizeValue(rawUserId),
+    rawOrganizationId: summarizeValue(rawOrganizationId),
+    organizationId: summarizeValue(resolvedOrg.id),
+    hasEntityId: Boolean(entityId),
+    apiKeyName: apiKeyName || null,
+  });
 
   return {
     organizationId: resolvedOrg.id,
