@@ -1,8 +1,8 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,14 +11,18 @@ import { portalPost } from '@/lib/customer-portal-client';
 
 export default function CustomerPortalAcceptInvitePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const tokenFromQuery = useMemo(() => searchParams.get('token') || '', [searchParams]);
-
-  const [token, setToken] = useState(tokenFromQuery);
+  const [token, setToken] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const queryToken = new URLSearchParams(window.location.search).get('token') || '';
+    if (queryToken) {
+      setToken(queryToken);
+    }
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
