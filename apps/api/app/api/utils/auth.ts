@@ -1,6 +1,10 @@
 import { headers } from 'next/headers';
 import { PermissionService } from '@glapi/api-service';
-import { OrganizationRepository, AuthEntityRepository } from '@glapi/database';
+import {
+  OrganizationRepository,
+  AuthEntityRepository,
+  withOrganizationContext,
+} from '@glapi/database';
 import type { ResourceType, Action, AccessLevel } from '@glapi/api-service';
 import type {
   ClerkUserId,
@@ -119,7 +123,10 @@ async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganiza
  * Resolve a Clerk user ID (user_xxxxx) to a database entity UUID
  * This supports the consolidated auth model where entities serve as authenticated users
  */
-async function resolveEntityId(clerkUserId: string): Promise<EntityId | null> {
+async function resolveEntityId(
+  clerkUserId: string,
+  organizationId?: OrganizationId
+): Promise<EntityId | null> {
   // Check cache first
   if (entityIdCache.has(clerkUserId)) {
     return unsafeEntityId(entityIdCache.get(clerkUserId)!);
@@ -132,8 +139,12 @@ async function resolveEntityId(clerkUserId: string): Promise<EntityId | null> {
 
   // Look up by Clerk user ID
   try {
-    const authEntityRepo = new AuthEntityRepository();
-    const entity = await authEntityRepo.findByClerkId(clerkUserId);
+    const entity = organizationId
+      ? await withOrganizationContext({ organizationId }, async (contextDb) => {
+          const authEntityRepo = new AuthEntityRepository(contextDb);
+          return authEntityRepo.findByClerkId(clerkUserId);
+        })
+      : await new AuthEntityRepository().findByClerkId(clerkUserId);
 
     if (entity) {
       entityIdCache.set(clerkUserId, entity.id);
@@ -159,41 +170,38 @@ async function ensureEntityForClerkUser(
   }
 
   try {
-    const authEntityRepo = new AuthEntityRepository();
-    const existing = await authEntityRepo.findByClerkId(clerkUserId);
+    const entityId = await withOrganizationContext(
+      { organizationId },
+      async (contextDb) => {
+        const authEntityRepo = new AuthEntityRepository(contextDb);
+        const existing = await authEntityRepo.findByClerkId(clerkUserId);
 
-    if (existing) {
-      if (existing.organizationId !== organizationId) {
-        console.error('[auth] Clerk user is linked to a different organization', {
+        if (existing) {
+          return existing.id;
+        }
+
+        // Placeholder profile values; Clerk webhook sync can update profile details later.
+        const created = await authEntityRepo.createUserEntity({
           clerkUserId,
-          expectedOrganizationId: organizationId,
-          actualOrganizationId: existing.organizationId,
+          email: `${clerkUserId}@placeholder.local`,
+          name: `User ${clerkUserId.slice(-8)}`,
+          displayName: null,
+          organizationId,
+          role: 'user',
         });
-        return null;
+
+        console.warn('[auth] Auto-provisioned missing auth entity for Clerk user', {
+          clerkUserId,
+          organizationId,
+          entityId: created.id,
+        });
+
+        return created.id;
       }
+    );
 
-      entityIdCache.set(clerkUserId, existing.id);
-      return unsafeEntityId(existing.id);
-    }
-
-    // Placeholder profile values; Clerk webhook sync can update profile details later.
-    const created = await authEntityRepo.createUserEntity({
-      clerkUserId,
-      email: `${clerkUserId}@placeholder.local`,
-      name: `User ${clerkUserId.slice(-8)}`,
-      displayName: null,
-      organizationId,
-      role: 'user',
-    });
-
-    console.warn('[auth] Auto-provisioned missing auth entity for Clerk user', {
-      clerkUserId,
-      organizationId,
-      entityId: created.id,
-    });
-
-    entityIdCache.set(clerkUserId, created.id);
-    return unsafeEntityId(created.id);
+    entityIdCache.set(clerkUserId, entityId);
+    return unsafeEntityId(entityId);
   } catch (error) {
     console.error('[auth] Failed to auto-provision auth entity', {
       clerkUserId,
@@ -217,7 +225,12 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
 
   const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
-  let resolvedEntityId = rawUserId ? await resolveEntityId(rawUserId) : null;
+  let resolvedEntityId =
+    rawUserId && resolvedOrg
+      ? await resolveEntityId(rawUserId, resolvedOrg.id)
+      : rawUserId
+        ? await resolveEntityId(rawUserId)
+        : null;
 
   const isProduction = process.env.NODE_ENV === 'production';
 
@@ -316,7 +329,7 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
   }
 
   // Resolve Clerk user ID to entity UUID
-  const entityId = await resolveEntityId(rawUserId);
+  const entityId = await resolveEntityId(rawUserId, resolvedOrg.id);
   const clerkUserId = unsafeClerkUserId(rawUserId);
 
   return {
