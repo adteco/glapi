@@ -1,12 +1,34 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { appRouter, createContext } from '@glapi/trpc';
 import { db } from '@glapi/database';
-import { getServiceContext } from '../../utils/auth';
+import { AuthenticationError, getServiceContext } from '../../utils/auth';
 import type { NextRequest } from 'next/server';
 
 const handler = async (req: NextRequest) => {
-  // Get the organization context from headers (set by middleware)
-  const context = await getServiceContext();
+  let context;
+  try {
+    // Get the organization context from headers (set by middleware)
+    context = await getServiceContext();
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: error.message,
+          },
+        }),
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    throw error;
+  }
 
   // Create a user object compatible with the tRPC User interface
   // Must include clerkId and entityId for proper serviceContext creation

@@ -146,6 +146,65 @@ async function resolveEntityId(clerkUserId: string): Promise<EntityId | null> {
   return null;
 }
 
+/**
+ * Ensure a Clerk user has an auth-enabled entity row for the organization.
+ * This is a self-healing path for environments where Clerk webhooks were not delivered.
+ */
+async function ensureEntityForClerkUser(
+  clerkUserId: string,
+  organizationId: OrganizationId
+): Promise<EntityId | null> {
+  if (!clerkUserId.startsWith('user_')) {
+    return null;
+  }
+
+  try {
+    const authEntityRepo = new AuthEntityRepository();
+    const existing = await authEntityRepo.findByClerkId(clerkUserId);
+
+    if (existing) {
+      if (existing.organizationId !== organizationId) {
+        console.error('[auth] Clerk user is linked to a different organization', {
+          clerkUserId,
+          expectedOrganizationId: organizationId,
+          actualOrganizationId: existing.organizationId,
+        });
+        return null;
+      }
+
+      entityIdCache.set(clerkUserId, existing.id);
+      return unsafeEntityId(existing.id);
+    }
+
+    // Placeholder profile values; Clerk webhook sync can update profile details later.
+    const created = await authEntityRepo.createUserEntity({
+      clerkUserId,
+      email: `${clerkUserId}@placeholder.local`,
+      name: `User ${clerkUserId.slice(-8)}`,
+      displayName: null,
+      organizationId,
+      role: 'user',
+    });
+
+    console.warn('[auth] Auto-provisioned missing auth entity for Clerk user', {
+      clerkUserId,
+      organizationId,
+      entityId: created.id,
+    });
+
+    entityIdCache.set(clerkUserId, created.id);
+    return unsafeEntityId(created.id);
+  } catch (error) {
+    console.error('[auth] Failed to auto-provision auth entity', {
+      clerkUserId,
+      organizationId,
+      error,
+    });
+
+    return null;
+  }
+}
+
 export async function getServiceContext(): Promise<OrganizationContext> {
   const headersList = await headers();
 
@@ -158,7 +217,7 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
 
   const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
-  const resolvedEntityId = rawUserId ? await resolveEntityId(rawUserId) : null;
+  let resolvedEntityId = rawUserId ? await resolveEntityId(rawUserId) : null;
 
   const isProduction = process.env.NODE_ENV === 'production';
 
@@ -173,6 +232,11 @@ export async function getServiceContext(): Promise<OrganizationContext> {
     }
     if (!resolvedOrg) {
       throw new AuthenticationError(`Could not resolve organization ID: ${rawOrganizationId}`);
+    }
+
+    // If Clerk webhooks missed user provisioning, auto-create the auth entity once.
+    if (!resolvedEntityId && rawUserId) {
+      resolvedEntityId = await ensureEntityForClerkUser(rawUserId, resolvedOrg.id);
     }
 
     const dbUserId =
