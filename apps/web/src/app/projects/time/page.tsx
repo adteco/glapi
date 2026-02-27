@@ -78,8 +78,8 @@ type TimeEntry = RouterOutputs['timeEntries']['list']['data'][number];
 type Project = RouterOutputs['projects']['list']['data'][number];
 type Employee = RouterOutputs['employees']['list']['data'][number];
 
-// Form schema
-const timeEntryFormSchema = z.object({
+// Create form schema
+const createTimeEntryFormSchema = z.object({
   employeeId: z.string().min(1, 'Employee is required'),
   projectId: z.string().min(1, 'Project is required'),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
@@ -89,7 +89,18 @@ const timeEntryFormSchema = z.object({
   description: z.string().max(500).optional(),
 });
 
-type TimeEntryFormValues = z.infer<typeof timeEntryFormSchema>;
+// Edit form schema (employee cannot be changed here)
+const updateTimeEntryFormSchema = z.object({
+  projectId: z.string().min(1, 'Project is required'),
+  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
+  hours: z.coerce.number().positive('Hours must be positive').max(24, 'Max 24 hours'),
+  entryType: z.enum(['REGULAR', 'OVERTIME', 'DOUBLE_TIME', 'OTHER']).default('REGULAR'),
+  isBillable: z.boolean().default(true),
+  description: z.string().max(500).optional(),
+});
+
+type CreateTimeEntryFormValues = z.infer<typeof createTimeEntryFormSchema>;
+type UpdateTimeEntryFormValues = z.infer<typeof updateTimeEntryFormSchema>;
 
 const entryTypes = [
   { value: 'REGULAR', label: 'Regular' },
@@ -200,8 +211,8 @@ function ProjectTimePageContent() {
   });
 
   // Forms
-  const createForm = useForm<TimeEntryFormValues>({
-    resolver: zodResolver(timeEntryFormSchema),
+  const createForm = useForm<CreateTimeEntryFormValues>({
+    resolver: zodResolver(createTimeEntryFormSchema),
     defaultValues: {
       employeeId: '',
       projectId: '',
@@ -213,8 +224,16 @@ function ProjectTimePageContent() {
     },
   });
 
-  const editForm = useForm<TimeEntryFormValues>({
-    resolver: zodResolver(timeEntryFormSchema),
+  const editForm = useForm<UpdateTimeEntryFormValues>({
+    resolver: zodResolver(updateTimeEntryFormSchema),
+    defaultValues: {
+      projectId: '',
+      entryDate: new Date().toISOString().split('T')[0],
+      hours: 0,
+      entryType: 'REGULAR',
+      isBillable: true,
+      description: '',
+    },
   });
 
   // Data extraction
@@ -233,7 +252,7 @@ function ProjectTimePageContent() {
   ) || 0;
 
   // Handlers
-  const handleCreateEntry = (data: TimeEntryFormValues) => {
+  const handleCreateEntry = (data: CreateTimeEntryFormValues) => {
     createMutation.mutate({
       employeeId: data.employeeId,
       projectId: data.projectId,
@@ -258,7 +277,7 @@ function ProjectTimePageContent() {
     setIsEditOpen(true);
   };
 
-  const handleUpdateEntry = (data: TimeEntryFormValues) => {
+  const handleUpdateEntry = (data: UpdateTimeEntryFormValues) => {
     if (!selectedEntry) return;
     updateMutation.mutate({
       id: selectedEntry.id,
