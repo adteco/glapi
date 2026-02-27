@@ -15,6 +15,7 @@ export interface Project {
   endDate: string | null;
   jobNumber: string | null;
   projectType: string | null;
+  billingModel: 'fixed_fee' | 'time_and_materials';
   budgetRevenue: string | null;
   budgetCost: string | null;
   percentComplete: string | null;
@@ -50,6 +51,7 @@ export interface ProjectFilters {
   customerId?: string;
   status?: string | string[];
   projectType?: string;
+  billingModel?: 'fixed_fee' | 'time_and_materials';
   search?: string;
   startDateFrom?: string;
   startDateTo?: string;
@@ -65,6 +67,7 @@ export interface CreateProjectInput {
   endDate?: string;
   jobNumber?: string;
   projectType?: string;
+  billingModel?: 'fixed_fee' | 'time_and_materials';
   budgetRevenue?: string;
   budgetCost?: string;
   retainagePercent?: string;
@@ -84,6 +87,7 @@ export interface UpdateProjectInput {
   endDate?: string | null;
   jobNumber?: string | null;
   projectType?: string | null;
+  billingModel?: 'fixed_fee' | 'time_and_materials';
   budgetRevenue?: string | null;
   budgetCost?: string | null;
   percentComplete?: string | null;
@@ -374,6 +378,7 @@ export class ProjectService extends BaseService {
       endDate: row.endDate,
       jobNumber: row.jobNumber,
       projectType: row.projectType,
+      billingModel: row.billingModel ?? 'time_and_materials',
       budgetRevenue: row.budgetRevenue,
       budgetCost: row.budgetCost,
       percentComplete: row.percentComplete ?? null,

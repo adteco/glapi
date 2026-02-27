@@ -15,6 +15,7 @@ export interface ProjectFilters {
   customerId?: string;
   status?: string | string[];
   projectType?: string;
+  billingModel?: 'fixed_fee' | 'time_and_materials';
   search?: string;
   startDateFrom?: string;
   startDateTo?: string;
@@ -31,6 +32,7 @@ export interface CreateProjectData {
   endDate?: string;
   jobNumber?: string;
   projectType?: string;
+  billingModel?: 'fixed_fee' | 'time_and_materials';
   budgetRevenue?: string;
   budgetCost?: string;
   retainagePercent?: string;
@@ -50,6 +52,7 @@ export interface UpdateProjectData {
   endDate?: string | null;
   jobNumber?: string | null;
   projectType?: string | null;
+  billingModel?: 'fixed_fee' | 'time_and_materials';
   budgetRevenue?: string | null;
   budgetCost?: string | null;
   percentComplete?: string | null;
@@ -136,6 +139,10 @@ export class ProjectRepository extends BaseRepository {
       whereConditions.push(eq(projects.projectType, filters.projectType));
     }
 
+    if (filters.billingModel) {
+      whereConditions.push(eq(projects.billingModel, filters.billingModel));
+    }
+
     if (filters.search) {
       const term = `%${filters.search}%`;
       whereConditions.push(
@@ -202,6 +209,7 @@ export class ProjectRepository extends BaseRepository {
         externalSource: projects.externalSource,
         jobNumber: projects.jobNumber,
         projectType: projects.projectType,
+        billingModel: projects.billingModel,
         budgetRevenue: projects.budgetRevenue,
         budgetCost: projects.budgetCost,
         percentComplete: projects.percentComplete,

@@ -39,7 +39,7 @@ import {
   ProjectMilestoneStatus,
 } from '../types/project-tasks.types';
 import { PaginationParams, PaginatedResult, ServiceError } from '../types';
-import { ProjectTaskRepository, type ContextualDatabase } from '@glapi/database';
+import { ProjectRepository, ProjectTaskRepository, type ContextualDatabase } from '@glapi/database';
 
 export interface ProjectTaskServiceOptions {
   db?: ContextualDatabase;
@@ -47,11 +47,13 @@ export interface ProjectTaskServiceOptions {
 
 export class ProjectTaskService extends BaseService {
   private repository: ProjectTaskRepository;
+  private projectRepository: ProjectRepository;
 
   constructor(context = {}, options: ProjectTaskServiceOptions = {}) {
     super(context);
     // Pass the contextual db to the repository for RLS support
     this.repository = new ProjectTaskRepository(options.db);
+    this.projectRepository = new ProjectRepository(options.db);
   }
 
   /**
@@ -61,6 +63,18 @@ export class ProjectTaskService extends BaseService {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `${prefix}-${timestamp}-${random}`;
+  }
+
+  private async resolveDefaultTaskBillingType(
+    projectId: string,
+    organizationId: string
+  ): Promise<'flat_fee' | 'time_and_materials'> {
+    const project = await this.projectRepository.findById(projectId, organizationId);
+    if (!project) {
+      throw new ServiceError('Project not found', 'PROJECT_NOT_FOUND', 404);
+    }
+
+    return project.billingModel === 'fixed_fee' ? 'flat_fee' : 'time_and_materials';
   }
 
   // ============================================================================
@@ -465,6 +479,7 @@ export class ProjectTaskService extends BaseService {
   async createTask(data: CreateProjectTaskInput): Promise<ProjectTask> {
     const organizationId = this.requireOrganizationContext();
     const userId = this.context.userId;
+    const defaultBillingType = data.billingType ?? await this.resolveDefaultTaskBillingType(data.projectId, organizationId);
 
     // Validate dependencies if provided
     if (data.dependsOnTaskIds && data.dependsOnTaskIds.length > 0) {
@@ -504,7 +519,7 @@ export class ProjectTaskService extends BaseService {
       sortOrder: data.sortOrder ?? 0,
       isBillable: data.isBillable ?? true,
       billingRate: data.billingRate?.toString() ?? null,
-      billingType: (data.billingType ?? 'flat_fee') as any,
+      billingType: defaultBillingType as any,
       flatFeeAmount: data.flatFeeAmount?.toString() ?? null,
       metadata: data.metadata ?? null,
       createdBy: userId ?? null,
@@ -935,6 +950,7 @@ export class ProjectTaskService extends BaseService {
     }
 
     const startDate = input.startDate ? new Date(input.startDate) : new Date();
+    const projectDefaultBillingType = await this.resolveDefaultTaskBillingType(input.projectId, organizationId);
 
     // Create milestones from template
     const milestoneMap = new Map<string, string>(); // milestoneName -> milestoneId
@@ -994,6 +1010,7 @@ export class ProjectTaskService extends BaseService {
         dependsOnTaskIds: [],
         sortOrder: templateTask.sortOrder,
         isBillable: true,
+        billingType: projectDefaultBillingType as any,
         createdBy: userId ?? null,
       });
 

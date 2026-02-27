@@ -269,6 +269,12 @@ export default function ProjectDetailPage() {
     }).format(parseFloat(amount));
   };
 
+  const formatBillingModel = (value: string | null | undefined) => {
+    if (value === 'fixed_fee') return 'Fixed Fee';
+    if (value === 'time_and_materials') return 'Time & Materials';
+    return 'N/A';
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'active':
@@ -347,6 +353,10 @@ export default function ProjectDetailPage() {
               <div>
                 <dt className="text-sm font-medium text-gray-500">Project Type</dt>
                 <dd className="mt-1 text-sm text-gray-900">{project.projectType || 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Billing Model</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatBillingModel(project.billingModel)}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">Job Number</dt>

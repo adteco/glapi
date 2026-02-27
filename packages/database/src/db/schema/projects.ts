@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, numeric, jsonb, timestamp, boolean, uniqueIndex, index, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, date, numeric, jsonb, timestamp, boolean, uniqueIndex, index, integer, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { subsidiaries } from './subsidiaries';
@@ -37,6 +37,11 @@ export const BUDGET_VERSION_STATUS = {
 
 export type BudgetVersionStatus = typeof BUDGET_VERSION_STATUS[keyof typeof BUDGET_VERSION_STATUS];
 
+export const projectBillingModelEnum = pgEnum('project_billing_model', [
+  'fixed_fee',
+  'time_and_materials',
+]);
+
 export const projects = pgTable('projects', {
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id),
@@ -50,6 +55,7 @@ export const projects = pgTable('projects', {
   externalSource: text('external_source'),
   jobNumber: text('job_number'),
   projectType: text('project_type'),
+  billingModel: projectBillingModelEnum('billing_model').default('time_and_materials').notNull(),
   budgetRevenue: numeric('budget_revenue', { precision: 18, scale: 4 }),
   budgetCost: numeric('budget_cost', { precision: 18, scale: 4 }),
   percentComplete: numeric('percent_complete', { precision: 5, scale: 2 }).default('0'),

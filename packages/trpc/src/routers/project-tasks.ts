@@ -415,6 +415,12 @@ export const projectTasksRouter = router({
       try {
         return await service.createTask(input);
       } catch (error: any) {
+        if (error.code === 'PROJECT_NOT_FOUND') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Project not found',
+          });
+        }
         if (error.code === 'DEPENDENCY_NOT_FOUND') {
           throw new TRPCError({
             code: 'BAD_REQUEST',

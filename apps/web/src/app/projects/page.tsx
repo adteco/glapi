@@ -23,6 +23,7 @@ type ProjectStatus = Project['status'];
 
 // Input status type for mutations (must match TRPC input schema)
 type ProjectStatusInput = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled' | 'archived';
+type ProjectBillingModel = 'fixed_fee' | 'time_and_materials';
 
 interface FormData {
   projectCode: string;
@@ -32,6 +33,7 @@ interface FormData {
   endDate: string;
   jobNumber: string;
   projectType: string;
+  billingModel: ProjectBillingModel;
   description: string;
 }
 
@@ -53,6 +55,11 @@ const statusOptions: { value: ProjectStatusInput; label: string }[] = [
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
   { value: 'archived', label: 'Archived' },
+];
+
+const billingModelOptions: { value: ProjectBillingModel; label: string }[] = [
+  { value: 'time_and_materials', label: 'Time & Materials' },
+  { value: 'fixed_fee', label: 'Fixed Fee' },
 ];
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ formData, setFormData }) => (
@@ -103,6 +110,24 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ formData, setFormData }) => (
           onChange={(e) => setFormData(prev => ({ ...prev, projectType: e.target.value }))}
           placeholder="e.g., Construction, Consulting"
         />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="billingModel">Billing Model</Label>
+        <Select
+          value={formData.billingModel}
+          onValueChange={(value: ProjectBillingModel) => setFormData(prev => ({ ...prev, billingModel: value }))}
+        >
+          <SelectTrigger id="billingModel">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {billingModelOptions.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label htmlFor="jobNumber">Job Number</Label>
@@ -315,6 +340,7 @@ export default function ProjectsPage() {
     endDate: '',
     jobNumber: '',
     projectType: '',
+    billingModel: 'time_and_materials',
     description: '',
   });
 
@@ -380,6 +406,7 @@ export default function ProjectsPage() {
       endDate: formData.endDate || undefined,
       jobNumber: formData.jobNumber || undefined,
       projectType: formData.projectType || undefined,
+      billingModel: formData.billingModel,
       description: formData.description || undefined,
     });
   };
@@ -397,6 +424,7 @@ export default function ProjectsPage() {
         endDate: formData.endDate || null,
         jobNumber: formData.jobNumber || null,
         projectType: formData.projectType || null,
+        billingModel: formData.billingModel,
         description: formData.description || null,
       },
     });
@@ -479,6 +507,7 @@ export default function ProjectsPage() {
       endDate: project.endDate || '',
       jobNumber: project.jobNumber || '',
       projectType: project.projectType || '',
+      billingModel: (project.billingModel || 'time_and_materials') as ProjectBillingModel,
       description: project.description || '',
     });
     setIsEditOpen(true);
@@ -493,6 +522,7 @@ export default function ProjectsPage() {
       endDate: '',
       jobNumber: '',
       projectType: '',
+      billingModel: 'time_and_materials',
       description: '',
     });
     setSelectedProject(null);
@@ -520,6 +550,12 @@ export default function ProjectsPage() {
     const num = parseFloat(value);
     if (isNaN(num)) return '-';
     return `${num.toFixed(0)}%`;
+  };
+
+  const formatBillingModel = (value: string | null | undefined) => {
+    if (value === 'fixed_fee') return 'Fixed Fee';
+    if (value === 'time_and_materials') return 'Time & Materials';
+    return '-';
   };
 
   if (isLoading) {
@@ -575,6 +611,7 @@ export default function ProjectsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Billing</TableHead>
                   <TableHead className="text-right">Budget Revenue</TableHead>
                   <TableHead className="text-right">Budget Cost</TableHead>
                   <TableHead className="text-right">% Complete</TableHead>
@@ -610,6 +647,7 @@ export default function ProjectsPage() {
                         onCancel={handleCancelEdit}
                       />
                     </TableCell>
+                    <TableCell>{formatBillingModel(project.billingModel)}</TableCell>
                     <TableCell className="text-right">
                       <EditableCell
                         value={project.budgetRevenue || ''}

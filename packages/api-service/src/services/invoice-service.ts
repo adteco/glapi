@@ -5,6 +5,7 @@ import {
   SubscriptionRepository,
   SubscriptionItemRepository,
   ProjectTaskRepository,
+  ProjectRepository,
   OrganizationRepository,
   EntityRepository,
   type Invoice,
@@ -124,6 +125,7 @@ export class InvoiceService extends BaseService {
   private subscriptionRepository: SubscriptionRepository;
   private subscriptionItemRepository: SubscriptionItemRepository;
   private projectTaskRepository: ProjectTaskRepository;
+  private projectRepository: ProjectRepository;
   private organizationRepository: OrganizationRepository;
   private entityRepository: EntityRepository;
   private static stripeClient: any = null;
@@ -135,6 +137,7 @@ export class InvoiceService extends BaseService {
     this.subscriptionRepository = new SubscriptionRepository(options.db);
     this.subscriptionItemRepository = new SubscriptionItemRepository(options.db);
     this.projectTaskRepository = new ProjectTaskRepository(options.db);
+    this.projectRepository = new ProjectRepository(options.db);
     this.organizationRepository = new OrganizationRepository(options.db);
     this.entityRepository = new EntityRepository(options.db);
   }
@@ -594,6 +597,13 @@ export class InvoiceService extends BaseService {
       throw new ServiceError('No tasks specified for invoicing', 'NO_TASKS', 400);
     }
 
+    const project = await this.projectRepository.findById(projectId, organizationId);
+    if (!project) {
+      throw new ServiceError('Project not found', 'NOT_FOUND', 404);
+    }
+
+    const defaultTaskBillingType = project.billingModel === 'fixed_fee' ? 'flat_fee' : 'time_and_materials';
+
     // Get all specified tasks and verify they are billable and completed
     const tasks: any[] = [];
     for (const taskId of taskIds) {
@@ -621,7 +631,9 @@ export class InvoiceService extends BaseService {
       let amount: number;
       let description: string;
 
-      if (task.billingType === 'flat_fee') {
+      const billingType = task.billingType ?? defaultTaskBillingType;
+
+      if (billingType === 'flat_fee') {
         // Flat fee: use the flat fee amount
         amount = task.flatFeeAmount ? Number(task.flatFeeAmount) : 0;
         description = `${task.taskName} (Flat Fee)`;

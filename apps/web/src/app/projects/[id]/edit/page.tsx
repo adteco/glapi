@@ -33,6 +33,11 @@ const projectStatusEnum = z.enum([
   'archived',
 ]);
 
+const projectBillingModelEnum = z.enum([
+  'fixed_fee',
+  'time_and_materials',
+]);
+
 const projectSchema = z.object({
   projectCode: z.string().min(1, 'Project code is required').max(50),
   name: z.string().min(1, 'Project name is required').max(200),
@@ -41,6 +46,7 @@ const projectSchema = z.object({
   endDate: z.string().optional(),
   jobNumber: z.string().max(50).optional(),
   projectType: z.string().max(50).optional(),
+  billingModel: projectBillingModelEnum.optional(),
   customerId: z.string().uuid().optional().nullable(),
   budgetRevenue: z.string().optional(),
   budgetCost: z.string().optional(),
@@ -60,6 +66,11 @@ const statusOptions = [
   { value: 'archived', label: 'Archived' },
 ];
 
+const billingModelOptions = [
+  { value: 'time_and_materials', label: 'Time & Materials' },
+  { value: 'fixed_fee', label: 'Fixed Fee' },
+] as const;
+
 export default function EditProjectPage() {
   const params = useParams();
   const id = params.id as string;
@@ -77,6 +88,7 @@ export default function EditProjectPage() {
       endDate: '',
       jobNumber: '',
       projectType: '',
+      billingModel: 'time_and_materials',
       customerId: null,
       budgetRevenue: '',
       budgetCost: '',
@@ -129,6 +141,7 @@ export default function EditProjectPage() {
         endDate: formatDateForInput(project.endDate),
         jobNumber: project.jobNumber || '',
         projectType: project.projectType || '',
+        billingModel: project.billingModel || 'time_and_materials',
         customerId: project.customerId || null,
         budgetRevenue: project.budgetRevenue || '',
         budgetCost: project.budgetCost || '',
@@ -152,6 +165,7 @@ export default function EditProjectPage() {
           endDate: values.endDate || null,
           jobNumber: values.jobNumber || null,
           projectType: values.projectType || null,
+          billingModel: values.billingModel || 'time_and_materials',
           customerId: values.customerId || null,
           budgetRevenue: values.budgetRevenue || null,
           budgetCost: values.budgetCost || null,
@@ -294,6 +308,32 @@ export default function EditProjectPage() {
                       <FormControl>
                         <Input {...field} placeholder="e.g., Construction, Consulting" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="billingModel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Billing Model</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {billingModelOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Default billing approach for project tasks</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

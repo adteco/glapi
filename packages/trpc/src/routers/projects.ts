@@ -13,6 +13,11 @@ const projectStatusEnum = z.enum([
   'archived',
 ]);
 
+const projectBillingModelEnum = z.enum([
+  'fixed_fee',
+  'time_and_materials',
+]);
+
 const createProjectSchema = z.object({
   subsidiaryId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
@@ -23,6 +28,7 @@ const createProjectSchema = z.object({
   endDate: z.string().optional(),
   jobNumber: z.string().max(50).optional(),
   projectType: z.string().max(50).optional(),
+  billingModel: projectBillingModelEnum.optional(),
   budgetRevenue: z.string().optional(),
   budgetCost: z.string().optional(),
   retainagePercent: z.string().optional(),
@@ -42,6 +48,7 @@ const updateProjectSchema = z.object({
   endDate: z.string().nullable().optional(),
   jobNumber: z.string().max(50).nullable().optional(),
   projectType: z.string().max(50).nullable().optional(),
+  billingModel: projectBillingModelEnum.optional(),
   budgetRevenue: z.string().nullable().optional(),
   budgetCost: z.string().nullable().optional(),
   percentComplete: z.string().nullable().optional(),
@@ -58,6 +65,7 @@ const projectFiltersSchema = z
     customerId: z.string().uuid().optional(),
     status: z.union([projectStatusEnum, z.array(projectStatusEnum)]).optional(),
     projectType: z.string().optional(),
+    billingModel: projectBillingModelEnum.optional(),
     search: z.string().optional(),
     startDateFrom: z.string().optional(),
     startDateTo: z.string().optional(),
@@ -184,6 +192,7 @@ export const projectsRouter = router({
           endDate: input.endDate,
           jobNumber: input.jobNumber,
           projectType: input.projectType,
+          billingModel: input.billingModel,
           budgetRevenue: input.budgetRevenue,
           budgetCost: input.budgetCost,
           retainagePercent: input.retainagePercent,
