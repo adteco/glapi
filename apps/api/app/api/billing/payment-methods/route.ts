@@ -108,6 +108,16 @@ export async function GET(request: NextRequest) {
     }
 
     console.error('Failed to fetch Stripe payment methods:', error);
-    return NextResponse.json({ message: 'Failed to fetch payment methods' }, { status: 500 });
+    if (error instanceof Error && error.message.includes('STRIPE_SECRET_KEY is not configured')) {
+      return NextResponse.json(
+        { message: 'Stripe billing is not configured on the API server.' },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : 'Failed to fetch payment methods' },
+      { status: 500 }
+    );
   }
 }

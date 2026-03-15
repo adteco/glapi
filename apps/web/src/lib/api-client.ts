@@ -58,10 +58,33 @@ export async function apiClient(
   });
 }
 
+async function buildApiError(response: Response): Promise<Error> {
+  let detail = '';
+
+  try {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const payload = await response.json() as { message?: string; error?: string };
+      detail = payload.message || payload.error || '';
+    } else {
+      detail = (await response.text()).trim();
+    }
+  } catch {
+    // Ignore parse errors and fallback to status-only messages.
+  }
+
+  const statusSummary = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+  const message = detail
+    ? `API request failed (${statusSummary}): ${detail}`
+    : `API request failed (${statusSummary})`;
+
+  return new Error(message);
+}
+
 export async function apiGet<T>(endpoint: string, options?: ApiClientOptions): Promise<T> {
   const response = await apiClient(endpoint, { ...options, method: 'GET' });
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+    throw await buildApiError(response);
   }
   return response.json();
 }
@@ -77,7 +100,7 @@ export async function apiPost<T>(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+    throw await buildApiError(response);
   }
   return response.json();
 }
@@ -93,7 +116,7 @@ export async function apiPut<T>(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+    throw await buildApiError(response);
   }
   return response.json();
 }
@@ -101,7 +124,7 @@ export async function apiPut<T>(
 export async function apiDelete<T>(endpoint: string, options?: ApiClientOptions): Promise<T> {
   const response = await apiClient(endpoint, { ...options, method: 'DELETE' });
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+    throw await buildApiError(response);
   }
   return response.json();
 }

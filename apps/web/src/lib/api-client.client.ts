@@ -1,19 +1,58 @@
 'use client';
 
+import { useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { waitForClerkAuthToLoad } from '@/lib/clerk-auth.client';
 
 interface ApiClientOptions extends RequestInit {
   includeOrgId?: boolean;
 }
 
 export function useApiClient() {
-  const { getToken, orgId, userId } = useAuth();
+  const { getToken, orgId, userId, isLoaded } = useAuth();
+  const getTokenRef = useRef(getToken);
+  const isLoadedRef = useRef(isLoaded);
+  const orgIdRef = useRef(orgId);
+  const userIdRef = useRef(userId);
+
+  getTokenRef.current = getToken;
+  isLoadedRef.current = isLoaded;
+  orgIdRef.current = orgId;
+  userIdRef.current = userId;
+
+  const buildApiError = async (response: Response): Promise<Error> => {
+    let detail = '';
+
+    try {
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const payload = await response.json() as { message?: string; error?: string };
+        detail = payload.message || payload.error || '';
+      } else {
+        detail = (await response.text()).trim();
+      }
+    } catch {
+      // Ignore parse errors and fallback to status-based message.
+    }
+
+    const statusSummary = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+    const message = detail
+      ? `API request failed (${statusSummary}): ${detail}`
+      : `API request failed (${statusSummary})`;
+
+    return new Error(message);
+  };
   
   const apiClient = async (
     endpoint: string,
     options: ApiClientOptions = {}
   ): Promise<Response> => {
-    const token = await getToken();
+    const authState = await waitForClerkAuthToLoad(() => ({
+      isLoaded: isLoadedRef.current,
+      orgId: orgIdRef.current,
+      userId: userIdRef.current,
+    }));
+    const token = await getTokenRef.current();
     
     const { includeOrgId = true, headers = {}, ...restOptions } = options;
     
@@ -45,12 +84,12 @@ export function useApiClient() {
       requestHeaders['Authorization'] = `Bearer ${token}`;
     }
     
-    if (includeOrgId && orgId) {
-      requestHeaders['x-organization-id'] = orgId;
+    if (includeOrgId && authState.orgId) {
+      requestHeaders['x-organization-id'] = authState.orgId;
     }
-    
-    if (userId) {
-      requestHeaders['x-user-id'] = userId;
+
+    if (authState.userId) {
+      requestHeaders['x-user-id'] = authState.userId;
     }
     
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -65,7 +104,7 @@ export function useApiClient() {
   const apiGet = async <T,>(endpoint: string, options?: ApiClientOptions): Promise<T> => {
     const response = await apiClient(endpoint, { ...options, method: 'GET' });
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      throw await buildApiError(response);
     }
     return response.json();
   };
@@ -81,7 +120,7 @@ export function useApiClient() {
       body: JSON.stringify(data),
     });
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      throw await buildApiError(response);
     }
     return response.json();
   };
@@ -97,7 +136,7 @@ export function useApiClient() {
       body: JSON.stringify(data),
     });
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      throw await buildApiError(response);
     }
     return response.json();
   };
@@ -105,7 +144,7 @@ export function useApiClient() {
   const apiDelete = async <T,>(endpoint: string, options?: ApiClientOptions): Promise<T> => {
     const response = await apiClient(endpoint, { ...options, method: 'DELETE' });
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      throw await buildApiError(response);
     }
     return response.json();
   };

@@ -74,6 +74,7 @@ export function MagicInboxSettings() {
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<MagicInboxConfig | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
 
   // Setup form state
   const [emailType, setEmailType] = useState<'prefix' | 'custom_domain'>('prefix');
@@ -89,6 +90,12 @@ export function MagicInboxSettings() {
       const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
         headers,
       });
+
+      if (response.status === 403) {
+        const payload = await response.json().catch(() => ({}));
+        setAccessDeniedMessage(payload?.message || 'Admin role required for Magic Inbox settings.');
+        return;
+      }
 
       if (response.ok) {
         const data = await response.json();
@@ -111,6 +118,12 @@ export function MagicInboxSettings() {
         headers,
       });
 
+      if (response.status === 403) {
+        const payload = await response.json().catch(() => ({}));
+        setAccessDeniedMessage(payload?.message || 'Admin role required for Magic Inbox usage.');
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
         setUsage(data);
@@ -125,6 +138,7 @@ export function MagicInboxSettings() {
     // Clear previous org's data immediately when org changes
     setConfig(null);
     setUsage(null);
+    setAccessDeniedMessage(null);
     setPrefix('');
     setPrefixAvailable(null);
     setCustomDomain('');
@@ -277,6 +291,23 @@ export function MagicInboxSettings() {
         </CardHeader>
         <CardContent>
           <Skeleton className="h-32 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (accessDeniedMessage) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Magic Inbox</CardTitle>
+          <CardDescription>Administrative configuration for document intake.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTitle>Access denied</AlertTitle>
+            <AlertDescription>{accessDeniedMessage}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );

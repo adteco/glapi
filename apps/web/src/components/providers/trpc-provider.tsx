@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc';
+import { waitForClerkAuthToLoad } from '@/lib/clerk-auth.client';
 import { useAuth } from '@clerk/nextjs';
 import superjson from 'superjson';
 
@@ -43,6 +44,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
 
   // Store refs to avoid recreating client on every render
   const getTokenRef = useRef(getToken);
+  const isLoadedRef = useRef(isLoaded);
   const orgIdRef = useRef(orgId);
   const userIdRef = useRef(userId);
   const prevOrgIdRef = useRef(orgId);
@@ -50,6 +52,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   // Update refs SYNCHRONOUSLY during render to avoid race conditions
   // This ensures headers use correct values before any queries are made
   getTokenRef.current = getToken;
+  isLoadedRef.current = isLoaded;
   orgIdRef.current = orgId;
   userIdRef.current = userId;
 
@@ -91,21 +94,33 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           url: `${getApiUrl()}/api/trpc`,
           transformer: superjson,
           async headers(opts) {
+            const authState = await waitForClerkAuthToLoad(() => ({
+              isLoaded: isLoadedRef.current,
+              orgId: orgIdRef.current,
+              userId: userIdRef.current,
+            }));
             const token = await getTokenRef.current();
-            const headerValues = {
-              authorization: token ? `Bearer ${token}` : '',
-              'x-organization-id': orgIdRef.current || '',
-              'x-user-id': userIdRef.current || '',
-            };
+            const headerValues: Record<string, string> = {};
+
+            if (token) {
+              headerValues.authorization = `Bearer ${token}`;
+            }
+            if (authState.orgId) {
+              headerValues['x-organization-id'] = authState.orgId;
+            }
+            if (authState.userId) {
+              headerValues['x-user-id'] = authState.userId;
+            }
 
             if (AUTH_DEBUG_LOGS) {
               console.info('[auth-debug][trpc-provider] request_headers', {
                 hasToken: Boolean(token),
                 tokenLength: token?.length ?? 0,
-                hasOrgId: Boolean(orgIdRef.current),
-                hasUserId: Boolean(userIdRef.current),
-                orgId: summarizeValue(orgIdRef.current),
-                userId: summarizeValue(userIdRef.current),
+                isLoaded: authState.isLoaded,
+                hasOrgId: Boolean(authState.orgId),
+                hasUserId: Boolean(authState.userId),
+                orgId: summarizeValue(authState.orgId),
+                userId: summarizeValue(authState.userId),
                 opPaths: opts?.opList?.map((operation) => operation.path) ?? [],
               });
             }

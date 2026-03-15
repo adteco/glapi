@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 
@@ -103,7 +103,7 @@ export function StripePaymentMethods() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [savingDefault, setSavingDefault] = useState<string | null>(null);
 
-  const loadPaymentMethods = async () => {
+  const loadPaymentMethods = useCallback(async () => {
     setLoading(true);
     setActionError(null);
 
@@ -112,15 +112,19 @@ export function StripePaymentMethods() {
       setBillingInfo(response);
     } catch (error) {
       console.error('Failed to load payment methods', error);
-      setActionError('Unable to load payment methods.');
+      setActionError(error instanceof Error ? error.message : 'Unable to load payment methods.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiGet]);
 
   useEffect(() => {
+    if (!stripePromise) {
+      setLoading(false);
+      return;
+    }
     loadPaymentMethods();
-  }, []);
+  }, [loadPaymentMethods]);
 
   const startSetupIntent = async () => {
     setActionError(null);
@@ -132,7 +136,7 @@ export function StripePaymentMethods() {
       setClientSecret(response.clientSecret);
     } catch (error) {
       console.error('Failed to create setup intent', error);
-      setActionError('Unable to start payment method setup.');
+      setActionError(error instanceof Error ? error.message : 'Unable to start payment method setup.');
     }
   };
 
@@ -145,7 +149,7 @@ export function StripePaymentMethods() {
       await loadPaymentMethods();
     } catch (error) {
       console.error('Failed to set default payment method', error);
-      setActionError('Payment method saved, but default update failed.');
+      setActionError(error instanceof Error ? error.message : 'Payment method saved, but default update failed.');
     }
   };
 
@@ -158,7 +162,7 @@ export function StripePaymentMethods() {
       await loadPaymentMethods();
     } catch (error) {
       console.error('Failed to set default payment method', error);
-      setActionError('Unable to update default payment method.');
+      setActionError(error instanceof Error ? error.message : 'Unable to update default payment method.');
     } finally {
       setSavingDefault(null);
     }

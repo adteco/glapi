@@ -71,6 +71,16 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('Failed to update Stripe default payment method:', error);
-    return NextResponse.json({ message: 'Failed to update default payment method' }, { status: 500 });
+    if (error instanceof Error && error.message.includes('STRIPE_SECRET_KEY is not configured')) {
+      return NextResponse.json(
+        { message: 'Stripe billing is not configured on the API server.' },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : 'Failed to update default payment method' },
+      { status: 500 }
+    );
   }
 }
