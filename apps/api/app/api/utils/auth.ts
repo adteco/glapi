@@ -1,5 +1,4 @@
 import { headers } from 'next/headers';
-import { verifyToken } from '@clerk/backend';
 import { PermissionService } from '@glapi/api-service';
 import {
   OrganizationRepository,
@@ -21,6 +20,10 @@ import {
   unsafeOrganizationId,
 } from '@glapi/shared-types';
 import { extractBearerToken } from './request-auth';
+import {
+  getClerkOrganizationMembership,
+  verifyClerkBearerToken,
+} from './clerk-token';
 
 export interface OrganizationContext {
   /**
@@ -68,7 +71,7 @@ export class AuthenticationError extends Error {
 }
 
 // Cache for Clerk org ID to database org ID and name mapping
-const orgCache = new Map<string, { id: string; name: string }>();
+const orgCache = new Map<string, { id: string; name: string; clerkOrgId?: string }>();
 
 // Cache for Clerk user ID to entity ID mapping
 const entityIdCache = new Map<string, string>();
@@ -76,6 +79,7 @@ const entityIdCache = new Map<string, string>();
 interface ResolvedOrganization {
   id: OrganizationId;
   name?: string;
+  clerkOrgId?: string;
 }
 
 interface VerifiedClerkRequestContext {
@@ -143,37 +147,56 @@ async function verifyClerkRequest(
   if (!token) {
     return null;
   }
+  const rawOrganizationId = headersList.get('x-organization-id');
+  const requestedOrganization = rawOrganizationId
+    ? await resolveOrganization(rawOrganizationId)
+    : null;
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) {
-    throw new AuthenticationError('CLERK_SECRET_KEY is not configured');
-  }
-
-  let payload: Awaited<ReturnType<typeof verifyToken>>;
+  let verifiedToken;
   try {
-    payload = await verifyToken(token, { secretKey });
+    verifiedToken = await verifyClerkBearerToken(token);
   } catch (error) {
     console.error('[auth] Failed to verify Clerk token', error);
-    throw new AuthenticationError('Invalid or expired bearer token');
+    throw new AuthenticationError(
+      error instanceof Error ? error.message : 'Invalid or expired bearer token'
+    );
   }
 
-  if (!payload.sub) {
-    throw new AuthenticationError('Invalid token: missing user ID');
+  let tokenOrganizationId = verifiedToken.organizationId;
+  let resolvedOrg =
+    tokenOrganizationId ? await resolveOrganization(tokenOrganizationId) : null;
+
+  if (!tokenOrganizationId && requestedOrganization?.clerkOrgId) {
+    const membership = await getClerkOrganizationMembership(
+      verifiedToken.userId,
+      requestedOrganization.clerkOrgId
+    );
+
+    if (!membership) {
+      throw new AuthenticationError(
+        'Authenticated user is not a member of the requested organization.'
+      );
+    }
+
+    tokenOrganizationId = membership.clerkOrgId;
+    resolvedOrg = requestedOrganization;
   }
 
-  const tokenOrganizationId = (payload.org_id || payload.organization_id) as string | undefined;
-  if (!tokenOrganizationId) {
-    throw new AuthenticationError('No organization context found in bearer token');
-  }
-
-  const resolvedOrg = await resolveOrganization(tokenOrganizationId);
   if (!resolvedOrg) {
-    throw new AuthenticationError(`Could not resolve organization ID from token: ${tokenOrganizationId}`);
+    if (tokenOrganizationId) {
+      throw new AuthenticationError(
+        `Could not resolve organization ID from token: ${tokenOrganizationId}`
+      );
+    }
+
+    throw new AuthenticationError(
+      'No organization context found in bearer token or verified request headers'
+    );
   }
 
-  let resolvedEntityId = await resolveEntityId(payload.sub, resolvedOrg.id);
+  let resolvedEntityId = await resolveEntityId(verifiedToken.userId, resolvedOrg.id);
   if (!resolvedEntityId) {
-    resolvedEntityId = await ensureEntityForClerkUser(payload.sub, resolvedOrg.id);
+    resolvedEntityId = await ensureEntityForClerkUser(verifiedToken.userId, resolvedOrg.id);
   }
 
   if (!resolvedEntityId) {
@@ -182,9 +205,7 @@ async function verifyClerkRequest(
     );
   }
 
-  const rawOrganizationId = headersList.get('x-organization-id');
   if (rawOrganizationId) {
-    const requestedOrganization = await resolveOrganization(rawOrganizationId);
     if (!requestedOrganization || requestedOrganization.id !== resolvedOrg.id) {
       throw new AuthenticationError(
         'Organization header does not match authenticated token context.'
@@ -193,7 +214,7 @@ async function verifyClerkRequest(
   }
 
   const rawUserId = headersList.get('x-user-id');
-  if (rawUserId && rawUserId !== payload.sub && rawUserId !== resolvedEntityId) {
+  if (rawUserId && rawUserId !== verifiedToken.userId && rawUserId !== resolvedEntityId) {
     throw new AuthenticationError('User header does not match authenticated token context.');
   }
 
@@ -201,7 +222,7 @@ async function verifyClerkRequest(
     organizationId: resolvedOrg.id,
     organizationName: resolvedOrg.name,
     entityId: resolvedEntityId,
-    clerkUserId: unsafeClerkUserId(payload.sub),
+    clerkUserId: unsafeClerkUserId(verifiedToken.userId),
     clerkOrganizationId: tokenOrganizationId.startsWith('org_')
       ? unsafeClerkOrgId(tokenOrganizationId)
       : undefined,
@@ -215,7 +236,11 @@ async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganiza
   // Check cache first
   if (orgCache.has(clerkOrgId)) {
     const cached = orgCache.get(clerkOrgId)!;
-    return { id: unsafeOrganizationId(cached.id), name: cached.name };
+    return {
+      id: unsafeOrganizationId(cached.id),
+      name: cached.name,
+      clerkOrgId: cached.clerkOrgId,
+    };
   }
 
   // If it's already a UUID format, look up org by ID to get the name
@@ -224,9 +249,16 @@ async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganiza
       const orgRepo = new OrganizationRepository();
       const org = await orgRepo.findById(clerkOrgId);
       if (org) {
-        const resolved = { id: org.id, name: org.name };
+        const resolved = { id: org.id, name: org.name, clerkOrgId: org.clerkOrgId || undefined };
         orgCache.set(clerkOrgId, resolved);
-        return { id: unsafeOrganizationId(org.id), name: org.name };
+        if (org.clerkOrgId) {
+          orgCache.set(org.clerkOrgId, resolved);
+        }
+        return {
+          id: unsafeOrganizationId(org.id),
+          name: org.name,
+          clerkOrgId: org.clerkOrgId || undefined,
+        };
       }
     } catch (error) {
       console.error('Failed to look up organization by UUID:', error);
@@ -240,9 +272,14 @@ async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganiza
     const org = await orgRepo.findByClerkId(clerkOrgId);
 
     if (org) {
-      const resolved = { id: org.id, name: org.name };
+      const resolved = { id: org.id, name: org.name, clerkOrgId: org.clerkOrgId || undefined };
       orgCache.set(clerkOrgId, resolved);
-      return { id: unsafeOrganizationId(org.id), name: org.name };
+      orgCache.set(org.id, resolved);
+      return {
+        id: unsafeOrganizationId(org.id),
+        name: org.name,
+        clerkOrgId: org.clerkOrgId || undefined,
+      };
     }
   } catch (error) {
     console.error('Failed to resolve organization ID:', error);

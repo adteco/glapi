@@ -1,6 +1,9 @@
-import { verifyToken } from '@clerk/backend';
 import type { NextRequest } from 'next/server';
 import { extractBearerToken } from './request-auth';
+import {
+  getClerkOrganizationMembership,
+  verifyClerkBearerToken,
+} from './clerk-token';
 
 const ADMIN_ROLES = new Set(['admin', 'owner', 'org:admin', 'org:owner']);
 
@@ -23,32 +26,45 @@ export async function requireAdminContext(request: NextRequest): Promise<{
   if (!token) {
     throw new AdminAuthError('Missing or invalid authorization header', 401);
   }
+  const requestedOrganizationId = request.headers.get('x-organization-id');
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) {
-    throw new AdminAuthError('CLERK_SECRET_KEY is not configured', 500);
-  }
-
-  let payload: Awaited<ReturnType<typeof verifyToken>>;
+  let verifiedToken;
   try {
-    payload = await verifyToken(token, { secretKey });
+    verifiedToken = await verifyClerkBearerToken(token);
   } catch (error) {
     console.error('Failed to verify Clerk token:', error);
-    throw new AdminAuthError('Invalid or expired token', 401);
+    throw new AdminAuthError(
+      error instanceof Error ? error.message : 'Invalid or expired token',
+      401
+    );
   }
 
-  if (!payload.sub) {
-    throw new AdminAuthError('Invalid token: missing user ID', 401);
+  let clerkOrgId = verifiedToken.organizationId;
+  if (!clerkOrgId && requestedOrganizationId?.startsWith('org_')) {
+    const membership = await getClerkOrganizationMembership(
+      verifiedToken.userId,
+      requestedOrganizationId
+    );
+
+    if (!membership) {
+      throw new AdminAuthError(
+        'Authenticated user is not a member of the requested organization',
+        403
+      );
+    }
+
+    clerkOrgId = membership.clerkOrgId;
+    verifiedToken.role = verifiedToken.role || membership.role;
   }
 
-  const clerkOrgId = (payload.org_id || payload.organization_id) as string | undefined;
   if (!clerkOrgId) {
-    throw new AdminAuthError('No organization context found in token', 401);
+    throw new AdminAuthError(
+      'No organization context found in token or verified request headers',
+      401
+    );
   }
 
-  const tokenRole = (payload.org_role || payload.organization_role) as string | undefined;
-  const metadataRole = (payload.public_metadata as { role?: string } | undefined)?.role;
-  const role = tokenRole || metadataRole;
+  const role = verifiedToken.role;
 
   if (!role || !ADMIN_ROLES.has(role)) {
     throw new AdminAuthError('Admin role required', 403);
@@ -56,7 +72,7 @@ export async function requireAdminContext(request: NextRequest): Promise<{
 
   return {
     clerkOrgId,
-    clerkUserId: payload.sub,
+    clerkUserId: verifiedToken.userId,
     role,
   };
 }

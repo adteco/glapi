@@ -1,5 +1,4 @@
 import { headers } from 'next/headers';
-import { verifyToken } from '@clerk/backend';
 import { AuthenticationError, getOptionalServiceContext, getServiceContext } from './auth';
 
 const mockFindOrganizationByClerkId = jest.fn();
@@ -7,13 +6,17 @@ const mockFindOrganizationById = jest.fn();
 const mockFindEntityByClerkId = jest.fn();
 const mockCreateUserEntity = jest.fn();
 const mockWithOrganizationContext = jest.fn();
+const mockVerifyClerkBearerToken = jest.fn();
+const mockGetClerkOrganizationMembership = jest.fn();
 
 jest.mock('next/headers', () => ({
   headers: jest.fn(),
 }));
 
-jest.mock('@clerk/backend', () => ({
-  verifyToken: jest.fn(),
+jest.mock('./clerk-token', () => ({
+  verifyClerkBearerToken: (...args: unknown[]) => mockVerifyClerkBearerToken(...args),
+  getClerkOrganizationMembership: (...args: unknown[]) =>
+    mockGetClerkOrganizationMembership(...args),
 }));
 
 jest.mock('@glapi/api-service', () => ({
@@ -33,7 +36,6 @@ jest.mock('@glapi/database', () => ({
 }));
 
 const mockedHeaders = headers as jest.MockedFunction<typeof headers>;
-const mockedVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
 
 const ORG_UUID = '11111111-1111-1111-1111-111111111111';
 const ENTITY_UUID = '22222222-2222-2222-2222-222222222222';
@@ -51,10 +53,12 @@ describe('getServiceContext', () => {
     mockFindOrganizationByClerkId.mockResolvedValue({
       id: ORG_UUID,
       name: 'Adteco',
+      clerkOrgId: 'org_test_123',
     });
     mockFindOrganizationById.mockResolvedValue({
       id: ORG_UUID,
       name: 'Adteco',
+      clerkOrgId: 'org_test_123',
     });
     mockFindEntityByClerkId.mockResolvedValue({
       id: ENTITY_UUID,
@@ -62,6 +66,11 @@ describe('getServiceContext', () => {
     mockCreateUserEntity.mockResolvedValue({
       id: ENTITY_UUID,
     });
+    mockVerifyClerkBearerToken.mockResolvedValue({
+      userId: 'user_test_123',
+      organizationId: 'org_test_123',
+    });
+    mockGetClerkOrganizationMembership.mockResolvedValue(null);
     mockWithOrganizationContext.mockImplementation(
       async (_context: unknown, callback: (db: unknown) => Promise<unknown>) => callback({})
     );
@@ -80,16 +89,10 @@ describe('getServiceContext', () => {
         'x-user-id': 'user_test_123',
       })
     );
-    mockedVerifyToken.mockResolvedValue({
-      sub: 'user_test_123',
-      org_id: 'org_test_123',
-    } as Awaited<ReturnType<typeof verifyToken>>);
 
     const context = await getServiceContext();
 
-    expect(mockedVerifyToken).toHaveBeenCalledWith('valid-token', {
-      secretKey: 'test-secret-key',
-    });
+    expect(mockVerifyClerkBearerToken).toHaveBeenCalledWith('valid-token');
     expect(context).toEqual({
       organizationId: ORG_UUID,
       organizationName: 'Adteco',
@@ -108,10 +111,10 @@ describe('getServiceContext', () => {
         'x-user-id': 'user_attacker_123',
       })
     );
-    mockedVerifyToken.mockResolvedValue({
-      sub: 'user_real_123',
-      org_id: 'org_test_123',
-    } as Awaited<ReturnType<typeof verifyToken>>);
+    mockVerifyClerkBearerToken.mockResolvedValue({
+      userId: 'user_real_123',
+      organizationId: 'org_test_123',
+    });
 
     await expect(getServiceContext()).rejects.toThrow(
       new AuthenticationError('User header does not match authenticated token context.')
@@ -126,10 +129,10 @@ describe('getServiceContext', () => {
         'x-user-id': 'user_test_123',
       })
     );
-    mockedVerifyToken.mockResolvedValue({
-      sub: 'user_test_123',
-      org_id: 'org_test_123',
-    } as Awaited<ReturnType<typeof verifyToken>>);
+    mockVerifyClerkBearerToken.mockResolvedValue({
+      userId: 'user_test_123',
+      organizationId: 'org_test_123',
+    });
     mockFindOrganizationById.mockResolvedValueOnce({
       id: '44444444-4444-4444-4444-444444444444',
       name: 'Attacker Org',
@@ -151,7 +154,7 @@ describe('getServiceContext', () => {
 
     const context = await getServiceContext();
 
-    expect(mockedVerifyToken).not.toHaveBeenCalled();
+    expect(mockVerifyClerkBearerToken).not.toHaveBeenCalled();
     expect(context.organizationId).toBe(ORG_UUID);
     expect(context.userId).toBe(SERVICE_ACTOR_UUID);
     expect(context.apiKeyName).toBe('Integration Key');
@@ -167,13 +170,59 @@ describe('getServiceContext', () => {
     );
   });
 
+  it('accepts a verified token without org claim when the requested header org is verified via Clerk membership', async () => {
+    mockedHeaders.mockResolvedValue(
+      new Headers({
+        Authorization: 'Bearer valid-token',
+        'x-organization-id': ORG_UUID,
+        'x-user-id': 'user_test_123',
+      })
+    );
+    mockVerifyClerkBearerToken.mockResolvedValue({
+      userId: 'user_test_123',
+    });
+    mockGetClerkOrganizationMembership.mockResolvedValue({
+      clerkOrgId: 'org_test_123',
+      role: 'org:member',
+    });
+
+    const context = await getServiceContext();
+
+    expect(mockGetClerkOrganizationMembership).toHaveBeenCalledWith(
+      'user_test_123',
+      'org_test_123'
+    );
+    expect(context.organizationId).toBe(ORG_UUID);
+    expect(context.clerkOrganizationId).toBe('org_test_123');
+  });
+
+  it('rejects a requested header org when the verified user is not a member', async () => {
+    mockedHeaders.mockResolvedValue(
+      new Headers({
+        Authorization: 'Bearer valid-token',
+        'x-organization-id': ORG_UUID,
+        'x-user-id': 'user_test_123',
+      })
+    );
+    mockVerifyClerkBearerToken.mockResolvedValue({
+      userId: 'user_test_123',
+    });
+    mockGetClerkOrganizationMembership.mockResolvedValue(null);
+
+    await expect(getServiceContext()).rejects.toThrow(
+      new AuthenticationError(
+        'Authenticated user is not a member of the requested organization.'
+      )
+    );
+  });
+
   it('returns null from optional context when the bearer token is invalid', async () => {
     mockedHeaders.mockResolvedValue(
       new Headers({
         Authorization: 'Bearer invalid-token',
       })
     );
-    mockedVerifyToken.mockRejectedValue(new Error('bad token'));
+    mockVerifyClerkBearerToken.mockRejectedValue(new Error('bad token'));
 
     await expect(getOptionalServiceContext()).resolves.toBeNull();
   });
