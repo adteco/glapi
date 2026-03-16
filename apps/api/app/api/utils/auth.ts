@@ -21,6 +21,7 @@ import {
 } from '@glapi/shared-types';
 import { extractBearerToken } from './request-auth';
 import {
+  getClerkOrganization,
   getClerkOrganizationMembership,
   verifyClerkBearerToken,
 } from './clerk-token';
@@ -281,6 +282,33 @@ async function resolveOrganization(clerkOrgId: string): Promise<ResolvedOrganiza
         clerkOrgId: org.clerkOrgId || undefined,
       };
     }
+
+    // Self-healing: if the organization exists in Clerk but not in our database,
+    // provision it now. This handles the case where webhooks are delayed or failed.
+    if (clerkOrgId.startsWith('org_')) {
+      const clerkOrg = await getClerkOrganization(clerkOrgId);
+      if (clerkOrg) {
+        const created = await orgRepo.createFromClerk({
+          clerkOrgId,
+          name: clerkOrg.name,
+          slug: clerkOrg.slug || clerkOrg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        });
+
+        console.warn('[auth] Auto-provisioned missing organization from Clerk API', {
+          clerkOrgId,
+          orgId: created.id,
+        });
+
+        const resolved = { id: created.id, name: created.name, clerkOrgId: created.clerkOrgId || undefined };
+        orgCache.set(clerkOrgId, resolved);
+        orgCache.set(created.id, resolved);
+        return {
+          id: unsafeOrganizationId(created.id),
+          name: created.name,
+          clerkOrgId: created.clerkOrgId || undefined,
+        };
+      }
+    }
   } catch (error) {
     console.error('Failed to resolve organization ID:', error);
   }
@@ -466,11 +494,14 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
   const rawUserId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
   if (apiKeyName) {
     try {
       return await resolveHeaderBackedContext(rawOrganizationId, rawUserId, apiKeyName || undefined);
-    } catch {
-      return null;
+    } catch (error) {
+      if (isProduction) return null;
+      console.warn('[auth] Optional API key context failed:', error instanceof Error ? error.message : error);
     }
   }
 
@@ -486,39 +517,51 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
         userId: verifiedClerkContext.entityId,
       };
     }
-  } catch {
-    return null;
+  } catch (error) {
+    // In production, an auth error should result in no context for optional routes.
+    // In development, we want to know why it failed but might still want to fall through.
+    if (isProduction) return null;
+    console.warn('[auth] Optional Clerk context failed:', error instanceof Error ? error.message : error);
   }
 
-  if (!rawOrganizationId || !rawUserId) {
-    return null;
+  // If no auth headers at all, and not in production, try dev fallback
+  if (!rawOrganizationId && !rawUserId && !extractBearerToken(headersList)) {
+    if (isProduction) return null;
+    
+    // Minimal dev fallback for completely unauthenticated requests in dev
+    return {
+      organizationId: unsafeOrganizationId('ba3b8cdf-efc1-4a60-88be-ac203d263fe2'),
+      organizationName: 'Development Fallback',
+      entityId: unsafeEntityId('00000000-0000-0000-0000-000000000001'),
+      clerkUserId: unsafeClerkUserId('user_dev_fallback'),
+      userId: '00000000-0000-0000-0000-000000000001',
+    };
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  if (isProduction) {
-    return null;
+  // If we have some headers but they failed verification, or we are in dev and want to force a context
+  if (isProduction) return null;
+
+  const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
+  const entityId = rawUserId ? await resolveEntityId(rawUserId, resolvedOrg?.id) : null;
+  const clerkUserId = unsafeClerkUserId(rawUserId || 'user_dev_fallback');
+
+  // If we can at least resolve an organization, or we have a raw ID to use
+  if (resolvedOrg || rawOrganizationId) {
+    return {
+      organizationId: resolvedOrg?.id ?? unsafeOrganizationId(rawOrganizationId!),
+      organizationName: resolvedOrg?.name ?? 'Development (Unresolved)',
+      entityId: entityId,
+      clerkUserId: clerkUserId,
+      clerkOrganizationId: rawOrganizationId?.startsWith('org_')
+        ? unsafeClerkOrgId(rawOrganizationId)
+        : undefined,
+      apiKeyName: apiKeyName || undefined,
+      // Deprecated alias
+      userId: entityId || rawUserId || 'user_dev_fallback',
+    };
   }
 
-  const resolvedOrg = await resolveOrganization(rawOrganizationId);
-  if (!resolvedOrg) {
-    return null;
-  }
-
-  const entityId = await resolveEntityId(rawUserId, resolvedOrg.id);
-  const clerkUserId = unsafeClerkUserId(rawUserId);
-
-  return {
-    organizationId: resolvedOrg.id,
-    organizationName: resolvedOrg.name,
-    entityId: entityId,
-    clerkUserId: clerkUserId,
-    clerkOrganizationId: rawOrganizationId.startsWith('org_')
-      ? unsafeClerkOrgId(rawOrganizationId)
-      : undefined,
-    apiKeyName: apiKeyName || undefined,
-    // Deprecated alias
-    userId: entityId || rawUserId,
-  };
+  return null;
 }
 
 // ============ RBAC Permission Helpers ============

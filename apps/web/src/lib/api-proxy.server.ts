@@ -81,6 +81,7 @@ export async function proxyAuthenticatedApiRequest(
   if (orgId) {
     headers.set('x-organization-id', orgId);
   }
+  headers.set('x-user-id', userId);
 
   const method = request.method.toUpperCase();
   const canHaveBody = method !== 'GET' && method !== 'HEAD';

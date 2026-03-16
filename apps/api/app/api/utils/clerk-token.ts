@@ -68,3 +68,17 @@ export async function getClerkOrganizationMembership(
     role: membership.role,
   };
 }
+
+export async function getClerkOrganization(
+  clerkOrgId: string
+) {
+  try {
+    const org = await getClerkClient().organizations.getOrganization({
+      organizationId: clerkOrgId,
+    });
+    return org;
+  } catch (error) {
+    console.error(`[clerk] Failed to fetch organization ${clerkOrgId}`, error);
+    return null;
+  }
+}

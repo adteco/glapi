@@ -140,6 +140,39 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
+      case 'organization.created': {
+        const { id, name, slug } = evt.data;
+        // Check if organization already exists
+        const existingOrg = await organizationRepository.findByClerkId(id);
+        if (existingOrg) {
+          console.log(`Organization ${id} already exists in database`);
+          return NextResponse.json({ received: true, existing: true, orgId: existingOrg.id });
+        }
+
+        // Create organization in database
+        const org = await organizationRepository.createFromClerk({
+          clerkOrgId: id,
+          name: name,
+          slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        });
+
+        console.log(`Created organization ${org.id} from Clerk webhook for ${id}`);
+        return NextResponse.json({ received: true, orgId: org.id });
+      }
+
+      case 'organization.updated': {
+        const { id, name, slug } = evt.data;
+        const existingOrg = await organizationRepository.findByClerkId(id);
+        if (existingOrg) {
+          await organizationRepository.update(existingOrg.id, {
+            name,
+            slug: slug || existingOrg.slug,
+          });
+          console.log(`Updated organization ${existingOrg.id} from Clerk webhook`);
+        }
+        return NextResponse.json({ received: true });
+      }
+
       case 'organizationMembership.created': {
         // When a user joins an organization, create their entity record
         const { organization, public_user_data } = evt.data;
