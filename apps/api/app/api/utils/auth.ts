@@ -23,6 +23,7 @@ import { extractBearerToken } from './request-auth';
 import {
   getClerkOrganization,
   getClerkOrganizationMembership,
+  getClerkSecretKey,
   verifyClerkBearerToken,
 } from './clerk-token';
 
@@ -76,6 +77,11 @@ const orgCache = new Map<string, { id: string; name: string; clerkOrgId?: string
 
 // Cache for Clerk user ID to entity ID mapping
 const entityIdCache = new Map<string, string>();
+
+export function resetAuthCachesForTest() {
+  orgCache.clear();
+  entityIdCache.clear();
+}
 
 interface ResolvedOrganization {
   id: OrganizationId;

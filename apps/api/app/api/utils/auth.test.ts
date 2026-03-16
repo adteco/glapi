@@ -1,5 +1,10 @@
 import { headers } from 'next/headers';
-import { AuthenticationError, getOptionalServiceContext, getServiceContext } from './auth';
+import {
+  AuthenticationError,
+  getOptionalServiceContext,
+  getServiceContext,
+  resetAuthCachesForTest,
+} from './auth';
 
 const mockFindOrganizationByClerkId = jest.fn();
 const mockFindOrganizationById = jest.fn();
@@ -8,6 +13,8 @@ const mockCreateUserEntity = jest.fn();
 const mockWithOrganizationContext = jest.fn();
 const mockVerifyClerkBearerToken = jest.fn();
 const mockGetClerkOrganizationMembership = jest.fn();
+const mockGetClerkSecretKey = jest.fn();
+const mockGetClerkOrganization = jest.fn();
 
 jest.mock('next/headers', () => ({
   headers: jest.fn(),
@@ -17,6 +24,8 @@ jest.mock('./clerk-token', () => ({
   verifyClerkBearerToken: (...args: unknown[]) => mockVerifyClerkBearerToken(...args),
   getClerkOrganizationMembership: (...args: unknown[]) =>
     mockGetClerkOrganizationMembership(...args),
+  getClerkSecretKey: (...args: unknown[]) => mockGetClerkSecretKey(...args),
+  getClerkOrganization: (...args: unknown[]) => mockGetClerkOrganization(...args),
 }));
 
 jest.mock('@glapi/api-service', () => ({
@@ -47,8 +56,19 @@ describe('getServiceContext', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    resetAuthCachesForTest();
     process.env.NODE_ENV = 'production';
     process.env.CLERK_SECRET_KEY = 'test-secret-key';
+
+    mockFindOrganizationByClerkId.mockReset();
+    mockFindOrganizationById.mockReset();
+    mockFindEntityByClerkId.mockReset();
+    mockCreateUserEntity.mockReset();
+    mockWithOrganizationContext.mockReset();
+    mockVerifyClerkBearerToken.mockReset();
+    mockGetClerkOrganizationMembership.mockReset();
+    mockGetClerkSecretKey.mockReset();
+    mockGetClerkOrganization.mockReset();
 
     mockFindOrganizationByClerkId.mockResolvedValue({
       id: ORG_UUID,
@@ -71,6 +91,8 @@ describe('getServiceContext', () => {
       organizationId: 'org_test_123',
     });
     mockGetClerkOrganizationMembership.mockResolvedValue(null);
+    mockGetClerkSecretKey.mockReturnValue('test-secret-key');
+    mockGetClerkOrganization.mockResolvedValue(null);
     mockWithOrganizationContext.mockImplementation(
       async (_context: unknown, callback: (db: unknown) => Promise<unknown>) => callback({})
     );

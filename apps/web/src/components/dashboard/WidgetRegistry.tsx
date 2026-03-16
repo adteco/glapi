@@ -1,16 +1,16 @@
 'use client';
 
 import React from 'react';
-import { 
-  BarChart3, 
-  Briefcase, 
-  Clock, 
-  ShoppingCart, 
-  Activity, 
+import {
+  Activity,
+  BarChart3,
+  Briefcase,
+  Calendar,
+  Clock,
   TrendingUp,
   FileText,
   Target,
-  Calendar
+  ShoppingCart,
 } from 'lucide-react';
 import { BacklogWidget } from './widgets/BacklogWidget';
 import { UnbilledTimeWidget } from './widgets/UnbilledTimeWidget';
@@ -21,6 +21,7 @@ import { AlertsWidget } from './widgets/AlertsWidget';
 import { BudgetOverviewWidget } from './widgets/BudgetOverviewWidget';
 import { UnfulfilledOrdersWidget } from './widgets/UnfulfilledOrdersWidget';
 import { FinancialReportsWidget } from './widgets/FinancialReportsWidget';
+import type { WidgetDefinition } from './types';
 
 export const WIDGET_REGISTRY: WidgetDefinition[] = [
   {
@@ -42,7 +43,6 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
   {
     type: 'quick_actions',
     name: 'Quick Actions',
-...
     description: 'Shortcuts to create new transactions',
     icon: <FileText className="h-4 w-4" />,
     defaultSize: 'md',
