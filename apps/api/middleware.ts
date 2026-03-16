@@ -53,6 +53,7 @@ const allowedOrigins = [
 export function middleware(request: NextRequest): NextResponse | Response {
   // Handle CORS
   const origin = request.headers.get('origin');
+  const isProduction = process.env.NODE_ENV === 'production';
 
   // Build modified request headers that will be passed to route handlers
   const requestHeaders = new Headers(request.headers);
@@ -72,7 +73,10 @@ export function middleware(request: NextRequest): NextResponse | Response {
   // Only apply auth to API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const apiKey = request.headers.get('x-api-key');
-    let authSource: 'none' | 'api_key' | 'client_headers' = 'none';
+    const hasAuthorization = Boolean(
+      request.headers.get('authorization') || request.headers.get('Authorization'),
+    );
+    let authSource: 'none' | 'api_key' | 'bearer_token' = 'none';
 
     authDebug('incoming_request', {
       method: request.method,
@@ -110,19 +114,18 @@ export function middleware(request: NextRequest): NextResponse | Response {
         });
       }
     } else {
-      // If no API key, check for x-organization-id header from client
-      const clientOrgId = request.headers.get('x-organization-id') || request.headers.get('x-clerk-organization-id');
-      const clientUserId = request.headers.get('x-user-id') || request.headers.get('x-clerk-user-id');
-
-      if (clientOrgId) {
-        // Normalize header names for route handlers
-        requestHeaders.set('x-organization-id', clientOrgId);
-        if (clientUserId) {
-          requestHeaders.set('x-user-id', clientUserId);
-        }
-        authSource = 'client_headers';
+      // Browser-supplied identity headers are never trusted as the source of truth.
+      // End-user requests must be derived from a verified bearer token downstream.
+      if (hasAuthorization || isProduction) {
+        requestHeaders.delete('x-organization-id');
+        requestHeaders.delete('x-user-id');
+        requestHeaders.delete('x-clerk-organization-id');
+        requestHeaders.delete('x-clerk-user-id');
       }
-      // No fallback - if no org ID is provided, the request should fail at the route handler level
+
+      if (hasAuthorization) {
+        authSource = 'bearer_token';
+      }
     }
 
     authDebug('normalized_headers', {

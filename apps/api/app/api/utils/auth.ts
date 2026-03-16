@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { verifyToken } from '@clerk/backend';
 import { PermissionService } from '@glapi/api-service';
 import {
   OrganizationRepository,
@@ -74,6 +75,142 @@ const entityIdCache = new Map<string, string>();
 interface ResolvedOrganization {
   id: OrganizationId;
   name?: string;
+}
+
+interface VerifiedClerkRequestContext {
+  organizationId: OrganizationId;
+  organizationName?: string;
+  entityId: EntityId;
+  clerkUserId: ClerkUserId;
+  clerkOrganizationId: ClerkOrgId;
+}
+
+function getAuthorizationHeader(headersList: Awaited<ReturnType<typeof headers>>): string | null {
+  return headersList.get('authorization') || headersList.get('Authorization');
+}
+
+async function resolveHeaderBackedContext(
+  rawOrganizationId: string | null,
+  rawUserId: string | null,
+  apiKeyName?: string
+): Promise<OrganizationContext> {
+  const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
+  let resolvedEntityId =
+    rawUserId && resolvedOrg
+      ? await resolveEntityId(rawUserId, resolvedOrg.id)
+      : rawUserId
+        ? await resolveEntityId(rawUserId)
+        : null;
+
+  if (!rawOrganizationId || !rawUserId) {
+    throw new AuthenticationError(
+      'Organization context required. Ensure trusted x-organization-id and x-user-id headers are set.'
+    );
+  }
+
+  if (!resolvedOrg) {
+    throw new AuthenticationError(`Could not resolve organization ID: ${rawOrganizationId}`);
+  }
+
+  if (!resolvedEntityId && rawUserId) {
+    resolvedEntityId = await ensureEntityForClerkUser(rawUserId, resolvedOrg.id);
+  }
+
+  const dbUserId =
+    resolvedEntityId ??
+    (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null);
+
+  if (!dbUserId) {
+    throw new AuthenticationError(
+      'Invalid user context. x-user-id must be an entity UUID or map to an entity record.'
+    );
+  }
+
+  return {
+    organizationId: resolvedOrg.id,
+    organizationName: resolvedOrg.name,
+    entityId: resolvedEntityId ?? (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null),
+    clerkUserId: unsafeClerkUserId(rawUserId),
+    clerkOrganizationId: rawOrganizationId.startsWith('org_')
+      ? unsafeClerkOrgId(rawOrganizationId)
+      : undefined,
+    apiKeyName,
+    userId: dbUserId,
+  };
+}
+
+async function verifyClerkRequest(
+  headersList: Awaited<ReturnType<typeof headers>>
+): Promise<VerifiedClerkRequestContext | null> {
+  const authHeader = getAuthorizationHeader(headersList);
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) {
+    throw new AuthenticationError('CLERK_SECRET_KEY is not configured');
+  }
+
+  const token = authHeader.slice('Bearer '.length).trim();
+
+  let payload: Awaited<ReturnType<typeof verifyToken>>;
+  try {
+    payload = await verifyToken(token, { secretKey });
+  } catch (error) {
+    console.error('[auth] Failed to verify Clerk token', error);
+    throw new AuthenticationError('Invalid or expired bearer token');
+  }
+
+  if (!payload.sub) {
+    throw new AuthenticationError('Invalid token: missing user ID');
+  }
+
+  const tokenOrganizationId = (payload.org_id || payload.organization_id) as string | undefined;
+  if (!tokenOrganizationId) {
+    throw new AuthenticationError('No organization context found in bearer token');
+  }
+
+  const resolvedOrg = await resolveOrganization(tokenOrganizationId);
+  if (!resolvedOrg) {
+    throw new AuthenticationError(`Could not resolve organization ID from token: ${tokenOrganizationId}`);
+  }
+
+  let resolvedEntityId = await resolveEntityId(payload.sub, resolvedOrg.id);
+  if (!resolvedEntityId) {
+    resolvedEntityId = await ensureEntityForClerkUser(payload.sub, resolvedOrg.id);
+  }
+
+  if (!resolvedEntityId) {
+    throw new AuthenticationError(
+      'Authenticated user could not be resolved to an entity record.'
+    );
+  }
+
+  const rawOrganizationId = headersList.get('x-organization-id');
+  if (rawOrganizationId) {
+    const requestedOrganization = await resolveOrganization(rawOrganizationId);
+    if (!requestedOrganization || requestedOrganization.id !== resolvedOrg.id) {
+      throw new AuthenticationError(
+        'Organization header does not match authenticated token context.'
+      );
+    }
+  }
+
+  const rawUserId = headersList.get('x-user-id');
+  if (rawUserId && rawUserId !== payload.sub && rawUserId !== resolvedEntityId) {
+    throw new AuthenticationError('User header does not match authenticated token context.');
+  }
+
+  return {
+    organizationId: resolvedOrg.id,
+    organizationName: resolvedOrg.name,
+    entityId: resolvedEntityId,
+    clerkUserId: unsafeClerkUserId(payload.sub),
+    clerkOrganizationId: tokenOrganizationId.startsWith('org_')
+      ? unsafeClerkOrgId(tokenOrganizationId)
+      : undefined,
+  };
 }
 
 /**
@@ -224,63 +361,42 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   // Stable UUID used for dev/test contexts (Karate defaults to this value).
   const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
 
-  const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
-  let resolvedEntityId =
-    rawUserId && resolvedOrg
-      ? await resolveEntityId(rawUserId, resolvedOrg.id)
-      : rawUserId
-        ? await resolveEntityId(rawUserId)
-        : null;
-
   const isProduction = process.env.NODE_ENV === 'production';
 
-  // In production, organization + user context MUST be present and resolvable.
-  // IMPORTANT: audit fields in many tables are UUIDs; therefore, `x-user-id` must
-  // resolve to an entity UUID (or itself be a UUID).
-  if (isProduction) {
-    if (!rawOrganizationId || !rawUserId) {
-      throw new AuthenticationError(
-        'Organization context required. Ensure x-organization-id and x-user-id headers are set.'
-      );
-    }
-    if (!resolvedOrg) {
-      throw new AuthenticationError(`Could not resolve organization ID: ${rawOrganizationId}`);
-    }
+  if (apiKeyName) {
+    return resolveHeaderBackedContext(rawOrganizationId, rawUserId, apiKeyName || undefined);
+  }
 
-    // If Clerk webhooks missed user provisioning, auto-create the auth entity once.
-    if (!resolvedEntityId && rawUserId) {
-      resolvedEntityId = await ensureEntityForClerkUser(rawUserId, resolvedOrg.id);
-    }
-
-    const dbUserId =
-      resolvedEntityId ??
-      (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null);
-
-    if (!dbUserId) {
-      throw new AuthenticationError(
-        'Invalid user context. x-user-id must be an entity UUID or map to an entity record.'
-      );
-    }
-
+  const verifiedClerkContext = await verifyClerkRequest(headersList);
+  if (verifiedClerkContext) {
     return {
-      organizationId: resolvedOrg.id,
-      organizationName: resolvedOrg.name,
-      entityId: resolvedEntityId ?? (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null),
-      clerkUserId: unsafeClerkUserId(rawUserId),
-      clerkOrganizationId: rawOrganizationId.startsWith('org_')
-        ? unsafeClerkOrgId(rawOrganizationId)
-        : undefined,
-      apiKeyName: apiKeyName || undefined,
-      // Deprecated alias - kept for backward compatibility in service layer.
-      // Always a UUID in production.
-      userId: dbUserId,
+      organizationId: verifiedClerkContext.organizationId,
+      organizationName: verifiedClerkContext.organizationName,
+      entityId: verifiedClerkContext.entityId,
+      clerkUserId: verifiedClerkContext.clerkUserId,
+      clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
+      userId: verifiedClerkContext.entityId,
     };
+  }
+
+  if (isProduction) {
+    throw new AuthenticationError(
+      'Authentication required. Provide a valid Clerk bearer token with organization context.'
+    );
   }
 
   // Development fallback: allow partial headers, but always produce UUID-safe IDs so
   // writes with UUID audit columns (e.g. sales_orders.created_by) don't explode.
   const devOrgId = unsafeOrganizationId(DEV_ORG_ID);
   const devEntityId = unsafeEntityId(DEV_USER_ID);
+
+  const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
+  const resolvedEntityId =
+    rawUserId && resolvedOrg
+      ? await resolveEntityId(rawUserId, resolvedOrg.id)
+      : rawUserId
+        ? await resolveEntityId(rawUserId)
+        : null;
 
   const organizationId = resolvedOrg?.id ?? devOrgId;
   const organizationName = resolvedOrg?.name ?? 'Development';
@@ -318,17 +434,44 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
   const rawUserId = headersList.get('x-user-id');
   const apiKeyName = headersList.get('x-api-key-name');
 
+  if (apiKeyName) {
+    try {
+      return await resolveHeaderBackedContext(rawOrganizationId, rawUserId, apiKeyName || undefined);
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const verifiedClerkContext = await verifyClerkRequest(headersList);
+    if (verifiedClerkContext) {
+      return {
+        organizationId: verifiedClerkContext.organizationId,
+        organizationName: verifiedClerkContext.organizationName,
+        entityId: verifiedClerkContext.entityId,
+        clerkUserId: verifiedClerkContext.clerkUserId,
+        clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
+        userId: verifiedClerkContext.entityId,
+      };
+    }
+  } catch {
+    return null;
+  }
+
   if (!rawOrganizationId || !rawUserId) {
     return null;
   }
 
-  // Resolve Clerk org ID to database UUID
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction) {
+    return null;
+  }
+
   const resolvedOrg = await resolveOrganization(rawOrganizationId);
   if (!resolvedOrg) {
     return null;
   }
 
-  // Resolve Clerk user ID to entity UUID
   const entityId = await resolveEntityId(rawUserId, resolvedOrg.id);
   const clerkUserId = unsafeClerkUserId(rawUserId);
 
