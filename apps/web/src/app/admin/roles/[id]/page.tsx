@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 import { ArrowLeft, Save, Shield, Users, Key, Check, X } from 'lucide-react';
 import Link from 'next/link';
 
@@ -68,10 +69,8 @@ const RESOURCE_GROUPS = {
 };
 
 // API functions
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
-
 async function fetchRole(roleId: string): Promise<Role> {
-  const res = await fetch(`${API_URL}/api/admin/roles/${roleId}`, {
+  const res = await fetch(getBrowserApiUrl(`/api/admin/roles/${roleId}`), {
     credentials: 'include',
   });
   if (!res.ok) {
@@ -113,7 +112,7 @@ async function fetchRole(roleId: string): Promise<Role> {
 }
 
 async function updateRole(roleId: string, data: UpdateRoleInput): Promise<Role> {
-  const res = await fetch(`${API_URL}/api/admin/roles/${roleId}`, {
+  const res = await fetch(getBrowserApiUrl(`/api/admin/roles/${roleId}`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',

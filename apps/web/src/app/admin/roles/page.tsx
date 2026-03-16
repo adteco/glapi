@@ -36,6 +36,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 import { Plus, Pencil, Trash2, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 
@@ -57,10 +58,8 @@ interface CreateRoleInput {
 }
 
 // API functions
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
-
 async function fetchRoles(): Promise<Role[]> {
-  const res = await fetch(`${API_URL}/api/admin/roles`, {
+  const res = await fetch(getBrowserApiUrl('/api/admin/roles'), {
     credentials: 'include',
   });
   if (!res.ok) {
@@ -112,7 +111,7 @@ async function fetchRoles(): Promise<Role[]> {
 }
 
 async function createRole(data: CreateRoleInput): Promise<Role> {
-  const res = await fetch(`${API_URL}/api/admin/roles`, {
+  const res = await fetch(getBrowserApiUrl('/api/admin/roles'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -123,7 +122,7 @@ async function createRole(data: CreateRoleInput): Promise<Role> {
 }
 
 async function deleteRole(roleId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/roles/${roleId}`, {
+  const res = await fetch(getBrowserApiUrl(`/api/admin/roles/${roleId}`), {
     method: 'DELETE',
     credentials: 'include',
   });

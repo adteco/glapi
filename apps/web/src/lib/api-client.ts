@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import { getServerApiBaseUrl } from '@/lib/browser-api';
 
 interface ApiClientOptions extends RequestInit {
   includeOrgId?: boolean;
@@ -9,6 +10,7 @@ export async function apiClient(
   options: ApiClientOptions = {}
 ): Promise<Response> {
   const { getToken, orgId, userId } = await auth();
+  void userId;
   const token = await getToken();
   
   const { includeOrgId = true, headers, ...restOptions } = options;
@@ -45,11 +47,7 @@ export async function apiClient(
     requestHeaders['x-organization-id'] = orgId;
   }
   
-  if (userId) {
-    requestHeaders['x-user-id'] = userId;
-  }
-  
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const baseUrl = getServerApiBaseUrl();
   const url = `${baseUrl}${endpoint}`;
   
   return fetch(url, {

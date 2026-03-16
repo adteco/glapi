@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 import {
   FileText,
   Search,
@@ -95,8 +96,6 @@ const RESOURCE_TYPES = [
 ];
 
 // API functions
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
-
 async function fetchAuditLogs(filters: AuditLogFilters): Promise<AuditLogResponse> {
   const params = new URLSearchParams();
   params.set('page', String(filters.page));
@@ -106,7 +105,7 @@ async function fetchAuditLogs(filters: AuditLogFilters): Promise<AuditLogRespons
   if (filters.userId) params.set('userId', filters.userId);
   if (filters.search) params.set('search', filters.search);
 
-  const res = await fetch(`${API_URL}/api/admin/audit-logs?${params.toString()}`, {
+  const res = await fetch(`${getBrowserApiUrl('/api/admin/audit-logs')}?${params.toString()}`, {
     credentials: 'include',
   });
 

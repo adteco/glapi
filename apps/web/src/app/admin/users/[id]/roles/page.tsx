@@ -41,6 +41,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 import { ArrowLeft, Plus, Trash2, Shield, User, Building } from 'lucide-react';
 import Link from 'next/link';
 
@@ -81,10 +82,8 @@ interface AssignRoleInput {
 }
 
 // API functions
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
-
 async function fetchUserProfile(userId: string): Promise<UserProfile> {
-  const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+  const res = await fetch(getBrowserApiUrl(`/api/admin/users/${userId}`), {
     credentials: 'include',
   });
   if (!res.ok) {
@@ -100,7 +99,7 @@ async function fetchUserProfile(userId: string): Promise<UserProfile> {
 }
 
 async function fetchUserRoles(userId: string): Promise<UserRole[]> {
-  const res = await fetch(`${API_URL}/api/admin/users/${userId}/roles`, {
+  const res = await fetch(getBrowserApiUrl(`/api/admin/users/${userId}/roles`), {
     credentials: 'include',
   });
   if (!res.ok) {
@@ -131,7 +130,7 @@ async function fetchUserRoles(userId: string): Promise<UserRole[]> {
 }
 
 async function fetchAvailableRoles(): Promise<Role[]> {
-  const res = await fetch(`${API_URL}/api/admin/roles`, {
+  const res = await fetch(getBrowserApiUrl('/api/admin/roles'), {
     credentials: 'include',
   });
   if (!res.ok) {
@@ -146,7 +145,7 @@ async function fetchAvailableRoles(): Promise<Role[]> {
 }
 
 async function fetchSubsidiaries(): Promise<Subsidiary[]> {
-  const res = await fetch(`${API_URL}/api/subsidiaries`, {
+  const res = await fetch(getBrowserApiUrl('/api/subsidiaries'), {
     credentials: 'include',
   });
   if (!res.ok) {
@@ -161,7 +160,7 @@ async function fetchSubsidiaries(): Promise<Subsidiary[]> {
 }
 
 async function assignRole(userId: string, data: AssignRoleInput): Promise<UserRole> {
-  const res = await fetch(`${API_URL}/api/admin/users/${userId}/roles`, {
+  const res = await fetch(getBrowserApiUrl(`/api/admin/users/${userId}/roles`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -172,7 +171,7 @@ async function assignRole(userId: string, data: AssignRoleInput): Promise<UserRo
 }
 
 async function revokeRole(userId: string, userRoleId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/users/${userId}/roles/${userRoleId}`, {
+  const res = await fetch(getBrowserApiUrl(`/api/admin/users/${userId}/roles/${userRoleId}`), {
     method: 'DELETE',
     credentials: 'include',
   });

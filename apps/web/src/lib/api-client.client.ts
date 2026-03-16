@@ -1,25 +1,12 @@
 'use client';
 
-import { useRef } from 'react';
-import { useAuth } from '@clerk/nextjs';
-import { waitForClerkAuthToLoad } from '@/lib/clerk-auth.client';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 
 interface ApiClientOptions extends RequestInit {
   includeOrgId?: boolean;
 }
 
 export function useApiClient() {
-  const { getToken, orgId, userId, isLoaded } = useAuth();
-  const getTokenRef = useRef(getToken);
-  const isLoadedRef = useRef(isLoaded);
-  const orgIdRef = useRef(orgId);
-  const userIdRef = useRef(userId);
-
-  getTokenRef.current = getToken;
-  isLoadedRef.current = isLoaded;
-  orgIdRef.current = orgId;
-  userIdRef.current = userId;
-
   const buildApiError = async (response: Response): Promise<Error> => {
     let detail = '';
 
@@ -47,14 +34,7 @@ export function useApiClient() {
     endpoint: string,
     options: ApiClientOptions = {}
   ): Promise<Response> => {
-    const authState = await waitForClerkAuthToLoad(() => ({
-      isLoaded: isLoadedRef.current,
-      orgId: orgIdRef.current,
-      userId: userIdRef.current,
-    }));
-    const token = await getTokenRef.current();
-    
-    const { includeOrgId = true, headers = {}, ...restOptions } = options;
+    const { includeOrgId: _includeOrgId = true, headers = {}, ...restOptions } = options;
     
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -79,21 +59,8 @@ export function useApiClient() {
         });
       }
     }
-    
-    if (token) {
-      requestHeaders['Authorization'] = `Bearer ${token}`;
-    }
-    
-    if (includeOrgId && authState.orgId) {
-      requestHeaders['x-organization-id'] = authState.orgId;
-    }
 
-    if (authState.userId) {
-      requestHeaders['x-user-id'] = authState.userId;
-    }
-    
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const url = `${baseUrl}${endpoint}`;
+    const url = getBrowserApiUrl(endpoint);
     
     return fetch(url, {
       ...restOptions,

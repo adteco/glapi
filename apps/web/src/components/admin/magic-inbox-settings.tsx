@@ -1,16 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth, useOrganization, useUser } from '@clerk/nextjs';
+import { useOrganization } from '@clerk/nextjs';
 import { Mail, Check, X, Copy, RefreshCw, TestTube2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-// API base URL for admin endpoints
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 import {
   Card,
   CardContent,
@@ -48,27 +46,7 @@ interface UsageSummary {
 }
 
 export function MagicInboxSettings() {
-  const { getToken } = useAuth();
   const { organization } = useOrganization();
-  const { user } = useUser();
-
-  // Helper to build headers with organization context for RLS
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const token = await getToken();
-    const headers: Record<string, string> = {};
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    if (organization?.id) {
-      headers['x-organization-id'] = organization.id;
-    }
-    if (user?.id) {
-      headers['x-user-id'] = user.id;
-    }
-
-    return headers;
-  }, [getToken, organization?.id, user?.id]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -86,10 +64,7 @@ export function MagicInboxSettings() {
   // Load config with proper org context
   const loadConfig = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
-        headers,
-      });
+      const response = await fetch(getBrowserApiUrl('/api/admin/magic-inbox/config'));
 
       if (response.status === 403) {
         const payload = await response.json().catch(() => ({}));
@@ -108,15 +83,12 @@ export function MagicInboxSettings() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   // Load usage with proper org context
   const loadUsage = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/api/admin/magic-inbox/usage`, {
-        headers,
-      });
+      const response = await fetch(getBrowserApiUrl('/api/admin/magic-inbox/usage'));
 
       if (response.status === 403) {
         const payload = await response.json().catch(() => ({}));
@@ -131,7 +103,7 @@ export function MagicInboxSettings() {
     } catch (error) {
       console.error('Failed to load usage:', error);
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   // Load current config - reload when organization changes
   useEffect(() => {
@@ -155,11 +127,9 @@ export function MagicInboxSettings() {
     setPrefixAvailable(null);
 
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/api/admin/magic-inbox/check-prefix`, {
+      const response = await fetch(getBrowserApiUrl('/api/admin/magic-inbox/check-prefix'), {
         method: 'POST',
         headers: {
-          ...headers,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ prefix }),
@@ -182,11 +152,9 @@ export function MagicInboxSettings() {
     setSaving(true);
 
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
+      const response = await fetch(getBrowserApiUrl('/api/admin/magic-inbox/config'), {
         method: 'POST',
         headers: {
-          ...headers,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -222,10 +190,8 @@ export function MagicInboxSettings() {
     setSaving(true);
 
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/api/admin/magic-inbox/config`, {
+      const response = await fetch(getBrowserApiUrl('/api/admin/magic-inbox/config'), {
         method: 'DELETE',
-        headers,
       });
 
       if (response.ok) {
@@ -241,10 +207,8 @@ export function MagicInboxSettings() {
 
   async function regenerateSecret() {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/api/admin/magic-inbox/webhook-secret`, {
+      const response = await fetch(getBrowserApiUrl('/api/admin/magic-inbox/webhook-secret'), {
         method: 'POST',
-        headers,
       });
 
       if (response.ok) {
@@ -263,10 +227,8 @@ export function MagicInboxSettings() {
 
   async function sendTestEmail() {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/api/admin/magic-inbox/test`, {
+      const response = await fetch(getBrowserApiUrl('/api/admin/magic-inbox/test'), {
         method: 'POST',
-        headers,
       });
 
       if (response.ok) {

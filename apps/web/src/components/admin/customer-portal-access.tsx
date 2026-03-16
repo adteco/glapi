@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 
 import { trpc } from '@/lib/trpc';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 type PortalRole = 'billing_viewer' | 'payer' | 'billing_admin';
 
@@ -42,7 +41,7 @@ type CustomerOption = {
 };
 
 export function CustomerPortalAccess() {
-  const { orgId, getToken } = useAuth();
+  const { orgId } = useAuth();
   const { data: customers } = trpc.customers.list.useQuery({}, { enabled: !!orgId });
 
   const [entityId, setEntityId] = useState('');
@@ -82,15 +81,9 @@ export function CustomerPortalAccess() {
     setInvite(null);
 
     try {
-      const token = await getToken();
-      if (!token) {
-        throw new Error('Unable to resolve auth token');
-      }
-
-      const response = await fetch(`${API_URL}/api/customer-portal/auth/invite`, {
+      const response = await fetch(getBrowserApiUrl('/api/customer-portal/auth/invite'), {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

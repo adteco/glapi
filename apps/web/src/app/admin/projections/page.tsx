@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getBrowserApiUrl } from '@/lib/browser-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -37,8 +38,7 @@ export default function ProjectionsMonitoringPage() {
       setLoading(true);
 
       // Fetch from API endpoint
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
-      const response = await fetch(`${apiUrl}/api/admin/projections`, {
+      const response = await fetch(getBrowserApiUrl('/api/admin/projections'), {
         credentials: 'include',
       });
 

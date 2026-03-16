@@ -1,5 +1,5 @@
-// API configuration
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Browser clients should use the same-origin proxy surface.
+export const API_URL = '/api/proxy';
 
 export const apiEndpoints = {
   customers: `${API_URL}/api/customers`,
