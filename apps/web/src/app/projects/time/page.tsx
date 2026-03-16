@@ -110,7 +110,7 @@ const entryTypes = [
 ];
 
 function ProjectTimePageContent() {
-  const { orgId } = useAuth();
+  const { orgId, userId, isLoaded } = useAuth();
   const searchParams = useSearchParams();
   const initialProjectId = searchParams.get('projectId');
 
@@ -121,6 +121,7 @@ function ProjectTimePageContent() {
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState<string>(initialProjectId || 'all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const canLoadWorkspaceData = isLoaded && Boolean(orgId) && Boolean(userId);
 
   // Get current week dates
   const today = new Date();
@@ -141,17 +142,17 @@ function ProjectTimePageContent() {
         status: statusFilter !== 'all' ? statusFilter as any : undefined,
       },
     },
-    { enabled: !!orgId }
+    { enabled: canLoadWorkspaceData }
   );
 
   const { data: projectsData } = trpc.projects.list.useQuery(
-    { page: 1, limit: 100 },
-    { enabled: !!orgId }
+    { page: 1, limit: 1000, orderBy: 'name', orderDirection: 'asc' },
+    { enabled: canLoadWorkspaceData }
   );
 
   const { data: employeesData } = trpc.employees.list.useQuery(
     { page: 1, limit: 100 },
-    { enabled: !!orgId }
+    { enabled: canLoadWorkspaceData }
   );
 
   const { data: summaryData } = trpc.timeEntries.getSummaryByProject.useQuery(
@@ -159,7 +160,7 @@ function ProjectTimePageContent() {
       startDate: startOfWeek.toISOString().split('T')[0],
       endDate: endOfWeek.toISOString().split('T')[0],
     },
-    { enabled: !!orgId }
+    { enabled: canLoadWorkspaceData }
   );
 
   // TRPC mutations

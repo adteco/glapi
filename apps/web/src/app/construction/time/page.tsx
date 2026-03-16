@@ -154,7 +154,8 @@ export default function TimeEntriesPage() {
   const [projectFilter, setProjectFilter] = useState<string>('');
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [activeTab, setActiveTab] = useState('list');
-  const { orgId } = useAuth();
+  const { orgId, userId, isLoaded } = useAuth();
+  const canLoadWorkspaceData = isLoaded && Boolean(orgId) && Boolean(userId);
 
   const weekRange = useMemo(() => getWeekRange(currentWeek), [currentWeek]);
 
@@ -174,18 +175,18 @@ export default function TimeEntriesPage() {
       orderDirection: 'desc',
       limit: 100,
     },
-    { enabled: !!orgId }
+    { enabled: canLoadWorkspaceData }
   );
 
   const { data: pendingApprovalsData, refetch: refetchPending } =
-    trpc.timeEntries.getPendingApprovals.useQuery({}, { enabled: !!orgId });
+    trpc.timeEntries.getPendingApprovals.useQuery({}, { enabled: canLoadWorkspaceData });
 
   const { data: projectsData } = trpc.projects.list.useQuery(
-    { filters: { status: 'active' } },
-    { enabled: !!orgId }
+    { page: 1, limit: 1000, orderBy: 'name', orderDirection: 'asc' },
+    { enabled: canLoadWorkspaceData }
   );
 
-  const { data: costCodesData } = trpc.projectCostCodes.list.useQuery({}, { enabled: !!orgId });
+  const { data: costCodesData } = trpc.projectCostCodes.list.useQuery({}, { enabled: canLoadWorkspaceData });
 
   const createMutation = trpc.timeEntries.create.useMutation({
     onSuccess: () => {
