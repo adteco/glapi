@@ -50,13 +50,80 @@ const allowedOrigins = [
   'https://docs.glapi.net'
 ];
 
+type ApiKeyRegistry = typeof VALID_API_KEYS;
+type AuthSource = 'none' | 'api_key' | 'bearer_token';
+
+export function normalizeApiRequestHeaders(
+  sourceHeaders: Headers,
+  options: {
+    isProduction: boolean;
+    validApiKeys?: ApiKeyRegistry;
+  }
+): {
+  requestHeaders: Headers;
+  authSource: AuthSource;
+  invalidApiKey: boolean;
+} {
+  const requestHeaders = new Headers(sourceHeaders);
+  const validApiKeys = options.validApiKeys || VALID_API_KEYS;
+  const apiKey = sourceHeaders.get('x-api-key');
+  const hasAuthorization = Boolean(
+    sourceHeaders.get('authorization') || sourceHeaders.get('Authorization'),
+  );
+  if (apiKey) {
+    if (!validApiKeys[apiKey]) {
+      return {
+        requestHeaders,
+        authSource: 'none',
+        invalidApiKey: true,
+      };
+    }
+
+    const keyData = validApiKeys[apiKey];
+    requestHeaders.set('x-organization-id', keyData.organizationId);
+    requestHeaders.set('x-user-id', keyData.actorEntityId);
+    requestHeaders.set('x-api-key-name', keyData.name);
+
+    return {
+      requestHeaders,
+      authSource: 'api_key',
+      invalidApiKey: false,
+    };
+  }
+
+  if (hasAuthorization) {
+    // Bearer-authenticated requests may supply the active organization as a requested
+    // context, but user identity must still come from the verified Clerk token.
+    requestHeaders.delete('x-user-id');
+    requestHeaders.delete('x-clerk-organization-id');
+    requestHeaders.delete('x-clerk-user-id');
+
+    return {
+      requestHeaders,
+      authSource: 'bearer_token',
+      invalidApiKey: false,
+    };
+  }
+
+  if (options.isProduction) {
+    requestHeaders.delete('x-organization-id');
+    requestHeaders.delete('x-user-id');
+    requestHeaders.delete('x-clerk-organization-id');
+    requestHeaders.delete('x-clerk-user-id');
+  }
+
+  return {
+    requestHeaders,
+    authSource: 'none',
+    invalidApiKey: false,
+  };
+}
+
 export function middleware(request: NextRequest): NextResponse | Response {
   // Handle CORS
   const origin = request.headers.get('origin');
   const isProduction = process.env.NODE_ENV === 'production';
-
-  // Build modified request headers that will be passed to route handlers
-  const requestHeaders = new Headers(request.headers);
+  let requestHeaders = new Headers(request.headers);
 
   // Handle preflight requests first
   if (request.method === 'OPTIONS') {
@@ -73,11 +140,6 @@ export function middleware(request: NextRequest): NextResponse | Response {
   // Only apply auth to API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const apiKey = request.headers.get('x-api-key');
-    const hasAuthorization = Boolean(
-      request.headers.get('authorization') || request.headers.get('Authorization'),
-    );
-    let authSource: 'none' | 'api_key' | 'bearer_token' = 'none';
-
     authDebug('incoming_request', {
       method: request.method,
       path: request.nextUrl.pathname,
@@ -94,38 +156,21 @@ export function middleware(request: NextRequest): NextResponse | Response {
       origin: origin || null,
     });
 
-    // Check API key authentication
-    if (apiKey) {
-      if (VALID_API_KEYS[apiKey]) {
-        const keyData = VALID_API_KEYS[apiKey];
+    const normalized = normalizeApiRequestHeaders(
+      request.headers,
+      { isProduction }
+    );
+    requestHeaders = normalized.requestHeaders;
+    const { authSource, invalidApiKey } = normalized;
 
-        // Add organization context to request headers for API routes to use
-        requestHeaders.set('x-organization-id', keyData.organizationId);
-        requestHeaders.set('x-user-id', keyData.actorEntityId);
-        requestHeaders.set('x-api-key-name', keyData.name);
-        authSource = 'api_key';
-      } else {
-        authDebug('invalid_api_key', {
-          path: request.nextUrl.pathname,
-        });
-        return new Response(JSON.stringify({ error: 'Invalid API key' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    } else {
-      // Browser-supplied identity headers are never trusted as the source of truth.
-      // End-user requests must be derived from a verified bearer token downstream.
-      if (hasAuthorization || isProduction) {
-        requestHeaders.delete('x-organization-id');
-        requestHeaders.delete('x-user-id');
-        requestHeaders.delete('x-clerk-organization-id');
-        requestHeaders.delete('x-clerk-user-id');
-      }
-
-      if (hasAuthorization) {
-        authSource = 'bearer_token';
-      }
+    if (invalidApiKey) {
+      authDebug('invalid_api_key', {
+        path: request.nextUrl.pathname,
+      });
+      return new Response(JSON.stringify({ error: 'Invalid API key' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     authDebug('normalized_headers', {
