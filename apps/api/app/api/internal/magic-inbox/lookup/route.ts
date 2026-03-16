@@ -12,42 +12,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { headers } from 'next/headers';
 import { magicInboxConfigService } from '@glapi/api-service';
+import {
+  RequestAuthError,
+  requireStaticAuthorizationCredential,
+} from '../../../utils/request-auth';
 
 const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
 
 const LookupSchema = z.object({
   email: z.string().email(),
 });
-
-/**
- * Verify internal API key
- */
-async function verifyInternalAuth(): Promise<boolean> {
-  if (!INTERNAL_API_KEY) {
-    // In development, allow without key
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[Internal] No INTERNAL_API_KEY configured, allowing request in development');
-      return true;
-    }
-    return false;
-  }
-
-  const headersList = await headers();
-  const authHeader = headersList.get('authorization');
-
-  if (!authHeader) {
-    return false;
-  }
-
-  // Support both "Bearer <key>" and just "<key>"
-  const key = authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7)
-    : authHeader;
-
-  return key === INTERNAL_API_KEY;
-}
 
 /**
  * POST /api/internal/magic-inbox/lookup
@@ -62,14 +37,12 @@ async function verifyInternalAuth(): Promise<boolean> {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verify internal authentication
-    const isAuthorized = await verifyInternalAuth();
-    if (!isAuthorized) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    requireStaticAuthorizationCredential(request.headers, INTERNAL_API_KEY, {
+      allowInDevelopment: true,
+      developmentNotice:
+        '[Internal] No INTERNAL_API_KEY configured, allowing request in development',
+      missingCredentialMessage: 'INTERNAL_API_KEY is not configured',
+    });
 
     const body = await request.json();
     const parsed = LookupSchema.safeParse(body);
@@ -104,6 +77,10 @@ export async function POST(request: NextRequest) {
       webhookSecretHash: result.webhookSecretHash,
     });
   } catch (error) {
+    if (error instanceof RequestAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
     console.error('[Internal] Magic Inbox lookup error:', error);
 
     return NextResponse.json(

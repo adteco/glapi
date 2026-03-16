@@ -15,6 +15,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { magicInboxService, magicInboxConfigService } from '@glapi/api-service';
 import type { MagicInboxWebhookPayload } from '@glapi/api-service';
+import { verifySha256HmacSignature } from '../../utils/request-auth';
 
 // ============================================================================
 // Configuration
@@ -125,69 +126,6 @@ const webhookPayloadSchema = z.object({
 });
 
 // ============================================================================
-// HMAC Signature Verification
-// ============================================================================
-
-/**
- * Verify the HMAC signature of the webhook payload using a plain secret
- */
-function verifySignature(
-  payload: string,
-  signature: string | null,
-  secret: string
-): boolean {
-  if (!signature) {
-    return false;
-  }
-
-  // Expected format: "sha256=<hex-digest>"
-  const parts = signature.split('=');
-  if (parts.length !== 2 || parts[0] !== 'sha256') {
-    return false;
-  }
-
-  const expectedSignature = parts[1];
-  const computedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex');
-
-  // Use timing-safe comparison to prevent timing attacks
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(computedSignature, 'hex')
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Verify signature against organization-specific secret (bcrypt hashed)
- * The Lambda sends the original signature created with the plain secret,
- * and we verify by checking if the secret matches the stored hash
- */
-async function verifyOrgSignature(
-  payload: string,
-  signature: string | null,
-  orgId: string
-): Promise<boolean> {
-  if (!signature) {
-    return false;
-  }
-
-  // Expected format: "sha256=<hex-digest>:<secret>"
-  // The Lambda includes the secret it used to sign, so we can verify against our hash
-  // Alternative: Lambda sends just signature, we recompute with stored secret
-
-  // For now, use the organization lookup to verify
-  // The lookup returns the hash, and we need the Lambda to send the original secret
-  const isValid = await magicInboxConfigService.verifyWebhookSecret(orgId, signature);
-  return isValid;
-}
-
-// ============================================================================
 // Webhook Handler
 // ============================================================================
 
@@ -228,7 +166,7 @@ export async function POST(req: Request) {
 
     // Fall back to global secret if org verification failed or wasn't attempted
     if (!signatureVerified && WEBHOOK_SECRET) {
-      signatureVerified = verifySignature(body, signature, WEBHOOK_SECRET);
+      signatureVerified = verifySha256HmacSignature(body, signature, WEBHOOK_SECRET);
       if (signatureVerified) {
         console.log(
           `[MagicInbox Webhook] ${requestId} - Verified with global secret`

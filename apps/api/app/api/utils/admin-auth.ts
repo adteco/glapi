@@ -1,5 +1,6 @@
 import { verifyToken } from '@clerk/backend';
 import type { NextRequest } from 'next/server';
+import { extractBearerToken } from './request-auth';
 
 const ADMIN_ROLES = new Set(['admin', 'owner', 'org:admin', 'org:owner']);
 
@@ -18,9 +19,8 @@ export async function requireAdminContext(request: NextRequest): Promise<{
   clerkUserId: string;
   role?: string;
 }> {
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractBearerToken(request.headers);
+  if (!token) {
     throw new AdminAuthError('Missing or invalid authorization header', 401);
   }
 
@@ -29,7 +29,6 @@ export async function requireAdminContext(request: NextRequest): Promise<{
     throw new AdminAuthError('CLERK_SECRET_KEY is not configured', 500);
   }
 
-  const token = authHeader.slice('Bearer '.length).trim();
   let payload: Awaited<ReturnType<typeof verifyToken>>;
   try {
     payload = await verifyToken(token, { secretKey });

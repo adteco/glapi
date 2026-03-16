@@ -20,6 +20,7 @@ import {
   unsafeEntityId,
   unsafeOrganizationId,
 } from '@glapi/shared-types';
+import { extractBearerToken } from './request-auth';
 
 export interface OrganizationContext {
   /**
@@ -85,10 +86,6 @@ interface VerifiedClerkRequestContext {
   clerkOrganizationId: ClerkOrgId;
 }
 
-function getAuthorizationHeader(headersList: Awaited<ReturnType<typeof headers>>): string | null {
-  return headersList.get('authorization') || headersList.get('Authorization');
-}
-
 async function resolveHeaderBackedContext(
   rawOrganizationId: string | null,
   rawUserId: string | null,
@@ -142,8 +139,8 @@ async function resolveHeaderBackedContext(
 async function verifyClerkRequest(
   headersList: Awaited<ReturnType<typeof headers>>
 ): Promise<VerifiedClerkRequestContext | null> {
-  const authHeader = getAuthorizationHeader(headersList);
-  if (!authHeader?.startsWith('Bearer ')) {
+  const token = extractBearerToken(headersList);
+  if (!token) {
     return null;
   }
 
@@ -151,8 +148,6 @@ async function verifyClerkRequest(
   if (!secretKey) {
     throw new AuthenticationError('CLERK_SECRET_KEY is not configured');
   }
-
-  const token = authHeader.slice('Bearer '.length).trim();
 
   let payload: Awaited<ReturnType<typeof verifyToken>>;
   try {
