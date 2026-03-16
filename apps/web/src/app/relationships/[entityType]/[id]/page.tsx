@@ -204,7 +204,7 @@ export default function EntityDashboard() {
   const displayPhone = entity.phone || entity.contactPhone || '-';
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="w-full max-w-full py-6">
       {/* Header */}
       <div className="mb-6">
         <Button

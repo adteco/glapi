@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { ConversationalLedger } from "@/components/chat/conversational-ledger";
+import { headers } from 'next/headers';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,15 +17,22 @@ export const metadata: Metadata = {
   description: "API First General Ledger", // Updated description
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+
+  // Only apply satellite domain configuration if explicitly requested AND not running on localhost
+  const isSatellite = process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true' && !isLocal;
+
   return (
     <ClerkProvider
       appearance={{ baseTheme: dark }}
-      {...(process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE === 'true' && {
+      {...(isSatellite && {
         isSatellite: true,
         domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,         // e.g., "https://glapi.net"
         signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL, // e.g., "https://adteco.com/sign-in"

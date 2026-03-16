@@ -427,16 +427,24 @@ export async function getServiceContext(): Promise<OrganizationContext> {
     return resolveHeaderBackedContext(rawOrganizationId, rawUserId, apiKeyName || undefined);
   }
 
-  const verifiedClerkContext = await verifyClerkRequest(headersList);
-  if (verifiedClerkContext) {
-    return {
-      organizationId: verifiedClerkContext.organizationId,
-      organizationName: verifiedClerkContext.organizationName,
-      entityId: verifiedClerkContext.entityId,
-      clerkUserId: verifiedClerkContext.clerkUserId,
-      clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
-      userId: verifiedClerkContext.entityId,
-    };
+  const clerkSecret = getClerkSecretKey();
+  if (clerkSecret) {
+    try {
+      const verifiedClerkContext = await verifyClerkRequest(headersList);
+      if (verifiedClerkContext) {
+        return {
+          organizationId: verifiedClerkContext.organizationId,
+          organizationName: verifiedClerkContext.organizationName,
+          entityId: verifiedClerkContext.entityId,
+          clerkUserId: verifiedClerkContext.clerkUserId,
+          clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
+          userId: verifiedClerkContext.entityId,
+        };
+      }
+    } catch (error) {
+      if (isProduction) throw error;
+      console.warn('[auth] Clerk authentication failed:', error instanceof Error ? error.message : error);
+    }
   }
 
   if (isProduction) {
@@ -505,63 +513,53 @@ export async function getOptionalServiceContext(): Promise<OrganizationContext |
     }
   }
 
-  try {
-    const verifiedClerkContext = await verifyClerkRequest(headersList);
-    if (verifiedClerkContext) {
-      return {
-        organizationId: verifiedClerkContext.organizationId,
-        organizationName: verifiedClerkContext.organizationName,
-        entityId: verifiedClerkContext.entityId,
-        clerkUserId: verifiedClerkContext.clerkUserId,
-        clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
-        userId: verifiedClerkContext.entityId,
-      };
+  const clerkSecret = getClerkSecretKey();
+  if (clerkSecret) {
+    try {
+      const verifiedClerkContext = await verifyClerkRequest(headersList);
+      if (verifiedClerkContext) {
+        return {
+          organizationId: verifiedClerkContext.organizationId,
+          organizationName: verifiedClerkContext.organizationName,
+          entityId: verifiedClerkContext.entityId,
+          clerkUserId: verifiedClerkContext.clerkUserId,
+          clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
+          userId: verifiedClerkContext.entityId,
+        };
+      }
+    } catch (error) {
+      // In production, an auth error should result in no context for optional routes.
+      // In development, we want to know why it failed but might still want to fall through.
+      if (isProduction) return null;
+      console.warn('[auth] Optional Clerk context failed:', error instanceof Error ? error.message : error);
     }
-  } catch (error) {
-    // In production, an auth error should result in no context for optional routes.
-    // In development, we want to know why it failed but might still want to fall through.
-    if (isProduction) return null;
-    console.warn('[auth] Optional Clerk context failed:', error instanceof Error ? error.message : error);
   }
 
-  // If no auth headers at all, and not in production, try dev fallback
-  if (!rawOrganizationId && !rawUserId && !extractBearerToken(headersList)) {
-    if (isProduction) return null;
-    
-    // Minimal dev fallback for completely unauthenticated requests in dev
-    return {
-      organizationId: unsafeOrganizationId('ba3b8cdf-efc1-4a60-88be-ac203d263fe2'),
-      organizationName: 'Development Fallback',
-      entityId: unsafeEntityId('00000000-0000-0000-0000-000000000001'),
-      clerkUserId: unsafeClerkUserId('user_dev_fallback'),
-      userId: '00000000-0000-0000-0000-000000000001',
-    };
-  }
-
-  // If we have some headers but they failed verification, or we are in dev and want to force a context
+  // Final fallthrough for development: if we haven't returned yet, 
+  // and we are NOT in production, return a stable dev context.
   if (isProduction) return null;
+
+  console.warn('[auth] Establish fallback development context - authentication failed or missing');
 
   const resolvedOrg = rawOrganizationId ? await resolveOrganization(rawOrganizationId) : null;
   const entityId = rawUserId ? await resolveEntityId(rawUserId, resolvedOrg?.id) : null;
   const clerkUserId = unsafeClerkUserId(rawUserId || 'user_dev_fallback');
 
-  // If we can at least resolve an organization, or we have a raw ID to use
-  if (resolvedOrg || rawOrganizationId) {
-    return {
-      organizationId: resolvedOrg?.id ?? unsafeOrganizationId(rawOrganizationId!),
-      organizationName: resolvedOrg?.name ?? 'Development (Unresolved)',
-      entityId: entityId,
-      clerkUserId: clerkUserId,
-      clerkOrganizationId: rawOrganizationId?.startsWith('org_')
-        ? unsafeClerkOrgId(rawOrganizationId)
-        : undefined,
-      apiKeyName: apiKeyName || undefined,
-      // Deprecated alias
-      userId: entityId || rawUserId || 'user_dev_fallback',
-    };
-  }
+  const finalOrgId = resolvedOrg?.id || 
+    (rawOrganizationId && isValidUuid(rawOrganizationId) ? unsafeOrganizationId(rawOrganizationId) : unsafeOrganizationId('ba3b8cdf-efc1-4a60-88be-ac203d263fe2'));
 
-  return null;
+  return {
+    organizationId: finalOrgId,
+    organizationName: resolvedOrg?.name ?? 'Development (Fallback)',
+    entityId: entityId || unsafeEntityId('00000000-0000-0000-0000-000000000001'),
+    clerkUserId: clerkUserId,
+    clerkOrganizationId: rawOrganizationId?.startsWith('org_')
+      ? unsafeClerkOrgId(rawOrganizationId)
+      : undefined,
+    apiKeyName: apiKeyName || undefined,
+    // Deprecated alias
+    userId: entityId || rawUserId || '00000000-0000-0000-0000-000000000001',
+  };
 }
 
 // ============ RBAC Permission Helpers ============

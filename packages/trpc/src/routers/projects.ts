@@ -3,15 +3,7 @@ import { authenticatedProcedure, router } from '../trpc';
 import { ProjectService } from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
 import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../ai-meta';
-
-const projectStatusEnum = z.enum([
-  'planning',
-  'active',
-  'on_hold',
-  'completed',
-  'cancelled',
-  'archived',
-]);
+import { ProjectStatusEnum } from '@glapi/types';
 
 const projectBillingModelEnum = z.enum([
   'fixed_fee',
@@ -23,7 +15,7 @@ const createProjectSchema = z.object({
   customerId: z.string().uuid().optional(),
   projectCode: z.string().min(1).max(50),
   name: z.string().min(1).max(200),
-  status: projectStatusEnum.optional(),
+  status: ProjectStatusEnum.optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   jobNumber: z.string().max(50).optional(),
@@ -43,7 +35,7 @@ const updateProjectSchema = z.object({
   customerId: z.string().uuid().nullable().optional(),
   projectCode: z.string().min(1).max(50).optional(),
   name: z.string().min(1).max(200).optional(),
-  status: projectStatusEnum.optional(),
+  status: ProjectStatusEnum.optional(),
   startDate: z.string().nullable().optional(),
   endDate: z.string().nullable().optional(),
   jobNumber: z.string().max(50).nullable().optional(),
@@ -63,7 +55,7 @@ const projectFiltersSchema = z
   .object({
     subsidiaryId: z.string().uuid().optional(),
     customerId: z.string().uuid().optional(),
-    status: z.union([projectStatusEnum, z.array(projectStatusEnum)]).optional(),
+    status: z.union([ProjectStatusEnum, z.array(ProjectStatusEnum)]).optional(),
     projectType: z.string().optional(),
     billingModel: projectBillingModelEnum.optional(),
     search: z.string().optional(),
@@ -99,7 +91,7 @@ export const projectsRouter = router({
       z
         .object({
           page: z.number().int().positive().optional(),
-          limit: z.number().int().positive().max(100).optional(),
+          limit: z.number().int().positive().max(1000).optional(),
           orderBy: z
             .enum(['name', 'projectCode', 'status', 'startDate', 'createdAt'])
             .optional(),

@@ -48,7 +48,7 @@ export class CustomerService extends BaseService {
     params: PaginationParams = {},
     orderBy: 'companyName' | 'createdAt' = 'companyName',
     orderDirection: 'asc' | 'desc' = 'asc',
-    filters: { status?: string } = {}
+    filters: { status?: string; search?: string } = {}
   ): Promise<PaginatedResult<Customer>> {
     const organizationId = this.requireOrganizationContext();
     

@@ -114,7 +114,7 @@ export class ProjectRepository extends BaseRepository {
     filters: ProjectFilters = {}
   ) {
     const page = Math.max(1, params.page || 1);
-    const limit = Math.max(1, Math.min(100, params.limit || 50));
+    const limit = Math.max(1, Math.min(1000, params.limit || 50));
     const skip = (page - 1) * limit;
 
     const whereConditions = [eq(projects.organizationId, organizationId)];
@@ -129,9 +129,10 @@ export class ProjectRepository extends BaseRepository {
 
     if (filters.status) {
       if (Array.isArray(filters.status)) {
-        whereConditions.push(inArray(projects.status, filters.status));
+        const lowerStatuses = filters.status.map(s => s.toLowerCase());
+        whereConditions.push(inArray(projects.status, lowerStatuses));
       } else {
-        whereConditions.push(eq(projects.status, filters.status));
+        whereConditions.push(eq(projects.status, filters.status.toLowerCase()));
       }
     }
 

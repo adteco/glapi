@@ -77,23 +77,31 @@ export async function proxyAuthenticatedApiRequest(
   upstreamPath: string
 ): Promise<NextResponse> {
   const { userId, orgId, getToken } = await auth();
+  const isProduction = process.env.NODE_ENV === 'production';
 
-  if (!userId) {
+  if (!userId && isProduction) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  const token = await getToken();
-  if (!token) {
+  const token = userId ? await getToken() : null;
+  if (!token && userId && isProduction) {
     return NextResponse.json({ message: 'Unable to resolve auth token' }, { status: 401 });
   }
 
   const upstreamUrl = buildUpstreamUrl(request, upstreamPath);
   const headers = buildUpstreamHeaders(request);
-  headers.set('authorization', `Bearer ${token}`);
+  
+  if (token) {
+    headers.set('authorization', `Bearer ${token}`);
+  }
+  
   if (orgId) {
     headers.set('x-organization-id', orgId);
   }
-  headers.set('x-user-id', userId);
+  
+  if (userId) {
+    headers.set('x-user-id', userId);
+  }
 
   const method = request.method.toUpperCase();
   const canHaveBody = method !== 'GET' && method !== 'HEAD';

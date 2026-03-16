@@ -153,7 +153,7 @@ export type TimeEntryFilters = z.infer<typeof timeEntryFiltersSchema>;
 export const timeEntryListInputSchema = z
   .object({
     page: z.number().int().positive().optional(),
-    limit: z.number().int().positive().max(100).optional(),
+    limit: z.number().int().positive().max(1000).optional(),
     orderBy: z.enum(['entryDate', 'createdAt', 'status', 'hours']).optional(),
     orderDirection: sortDirectionSchema.optional(),
     filters: timeEntryFiltersSchema,

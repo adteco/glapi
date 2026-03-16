@@ -63,7 +63,7 @@ export class CustomerRepository extends BaseRepository {
   async findAll(
     organizationId: string,
     params: CustomerPaginationParams = {},
-    filters: { status?: string } = {}
+    filters: { status?: string; search?: string } = {}
   ) {
     // Calculate pagination
     const page = Math.max(1, params.page || 1);
@@ -78,6 +78,13 @@ export class CustomerRepository extends BaseRepository {
     
     if (filters.status) {
       whereConditions.push(eq(entities.status, filters.status));
+    }
+
+    if (filters.search) {
+      const term = `%${filters.search}%`;
+      whereConditions.push(
+        sql`(${entities.name} ILIKE ${term} OR ${entities.code} ILIKE ${term} OR ${entities.email} ILIKE ${term})`
+      );
     }
     
     const whereClause = and(...whereConditions);

@@ -50,9 +50,10 @@ export const globalSearchRouter = router({
       let searchQuery = query.trim();
       let targetType: EntityType | 'all' = 'all';
 
-      // Check for type prefix (e.g., "cus: acme" or just "cus:")
+      // Check for type prefix (e.g., "cus: acme" or "PROJ: BHMG")
+      const lowerQuery = searchQuery.toLowerCase();
       for (const [type, prefix] of Object.entries(SEARCH_PREFIXES)) {
-        if (searchQuery.toLowerCase().startsWith(prefix)) {
+        if (lowerQuery.startsWith(prefix.toLowerCase())) {
           targetType = type as EntityType;
           searchQuery = searchQuery.slice(prefix.length).trim();
           break;
@@ -71,24 +72,14 @@ export const globalSearchRouter = router({
         try {
           const customerService = new CustomerService(ctx.serviceContext);
           const customersResult = await customerService.listCustomers(
-            { page: 1, limit: showAllOfType ? perTypeLimit : 100 },
+            { page: 1, limit: showAllOfType ? perTypeLimit : 50 },
             'companyName',
-            'asc'
+            'asc',
+            { search: searchQuery || undefined }
           );
 
-          // Filter customers by search query (or take all if showAllOfType)
-          const matchingCustomers = showAllOfType
-            ? customersResult.data.slice(0, perTypeLimit)
-            : customersResult.data
-              .filter(customer =>
-                matchesSearch(customer.companyName, searchQuery) ||
-                matchesSearch(customer.customerId, searchQuery) ||
-                matchesSearch(customer.contactEmail, searchQuery)
-              )
-              .slice(0, perTypeLimit);
-
-          for (const customer of matchingCustomers) {
-            if (!customer.id) continue; // Skip if no ID (shouldn't happen)
+          for (const customer of customersResult.data) {
+            if (!customer.id) continue;
             results.push({
               id: customer.id,
               type: 'customer',
@@ -100,8 +91,8 @@ export const globalSearchRouter = router({
               },
             });
           }
-        } catch {
-          // Silently handle errors for individual searches
+        } catch (error) {
+          console.error('[search] Customer search failed:', error);
         }
       }
 
@@ -109,23 +100,12 @@ export const globalSearchRouter = router({
       if ((targetType === 'all' && searchQuery) || targetType === 'project') {
         try {
           const projectService = new ProjectService(ctx.serviceContext);
-          const projects = await projectService.listProjects({
-            page: 1,
-            limit: showAllOfType ? perTypeLimit : 100,
-          });
+          const projects = await projectService.listProjects(
+            { page: 1, limit: showAllOfType ? perTypeLimit : 50 },
+            { search: searchQuery || undefined }
+          );
 
-          // Filter projects by search query (or take all if showAllOfType)
-          const matchingProjects = showAllOfType
-            ? projects.data.slice(0, perTypeLimit)
-            : projects.data
-              .filter(project =>
-                matchesSearch(project.name, searchQuery) ||
-                matchesSearch(project.projectCode, searchQuery) ||
-                matchesSearch(project.description, searchQuery)
-              )
-              .slice(0, perTypeLimit);
-
-          for (const project of matchingProjects) {
+          for (const project of projects.data) {
             results.push({
               id: project.id,
               type: 'project',
@@ -137,8 +117,8 @@ export const globalSearchRouter = router({
               },
             });
           }
-        } catch {
-          // Silently handle errors for individual searches
+        } catch (error) {
+          console.error('[search] Project search failed:', error);
         }
       }
 

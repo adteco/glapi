@@ -13,10 +13,15 @@ export interface ClerkOrganizationMembership {
 
 let clerkClient: ReturnType<typeof createClerkClient> | null = null;
 
-export function getClerkSecretKey(): string {
+export function getClerkSecretKey(): string | null {
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) {
-    throw new Error('CLERK_SECRET_KEY is not configured');
+    // Only warn once to avoid log spam
+    if (!(global as any)._clerkSecretWarning) {
+      console.warn('[auth] CLERK_SECRET_KEY is not configured. Clerk authentication will be unavailable.');
+      (global as any)._clerkSecretWarning = true;
+    }
+    return null;
   }
 
   return secretKey;
@@ -24,7 +29,9 @@ export function getClerkSecretKey(): string {
 
 function getClerkClient() {
   if (!clerkClient) {
-    clerkClient = createClerkClient({ secretKey: getClerkSecretKey() });
+    const secretKey = getClerkSecretKey();
+    if (!secretKey) return null;
+    clerkClient = createClerkClient({ secretKey });
   }
 
   return clerkClient;
@@ -33,7 +40,12 @@ function getClerkClient() {
 export async function verifyClerkBearerToken(
   token: string
 ): Promise<VerifiedClerkTokenClaims> {
-  const payload = await verifyToken(token, { secretKey: getClerkSecretKey() });
+  const secretKey = getClerkSecretKey();
+  if (!secretKey) {
+    throw new Error('CLERK_SECRET_KEY is not configured');
+  }
+  
+  const payload = await verifyToken(token, { secretKey });
 
   if (!payload.sub) {
     throw new Error('Invalid token: missing user ID');

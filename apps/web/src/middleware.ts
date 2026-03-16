@@ -23,14 +23,19 @@ export default clerkMiddleware(
 
     if (isProtectedRoute(req)) await auth.protect()
   },
-  isSatellite
-    ? {
-        isSatellite: true,
-        domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,        // e.g., "https://glapi.net"
-        signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL, // e.g., "https://adteco.com/sign-in"
-        signUpUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL, // e.g., "https://adteco.com/sign-up"
-      }
-    : {}
+  (req) => {
+    const isLocal = req.nextUrl.hostname === 'localhost' || req.nextUrl.hostname === '127.0.0.1'
+    if (isLocal) return {}
+
+    return isSatellite
+      ? {
+          isSatellite: true,
+          domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,        // e.g., "https://glapi.net"
+          signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL, // e.g., "https://adteco.com/sign-in"
+          signUpUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL, // e.g., "https://adteco.com/sign-up"
+        }
+      : {}
+  }
 )
 
 export const config = {
