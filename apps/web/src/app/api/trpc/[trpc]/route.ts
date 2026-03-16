@@ -8,8 +8,7 @@ async function proxyToApi(
   request: NextRequest,
   context: { params: Promise<{ trpc: string }> }
 ) {
-  const { trpc } = await context.params;
-  return proxyAuthenticatedApiRequest(request, `/api/trpc/${encodeURIComponent(trpc)}`);
+  return proxyAuthenticatedApiRequest(request, request.nextUrl.pathname);
 }
 
 export async function GET(

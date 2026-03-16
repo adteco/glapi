@@ -35,7 +35,19 @@ function buildProxyResponse(upstream: Response): NextResponse {
 
   upstream.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (lower === 'content-length' || lower === 'transfer-encoding' || lower === 'connection') {
+    // Exclude hop-by-hop headers and headers that would be invalidated by the proxy
+    if (
+      lower === 'content-length' ||
+      lower === 'content-encoding' ||
+      lower === 'transfer-encoding' ||
+      lower === 'connection' ||
+      lower === 'keep-alive' ||
+      lower === 'proxy-authenticate' ||
+      lower === 'proxy-authorization' ||
+      lower === 'te' ||
+      lower === 'trailer' ||
+      lower === 'upgrade'
+    ) {
       return;
     }
     if (lower === 'set-cookie') {
