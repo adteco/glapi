@@ -46,11 +46,6 @@ export class ContactService extends EntityService {
   async createContact(
     data: CreateEntityInput & { metadata?: ContactMetadata }
   ): Promise<BaseEntity> {
-    // Ensure contact has a parent entity if not standalone
-    if (!data.parentEntityId && !data.metadata?.title) {
-      throw new Error('Contact must be associated with a parent entity or have a title');
-    }
-
     return this.create(['Contact'], data);
   }
 

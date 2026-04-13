@@ -5,7 +5,7 @@ import { createReadOnlyAIMeta, createWriteAIMeta, createDeleteAIMeta } from '../
 
 const contactSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  entityId: z.string().optional(),
+  parentEntityId: z.string().optional(),
   isActive: z.boolean().default(true),
   legalName: z.string().optional(),
   taxIdNumber: z.string().optional(),

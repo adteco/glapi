@@ -73,6 +73,10 @@ function NewContactPageContent() {
 
     createContactMutation.mutate({
       name: formData.name,
+      parentEntityId:
+        formData.parentEntityId && formData.parentEntityId !== 'none'
+          ? formData.parentEntityId
+          : undefined,
       legalName: formData.displayName || undefined,
       email: formData.email || undefined,
       phone: formData.phone || undefined,
@@ -82,7 +86,6 @@ function NewContactPageContent() {
         first_name: formData.metadata.first_name || undefined,
         last_name: formData.metadata.last_name || undefined,
         title: formData.metadata.title || undefined,
-        company: formData.parentEntityId === 'none' ? undefined : formData.parentEntityId || undefined,
         contact_type: 'Individual',
         preferred_communication: formData.metadata.preferred_communication || undefined,
       },
