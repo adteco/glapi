@@ -30,7 +30,9 @@ export class DashboardPage extends BasePage {
     super(page);
 
     // KPI Cards
-    this.kpiCards = page.locator('[data-testid="kpi-card"], .kpi-card, .stat-card');
+    this.kpiCards = page.locator(
+      'text=/^(Total Revenue|Net Income|Cash Balance|Outstanding|Active Customers)$/'
+    );
     this.totalRevenueCard = page.locator('[data-testid="total-revenue"], text="Total Revenue"').locator('..');
     this.netIncomeCard = page.locator('[data-testid="net-income"], text="Net Income"').locator('..');
     this.cashBalanceCard = page.locator('[data-testid="cash-balance"], text="Cash Balance"').locator('..');

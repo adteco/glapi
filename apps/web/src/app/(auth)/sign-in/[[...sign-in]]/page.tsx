@@ -1,4 +1,5 @@
 import { SignIn } from "@clerk/nextjs";
+import { clerkRedirects } from "@/lib/clerk-redirects";
 
 export default function SignInPage() {
   return (
@@ -7,6 +8,7 @@ export default function SignInPage() {
         <div className="pt-32 pb-12 md:pt-40 md:pb-20">
           <div className="flex justify-center">
             <SignIn 
+              fallbackRedirectUrl={clerkRedirects.signInFallbackRedirectUrl}
               appearance={{
                 elements: {
                   rootBox: "mx-auto",

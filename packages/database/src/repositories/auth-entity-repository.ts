@@ -1,6 +1,13 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { BaseRepository } from './base-repository';
 import { entities } from '../db/schema/entities';
+import { hasSchemaColumn, pgTextArray } from './schema-compatibility';
+
+type EntitySchemaSupport = {
+  betterAuthUserId: boolean;
+};
+
+let entitySchemaSupportPromise: Promise<EntitySchemaSupport> | null = null;
 
 /**
  * Input for creating a new user entity (Employee with auth capabilities)
@@ -63,27 +70,62 @@ export interface AuthEntityInfo {
  * - The findByLegacyUserId method supports migration from the old users table
  */
 export class AuthEntityRepository extends BaseRepository {
+  private async getSchemaSupport(): Promise<EntitySchemaSupport> {
+    if (!entitySchemaSupportPromise) {
+      entitySchemaSupportPromise = this.db
+        .execute(sql`
+          select column_name
+          from information_schema.columns
+          where table_schema = current_schema()
+            and table_name = 'entities'
+            and column_name in ('better_auth_user_id')
+        `)
+        .then((result) => {
+          return {
+            betterAuthUserId: hasSchemaColumn(
+              result.rows as { column_name?: string | null }[] | undefined,
+              'better_auth_user_id'
+            ),
+          };
+        })
+        .catch(() => ({
+          betterAuthUserId: true,
+        }));
+    }
+
+    return entitySchemaSupportPromise;
+  }
+
+  private async getSelection() {
+    const support = await this.getSchemaSupport();
+
+    return {
+      id: entities.id,
+      clerkUserId: entities.clerkUserId,
+      betterAuthUserId: support.betterAuthUserId
+        ? entities.betterAuthUserId
+        : sql<string | null>`null`,
+      email: entities.email,
+      name: entities.name,
+      displayName: entities.displayName,
+      organizationId: entities.organizationId,
+      role: entities.role,
+      settings: entities.settings,
+      isActive: entities.isActive,
+      lastLogin: entities.lastLogin,
+      entityTypes: entities.entityTypes,
+      status: entities.status,
+    };
+  }
+
   /**
    * Find an entity by Clerk user ID for authentication
    * This is the primary lookup method for auth flows
    */
   async findByClerkId(clerkUserId: string): Promise<AuthEntityInfo | null> {
+    const selection = await this.getSelection();
     const [result] = await this.db
-      .select({
-        id: entities.id,
-        clerkUserId: entities.clerkUserId,
-        betterAuthUserId: entities.betterAuthUserId,
-        email: entities.email,
-        name: entities.name,
-        displayName: entities.displayName,
-        organizationId: entities.organizationId,
-        role: entities.role,
-        settings: entities.settings,
-        isActive: entities.isActive,
-        lastLogin: entities.lastLogin,
-        entityTypes: entities.entityTypes,
-        status: entities.status,
-      })
+      .select(selection)
       .from(entities)
       .where(eq(entities.clerkUserId, clerkUserId))
       .limit(1);
@@ -99,22 +141,14 @@ export class AuthEntityRepository extends BaseRepository {
    * Find an entity by Better Auth user ID for authentication
    */
   async findByBetterAuthId(betterAuthUserId: string): Promise<AuthEntityInfo | null> {
+    const support = await this.getSchemaSupport();
+    if (!support.betterAuthUserId) {
+      return null;
+    }
+
+    const selection = await this.getSelection();
     const [result] = await this.db
-      .select({
-        id: entities.id,
-        clerkUserId: entities.clerkUserId,
-        betterAuthUserId: entities.betterAuthUserId,
-        email: entities.email,
-        name: entities.name,
-        displayName: entities.displayName,
-        organizationId: entities.organizationId,
-        role: entities.role,
-        settings: entities.settings,
-        isActive: entities.isActive,
-        lastLogin: entities.lastLogin,
-        entityTypes: entities.entityTypes,
-        status: entities.status,
-      })
+      .select(selection)
       .from(entities)
       .where(eq(entities.betterAuthUserId, betterAuthUserId))
       .limit(1);
@@ -130,22 +164,9 @@ export class AuthEntityRepository extends BaseRepository {
    * Find entity by database ID (for internal operations)
    */
   async findById(id: string): Promise<AuthEntityInfo | null> {
+    const selection = await this.getSelection();
     const [result] = await this.db
-      .select({
-        id: entities.id,
-        clerkUserId: entities.clerkUserId,
-        betterAuthUserId: entities.betterAuthUserId,
-        email: entities.email,
-        name: entities.name,
-        displayName: entities.displayName,
-        organizationId: entities.organizationId,
-        role: entities.role,
-        settings: entities.settings,
-        isActive: entities.isActive,
-        lastLogin: entities.lastLogin,
-        entityTypes: entities.entityTypes,
-        status: entities.status,
-      })
+      .select(selection)
       .from(entities)
       .where(eq(entities.id, id))
       .limit(1);
@@ -161,22 +182,9 @@ export class AuthEntityRepository extends BaseRepository {
    * Find entity by email within an organization
    */
   async findByEmail(email: string, organizationId: string): Promise<AuthEntityInfo | null> {
+    const selection = await this.getSelection();
     const [result] = await this.db
-      .select({
-        id: entities.id,
-        clerkUserId: entities.clerkUserId,
-        betterAuthUserId: entities.betterAuthUserId,
-        email: entities.email,
-        name: entities.name,
-        displayName: entities.displayName,
-        organizationId: entities.organizationId,
-        role: entities.role,
-        settings: entities.settings,
-        isActive: entities.isActive,
-        lastLogin: entities.lastLogin,
-        entityTypes: entities.entityTypes,
-        status: entities.status,
-      })
+      .select(selection)
       .from(entities)
       .where(
         and(
@@ -231,6 +239,55 @@ export class AuthEntityRepository extends BaseRepository {
    * Used by Clerk webhooks or Better Auth signup
    */
   async createUserEntity(input: CreateUserEntityInput): Promise<AuthEntityInfo> {
+    const selection = await this.getSelection();
+    const support = await this.getSchemaSupport();
+
+    if (!support.betterAuthUserId) {
+      const result = await this.db.execute(sql`
+        insert into entities (
+          organization_id,
+          name,
+          display_name,
+          entity_types,
+          email,
+          metadata,
+          status,
+          is_active,
+          clerk_user_id,
+          role,
+          settings
+        ) values (
+          ${input.organizationId}::uuid,
+          ${input.name},
+          ${input.displayName || null},
+          ${pgTextArray(['Employee'])},
+          ${input.email},
+          ${input.metadata ? JSON.stringify(input.metadata) : null}::jsonb,
+          ${'active'},
+          ${true},
+          ${input.clerkUserId || null},
+          ${input.role || 'user'},
+          ${input.settings ? JSON.stringify(input.settings) : null}::jsonb
+        )
+        returning
+          id,
+          clerk_user_id as "clerkUserId",
+          null as "betterAuthUserId",
+          email,
+          name,
+          display_name as "displayName",
+          organization_id as "organizationId",
+          role,
+          settings,
+          is_active as "isActive",
+          last_login as "lastLogin",
+          entity_types as "entityTypes",
+          status
+      `);
+
+      return result.rows[0] as unknown as AuthEntityInfo;
+    }
+
     const [result] = await this.db
       .insert(entities)
       .values({
@@ -240,28 +297,16 @@ export class AuthEntityRepository extends BaseRepository {
         email: input.email,
         entityTypes: ['Employee'],
         clerkUserId: input.clerkUserId || null,
-        betterAuthUserId: input.betterAuthUserId || null,
+        ...(support.betterAuthUserId
+          ? { betterAuthUserId: input.betterAuthUserId || null }
+          : {}),
         role: input.role || 'user',
         settings: input.settings || null,
         metadata: input.metadata || null,
         status: 'active',
         isActive: true,
       })
-      .returning({
-        id: entities.id,
-        clerkUserId: entities.clerkUserId,
-        betterAuthUserId: entities.betterAuthUserId,
-        email: entities.email,
-        name: entities.name,
-        displayName: entities.displayName,
-        organizationId: entities.organizationId,
-        role: entities.role,
-        settings: entities.settings,
-        isActive: entities.isActive,
-        lastLogin: entities.lastLogin,
-        entityTypes: entities.entityTypes,
-        status: entities.status,
-      });
+      .returning(selection);
 
     return result as AuthEntityInfo;
   }

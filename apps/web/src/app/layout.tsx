@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { ConversationalLedger } from "@/components/chat/conversational-ledger";
+import { clerkRedirects } from "@/lib/clerk-redirects";
 import { headers } from 'next/headers';
 
 const inter = Inter({ subsets: ["latin"] });
@@ -32,6 +33,8 @@ export default async function RootLayout({
   return (
     <ClerkProvider
       appearance={{ baseTheme: dark }}
+      signInFallbackRedirectUrl={clerkRedirects.signInFallbackRedirectUrl}
+      signUpFallbackRedirectUrl={clerkRedirects.signUpFallbackRedirectUrl}
       {...(isSatellite && {
         isSatellite: true,
         domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,         // e.g., "https://glapi.net"
