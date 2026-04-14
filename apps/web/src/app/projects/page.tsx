@@ -13,16 +13,20 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
+import type { ProjectStatus as CanonicalProjectStatus } from '@glapi/types';
 import type { RouterOutputs } from '@glapi/trpc';
 import { Eye, Pencil, Trash2, Plus, Clock, Check, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  getProjectStatusBadgeVariant,
+  getProjectStatusLabel,
+  normalizeProjectStatus,
+  projectStatusOptions,
+} from '@/lib/project-status';
 
 // Use TRPC inferred types to prevent type drift
 type Project = RouterOutputs['projects']['list']['data'][number];
-type ProjectStatus = Project['status'];
-
-// Input status type for mutations (must match TRPC input schema)
-type ProjectStatusInput = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled' | 'archived';
+type ProjectStatusInput = CanonicalProjectStatus;
 type ProjectBillingModel = 'fixed_fee' | 'time_and_materials';
 
 interface FormData {
@@ -48,14 +52,15 @@ interface EditingCell {
   value: string;
 }
 
-const statusOptions: { value: ProjectStatusInput; label: string }[] = [
-  { value: 'planning', label: 'Planning' },
-  { value: 'active', label: 'Active' },
-  { value: 'on_hold', label: 'On Hold' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'archived', label: 'Archived' },
-];
+type InlineProjectUpdateData = {
+  name?: string;
+  budgetRevenue?: string | null;
+  budgetCost?: string | null;
+  percentComplete?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  status?: ProjectStatusInput;
+};
 
 const billingModelOptions: { value: ProjectBillingModel; label: string }[] = [
   { value: 'time_and_materials', label: 'Time & Materials' },
@@ -94,7 +99,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ formData, setFormData }) => (
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {statusOptions.map(option => (
+            {projectStatusOptions.map(option => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -272,20 +277,6 @@ function EditableStatusCell({
 }: EditableStatusCellProps) {
   const isEditing = editingCell?.projectId === projectId && editingCell?.field === 'status';
 
-  const getStatusBadgeVariant = (status: ProjectStatus): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    switch (status) {
-      case 'active':
-        return 'default';
-      case 'completed':
-        return 'secondary';
-      case 'cancelled':
-      case 'archived':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
-  };
-
   if (isEditing) {
     return (
       <div className="flex items-center gap-1">
@@ -297,7 +288,7 @@ function EditableStatusCell({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {statusOptions.map(option => (
+            {projectStatusOptions.map(option => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -317,8 +308,8 @@ function EditableStatusCell({
       onClick={() => onStartEdit(projectId, 'status', value)}
       title="Click to edit"
     >
-      <Badge variant={getStatusBadgeVariant(value)}>
-        {statusOptions.find(s => s.value === value)?.label || value}
+      <Badge variant={getProjectStatusBadgeVariant(value)}>
+        {getProjectStatusLabel(value)}
       </Badge>
     </div>
   );
@@ -335,7 +326,7 @@ export default function ProjectsPage() {
   const [formData, setFormData] = useState<FormData>({
     projectCode: '',
     name: '',
-    status: 'planning',
+    status: 'DRAFT',
     startDate: '',
     endDate: '',
     jobNumber: '',
@@ -345,7 +336,6 @@ export default function ProjectsPage() {
   });
 
   // TRPC queries and mutations
-  const utils = trpc.useUtils();
   const { data: projectsData, isLoading, refetch } = trpc.projects.list.useQuery({}, {
     enabled: !!orgId,
   });
@@ -451,7 +441,7 @@ export default function ProjectsPage() {
     const { projectId, field, value } = editingCell;
 
     // Build update data based on field
-    const updateData: Record<string, any> = {};
+    const updateData: InlineProjectUpdateData = {};
 
     switch (field) {
       case 'name':
@@ -473,7 +463,7 @@ export default function ProjectsPage() {
         updateData.endDate = value || null;
         break;
       case 'status':
-        updateData.status = value as ProjectStatusInput;
+        updateData.status = normalizeProjectStatus(value);
         break;
       default:
         return;
@@ -488,7 +478,7 @@ export default function ProjectsPage() {
   const handleStatusSave = useCallback((projectId: string, value: string) => {
     updateProjectMutation.mutate({
       id: projectId,
-      data: { status: value as ProjectStatusInput },
+      data: { status: normalizeProjectStatus(value) },
     });
     setEditingCell(null);
   }, [updateProjectMutation]);
@@ -502,7 +492,7 @@ export default function ProjectsPage() {
     setFormData({
       projectCode: project.projectCode || '',
       name: project.name || '',
-      status: (project.status || 'planning') as ProjectStatusInput,
+      status: normalizeProjectStatus(project.status),
       startDate: project.startDate || '',
       endDate: project.endDate || '',
       jobNumber: project.jobNumber || '',
@@ -517,7 +507,7 @@ export default function ProjectsPage() {
     setFormData({
       projectCode: '',
       name: '',
-      status: 'planning',
+      status: 'DRAFT',
       startDate: '',
       endDate: '',
       jobNumber: '',
@@ -639,7 +629,7 @@ export default function ProjectsPage() {
                     <TableCell>{project.customerName || '-'}</TableCell>
                     <TableCell>
                       <EditableStatusCell
-                        value={(project.status || 'planning') as ProjectStatusInput}
+                        value={normalizeProjectStatus(project.status)}
                         projectId={project.id}
                         editingCell={editingCell}
                         onStartEdit={handleStartEdit}

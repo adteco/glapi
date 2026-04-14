@@ -2,6 +2,27 @@ import { BaseService } from './base-service';
 import { ServiceError } from '../types/common.types';
 import { ProjectRepository, type ContextualDatabase } from '@glapi/database';
 
+const projectStatusAliases: Record<string, string> = {
+  planning: 'DRAFT',
+  draft: 'DRAFT',
+  active: 'ACTIVE',
+  on_hold: 'ON_HOLD',
+  completed: 'COMPLETED',
+  cancelled: 'CANCELLED',
+  archived: 'ARCHIVED',
+};
+
+function normalizeProjectStatus(status?: string | null): string | undefined {
+  if (!status) {
+    return undefined;
+  }
+
+  const normalized = status.trim().toUpperCase().replace(/\s+/g, '_');
+  const alias = projectStatusAliases[status.trim().toLowerCase()];
+
+  return alias ?? normalized;
+}
+
 export interface Project {
   id: string;
   organizationId: string;
@@ -183,6 +204,10 @@ export class ProjectService extends BaseService {
    */
   async createProject(input: CreateProjectInput): Promise<Project> {
     const organizationId = this.requireOrganizationContext();
+    const normalizedInput = {
+      ...input,
+      status: normalizeProjectStatus(input.status),
+    };
 
     // Validate project code uniqueness
     const exists = await this.projectRepository.existsByCode(input.projectCode, organizationId);
@@ -203,7 +228,7 @@ export class ProjectService extends BaseService {
 
     const project = await this.projectRepository.create({
       organizationId,
-      ...input,
+      ...normalizedInput,
     });
 
     return this.mapProjectToDto(project);
@@ -214,6 +239,10 @@ export class ProjectService extends BaseService {
    */
   async updateProject(id: string, input: UpdateProjectInput): Promise<Project> {
     const organizationId = this.requireOrganizationContext();
+    const normalizedInput = {
+      ...input,
+      status: normalizeProjectStatus(input.status),
+    };
 
     // Verify project exists
     const existing = await this.projectRepository.findById(id, organizationId);
@@ -246,7 +275,7 @@ export class ProjectService extends BaseService {
       }
     }
 
-    const updated = await this.projectRepository.update(id, organizationId, input);
+    const updated = await this.projectRepository.update(id, organizationId, normalizedInput);
 
     if (!updated) {
       throw new ServiceError('Failed to update project', 'UPDATE_FAILED', 500);

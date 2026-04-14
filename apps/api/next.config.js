@@ -5,7 +5,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   serverExternalPackages: ['pg', 'pg-cloudflare', '@glapi/database'],
-  transpilePackages: ['@glapi/api-service', '@glapi/business', '@glapi/trpc'],
+  transpilePackages: ['@glapi/auth', '@glapi/api-service', '@glapi/business', '@glapi/trpc'],
   // Disable React strict mode for API routes
   reactStrictMode: false,
   // Disable image optimization since this is API-only

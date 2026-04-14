@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { ProjectStatusEnum } from '@glapi/types';
 import {
   Form,
   FormControl,
@@ -23,15 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-
-const projectStatusEnum = z.enum([
-  'planning',
-  'active',
-  'on_hold',
-  'completed',
-  'cancelled',
-  'archived',
-]);
+import { normalizeProjectStatus, projectStatusOptions } from '@/lib/project-status';
 
 const projectBillingModelEnum = z.enum([
   'fixed_fee',
@@ -41,7 +34,7 @@ const projectBillingModelEnum = z.enum([
 const projectSchema = z.object({
   projectCode: z.string().min(1, 'Project code is required').max(50),
   name: z.string().min(1, 'Project name is required').max(200),
-  status: projectStatusEnum,
+  status: ProjectStatusEnum,
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   jobNumber: z.string().max(50).optional(),
@@ -56,15 +49,6 @@ const projectSchema = z.object({
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
-
-const statusOptions = [
-  { value: 'planning', label: 'Planning' },
-  { value: 'active', label: 'Active' },
-  { value: 'on_hold', label: 'On Hold' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'archived', label: 'Archived' },
-];
 
 const billingModelOptions = [
   { value: 'time_and_materials', label: 'Time & Materials' },
@@ -83,7 +67,7 @@ export default function EditProjectPage() {
     defaultValues: {
       projectCode: '',
       name: '',
-      status: 'planning',
+      status: 'DRAFT',
       startDate: '',
       endDate: '',
       jobNumber: '',
@@ -136,7 +120,7 @@ export default function EditProjectPage() {
       form.reset({
         projectCode: project.projectCode || '',
         name: project.name || '',
-        status: (project.status as ProjectFormValues['status']) || 'planning',
+        status: normalizeProjectStatus(project.status) as ProjectFormValues['status'],
         startDate: formatDateForInput(project.startDate),
         endDate: formatDateForInput(project.endDate),
         jobNumber: project.jobNumber || '',
@@ -287,7 +271,7 @@ export default function EditProjectPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {statusOptions.map(option => (
+                          {projectStatusOptions.map(option => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>

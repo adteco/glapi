@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig/node.json",
+  "compilerOptions": {
+    "strict": false,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "outDir": "./dist",
+    "rootDir": "../.."
+  },
+  "include": ["src/**/*", "index.ts", "../database/src/db/schema/auth.ts"],
+  "exclude": ["node_modules", "dist"]
+}

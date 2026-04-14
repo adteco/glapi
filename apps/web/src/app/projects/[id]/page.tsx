@@ -39,17 +39,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
-
-type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled' | 'archived';
-
-const statusOptions: { value: ProjectStatus; label: string }[] = [
-  { value: 'planning', label: 'Planning' },
-  { value: 'active', label: 'Active' },
-  { value: 'on_hold', label: 'On Hold' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'archived', label: 'Archived' },
-];
+import {
+  getProjectStatusLabel,
+  getProjectStatusToneClass,
+} from '@/lib/project-status';
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -275,28 +268,6 @@ export default function ProjectDetailPage() {
     return 'N/A';
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      case 'planning':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'on_hold':
-        return 'bg-orange-100 text-orange-800';
-      case 'cancelled':
-      case 'archived':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    return statusOptions.find(s => s.value === status)?.label || status;
-  };
-
   return (
     <div className="container mx-auto py-10">
       <div className="flex items-center justify-between mb-6">
@@ -308,8 +279,8 @@ export default function ProjectDetailPage() {
             <h1 className="text-3xl font-bold">{project.name}</h1>
             <p className="text-muted-foreground">{project.projectCode}</p>
           </div>
-          <Badge className={getStatusBadgeColor(project.status)}>
-            {getStatusLabel(project.status)}
+          <Badge className={getProjectStatusToneClass(project.status)}>
+            {getProjectStatusLabel(project.status)}
           </Badge>
         </div>
         <Button onClick={() => router.push(`/projects/${id}/edit`)}>
@@ -381,8 +352,8 @@ export default function ProjectDetailPage() {
               <div>
                 <dt className="text-sm font-medium text-gray-500">Status</dt>
                 <dd className="mt-1">
-                  <Badge className={getStatusBadgeColor(project.status)}>
-                    {getStatusLabel(project.status)}
+                  <Badge className={getProjectStatusToneClass(project.status)}>
+                    {getProjectStatusLabel(project.status)}
                   </Badge>
                 </dd>
               </div>

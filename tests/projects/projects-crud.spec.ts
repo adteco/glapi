@@ -2,6 +2,19 @@ import { test, expect } from '@playwright/test';
 import { ListPage, FormPage, DialogPage } from '../pages';
 import { randomString, uniqueId, waitForToast } from '../utils/test-helpers';
 
+function getTrpcJsonInput(payload: unknown) {
+  if (Array.isArray(payload)) {
+    return payload[0]?.json ?? payload[0];
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, any>;
+    return record['0']?.json ?? record.json ?? payload;
+  }
+
+  return payload;
+}
+
 test.describe('Projects CRUD', () => {
   let listPage: ListPage;
   let formPage: FormPage;
@@ -158,7 +171,7 @@ test.describe('Projects CRUD', () => {
         await page.locator('[role="dialog"] input#endDate').fill(endDate.toISOString().split('T')[0]);
 
         // Select status
-        const statusTrigger = page.locator('[role="dialog"]').locator('button').filter({ has: page.locator('text=Planning') }).first();
+        const statusTrigger = page.locator('[role="dialog"]').locator('button').filter({ has: page.locator('text=Draft') }).first();
         if (await statusTrigger.isVisible()) {
           await statusTrigger.click();
           await page.locator('[role="option"]:has-text("Active")').click();
@@ -170,6 +183,77 @@ test.describe('Projects CRUD', () => {
         // Verify the project appears in the list
         await listPage.expectRowWithText(code);
         await listPage.expectRowWithText(name);
+      }
+    });
+
+    test('should send canonical uppercase status values when creating a project', async ({ page }) => {
+      await listPage.clickCreate();
+
+      if (await dialogPage.isOpen()) {
+        const code = `STS${randomString(4).toUpperCase()}`;
+        const name = `Status Payload ${randomString()}`;
+        createdProjectCodes.push(code);
+        let requestHandled = false;
+
+        await page.route('**/trpc/projects.create**', async route => {
+          const payload = getTrpcJsonInput(route.request().postDataJSON());
+
+          expect(payload).toMatchObject({
+            projectCode: code,
+            name,
+            status: 'ACTIVE',
+          });
+
+          const now = new Date().toISOString();
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+              {
+                result: {
+                  data: {
+                    json: {
+                      id: `test-project-${randomString(6)}`,
+                      organizationId: 'test-org',
+                      subsidiaryId: null,
+                      customerId: null,
+                      customerName: null,
+                      projectCode: code,
+                      name,
+                      status: 'ACTIVE',
+                      startDate: null,
+                      endDate: null,
+                      jobNumber: null,
+                      projectType: null,
+                      billingModel: 'time_and_materials',
+                      budgetRevenue: null,
+                      budgetCost: null,
+                      percentComplete: null,
+                      retainagePercent: '0',
+                      currencyCode: null,
+                      description: null,
+                      externalSource: null,
+                      metadata: null,
+                      createdAt: now,
+                      updatedAt: now,
+                    },
+                  },
+                },
+              },
+            ]),
+          });
+          requestHandled = true;
+        });
+
+        await page.locator('[role="dialog"] input#projectCode').fill(code);
+        await page.locator('[role="dialog"] input#name').fill(name);
+
+        const statusTrigger = page.locator('[role="dialog"]').locator('button').filter({ has: page.locator('text=Draft') }).first();
+        await statusTrigger.click();
+        await page.locator('[role="option"]:has-text("Active")').click();
+
+        await dialogPage.confirm();
+        await expect.poll(() => requestHandled).toBe(true);
       }
     });
 
@@ -846,12 +930,12 @@ test.describe('Projects CRUD', () => {
 
       if (await dialogPage.isOpen()) {
         // Click status dropdown
-        const statusTrigger = page.locator('[role="dialog"]').locator('button').filter({ has: page.locator('text=Planning') }).first();
+        const statusTrigger = page.locator('[role="dialog"]').locator('button').filter({ has: page.locator('text=Draft') }).first();
         if (await statusTrigger.isVisible()) {
           await statusTrigger.click();
 
           // Verify all status options are visible
-          const options = ['Planning', 'Active', 'On Hold', 'Completed', 'Cancelled', 'Archived'];
+          const options = ['Draft', 'Active', 'On Hold', 'Completed', 'Cancelled', 'Archived'];
           for (const option of options) {
             const optionElement = page.locator(`[role="option"]:has-text("${option}")`);
             await expect(optionElement).toBeVisible();

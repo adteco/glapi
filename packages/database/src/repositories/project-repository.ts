@@ -1,7 +1,28 @@
-import { and, asc, desc, eq, ilike, inArray, sql, or } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, sql, or } from 'drizzle-orm';
 import { BaseRepository } from './base-repository';
 import { projects, projectParticipants } from '../db/schema/projects';
 import { entities } from '../db/schema/entities';
+
+const projectStatusAliases: Record<string, string> = {
+  planning: 'DRAFT',
+  draft: 'DRAFT',
+  active: 'ACTIVE',
+  on_hold: 'ON_HOLD',
+  completed: 'COMPLETED',
+  cancelled: 'CANCELLED',
+  archived: 'ARCHIVED',
+};
+
+function normalizeProjectStatus(status?: string | null): string | undefined {
+  if (!status) {
+    return undefined;
+  }
+
+  const normalized = status.trim().toUpperCase().replace(/\s+/g, '_');
+  const alias = projectStatusAliases[status.trim().toLowerCase()];
+
+  return alias ?? normalized;
+}
 
 export interface ProjectPaginationParams {
   page?: number;
@@ -129,10 +150,21 @@ export class ProjectRepository extends BaseRepository {
 
     if (filters.status) {
       if (Array.isArray(filters.status)) {
-        const lowerStatuses = filters.status.map(s => s.toLowerCase());
-        whereConditions.push(inArray(projects.status, lowerStatuses));
+        const normalizedStatuses = filters.status
+          .map((status) => normalizeProjectStatus(status))
+          .filter((status): status is string => Boolean(status));
+
+        if (normalizedStatuses.length > 0) {
+          whereConditions.push(
+            or(...normalizedStatuses.map((status) => sql`UPPER(${projects.status}) = ${status}`))!
+          );
+        }
       } else {
-        whereConditions.push(eq(projects.status, filters.status.toLowerCase()));
+        const normalizedStatus = normalizeProjectStatus(filters.status);
+
+        if (normalizedStatus) {
+          whereConditions.push(sql`UPPER(${projects.status}) = ${normalizedStatus}`);
+        }
       }
     }
 
@@ -246,7 +278,7 @@ export class ProjectRepository extends BaseRepository {
       .insert(projects)
       .values({
         ...data,
-        status: data.status || 'planning',
+        status: normalizeProjectStatus(data.status) ?? 'DRAFT',
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -259,10 +291,13 @@ export class ProjectRepository extends BaseRepository {
    * Update a project
    */
   async update(id: string, organizationId: string, data: UpdateProjectData) {
+    const normalizedStatus = data.status === undefined ? undefined : normalizeProjectStatus(data.status);
+
     const [result] = await this.db
       .update(projects)
       .set({
         ...data,
+        ...(normalizedStatus !== undefined ? { status: normalizedStatus } : {}),
         updatedAt: new Date(),
       })
       .where(and(eq(projects.id, id), eq(projects.organizationId, organizationId)))

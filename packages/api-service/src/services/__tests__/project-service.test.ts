@@ -69,7 +69,7 @@ describe('ProjectService', () => {
     subsidiaryId: testSubsidiaryId,
     projectCode: 'PRJ-001',
     name: 'Test Project',
-    status: 'active',
+    status: 'ACTIVE',
     startDate: '2026-01-01',
     endDate: '2026-12-31',
     jobNumber: 'JOB-001',
@@ -133,9 +133,9 @@ describe('ProjectService', () => {
         totalPages: 1,
       });
 
-      await service.listProjects({}, { status: 'active' });
+      await service.listProjects({}, { status: 'ACTIVE' });
 
-      expect(mockFindAll).toHaveBeenCalledWith(testOrgId, {}, { status: 'active' });
+      expect(mockFindAll).toHaveBeenCalledWith(testOrgId, {}, { status: 'ACTIVE' });
     });
 
     it('should filter projects by search term', async () => {
@@ -209,8 +209,27 @@ describe('ProjectService', () => {
       expect(mockCreate).toHaveBeenCalledWith({
         organizationId: testOrgId,
         ...input,
+        status: 'ACTIVE',
       });
       expect(result.projectCode).toBe('PRJ-001');
+    });
+
+    it('should preserve canonical uppercase status when creating a project', async () => {
+      mockExistsByCode.mockResolvedValue(false);
+      mockCreate.mockResolvedValue(mockProject);
+
+      await service.createProject({
+        projectCode: 'PRJ-002',
+        name: 'Uppercase Project',
+        status: 'ON_HOLD',
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith({
+        organizationId: testOrgId,
+        projectCode: 'PRJ-002',
+        name: 'Uppercase Project',
+        status: 'ON_HOLD',
+      });
     });
 
     it('should throw error if project code already exists', async () => {
@@ -251,6 +270,15 @@ describe('ProjectService', () => {
       expect(mockFindById).toHaveBeenCalledWith(testProjectId, testOrgId);
       expect(mockUpdate).toHaveBeenCalledWith(testProjectId, testOrgId, { name: 'Updated Project' });
       expect(result.name).toBe('Updated Project');
+    });
+
+    it('should normalize lowercase status when updating a project', async () => {
+      mockFindById.mockResolvedValue(mockProject);
+      mockUpdate.mockResolvedValue({ ...mockProject, status: 'ON_HOLD' });
+
+      await service.updateProject(testProjectId, { status: 'on_hold' });
+
+      expect(mockUpdate).toHaveBeenCalledWith(testProjectId, testOrgId, { status: 'ON_HOLD' });
     });
 
     it('should throw error if project not found', async () => {
