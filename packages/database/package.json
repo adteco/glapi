@@ -36,7 +36,8 @@
     "db:push": "drizzle-kit push",
     "seed:test-org": "tsx src/seed-test-org.ts",
     "seed:workflow-templates": "tsx src/seeds/workflow-templates.ts",
-    "run:entities-migration": "tsx src/scripts/run-entities-migration.ts"
+    "run:entities-migration": "tsx src/scripts/run-entities-migration.ts",
+    "reconcile:better-auth": "tsx src/scripts/backfill-better-auth-mappings.ts"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",

@@ -89,6 +89,58 @@ const orgCache = new Map<string, { id: string; name: string; clerkOrgId?: string
 // Cache for external user ID to entity ID mapping
 const entityIdCache = new Map<string, string>();
 
+const AUTH_MAPPING_RECONCILIATION_COMMAND =
+  'pnpm --filter @glapi/database reconcile:better-auth -- --write';
+
+function parseBooleanEnvFlag(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  switch (value.trim().toLowerCase()) {
+    case '1':
+    case 'true':
+    case 'yes':
+      return true;
+    case '0':
+    case 'false':
+    case 'no':
+      return false;
+    default:
+      return undefined;
+  }
+}
+
+function canAutoProvisionExternalAuthRecords(): boolean {
+  const explicitOverride = parseBooleanEnvFlag(
+    process.env.AUTH_ALLOW_AUTO_PROVISION_MISSING_MAPPINGS
+  );
+
+  if (explicitOverride !== undefined) {
+    return explicitOverride;
+  }
+
+  return process.env.NODE_ENV !== 'production';
+}
+
+function createMissingOrganizationMappingError(
+  providerLabel: 'Clerk organization' | 'Better Auth organization',
+  externalOrganizationId: string
+): AuthenticationError {
+  return new AuthenticationError(
+    `No internal organization mapping exists for ${providerLabel} ${externalOrganizationId}. Run \`${AUTH_MAPPING_RECONCILIATION_COMMAND}\` before enabling production authentication.`
+  );
+}
+
+function createMissingEntityMappingError(
+  providerLabel: 'Clerk user' | 'Better Auth user',
+  externalUserId: string
+): AuthenticationError {
+  return new AuthenticationError(
+    `No internal entity mapping exists for ${providerLabel} ${externalUserId}. Run \`${AUTH_MAPPING_RECONCILIATION_COMMAND}\` before enabling production authentication.`
+  );
+}
+
 export function resetAuthCachesForTest() {
   orgCache.clear();
   entityIdCache.clear();
@@ -141,6 +193,13 @@ async function resolveHeaderBackedContext(
   }
 
   if (!resolvedEntityId && rawUserId) {
+    if (!canAutoProvisionExternalAuthRecords() && !isValidUuid(rawUserId)) {
+      throw createMissingEntityMappingError(
+        rawUserId.startsWith('user_') ? 'Clerk user' : 'Better Auth user',
+        rawUserId
+      );
+    }
+
     // Try to ensure entity for Clerk user if it looks like one, or just treat as Better Auth
     if (rawUserId.startsWith('user_')) {
       resolvedEntityId = await ensureEntityForClerkUser(rawUserId, resolvedOrg.id);
@@ -223,8 +282,9 @@ async function verifyClerkRequest(
 
   if (!resolvedOrg) {
     if (tokenOrganizationId) {
-      throw new AuthenticationError(
-        `Could not resolve organization ID from token: ${tokenOrganizationId}`
+      throw createMissingOrganizationMappingError(
+        'Clerk organization',
+        tokenOrganizationId
       );
     }
 
@@ -235,6 +295,10 @@ async function verifyClerkRequest(
 
   let resolvedEntityId = await resolveEntityId(verifiedToken.userId, resolvedOrg.id);
   if (!resolvedEntityId) {
+    if (!canAutoProvisionExternalAuthRecords()) {
+      throw createMissingEntityMappingError('Clerk user', verifiedToken.userId);
+    }
+
     resolvedEntityId = await ensureEntityForClerkUser(verifiedToken.userId, resolvedOrg.id);
   }
 
@@ -282,11 +346,18 @@ async function verifyBetterAuthRequest(
 
     const resolvedOrg = await resolveOrganization(betterAuthOrganizationId);
     if (!resolvedOrg) {
-        throw new AuthenticationError(`Could not resolve Better Auth organization: ${betterAuthOrganizationId}`);
+        throw createMissingOrganizationMappingError(
+          'Better Auth organization',
+          betterAuthOrganizationId
+        );
     }
 
     let resolvedEntityId = await resolveEntityId(betterAuthUserId, resolvedOrg.id);
     if (!resolvedEntityId) {
+        if (!canAutoProvisionExternalAuthRecords()) {
+          throw createMissingEntityMappingError('Better Auth user', betterAuthUserId);
+        }
+
         resolvedEntityId = await ensureEntityForBetterAuthUser(betterAuthUserId, resolvedOrg.id);
     }
 
@@ -376,6 +447,10 @@ async function resolveOrganization(orgId: string): Promise<ResolvedOrganization 
       // Auto-provision Clerk
       const clerkOrg = await getClerkOrganization(orgId);
       if (clerkOrg) {
+        if (!canAutoProvisionExternalAuthRecords()) {
+          throw createMissingOrganizationMappingError('Clerk organization', orgId);
+        }
+
         const created = await orgRepo.createFromClerk({
           clerkOrgId: orgId,
           name: clerkOrg.name,
@@ -529,6 +604,16 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   try {
       const betterAuthContext = await verifyBetterAuthRequest(headersList);
       if (betterAuthContext) {
+          if (
+            rawUserId &&
+            rawUserId !== betterAuthContext.betterAuthUserId &&
+            rawUserId !== betterAuthContext.entityId
+          ) {
+            throw new AuthenticationError(
+              'User header does not match authenticated token context.'
+            );
+          }
+
           return {
               organizationId: betterAuthContext.organizationId,
               organizationName: betterAuthContext.organizationName,
@@ -549,6 +634,16 @@ export async function getServiceContext(): Promise<OrganizationContext> {
     try {
       const verifiedClerkContext = await verifyClerkRequest(headersList);
       if (verifiedClerkContext) {
+        if (
+          rawUserId &&
+          rawUserId !== verifiedClerkContext.clerkUserId &&
+          rawUserId !== verifiedClerkContext.entityId
+        ) {
+          throw new AuthenticationError(
+            'User header does not match authenticated token context.'
+          );
+        }
+
         return {
           organizationId: verifiedClerkContext.organizationId,
           organizationName: verifiedClerkContext.organizationName,

@@ -8,13 +8,16 @@ import {
 
 const mockFindOrganizationByClerkId = jest.fn();
 const mockFindOrganizationById = jest.fn();
+const mockFindOrganizationByBetterAuthId = jest.fn();
 const mockFindEntityByClerkId = jest.fn();
+const mockFindEntityByBetterAuthId = jest.fn();
 const mockCreateUserEntity = jest.fn();
 const mockWithOrganizationContext = jest.fn();
 const mockVerifyClerkBearerToken = jest.fn();
 const mockGetClerkOrganizationMembership = jest.fn();
 const mockGetClerkSecretKey = jest.fn();
 const mockGetClerkOrganization = jest.fn();
+const mockBetterAuthGetSession = jest.fn();
 
 jest.mock('next/headers', () => ({
   headers: jest.fn(),
@@ -32,13 +35,23 @@ jest.mock('@glapi/api-service', () => ({
   PermissionService: jest.fn(),
 }));
 
+jest.mock('@glapi/auth', () => ({
+  auth: {
+    api: {
+      getSession: (...args: unknown[]) => mockBetterAuthGetSession(...args),
+    },
+  },
+}));
+
 jest.mock('@glapi/database', () => ({
   OrganizationRepository: jest.fn().mockImplementation(() => ({
     findByClerkId: mockFindOrganizationByClerkId,
     findById: mockFindOrganizationById,
+    findByBetterAuthId: mockFindOrganizationByBetterAuthId,
   })),
   AuthEntityRepository: jest.fn().mockImplementation(() => ({
     findByClerkId: mockFindEntityByClerkId,
+    findByBetterAuthId: mockFindEntityByBetterAuthId,
     createUserEntity: mockCreateUserEntity,
   })),
   withOrganizationContext: (...args: unknown[]) => mockWithOrganizationContext(...args),
@@ -62,19 +75,23 @@ describe('getServiceContext', () => {
 
     mockFindOrganizationByClerkId.mockReset();
     mockFindOrganizationById.mockReset();
+    mockFindOrganizationByBetterAuthId.mockReset();
     mockFindEntityByClerkId.mockReset();
+    mockFindEntityByBetterAuthId.mockReset();
     mockCreateUserEntity.mockReset();
     mockWithOrganizationContext.mockReset();
     mockVerifyClerkBearerToken.mockReset();
     mockGetClerkOrganizationMembership.mockReset();
     mockGetClerkSecretKey.mockReset();
     mockGetClerkOrganization.mockReset();
+    mockBetterAuthGetSession.mockReset();
 
     mockFindOrganizationByClerkId.mockResolvedValue({
       id: ORG_UUID,
       name: 'Adteco',
       clerkOrgId: 'org_test_123',
     });
+    mockFindOrganizationByBetterAuthId.mockResolvedValue(null);
     mockFindOrganizationById.mockResolvedValue({
       id: ORG_UUID,
       name: 'Adteco',
@@ -83,6 +100,7 @@ describe('getServiceContext', () => {
     mockFindEntityByClerkId.mockResolvedValue({
       id: ENTITY_UUID,
     });
+    mockFindEntityByBetterAuthId.mockResolvedValue(null);
     mockCreateUserEntity.mockResolvedValue({
       id: ENTITY_UUID,
     });
@@ -93,6 +111,7 @@ describe('getServiceContext', () => {
     mockGetClerkOrganizationMembership.mockResolvedValue(null);
     mockGetClerkSecretKey.mockReturnValue('test-secret-key');
     mockGetClerkOrganization.mockResolvedValue(null);
+    mockBetterAuthGetSession.mockResolvedValue(null);
     mockWithOrganizationContext.mockImplementation(
       async (_context: unknown, callback: (db: unknown) => Promise<unknown>) => callback({})
     );
@@ -187,7 +206,7 @@ describe('getServiceContext', () => {
 
     await expect(getServiceContext()).rejects.toThrow(
       new AuthenticationError(
-        'Authentication required. Provide a valid Clerk bearer token with organization context.'
+        'Authentication required. Provide a valid session or bearer token.'
       )
     );
   });
@@ -247,5 +266,49 @@ describe('getServiceContext', () => {
     mockVerifyClerkBearerToken.mockRejectedValue(new Error('bad token'));
 
     await expect(getOptionalServiceContext()).resolves.toBeNull();
+  });
+
+  it('fails closed in production when a verified Clerk user has no entity mapping', async () => {
+    mockedHeaders.mockResolvedValue(
+      new Headers({
+        Authorization: 'Bearer valid-token',
+        'x-organization-id': ORG_UUID,
+        'x-user-id': 'user_test_123',
+      })
+    );
+    mockFindEntityByClerkId.mockResolvedValue(null);
+
+    await expect(getServiceContext()).rejects.toThrow(
+      new AuthenticationError(
+        'No internal entity mapping exists for Clerk user user_test_123. Run `pnpm --filter @glapi/database reconcile:better-auth -- --write` before enabling production authentication.'
+      )
+    );
+    expect(mockCreateUserEntity).not.toHaveBeenCalled();
+  });
+
+  it('still auto-provisions missing Clerk mappings outside production', async () => {
+    process.env.NODE_ENV = 'development';
+    mockedHeaders.mockResolvedValue(
+      new Headers({
+        Authorization: 'Bearer valid-token',
+        'x-organization-id': ORG_UUID,
+        'x-user-id': 'user_test_123',
+      })
+    );
+    mockFindEntityByClerkId.mockResolvedValue(null);
+    mockCreateUserEntity.mockResolvedValueOnce({
+      id: ENTITY_UUID,
+    });
+
+    const context = await getServiceContext();
+
+    expect(mockCreateUserEntity).toHaveBeenCalledWith({
+      clerkUserId: 'user_test_123',
+      email: 'user_test_123@placeholder.local',
+      name: 'User test_123',
+      organizationId: ORG_UUID,
+      role: 'user',
+    });
+    expect(context.entityId).toBe(ENTITY_UUID);
   });
 });
