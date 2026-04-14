@@ -80,3 +80,8 @@ packages/web/out/
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
