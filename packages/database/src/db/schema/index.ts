@@ -18,6 +18,7 @@ import * as transactionLines from './transactionLines';
 import * as accounts from './accounts';
 import * as entities from './entities';
 import * as addresses from './addresses';
+import * as auth from './auth';
 import * as projects from './projects';
 import * as projectTypes from './project-types';
 import * as projectProgress from './project-progress';
@@ -190,6 +191,7 @@ export const schema = {
   ...accounts,
   ...entities,
   ...addresses,
+  ...auth,
   ...projects,
   ...projectTypes,
   ...projectProgress,

@@ -4,6 +4,7 @@ import { organizations } from "./organizations";
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   stytchUserId: varchar("stytch_user_id", { length: 100 }).unique().notNull(),
+  betterAuthUserId: varchar("better_auth_user_id", { length: 100 }).unique(),
   email: varchar("email", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),

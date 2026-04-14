@@ -17,6 +17,19 @@ export class OrganizationRepository extends BaseRepository {
   }
 
   /**
+   * Find an organization by Better Auth organization ID
+   */
+  async findByBetterAuthId(betterAuthOrgId: string) {
+    const [result] = await this.db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.betterAuthOrgId, betterAuthOrgId))
+      .limit(1);
+
+    return result || null;
+  }
+
+  /**
    * Find an organization by Clerk organization ID
    */
   async findByClerkId(clerkOrgId: string) {
@@ -76,6 +89,36 @@ export class OrganizationRepository extends BaseRepository {
       .returning();
 
     // Format the result
+    return this.formatOrganization(result);
+  }
+
+  /**
+   * Create a new organization from Better Auth
+   */
+  async createFromBetterAuth(data: {
+    betterAuthOrgId: string;
+    name: string;
+    slug: string;
+    settings?: Record<string, unknown>;
+  }) {
+    // Prepare settings as jsonb if present
+    const settings = data.settings ?
+      (typeof data.settings === 'string' ?
+        data.settings :
+        JSON.stringify(data.settings)) :
+      null;
+
+    const [result] = await this.db
+      .insert(organizations)
+      .values({
+        betterAuthOrgId: data.betterAuthOrgId,
+        stytchOrgId: `better_auth_migration_${data.betterAuthOrgId}`, // Placeholder
+        name: data.name,
+        slug: data.slug,
+        settings,
+      })
+      .returning();
+
     return this.formatOrganization(result);
   }
 

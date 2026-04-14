@@ -6,7 +6,8 @@ import { entities } from '../db/schema/entities';
  * Input for creating a new user entity (Employee with auth capabilities)
  */
 export interface CreateUserEntityInput {
-  clerkUserId: string;
+  clerkUserId?: string | null;
+  betterAuthUserId?: string | null;
   email: string;
   name: string;
   displayName?: string | null;
@@ -28,6 +29,7 @@ export interface UpdateUserEntityInput {
   isActive?: boolean;
   lastLogin?: Date;
   metadata?: Record<string, unknown> | null;
+  betterAuthUserId?: string | null;
 }
 
 /**
@@ -35,7 +37,8 @@ export interface UpdateUserEntityInput {
  */
 export interface AuthEntityInfo {
   id: string;
-  clerkUserId: string;
+  clerkUserId: string | null;
+  betterAuthUserId: string | null;
   email: string | null;
   name: string;
   displayName: string | null;
@@ -52,10 +55,10 @@ export interface AuthEntityInfo {
  * AuthEntityRepository handles authentication-related operations on entities.
  *
  * This repository is designed to support the consolidation of the users table into entities,
- * allowing Employee entities to serve as authenticated users via their clerkUserId field.
+ * allowing Employee entities to serve as authenticated users via their clerkUserId or betterAuthUserId field.
  *
  * Key design decisions:
- * - Only entities with a clerkUserId can be authenticated
+ * - Entities with clerkUserId OR betterAuthUserId can be authenticated
  * - Typically these are Employee entities, but the type constraint is not enforced here
  * - The findByLegacyUserId method supports migration from the old users table
  */
@@ -69,6 +72,7 @@ export class AuthEntityRepository extends BaseRepository {
       .select({
         id: entities.id,
         clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
         email: entities.email,
         name: entities.name,
         displayName: entities.displayName,
@@ -92,6 +96,37 @@ export class AuthEntityRepository extends BaseRepository {
   }
 
   /**
+   * Find an entity by Better Auth user ID for authentication
+   */
+  async findByBetterAuthId(betterAuthUserId: string): Promise<AuthEntityInfo | null> {
+    const [result] = await this.db
+      .select({
+        id: entities.id,
+        clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
+        email: entities.email,
+        name: entities.name,
+        displayName: entities.displayName,
+        organizationId: entities.organizationId,
+        role: entities.role,
+        settings: entities.settings,
+        isActive: entities.isActive,
+        lastLogin: entities.lastLogin,
+        entityTypes: entities.entityTypes,
+        status: entities.status,
+      })
+      .from(entities)
+      .where(eq(entities.betterAuthUserId, betterAuthUserId))
+      .limit(1);
+
+    if (!result || !result.betterAuthUserId) {
+      return null;
+    }
+
+    return result as AuthEntityInfo;
+  }
+
+  /**
    * Find entity by database ID (for internal operations)
    */
   async findById(id: string): Promise<AuthEntityInfo | null> {
@@ -99,6 +134,7 @@ export class AuthEntityRepository extends BaseRepository {
       .select({
         id: entities.id,
         clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
         email: entities.email,
         name: entities.name,
         displayName: entities.displayName,
@@ -114,7 +150,7 @@ export class AuthEntityRepository extends BaseRepository {
       .where(eq(entities.id, id))
       .limit(1);
 
-    if (!result || !result.clerkUserId) {
+    if (!result || (!result.clerkUserId && !result.betterAuthUserId)) {
       return null;
     }
 
@@ -129,6 +165,7 @@ export class AuthEntityRepository extends BaseRepository {
       .select({
         id: entities.id,
         clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
         email: entities.email,
         name: entities.name,
         displayName: entities.displayName,
@@ -165,6 +202,7 @@ export class AuthEntityRepository extends BaseRepository {
       SELECT
         e.id,
         e.clerk_user_id as "clerkUserId",
+        e.better_auth_user_id as "betterAuthUserId",
         e.email,
         e.name,
         e.display_name as "displayName",
@@ -190,7 +228,7 @@ export class AuthEntityRepository extends BaseRepository {
 
   /**
    * Create a new user entity (Employee with auth capabilities)
-   * Used by Clerk webhooks when a new user signs up
+   * Used by Clerk webhooks or Better Auth signup
    */
   async createUserEntity(input: CreateUserEntityInput): Promise<AuthEntityInfo> {
     const [result] = await this.db
@@ -201,7 +239,8 @@ export class AuthEntityRepository extends BaseRepository {
         displayName: input.displayName || null,
         email: input.email,
         entityTypes: ['Employee'],
-        clerkUserId: input.clerkUserId,
+        clerkUserId: input.clerkUserId || null,
+        betterAuthUserId: input.betterAuthUserId || null,
         role: input.role || 'user',
         settings: input.settings || null,
         metadata: input.metadata || null,
@@ -211,6 +250,7 @@ export class AuthEntityRepository extends BaseRepository {
       .returning({
         id: entities.id,
         clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
         email: entities.email,
         name: entities.name,
         displayName: entities.displayName,
@@ -250,6 +290,7 @@ export class AuthEntityRepository extends BaseRepository {
       .returning({
         id: entities.id,
         clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
         email: entities.email,
         name: entities.name,
         displayName: entities.displayName,
@@ -270,7 +311,51 @@ export class AuthEntityRepository extends BaseRepository {
   }
 
   /**
-   * Update last login timestamp
+   * Update user entity by Better Auth ID
+   */
+  async updateByBetterAuthId(betterAuthUserId: string, input: UpdateUserEntityInput): Promise<AuthEntityInfo | null> {
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+
+    if (input.name !== undefined) updateData.name = input.name;
+    if (input.displayName !== undefined) updateData.displayName = input.displayName;
+    if (input.email !== undefined) updateData.email = input.email;
+    if (input.role !== undefined) updateData.role = input.role;
+    if (input.settings !== undefined) updateData.settings = input.settings;
+    if (input.isActive !== undefined) updateData.isActive = input.isActive;
+    if (input.lastLogin !== undefined) updateData.lastLogin = input.lastLogin;
+    if (input.metadata !== undefined) updateData.metadata = input.metadata;
+
+    const [result] = await this.db
+      .update(entities)
+      .set(updateData)
+      .where(eq(entities.betterAuthUserId, betterAuthUserId))
+      .returning({
+        id: entities.id,
+        clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
+        email: entities.email,
+        name: entities.name,
+        displayName: entities.displayName,
+        organizationId: entities.organizationId,
+        role: entities.role,
+        settings: entities.settings,
+        isActive: entities.isActive,
+        lastLogin: entities.lastLogin,
+        entityTypes: entities.entityTypes,
+        status: entities.status,
+      });
+
+    if (!result) {
+      return null;
+    }
+
+    return result as AuthEntityInfo;
+  }
+
+  /**
+   * Update last login timestamp for Clerk
    */
   async updateLastLogin(clerkUserId: string): Promise<void> {
     await this.db
@@ -283,8 +368,20 @@ export class AuthEntityRepository extends BaseRepository {
   }
 
   /**
+   * Update last login timestamp for Better Auth
+   */
+  async updateLastLoginByBetterAuthId(betterAuthUserId: string): Promise<void> {
+    await this.db
+      .update(entities)
+      .set({
+        lastLogin: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(entities.betterAuthUserId, betterAuthUserId));
+  }
+
+  /**
    * Delete user entity by Clerk ID
-   * Note: This is a hard delete, consider soft delete (isActive = false) instead
    */
   async deleteByClerkId(clerkUserId: string): Promise<boolean> {
     const result = await this.db
@@ -330,7 +427,7 @@ export class AuthEntityRepository extends BaseRepository {
   ): Promise<AuthEntityInfo[]> {
     const conditions = [
       eq(entities.organizationId, organizationId),
-      sql`${entities.clerkUserId} IS NOT NULL`,
+      sql`(${entities.clerkUserId} IS NOT NULL OR ${entities.betterAuthUserId} IS NOT NULL)`,
     ];
 
     if (options?.isActive !== undefined) {
@@ -345,6 +442,7 @@ export class AuthEntityRepository extends BaseRepository {
       .select({
         id: entities.id,
         clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
         email: entities.email,
         name: entities.name,
         displayName: entities.displayName,
@@ -373,7 +471,6 @@ export class AuthEntityRepository extends BaseRepository {
 
   /**
    * Link an existing entity to a Clerk user ID
-   * Useful for associating an existing Employee entity with a new Clerk user
    */
   async linkClerkUser(
     entityId: string,
@@ -397,6 +494,52 @@ export class AuthEntityRepository extends BaseRepository {
       .returning({
         id: entities.id,
         clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
+        email: entities.email,
+        name: entities.name,
+        displayName: entities.displayName,
+        organizationId: entities.organizationId,
+        role: entities.role,
+        settings: entities.settings,
+        isActive: entities.isActive,
+        lastLogin: entities.lastLogin,
+        entityTypes: entities.entityTypes,
+        status: entities.status,
+      });
+
+    if (!result) {
+      return null;
+    }
+
+    return result as AuthEntityInfo;
+  }
+
+  /**
+   * Link an existing entity to a Better Auth user ID
+   */
+  async linkBetterAuthUser(
+    entityId: string,
+    organizationId: string,
+    betterAuthUserId: string,
+    role?: string
+  ): Promise<AuthEntityInfo | null> {
+    const [result] = await this.db
+      .update(entities)
+      .set({
+        betterAuthUserId,
+        role: role || 'user',
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(entities.id, entityId),
+          eq(entities.organizationId, organizationId)
+        )
+      )
+      .returning({
+        id: entities.id,
+        clerkUserId: entities.clerkUserId,
+        betterAuthUserId: entities.betterAuthUserId,
         email: entities.email,
         name: entities.name,
         displayName: entities.displayName,

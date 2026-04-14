@@ -48,6 +48,7 @@ export const entities = pgTable('entities', {
 
   // Auth fields (for entities that can log in - typically Employee entities)
   clerkUserId: text('clerk_user_id').unique(), // Clerk external user ID
+  betterAuthUserId: text('better_auth_user_id').unique(), // Better Auth external user ID
   role: text('role').default('user'), // user, admin, owner, etc.
   lastLogin: timestamp('last_login', { withTimezone: true }),
   settings: jsonb('settings'), // User-specific settings (UI preferences, etc.)
@@ -65,6 +66,7 @@ export const entities = pgTable('entities', {
   statusIdx: index('entities_status_idx').on(table.status, table.isActive),
   // Auth index for Clerk user ID lookups
   clerkUserIdIdx: index('entities_clerk_user_id_idx').on(table.clerkUserId),
+  betterAuthUserIdIdx: index('entities_better_auth_user_id_idx').on(table.betterAuthUserId),
 }));
 
 // Relations

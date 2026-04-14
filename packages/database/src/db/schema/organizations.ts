@@ -11,6 +11,7 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   stytchOrgId: varchar("stytch_org_id", { length: 100 }).unique(),
   clerkOrgId: varchar("clerk_org_id", { length: 100 }).unique(), // Clerk organization ID (org_xxxxx format)
+  betterAuthOrgId: varchar("better_auth_org_id", { length: 100 }).unique(), // Better Auth organization ID
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeAccountId: varchar("stripe_account_id", { length: 255 }),
   stripeConnectStatus: stripeConnectStatusEnum("stripe_connect_status").default("not_connected").notNull(),
@@ -25,6 +26,7 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow()
 }, (table) => ({
   clerkOrgIdIdx: index("organizations_clerk_org_id_idx").on(table.clerkOrgId),
+  betterAuthOrgIdIdx: index("organizations_better_auth_org_id_idx").on(table.betterAuthOrgId),
   stripeCustomerIdIdx: index("organizations_stripe_customer_id_idx").on(table.stripeCustomerId),
   stripeAccountIdIdx: index("organizations_stripe_account_id_idx").on(table.stripeAccountId),
   stripeConnectStatusIdx: index("organizations_stripe_connect_status_idx").on(table.stripeConnectStatus),
