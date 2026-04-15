@@ -20,7 +20,6 @@ function buildUpstreamHeaders(request: NextRequest): Headers {
   headers.delete('host');
   headers.delete('connection');
   headers.delete('content-length');
-  headers.delete('cookie');
   headers.delete('authorization');
   headers.delete('x-organization-id');
   headers.delete('x-user-id');
@@ -76,16 +75,20 @@ export async function proxyAuthenticatedApiRequest(
   request: NextRequest,
   upstreamPath: string
 ): Promise<NextResponse> {
-  const { userId, orgId, getToken } = await auth();
-  const isProduction = process.env.NODE_ENV === 'production';
+  let userId: string | null = null;
+  let orgId: string | null = null;
+  let token: string | null = null;
 
-  if (!userId && isProduction) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
-  const token = userId ? await getToken() : null;
-  if (!token && userId && isProduction) {
-    return NextResponse.json({ message: 'Unable to resolve auth token' }, { status: 401 });
+  try {
+    const clerkAuth = await auth();
+    userId = clerkAuth.userId;
+    orgId = clerkAuth.orgId;
+    token = userId ? await clerkAuth.getToken() : null;
+  } catch (error) {
+    // During the Better Auth migration, requests may reach this proxy without a
+    // valid Clerk session. In that case we still forward cookies so the API can
+    // resolve Better Auth sessions directly.
+    console.warn('[api-proxy] Clerk auth unavailable, forwarding request with cookies only');
   }
 
   const upstreamUrl = buildUpstreamUrl(request, upstreamPath);
