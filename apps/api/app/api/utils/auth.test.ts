@@ -66,12 +66,16 @@ const SERVICE_ACTOR_UUID = '33333333-3333-3333-3333-333333333333';
 describe('getServiceContext', () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalClerkSecretKey = process.env.CLERK_SECRET_KEY;
+  const originalAuthProviderMode = process.env.AUTH_PROVIDER_MODE;
+  let consoleWarnSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
     resetAuthCachesForTest();
     process.env.NODE_ENV = 'production';
     process.env.CLERK_SECRET_KEY = 'test-secret-key';
+    delete process.env.AUTH_PROVIDER_MODE;
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     mockFindOrganizationByClerkId.mockReset();
     mockFindOrganizationById.mockReset();
@@ -120,6 +124,11 @@ describe('getServiceContext', () => {
   afterAll(() => {
     process.env.NODE_ENV = originalNodeEnv;
     process.env.CLERK_SECRET_KEY = originalClerkSecretKey;
+    process.env.AUTH_PROVIDER_MODE = originalAuthProviderMode;
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
   });
 
   it('derives context from a verified Clerk bearer token', async () => {
@@ -134,6 +143,7 @@ describe('getServiceContext', () => {
     const context = await getServiceContext();
 
     expect(mockVerifyClerkBearerToken).toHaveBeenCalledWith('valid-token');
+    expect(mockBetterAuthGetSession).not.toHaveBeenCalled();
     expect(context).toEqual({
       organizationId: ORG_UUID,
       organizationName: 'Adteco',
@@ -310,5 +320,25 @@ describe('getServiceContext', () => {
       role: 'user',
     });
     expect(context.entityId).toBe(ENTITY_UUID);
+  });
+
+  it('falls back to Clerk in dual mode when Better Auth resolution fails', async () => {
+    process.env.AUTH_PROVIDER_MODE = 'dual';
+    mockedHeaders.mockResolvedValue(
+      new Headers({
+        Authorization: 'Bearer valid-token',
+        'x-organization-id': ORG_UUID,
+        'x-user-id': 'user_test_123',
+      })
+    );
+    mockBetterAuthGetSession.mockRejectedValue(
+      new AuthenticationError('No internal organization mapping exists for Better Auth organization ba_org_test.')
+    );
+
+    const context = await getServiceContext();
+
+    expect(mockBetterAuthGetSession).toHaveBeenCalled();
+    expect(mockVerifyClerkBearerToken).toHaveBeenCalledWith('valid-token');
+    expect(context.clerkUserId).toBe('user_test_123');
   });
 });

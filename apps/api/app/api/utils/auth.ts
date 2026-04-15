@@ -92,6 +92,8 @@ const entityIdCache = new Map<string, string>();
 const AUTH_MAPPING_RECONCILIATION_COMMAND =
   'pnpm --filter @glapi/database reconcile:better-auth -- --write';
 
+type AuthProviderMode = 'clerk' | 'dual' | 'better-auth';
+
 function parseBooleanEnvFlag(value: string | undefined): boolean | undefined {
   if (!value) {
     return undefined;
@@ -121,6 +123,60 @@ function canAutoProvisionExternalAuthRecords(): boolean {
   }
 
   return process.env.NODE_ENV !== 'production';
+}
+
+function getAuthProviderMode(): AuthProviderMode {
+  const configuredMode = process.env.AUTH_PROVIDER_MODE?.trim().toLowerCase();
+
+  switch (configuredMode) {
+    case 'dual':
+      return 'dual';
+    case 'better-auth':
+    case 'better_auth':
+      return 'better-auth';
+    case 'clerk':
+    case undefined:
+    case '':
+      return 'clerk';
+    default:
+      console.warn(
+        `[auth] Unsupported AUTH_PROVIDER_MODE "${process.env.AUTH_PROVIDER_MODE}". Falling back to "clerk".`
+      );
+      return 'clerk';
+  }
+}
+
+function buildAuthDebugInfo(
+  headersList: Awaited<ReturnType<typeof headers>>,
+  authProviderMode: AuthProviderMode
+) {
+  return {
+    mode: authProviderMode,
+    requestPath:
+      headersList.get('next-url') ??
+      headersList.get('x-invoke-path') ??
+      headersList.get('referer') ??
+      'unknown',
+    hasAuthorizationHeader: Boolean(extractBearerToken(headersList)),
+    hasCookieHeader: Boolean(headersList.get('cookie')),
+    headerOrganizationId: headersList.get('x-organization-id') ?? undefined,
+    headerUserId: headersList.get('x-user-id') ?? undefined,
+  };
+}
+
+function logAuthFailure(
+  provider: 'clerk' | 'better-auth' | 'final',
+  error: unknown,
+  debugInfo: ReturnType<typeof buildAuthDebugInfo>
+) {
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown auth error';
+
+  console.warn('[auth] Request authentication failed', {
+    provider,
+    message,
+    ...debugInfo,
+  });
 }
 
 function createMissingOrganizationMappingError(
@@ -595,13 +651,16 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const apiKeyName = headersList.get('x-api-key-name');
 
   const isProduction = process.env.NODE_ENV === 'production';
+  const authProviderMode = getAuthProviderMode();
+  const authDebugInfo = buildAuthDebugInfo(headersList, authProviderMode);
 
   if (apiKeyName) {
     return resolveHeaderBackedContext(rawOrganizationId, rawUserId, apiKeyName || undefined);
   }
 
-  // 1. Try Better Auth
-  try {
+  // 1. Try Better Auth only when explicitly enabled.
+  if (authProviderMode === 'dual' || authProviderMode === 'better-auth') {
+    try {
       const betterAuthContext = await verifyBetterAuthRequest(headersList);
       if (betterAuthContext) {
           if (
@@ -623,13 +682,25 @@ export async function getServiceContext(): Promise<OrganizationContext> {
               userId: betterAuthContext.entityId,
           };
       }
-  } catch (error) {
-      if (isProduction) throw error;
-      console.warn('[auth] Better Auth authentication failed:', error);
+    } catch (error) {
+      logAuthFailure('better-auth', error, authDebugInfo);
+
+      if (authProviderMode === 'better-auth' && isProduction) {
+        throw error;
+      }
+
+      if (!isProduction) {
+        console.warn('[auth] Better Auth authentication failed:', error);
+      }
+    }
   }
 
   // 2. Try Clerk
-  const clerkSecret = getClerkSecretKey();
+  const clerkSecret =
+    authProviderMode === 'better-auth'
+      ? null
+      : getClerkSecretKey();
+
   if (clerkSecret) {
     try {
       const verifiedClerkContext = await verifyClerkRequest(headersList);
@@ -654,15 +725,18 @@ export async function getServiceContext(): Promise<OrganizationContext> {
         };
       }
     } catch (error) {
+      logAuthFailure('clerk', error, authDebugInfo);
       if (isProduction) throw error;
       console.warn('[auth] Clerk authentication failed:', error instanceof Error ? error.message : error);
     }
   }
 
   if (isProduction) {
-    throw new AuthenticationError(
+    const finalError = new AuthenticationError(
       'Authentication required. Provide a valid session or bearer token.'
     );
+    logAuthFailure('final', finalError, authDebugInfo);
+    throw finalError;
   }
 
   // Development fallback

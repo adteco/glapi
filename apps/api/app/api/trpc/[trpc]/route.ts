@@ -11,6 +11,12 @@ const handler = async (req: NextRequest) => {
     context = await getServiceContext();
   } catch (error) {
     if (error instanceof AuthenticationError) {
+      console.warn('[trpc] Authentication rejected request', {
+        path: req.nextUrl.pathname,
+        query: req.nextUrl.search,
+        message: error.message,
+      });
+
       return new Response(
         JSON.stringify({
           error: {
