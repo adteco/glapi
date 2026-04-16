@@ -21,13 +21,13 @@ type AuthProviderMode = 'clerk' | 'dual' | 'better-auth';
 function getAuthProviderMode(): AuthProviderMode {
   const configuredMode = process.env.AUTH_PROVIDER_MODE?.trim().toLowerCase();
   switch (configuredMode) {
-    case 'dual': return 'dual';
+    case 'clerk': return 'clerk';
     case 'better-auth':
     case 'better_auth': return 'better-auth';
-    case 'clerk':
+    case 'dual':
     case undefined:
-    case '': return 'clerk';
-    default: return 'clerk';
+    case '': return 'dual';
+    default: return 'dual';
   }
 }
 
