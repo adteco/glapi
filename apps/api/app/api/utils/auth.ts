@@ -136,15 +136,15 @@ function getAuthProviderMode(): AuthProviderMode {
   const configuredMode = process.env.AUTH_PROVIDER_MODE?.trim().toLowerCase();
 
   switch (configuredMode) {
-    case 'dual':
-      return 'dual';
+    case 'clerk':
+      return 'clerk';
     case 'better-auth':
     case 'better_auth':
       return 'better-auth';
-    case 'clerk':
+    case 'dual':
     case undefined:
     case '':
-      return 'clerk';
+      return 'dual';
     default:
       console.warn(
         `[auth] Unsupported AUTH_PROVIDER_MODE "${process.env.AUTH_PROVIDER_MODE}". Falling back to "clerk".`
