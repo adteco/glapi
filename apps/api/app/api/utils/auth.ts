@@ -3,6 +3,7 @@ import { PermissionService } from '@glapi/api-service';
 import {
   OrganizationRepository,
   AuthEntityRepository,
+  PermissionRepository,
   withOrganizationContext,
 } from '@glapi/database';
 import { auth as betterAuth } from '@glapi/auth';
@@ -69,6 +70,12 @@ export interface OrganizationContext {
    * Organization name for debugging headers.
    */
   organizationName?: string;
+
+  /**
+   * Entity role resolved from entity_roles table.
+   * Used by tRPC adminProcedure to check admin access.
+   */
+  role?: 'user' | 'admin';
 
   /**
    * @deprecated Use `clerkUserId` or `betterAuthUserId` instead.
@@ -605,6 +612,10 @@ async function ensureEntityForClerkUser(
     });
 
     entityIdCache.set(clerkUserId, entityId);
+
+    // Auto-assign default RBAC role on entity provisioning
+    await assignDefaultRoleIfMissing(entityId, organizationId);
+
     return unsafeEntityId(entityId);
   } catch (error) {
     console.error('[auth] Failed to auto-provision Clerk auth entity', error);
@@ -636,10 +647,72 @@ async function ensureEntityForBetterAuthUser(
     });
 
     entityIdCache.set(betterAuthUserId, entityId);
+
+    // Auto-assign default RBAC role on entity provisioning
+    await assignDefaultRoleIfMissing(entityId, organizationId);
+
     return unsafeEntityId(entityId);
   } catch (error) {
     console.error('[auth] Failed to auto-provision Better Auth auth entity', error);
     return null;
+  }
+}
+
+/**
+ * Assign the default USER role to an entity if they have no roles.
+ * This ensures auto-provisioned entities can pass RBAC checks.
+ */
+async function assignDefaultRoleIfMissing(
+  entityId: string,
+  organizationId: OrganizationId,
+): Promise<void> {
+  try {
+    await withOrganizationContext({ organizationId }, async (contextDb) => {
+      const permRepo = new PermissionRepository(contextDb);
+      const existingRoles = await permRepo.findEntityRoles(entityId);
+      if (existingRoles.length > 0) return;
+
+      const userRole = await permRepo.findRoleByName('USER');
+      if (!userRole) {
+        console.warn('[auth] No USER role found in database -- cannot assign default role');
+        return;
+      }
+
+      await permRepo.assignRoleToEntity(entityId, userRole.id, entityId);
+      console.log(`[auth] Assigned default USER role to entity ${entityId}`);
+    });
+  } catch (error) {
+    console.warn('[auth] Failed to assign default role:', error);
+  }
+}
+
+/**
+ * Resolve the highest-priority role for an entity from entity_roles.
+ * Returns 'admin' if any admin-level role is found, 'user' otherwise.
+ */
+const ADMIN_ROLE_NAMES = new Set(['ADMIN', 'OWNER', 'SUPER_ADMIN']);
+
+async function resolveEntityRole(
+  entityId: string | null,
+  organizationId: OrganizationId,
+): Promise<'user' | 'admin'> {
+  if (!entityId) return 'user';
+
+  try {
+    const role = await withOrganizationContext({ organizationId }, async (contextDb) => {
+      const permRepo = new PermissionRepository(contextDb);
+      const entityRoles = await permRepo.findEntityRoles(entityId);
+
+      for (const er of entityRoles) {
+        if (er.role && ADMIN_ROLE_NAMES.has(er.role.roleName)) {
+          return 'admin' as const;
+        }
+      }
+      return 'user' as const;
+    });
+    return role;
+  } catch {
+    return 'user';
   }
 }
 
@@ -673,12 +746,18 @@ export async function getServiceContext(): Promise<OrganizationContext> {
             );
           }
 
+          const betterAuthRole = await resolveEntityRole(
+            betterAuthContext.entityId,
+            betterAuthContext.organizationId,
+          );
+
           return {
               organizationId: betterAuthContext.organizationId,
               organizationName: betterAuthContext.organizationName,
               entityId: betterAuthContext.entityId,
               betterAuthUserId: betterAuthContext.betterAuthUserId,
               betterAuthOrganizationId: betterAuthContext.betterAuthOrganizationId,
+              role: betterAuthRole,
               userId: betterAuthContext.entityId,
           };
       }
@@ -715,12 +794,18 @@ export async function getServiceContext(): Promise<OrganizationContext> {
           );
         }
 
+        const clerkRole = await resolveEntityRole(
+          verifiedClerkContext.entityId,
+          verifiedClerkContext.organizationId,
+        );
+
         return {
           organizationId: verifiedClerkContext.organizationId,
           organizationName: verifiedClerkContext.organizationName,
           entityId: verifiedClerkContext.entityId,
           clerkUserId: verifiedClerkContext.clerkUserId,
           clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
+          role: clerkRole,
           userId: verifiedClerkContext.entityId,
         };
       }

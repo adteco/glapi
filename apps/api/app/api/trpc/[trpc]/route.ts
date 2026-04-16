@@ -44,7 +44,7 @@ const handler = async (req: NextRequest) => {
     entityId: context.entityId,
     organizationId: context.organizationId,
     email: null, // Would come from Clerk/auth provider
-    role: 'user' as const,
+    role: (context.role ?? 'user') as 'user' | 'admin',
   };
 
   return fetchRequestHandler({

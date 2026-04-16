@@ -37,7 +37,7 @@ export function getConnectRedirectUrls(request: NextRequest) {
 export async function ensureStripeConnectAccountId(
   orgRepo: OrganizationRepository,
   organization: { id: string; stripeAccountId?: string | null },
-  clerkOrgId: string,
+  orgId: string,
   stripe: Stripe,
 ): Promise<string> {
   if (organization.stripeAccountId) {
@@ -52,7 +52,7 @@ export async function ensureStripeConnectAccountId(
     },
     metadata: {
       organizationId: organization.id,
-      clerkOrgId,
+      orgId,
     },
   });
 

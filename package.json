@@ -40,7 +40,14 @@
     "test:karate": "bash ./scripts/karate/run.sh",
     "test:karate:asc606": "bash ./scripts/karate/run.sh tests/karate/asc606-revenue.feature",
     "test:karate:demo-seed": "bash ./scripts/karate/run.sh tests/karate/asc606-demo-seed.feature",
-    "test:karate:trpc-auth": "bash ./scripts/karate/run.sh tests/karate/trpc-auth-smoke.feature"
+    "test:karate:trpc-auth": "bash ./scripts/karate/run.sh tests/karate/trpc-auth-smoke.feature",
+    "test:karate:auth": "bash ./scripts/karate/run.sh tests/karate/auth/",
+    "test:karate:billing": "bash ./scripts/karate/run.sh tests/karate/auth/admin-context.feature",
+    "test:karate:all": "bash ./scripts/karate/run.sh tests/karate/",
+    "test:provision-auth": "node --experimental-strip-types scripts/test/provision-better-auth-test-data.ts",
+    "test:betterauth-api": "playwright test --project=betterauth-api",
+    "test:betterauth-e2e": "playwright test --project=betterauth-e2e",
+    "test:auth-migration": "pnpm test:provision-auth && pnpm test:karate:auth && pnpm test:betterauth-api"
   },
   "workspaces": [
     "packages/*",

@@ -38,7 +38,8 @@
     "seed:workflow-templates": "tsx src/seeds/workflow-templates.ts",
     "run:entities-migration": "tsx src/scripts/run-entities-migration.ts",
     "check:better-auth-schema": "tsx src/scripts/check-better-auth-schema.ts",
-    "reconcile:better-auth": "tsx src/scripts/backfill-better-auth-mappings.ts"
+    "reconcile:better-auth": "tsx src/scripts/backfill-better-auth-mappings.ts",
+    "backfill:entity-roles": "tsx src/scripts/backfill-entity-roles.ts"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",
