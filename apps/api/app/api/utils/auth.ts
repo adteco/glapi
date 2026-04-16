@@ -319,7 +319,23 @@ async function verifyClerkRequest(
   try {
     verifiedToken = await verifyClerkBearerToken(token);
   } catch (error) {
-    // If it's not a valid Clerk token, it might be a Better Auth token
+    // A JWT-shaped token (contains dots) that fails verification is almost
+    // certainly a real Clerk token that the server can't validate — most
+    // commonly a CLERK_SECRET_KEY mismatch, a token issued by a different
+    // Clerk instance (dev vs prod), or an expired / malformed JWT. Surfacing
+    // the underlying error here turns a silent 401 into an actionable log.
+    const looksLikeJwt = token.includes('.');
+    const message = error instanceof Error ? error.message : String(error);
+    if (looksLikeJwt) {
+      console.warn('[auth] Clerk bearer token failed verification', {
+        error: message,
+        tokenLength: token.length,
+        tokenPrefix: token.slice(0, 8),
+      });
+      throw new AuthenticationError(`Clerk token verification failed: ${message}`);
+    }
+    // Otherwise it might be a Better Auth session token forwarded as a bearer;
+    // returning null lets the dual-mode fallthrough continue.
     return null;
   }
 
