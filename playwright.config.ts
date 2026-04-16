@@ -347,7 +347,8 @@ export default defineConfig({
   ],
 
   /* Run local dev server before starting the tests */
-  webServer: {
+  /* Skip webServer when SKIP_WEBSERVER is set or when only running API-level tests */
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
     command: 'pnpm dev',
     url: 'http://127.0.0.1:3030',
     reuseExistingServer: !process.env.CI,

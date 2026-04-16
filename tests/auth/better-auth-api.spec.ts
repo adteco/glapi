@@ -29,6 +29,7 @@ test.describe('Better Auth API Authentication', () => {
         email: BETTER_AUTH_EMAIL,
         password: BETTER_AUTH_PASSWORD,
       },
+      headers: { 'Origin': API_URL },
     });
 
     expect(signInResponse.status()).toBe(200);
@@ -45,7 +46,7 @@ test.describe('Better Auth API Authentication', () => {
     if (BETTER_AUTH_ORG_ID) {
       const setOrgResponse = await request.post(`${API_URL}/api/auth/organization/set-active`, {
         data: { organizationId: BETTER_AUTH_ORG_ID },
-        headers: { cookie: sessionCookie },
+        headers: { cookie: sessionCookie, 'Origin': API_URL },
       });
       expect(setOrgResponse.status()).toBe(200);
     }
@@ -57,6 +58,7 @@ test.describe('Better Auth API Authentication', () => {
         email: BETTER_AUTH_EMAIL,
         password: BETTER_AUTH_PASSWORD,
       },
+      headers: { 'Origin': API_URL },
     });
 
     expect(response.status()).toBe(200);

@@ -27,6 +27,7 @@ setup('authenticate with Better Auth', async ({ request, page }) => {
       email: BETTER_AUTH_EMAIL,
       password: BETTER_AUTH_PASSWORD,
     },
+    headers: { 'Origin': API_URL },
   });
 
   expect(signInResponse.status(), 'Better Auth sign-in should succeed').toBe(200);
@@ -44,7 +45,7 @@ setup('authenticate with Better Auth', async ({ request, page }) => {
   if (BETTER_AUTH_ORG_ID) {
     const setOrgResponse = await request.post(`${API_URL}/api/auth/organization/set-active`, {
       data: { organizationId: BETTER_AUTH_ORG_ID },
-      headers: { cookie: `better-auth.session_token=${sessionToken}` },
+      headers: { cookie: `better-auth.session_token=${sessionToken}`, 'Origin': API_URL },
     });
     expect(setOrgResponse.status(), 'Set active org should succeed').toBe(200);
   }
