@@ -4,6 +4,9 @@ Feature: Better Auth Login Helper
   Called by other features via: * def session = call read('classpath:helpers/better-auth-login.feature')
 
   Scenario: Sign in with Better Auth and set active organization
+    # Clear global API key headers -- use cookie-only auth
+    * configure headers = { 'Content-Type': 'application/json', 'Origin': '#(baseUrl)' }
+
     # Step 1: Sign in to get session cookie
     Given url baseUrl + '/api/auth/sign-in/email'
     And request { "email": "#(betterAuthEmail)", "password": "#(betterAuthPassword)" }
