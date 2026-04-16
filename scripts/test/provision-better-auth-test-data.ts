@@ -36,7 +36,7 @@ async function main() {
   try {
     signUpResponse = await fetch(`${API_URL}/api/auth/sign-up/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Origin': API_URL },
       body: JSON.stringify({
         email: TEST_EMAIL,
         password: TEST_PASSWORD,
@@ -65,7 +65,7 @@ async function main() {
   console.log('Step 2: Signing in...');
   const signInResponse = await fetch(`${API_URL}/api/auth/sign-in/email`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Origin': API_URL },
     body: JSON.stringify({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
@@ -92,7 +92,7 @@ async function main() {
   // Step 3: Get current session to see user ID
   console.log('Step 3: Getting session info...');
   const sessionResponse = await fetch(`${API_URL}/api/auth/get-session`, {
-    headers: { cookie: sessionCookie },
+    headers: { cookie: sessionCookie, 'Origin': API_URL },
   });
 
   if (!sessionResponse.ok) {
@@ -110,7 +110,7 @@ async function main() {
 
   // Try to list existing organizations first
   const listOrgsResponse = await fetch(`${API_URL}/api/auth/organization/list`, {
-    headers: { cookie: sessionCookie },
+    headers: { cookie: sessionCookie, 'Origin': API_URL },
   });
 
   if (listOrgsResponse.ok) {
@@ -131,6 +131,7 @@ async function main() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Origin': API_URL,
         cookie: sessionCookie,
       },
       body: JSON.stringify({
@@ -160,6 +161,7 @@ async function main() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Origin': API_URL,
         cookie: sessionCookie,
       },
       body: JSON.stringify({

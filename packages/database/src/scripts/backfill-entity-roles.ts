@@ -22,19 +22,93 @@ async function main() {
   console.log(`Mode: ${WRITE_MODE ? 'WRITE' : 'DRY RUN'}`);
   console.log('');
 
-  // Find the default USER role
-  const userRoleResult = await db.execute(sql`
+  // Find or create the default roles
+  let userRoleResult = await db.execute(sql`
     SELECT id, role_name FROM roles WHERE role_name = 'USER' LIMIT 1
   `);
 
   if (!userRoleResult.rows.length) {
-    console.error('ERROR: No "USER" role found in the roles table.');
-    console.log('Available roles:');
-    const allRoles = await db.execute(sql`SELECT id, role_name FROM roles ORDER BY role_name`);
-    for (const role of allRoles.rows) {
-      console.log(`  - ${(role as any).role_name} (${(role as any).id})`);
-    }
-    process.exit(1);
+    console.log('No roles found in database. Seeding core RBAC roles...');
+
+    await db.execute(sql`
+      INSERT INTO roles (role_name, role_description, is_system_role)
+      VALUES
+        ('USER', 'Default user role with standard read/write permissions', true),
+        ('ADMIN', 'Administrator role with full access', true),
+        ('OWNER', 'Organization owner with all privileges', true)
+      ON CONFLICT (role_name) DO NOTHING
+    `);
+
+    // Seed core permissions
+    await db.execute(sql`
+      INSERT INTO permissions (permission_name, resource_type, action, description)
+      VALUES
+        ('CUSTOMERS:READ', 'CUSTOMERS', 'READ', 'View customers'),
+        ('CUSTOMERS:CREATE', 'CUSTOMERS', 'CREATE', 'Create customers'),
+        ('CUSTOMERS:UPDATE', 'CUSTOMERS', 'UPDATE', 'Update customers'),
+        ('CUSTOMERS:DELETE', 'CUSTOMERS', 'DELETE', 'Delete customers'),
+        ('VENDORS:READ', 'VENDORS', 'READ', 'View vendors'),
+        ('VENDORS:CREATE', 'VENDORS', 'CREATE', 'Create vendors'),
+        ('VENDORS:UPDATE', 'VENDORS', 'UPDATE', 'Update vendors'),
+        ('VENDORS:DELETE', 'VENDORS', 'DELETE', 'Delete vendors'),
+        ('ACCOUNTS:READ', 'ACCOUNTS', 'READ', 'View accounts'),
+        ('ACCOUNTS:CREATE', 'ACCOUNTS', 'CREATE', 'Create accounts'),
+        ('ACCOUNTS:UPDATE', 'ACCOUNTS', 'UPDATE', 'Update accounts'),
+        ('GL_TRANSACTION:READ', 'GL_TRANSACTION', 'READ', 'View GL transactions'),
+        ('GL_TRANSACTION:CREATE', 'GL_TRANSACTION', 'CREATE', 'Create GL transactions'),
+        ('GL_TRANSACTION:POST', 'GL_TRANSACTION', 'POST', 'Post GL transactions'),
+        ('INVOICES:READ', 'INVOICES', 'READ', 'View invoices'),
+        ('INVOICES:CREATE', 'INVOICES', 'CREATE', 'Create invoices'),
+        ('INVOICES:UPDATE', 'INVOICES', 'UPDATE', 'Update invoices'),
+        ('INVOICES:DELETE', 'INVOICES', 'DELETE', 'Delete invoices'),
+        ('ITEMS:READ', 'ITEMS', 'READ', 'View items'),
+        ('ITEMS:CREATE', 'ITEMS', 'CREATE', 'Create items'),
+        ('EMPLOYEES:READ', 'EMPLOYEES', 'READ', 'View employees'),
+        ('EMPLOYEES:CREATE', 'EMPLOYEES', 'CREATE', 'Create employees'),
+        ('DEPARTMENTS:READ', 'DEPARTMENTS', 'READ', 'View departments'),
+        ('LOCATIONS:READ', 'LOCATIONS', 'READ', 'View locations'),
+        ('SUBSIDIARIES:READ', 'SUBSIDIARIES', 'READ', 'View subsidiaries'),
+        ('PROJECTS:READ', 'PROJECTS', 'READ', 'View projects'),
+        ('PROJECTS:CREATE', 'PROJECTS', 'CREATE', 'Create projects')
+      ON CONFLICT (permission_name) DO NOTHING
+    `);
+
+    // Assign all permissions to USER role (basic access)
+    await db.execute(sql`
+      INSERT INTO role_permissions (role_id, permission_id)
+      SELECT r.id, p.id
+      FROM roles r
+      CROSS JOIN permissions p
+      WHERE r.role_name = 'USER'
+        AND p.action IN ('READ', 'CREATE', 'UPDATE')
+      ON CONFLICT DO NOTHING
+    `);
+
+    // Assign ALL permissions to ADMIN role
+    await db.execute(sql`
+      INSERT INTO role_permissions (role_id, permission_id)
+      SELECT r.id, p.id
+      FROM roles r
+      CROSS JOIN permissions p
+      WHERE r.role_name = 'ADMIN'
+      ON CONFLICT DO NOTHING
+    `);
+
+    // Assign ALL permissions to OWNER role
+    await db.execute(sql`
+      INSERT INTO role_permissions (role_id, permission_id)
+      SELECT r.id, p.id
+      FROM roles r
+      CROSS JOIN permissions p
+      WHERE r.role_name = 'OWNER'
+      ON CONFLICT DO NOTHING
+    `);
+
+    console.log('  Seeded USER, ADMIN, OWNER roles with permissions');
+
+    userRoleResult = await db.execute(sql`
+      SELECT id, role_name FROM roles WHERE role_name = 'USER' LIMIT 1
+    `);
   }
 
   const userRole = userRoleResult.rows[0] as { id: string; role_name: string };
