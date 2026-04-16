@@ -4,9 +4,8 @@ import {
   AuthEntityRepository,
   CustomerPortalAuthRepository,
   EntityRepository,
-  OrganizationRepository,
 } from '@glapi/database';
-import { AdminAuthError, requireAdminContext } from '../../../utils/admin-auth';
+import { AdminAuthError, requireAdminContext, resolveAdminOrganization } from '../../../utils/admin-auth';
 import { buildTokenExpiry, createOpaqueToken, hashOpaqueToken } from '../_lib';
 
 const inviteSchema = z.object({
@@ -29,8 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = await requireAdminContext(request);
-    const organizationRepo = new OrganizationRepository();
-    const organization = await organizationRepo.findByClerkId(admin.clerkOrgId);
+    const organization = await resolveAdminOrganization(admin.orgId);
     if (!organization) {
       return NextResponse.json({ message: 'Organization not found' }, { status: 404 });
     }
@@ -44,7 +42,11 @@ export async function POST(request: NextRequest) {
     const token = createOpaqueToken();
     const tokenHash = hashOpaqueToken(token);
     const authEntityRepo = new AuthEntityRepository();
-    const invitedByEntity = await authEntityRepo.findByClerkId(admin.clerkUserId);
+    // Try Clerk ID first, then Better Auth ID
+    let invitedByEntity = await authEntityRepo.findByClerkId(admin.userId);
+    if (!invitedByEntity) {
+      invitedByEntity = await authEntityRepo.findByBetterAuthId(admin.userId);
+    }
 
     const portalRepo = new CustomerPortalAuthRepository();
     const invite = await portalRepo.createInvite({

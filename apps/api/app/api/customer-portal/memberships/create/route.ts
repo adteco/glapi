@@ -3,9 +3,8 @@ import { z } from 'zod';
 import {
   CustomerPortalAuthRepository,
   EntityRepository,
-  OrganizationRepository,
 } from '@glapi/database';
-import { AdminAuthError, requireAdminContext } from '../../../utils/admin-auth';
+import { AdminAuthError, requireAdminContext, resolveAdminOrganization } from '../../../utils/admin-auth';
 
 const createMembershipSchema = z.object({
   portalUserId: z.string().uuid(),
@@ -26,9 +25,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const admin = await requireAdminContext(request);
-    const organizationRepo = new OrganizationRepository();
-    const organization = await organizationRepo.findByClerkId(admin.clerkOrgId);
+    const { orgId } = await requireAdminContext(request);
+    const organization = await resolveAdminOrganization(orgId);
     if (!organization) {
       return NextResponse.json({ message: 'Organization not found' }, { status: 404 });
     }

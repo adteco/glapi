@@ -3,8 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
-// Auth storage file path
+// Auth storage file paths
 const STORAGE_STATE = path.join(__dirname, 'playwright/.auth/user.json');
+const BETTER_AUTH_STORAGE_STATE = path.join(__dirname, 'playwright/.auth/betterauth-user.json');
 
 const webEnvLocal = path.join(__dirname, 'apps/web/.env.local');
 if (fs.existsSync(webEnvLocal)) {
@@ -101,6 +102,36 @@ export default defineConfig({
       name: 'setup',
       testMatch: /auth\.setup\.ts/,
       dependencies: ['global-setup'],
+    },
+
+    // ==========================================
+    // BETTER AUTH SETUP & TESTS
+    // ==========================================
+
+    // Better Auth setup project - authenticates via Better Auth API
+    {
+      name: 'betterauth-setup',
+      testMatch: /auth-betterauth\.setup\.ts/,
+    },
+
+    // Better Auth API tests - API-level auth verification (no browser)
+    {
+      name: 'betterauth-api',
+      testMatch: /tests\/auth\/better-auth-api\.spec\.ts/,
+      use: {
+        headless: true,
+      },
+    },
+
+    // Better Auth E2E tests - browser-based auth verification
+    {
+      name: 'betterauth-e2e',
+      testMatch: /tests\/auth\/better-auth-e2e\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: BETTER_AUTH_STORAGE_STATE,
+      },
+      dependencies: ['betterauth-setup'],
     },
 
     // ==========================================

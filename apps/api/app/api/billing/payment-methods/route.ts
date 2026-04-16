@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { OrganizationRepository } from '@glapi/database';
 import { getStripeClient } from '../stripe';
-import { AdminAuthError, requireAdminContext } from '../../utils/admin-auth';
+import { AdminAuthError, requireAdminContext, resolveAdminOrganization } from '../../utils/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +30,7 @@ function getDefaultPaymentMethodId(
 
 async function ensureStripeCustomerId(
   organization: { id: string; name: string; stripeCustomerId?: string | null },
-  clerkOrgId: string
+  orgId: string
 ) {
   const stripe = getStripeClient();
   const orgRepo = new OrganizationRepository();
@@ -43,7 +43,7 @@ async function ensureStripeCustomerId(
     name: organization.name,
     metadata: {
       organizationId: organization.id,
-      clerkOrgId,
+      orgId,
     },
   });
 
@@ -56,16 +56,16 @@ async function ensureStripeCustomerId(
 
 export async function GET(request: NextRequest) {
   try {
-    const { clerkOrgId } = await requireAdminContext(request);
+    const { orgId } = await requireAdminContext(request);
     const orgRepo = new OrganizationRepository();
-    const organization = await orgRepo.findByClerkId(clerkOrgId);
+    const organization = await resolveAdminOrganization(orgId);
 
     if (!organization) {
       return NextResponse.json({ message: 'Organization not found' }, { status: 404 });
     }
 
     const stripe = getStripeClient();
-    let customerId = await ensureStripeCustomerId(organization, clerkOrgId);
+    let customerId = await ensureStripeCustomerId(organization, orgId);
     let customer = await stripe.customers.retrieve(customerId);
 
     if ((customer as Stripe.DeletedCustomer).deleted) {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         name: organization.name,
         metadata: {
           organizationId: organization.id,
-          clerkOrgId,
+          orgId,
         },
       });
       customerId = recreatedCustomer.id;

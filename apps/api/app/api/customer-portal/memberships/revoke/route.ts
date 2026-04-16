@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { CustomerPortalAuthRepository, OrganizationRepository } from '@glapi/database';
-import { AdminAuthError, requireAdminContext } from '../../../utils/admin-auth';
+import { CustomerPortalAuthRepository } from '@glapi/database';
+import { AdminAuthError, requireAdminContext, resolveAdminOrganization } from '../../../utils/admin-auth';
 
 const revokeMembershipSchema = z.object({
   membershipId: z.string().uuid(),
@@ -20,9 +20,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const admin = await requireAdminContext(request);
-    const organizationRepo = new OrganizationRepository();
-    const organization = await organizationRepo.findByClerkId(admin.clerkOrgId);
+    const { orgId } = await requireAdminContext(request);
+    const organization = await resolveAdminOrganization(orgId);
     if (!organization) {
       return NextResponse.json({ message: 'Organization not found' }, { status: 404 });
     }

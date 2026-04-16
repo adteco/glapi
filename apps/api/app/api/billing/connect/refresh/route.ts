@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OrganizationRepository } from '@glapi/database';
 import { getStripeClient } from '../../stripe';
-import { AdminAuthError, requireAdminContext } from '../../../utils/admin-auth';
+import { AdminAuthError, requireAdminContext, resolveAdminOrganization } from '../../../utils/admin-auth';
 import { refreshStripeConnectState } from '../utils';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { clerkOrgId } = await requireAdminContext(request);
+    const { orgId } = await requireAdminContext(request);
     const orgRepo = new OrganizationRepository();
-    const organization = await orgRepo.findByClerkId(clerkOrgId);
+    const organization = await resolveAdminOrganization(orgId);
 
     if (!organization) {
       return NextResponse.json({ message: 'Organization not found' }, { status: 404 });
