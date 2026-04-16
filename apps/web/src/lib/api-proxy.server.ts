@@ -78,6 +78,7 @@ export async function proxyAuthenticatedApiRequest(
   let userId: string | null = null;
   let orgId: string | null = null;
   let token: string | null = null;
+  let authErrorMessage: string | null = null;
 
   try {
     const clerkAuth = await auth();
@@ -88,20 +89,46 @@ export async function proxyAuthenticatedApiRequest(
     // During the Better Auth migration, requests may reach this proxy without a
     // valid Clerk session. In that case we still forward cookies so the API can
     // resolve Better Auth sessions directly.
-    console.warn('[api-proxy] Clerk auth unavailable, forwarding request with cookies only');
+    authErrorMessage = error instanceof Error ? error.message : String(error);
+    console.warn('[api-proxy] Clerk auth() threw, forwarding request with cookies only', {
+      path: upstreamPath,
+      error: authErrorMessage,
+    });
+  }
+
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const hasClerkSession = /(?:^|;\s*)__session=/.test(cookieHeader);
+  const hasBetterAuthSession = /(?:^|;\s*)better-auth\.session/.test(cookieHeader);
+
+  // Diagnostic: the #1 silent-failure mode in production was `auth()` returning
+  // { userId: null } for an apparently-signed-in user (satellite cookie issues,
+  // org-less sessions, etc). Log that branch explicitly so we can tell it apart
+  // from a genuinely unauthenticated request.
+  if (!userId && !authErrorMessage) {
+    console.warn('[api-proxy] auth() returned no userId — no auth headers will be forwarded', {
+      path: upstreamPath,
+      hasCookieHeader: Boolean(cookieHeader),
+      hasClerkSessionCookie: hasClerkSession,
+      hasBetterAuthSessionCookie: hasBetterAuthSession,
+    });
+  } else if (userId && !orgId) {
+    console.warn('[api-proxy] Clerk session has no active organization', {
+      path: upstreamPath,
+      userIdSuffix: userId.slice(-6),
+    });
   }
 
   const upstreamUrl = buildUpstreamUrl(request, upstreamPath);
   const headers = buildUpstreamHeaders(request);
-  
+
   if (token) {
     headers.set('authorization', `Bearer ${token}`);
   }
-  
+
   if (orgId) {
     headers.set('x-organization-id', orgId);
   }
-  
+
   if (userId) {
     headers.set('x-user-id', userId);
   }
@@ -116,6 +143,18 @@ export async function proxyAuthenticatedApiRequest(
     body,
     redirect: 'manual',
   });
+
+  if (upstream.status === 401 || upstream.status === 403) {
+    console.warn('[api-proxy] Upstream rejected request', {
+      path: upstreamPath,
+      status: upstream.status,
+      forwardedAuthHeader: Boolean(token),
+      forwardedOrgId: Boolean(orgId),
+      forwardedUserId: Boolean(userId),
+      hasClerkSessionCookie: hasClerkSession,
+      hasBetterAuthSessionCookie: hasBetterAuthSession,
+    });
+  }
 
   return buildProxyResponse(upstream);
 }

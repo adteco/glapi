@@ -727,6 +727,10 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const authProviderMode = getAuthProviderMode();
   const authDebugInfo = buildAuthDebugInfo(headersList, authProviderMode);
 
+  // Tracks which providers were attempted and what they returned, so the final
+  // "Authentication required" log can explain *why* both paths failed.
+  const attemptTrace: { provider: 'better-auth' | 'clerk'; outcome: 'null' | 'error' | 'success'; error?: string }[] = [];
+
   if (apiKeyName) {
     return resolveHeaderBackedContext(rawOrganizationId, rawUserId, apiKeyName || undefined);
   }
@@ -735,6 +739,9 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   if (authProviderMode === 'dual' || authProviderMode === 'better-auth') {
     try {
       const betterAuthContext = await verifyBetterAuthRequest(headersList);
+      if (!betterAuthContext) {
+        attemptTrace.push({ provider: 'better-auth', outcome: 'null' });
+      }
       if (betterAuthContext) {
           if (
             rawUserId &&
@@ -762,6 +769,11 @@ export async function getServiceContext(): Promise<OrganizationContext> {
           };
       }
     } catch (error) {
+      attemptTrace.push({
+        provider: 'better-auth',
+        outcome: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      });
       logAuthFailure('better-auth', error, authDebugInfo);
 
       if (authProviderMode === 'better-auth' && isProduction) {
@@ -783,6 +795,9 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   if (clerkSecret) {
     try {
       const verifiedClerkContext = await verifyClerkRequest(headersList);
+      if (!verifiedClerkContext) {
+        attemptTrace.push({ provider: 'clerk', outcome: 'null' });
+      }
       if (verifiedClerkContext) {
         if (
           rawUserId &&
@@ -810,16 +825,34 @@ export async function getServiceContext(): Promise<OrganizationContext> {
         };
       }
     } catch (error) {
+      attemptTrace.push({
+        provider: 'clerk',
+        outcome: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      });
       logAuthFailure('clerk', error, authDebugInfo);
       if (isProduction) throw error;
       console.warn('[auth] Clerk authentication failed:', error instanceof Error ? error.message : error);
     }
+  } else {
+    attemptTrace.push({
+      provider: 'clerk',
+      outcome: 'error',
+      error:
+        authProviderMode === 'better-auth'
+          ? 'skipped: AUTH_PROVIDER_MODE=better-auth'
+          : 'skipped: CLERK_SECRET_KEY not configured',
+    });
   }
 
   if (isProduction) {
     const finalError = new AuthenticationError(
       'Authentication required. Provide a valid session or bearer token.'
     );
+    console.warn('[auth] No provider authenticated the request', {
+      ...authDebugInfo,
+      attemptTrace,
+    });
     logAuthFailure('final', finalError, authDebugInfo);
     throw finalError;
   }
