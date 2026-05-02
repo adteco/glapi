@@ -23,7 +23,7 @@ export function SeedAccountsButton({ onSuccess }: SeedAccountsButtonProps) {
 
     setIsLoading(true);
     try {
-      const result = await apiPost<{ message?: string; error?: string }>('/api/gl/accounts/seed', {});
+      const result = await apiPost<{ message?: string; error?: string }>('/gl/accounts/seed', {});
       
       toast.success(result.message || 'Default accounts seeded successfully!');
       if (onSuccess) {
@@ -31,7 +31,7 @@ export function SeedAccountsButton({ onSuccess }: SeedAccountsButtonProps) {
       }
     } catch (error) {
       console.error('Error seeding accounts:', error);
-      toast.error('An unexpected error occurred while seeding accounts.');
+      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred while seeding accounts.');
     } finally {
       setIsLoading(false);
     }
@@ -42,4 +42,4 @@ export function SeedAccountsButton({ onSuccess }: SeedAccountsButtonProps) {
       {isLoading ? 'Seeding...' : 'Seed Default Chart of Accounts'}
     </Button>
   );
-} 
+}

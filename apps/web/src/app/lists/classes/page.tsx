@@ -6,16 +6,27 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Edit, Plus, Trash2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -25,17 +36,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createClassSchema } from "@glapi/types";
+import { z } from "zod";
 
 // Define interfaces
 interface Class {
@@ -46,34 +52,27 @@ interface Class {
   organizationId: string;
   subsidiaryId: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
   subsidiary?: {
     id: string;
     name: string;
   };
 }
 
-interface Subsidiary {
-  id: string;
-  name: string;
-  code?: string;
-}
-
-// Form schema - use centralized schema from @glapi/types
-const classFormSchema = createClassSchema.omit({
-  organizationId: true,
-  subsidiaryId: true,
-  isActive: true,
-}).pick({
-  name: true,
-  code: true,
+const classFormSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  code: z.string().optional(),
+  description: z.string().optional(),
+  isActive: z.boolean().default(true),
 });
 
-type ClassFormValues = typeof classFormSchema._input;
+type ClassFormValues = z.infer<typeof classFormSchema>;
 
 export default function ClassesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const { orgId } = useAuth();
   
   // TRPC queries
@@ -87,6 +86,7 @@ export default function ClassesPage() {
     onSuccess: () => {
       toast.success('Class created successfully!');
       setIsDialogOpen(false);
+      setSelectedClass(null);
       form.reset();
       refetchClasses();
     },
@@ -95,11 +95,38 @@ export default function ClassesPage() {
     },
   });
 
+  const updateClassMutation = trpc.classes.update.useMutation({
+    onSuccess: () => {
+      toast.success('Class updated successfully!');
+      setIsDialogOpen(false);
+      setSelectedClass(null);
+      form.reset();
+      refetchClasses();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update class');
+    },
+  });
+
+  const deleteClassMutation = trpc.classes.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Class deleted successfully!');
+      setIsDeleteDialogOpen(false);
+      setSelectedClass(null);
+      refetchClasses();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete class');
+    },
+  });
+
   const form = useForm<ClassFormValues>({
     resolver: zodResolver(classFormSchema),
     defaultValues: {
       name: "",
       code: "",
+      description: "",
+      isActive: true,
     },
   });
 
@@ -111,11 +138,49 @@ export default function ClassesPage() {
       return;
     }
 
-    createClassMutation.mutate({
+    const data = {
       name: values.name,
       code: values.code && values.code.trim() ? values.code.trim() : undefined,
+      description: values.description && values.description.trim() ? values.description.trim() : undefined,
+      isActive: values.isActive,
+    };
+
+    if (selectedClass) {
+      updateClassMutation.mutate({
+        id: selectedClass.id,
+        data,
+      });
+      return;
+    }
+
+    createClassMutation.mutate(data);
+  };
+
+  const openCreateDialog = () => {
+    setSelectedClass(null);
+    form.reset({
+      name: "",
+      code: "",
+      description: "",
       isActive: true,
     });
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (classItem: Class) => {
+    setSelectedClass(classItem);
+    form.reset({
+      name: classItem.name,
+      code: classItem.code || "",
+      description: classItem.description || "",
+      isActive: classItem.isActive,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const openDeleteDialog = (classItem: Class) => {
+    setSelectedClass(classItem);
+    setIsDeleteDialogOpen(true);
   };
 
   if (classesLoading) {
@@ -132,16 +197,18 @@ export default function ClassesPage() {
         <h1 className="text-3xl font-bold">Classes</h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
               Add Class
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Add New Class</DialogTitle>
+              <DialogTitle>{selectedClass ? 'Edit Class' : 'Add New Class'}</DialogTitle>
               <DialogDescription>
-                Create a new class for categorizing transactions.
+                {selectedClass
+                  ? 'Update this class for categorizing transactions.'
+                  : 'Create a new class for categorizing transactions.'}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -178,21 +245,52 @@ export default function ClassesPage() {
                     </FormItem>
                   )}
                 />
-                <div className="flex justify-end space-x-2 pt-4">
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Optional description" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center space-x-2">
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="!mt-0">Active</FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => {
                       setIsDialogOpen(false);
+                      setSelectedClass(null);
                       form.reset();
                     }}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createClassMutation.isPending}>
-                    {createClassMutation.isPending ? 'Creating...' : 'Create'}
+                  <Button type="submit" disabled={createClassMutation.isPending || updateClassMutation.isPending}>
+                    {createClassMutation.isPending || updateClassMutation.isPending
+                      ? 'Saving...'
+                      : selectedClass ? 'Update' : 'Create'}
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
             </Form>
           </DialogContent>
@@ -212,6 +310,7 @@ export default function ClassesPage() {
               <TableHead>Code</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Active</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -225,11 +324,53 @@ export default function ClassesPage() {
                     {classItem.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEditDialog(classItem)}
+                      title="Edit class"
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span className="sr-only">Edit</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openDeleteDialog(classItem)}
+                      title="Delete class"
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Delete</span>
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Class</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete {selectedClass?.name ? `"${selectedClass.name}"` : 'this class'}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedClass(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedClass && deleteClassMutation.mutate({ id: selectedClass.id })}
+              disabled={deleteClassMutation.isPending}
+            >
+              {deleteClassMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -104,9 +104,11 @@ export async function POST(_request: NextRequest) {
     const accountService = new AccountService(context);
     
     const result = await accountService.seedDefaultAccounts(defaultAccounts);
+    const skippedMessage = result.skipped > 0 ? `, ${result.skipped} already existed` : '';
+    const failedMessage = result.failed > 0 ? `, ${result.failed} failed` : '';
     
     return NextResponse.json({
-      message: `Seeded ${result.created} accounts successfully${result.failed > 0 ? `, ${result.failed} failed or already existed` : ''}`,
+      message: `Seeded ${result.created} accounts successfully${skippedMessage}${failedMessage}`,
       ...result
     }, { status: 201 });
   } catch (error) {

@@ -240,38 +240,62 @@ export class AccountService extends BaseService {
     isActive?: boolean;
   }>): Promise<{
     created: number;
+    skipped: number;
     failed: number;
     total: number;
   }> {
     const organizationId = this.requireOrganizationContext();
-    
-    const results = await Promise.allSettled(
-      defaultAccounts.map(account => 
-        this.createAccount({
+
+    const existingAccounts = await this.accountRepository.findAllNoPagination(organizationId);
+    const seenAccountNumbers = new Set(
+      existingAccounts.map(account => account.accountNumber)
+    );
+
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+    const failures: unknown[] = [];
+
+    for (const account of defaultAccounts) {
+      if (seenAccountNumbers.has(account.accountNumber)) {
+        skipped += 1;
+        continue;
+      }
+
+      // Reserve the number in-memory before inserting so duplicate defaults in
+      // the seed input cannot race each other.
+      seenAccountNumbers.add(account.accountNumber);
+
+      try {
+        await this.createAccount({
           ...account,
           organizationId,
           isControlAccount: account.isControlAccount ?? false,
           isActive: account.isActive ?? true
-        })
-      )
-    );
+        });
+        created += 1;
+      } catch (error) {
+        if (error instanceof ServiceError && error.code === 'ACCOUNT_NUMBER_EXISTS') {
+          skipped += 1;
+          continue;
+        }
+
+        failed += 1;
+        failures.push(error);
+      }
+    }
     
     // Log the first few errors to help debug
-    const failures = results.filter(r => r.status === 'rejected');
     if (failures.length > 0) {
       console.error('Account seeding errors:');
       failures.slice(0, 3).forEach((failure, index) => {
-        if (failure.status === 'rejected') {
-          console.error(`Error ${index + 1}:`, failure.reason);
-        }
+        console.error(`Error ${index + 1}:`, failure);
       });
     }
     
-    const created = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
-    
     return {
       created,
+      skipped,
       failed,
       total: defaultAccounts.length
     };

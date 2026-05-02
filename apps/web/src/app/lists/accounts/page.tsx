@@ -15,7 +15,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -50,7 +49,7 @@ import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { newAccountSchema, AccountCategoryEnum } from "@glapi/types";
+import { newAccountSchema } from "@glapi/types";
 
 // Define an interface for the Account data matching TRPC return type
 interface Account {
@@ -129,7 +128,7 @@ export default function AccountsPage() {
   const { orgId } = useAuth();
   
   // TRPC queries and mutations
-  const { data: accountsData, isLoading, refetch } = trpc.accounts.list.useQuery({}, {
+  const { data: accountsData, error: accountsError, isLoading, refetch } = trpc.accounts.list.useQuery({}, {
     enabled: !!orgId,
   });
   
@@ -167,7 +166,7 @@ export default function AccountsPage() {
     },
   });
 
-  const accounts = accountsData?.data || [];
+  const accounts = useMemo(() => accountsData?.data || [], [accountsData?.data]);
 
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
@@ -268,6 +267,22 @@ export default function AccountsPage() {
     return <div className="container mx-auto py-10"><p>Please select an organization to view accounts.</p></div>;
   }
 
+  if (accountsError) {
+    return (
+      <div className="container mx-auto py-10">
+        <h1 className="text-3xl font-bold mb-6">Chart of Accounts</h1>
+        <p className="mb-4 text-destructive">
+          {accountsError.data?.code === 'UNAUTHORIZED'
+            ? 'You are not authorized to view accounts for the selected organization.'
+            : accountsError.message}
+        </p>
+        <Button variant="outline" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (accounts.length === 0 && !isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -301,7 +316,6 @@ export default function AccountsPage() {
         </TableHeader>
         <TableBody>
           {displayedAccounts.map((account) => {
-            const num = parseInt(account.accountNumber);
             const isTopLevel = account.accountNumber.endsWith('0000'); // 10000, 20000, etc.
             const isSecondLevel = !isTopLevel && account.accountNumber.endsWith('000'); // 11000, 12000, etc.
             const isThirdLevel = !isTopLevel && !isSecondLevel; // 70100, 70200, etc.
@@ -684,4 +698,4 @@ function getBadgeVariantForCategory(category: Account['accountCategory']): 'defa
         case 'Expense': return 'destructive';
         default: return 'outline';
     }
-} 
+}
