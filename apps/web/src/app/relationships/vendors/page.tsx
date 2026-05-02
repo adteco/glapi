@@ -28,7 +28,9 @@ interface Address {
 
 interface VendorMetadata {
   paymentTerms?: string;
+  terms?: string;
   vendorType?: string;
+  vendor_type?: string;
   ein?: string;
   w9OnFile?: boolean;
   defaultExpenseAccount?: string;
@@ -84,10 +86,20 @@ interface FormData {
 interface VendorFormProps {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  defaultAccountOptions: AccountOption[];
 }
 
+interface AccountOption {
+  id: string;
+  accountNumber: string;
+  accountName: string;
+  accountCategory: string;
+}
+
+const NO_DEFAULT_ACCOUNT = '__no_default_account__';
+
 // Move VendorForm outside of the main component
-const VendorForm: React.FC<VendorFormProps> = ({ formData, setFormData }) => (
+const VendorForm: React.FC<VendorFormProps> = ({ formData, setFormData, defaultAccountOptions }) => (
   <div className="space-y-4">
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
@@ -196,14 +208,33 @@ const VendorForm: React.FC<VendorFormProps> = ({ formData, setFormData }) => (
       </div>
       <div className="space-y-2">
         <Label htmlFor="defaultExpenseAccount">Default Expense Account</Label>
-        <Input
-          id="defaultExpenseAccount"
-          value={formData.metadata.defaultExpenseAccount}
-          onChange={(e) => setFormData(prev => ({ 
+        <Select
+          value={formData.metadata.defaultExpenseAccount || NO_DEFAULT_ACCOUNT}
+          onValueChange={(value) => setFormData(prev => ({
             ...prev, 
-            metadata: { ...prev.metadata, defaultExpenseAccount: e.target.value }
+            metadata: {
+              ...prev.metadata,
+              defaultExpenseAccount: value === NO_DEFAULT_ACCOUNT ? '' : value,
+            }
           }))}
-        />
+        >
+          <SelectTrigger id="defaultExpenseAccount">
+            <SelectValue placeholder="Select account" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_DEFAULT_ACCOUNT}>No default account</SelectItem>
+            {defaultAccountOptions.map((account) => (
+              <SelectItem key={account.id} value={account.id}>
+                {account.accountNumber} - {account.accountName}
+              </SelectItem>
+            ))}
+            {defaultAccountOptions.length === 0 && (
+              <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                No expense accounts found
+              </div>
+            )}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex items-center space-x-2">
         <Switch
@@ -333,6 +364,22 @@ export default function VendorsPage() {
   const { data: vendorsData, isLoading, refetch } = trpc.vendors.list.useQuery({}, {
     enabled: !!orgId,
   });
+
+  const { data: accountsData } = trpc.accounts.list.useQuery({
+    limit: 500,
+    isActive: true,
+  }, {
+    enabled: !!orgId,
+  });
+
+  const defaultAccountOptions = (accountsData?.data || [])
+    .filter((account) => account.accountCategory === 'Expense' || account.accountCategory === 'COGS')
+    .map((account) => ({
+      id: account.id,
+      accountNumber: account.accountNumber,
+      accountName: account.accountName,
+      accountCategory: account.accountCategory,
+    }));
   
   const createVendorMutation = trpc.vendors.create.useMutation({
     onSuccess: () => {
@@ -371,9 +418,10 @@ export default function VendorsPage() {
   const vendors = (vendorsData?.data || []).map(vendor => ({
     ...vendor,
     id: vendor.id || '',
+    metadata: vendor.metadata as VendorMetadata | null,
     createdAt: vendor.createdAt?.toString() || new Date().toISOString(),
     updatedAt: vendor.updatedAt?.toString() || new Date().toISOString(),
-  }));
+  })) as Vendor[];
 
 
   const handleCreate = async () => {
@@ -406,6 +454,8 @@ export default function VendorsPage() {
         terms: formData.metadata.paymentTerms || undefined,
         vendor_type: formData.metadata.vendorType || undefined,
         ein: formData.metadata.ein || undefined,
+        w9OnFile: formData.metadata.w9OnFile,
+        defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
         creditLimit: undefined,
       },
     });
@@ -440,6 +490,8 @@ export default function VendorsPage() {
           terms: formData.metadata.paymentTerms || undefined,
           vendor_type: formData.metadata.vendorType || undefined,
           ein: formData.metadata.ein || undefined,
+          w9OnFile: formData.metadata.w9OnFile,
+          defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
           creditLimit: undefined,
         },
       },
@@ -452,7 +504,7 @@ export default function VendorsPage() {
     deleteVendorMutation.mutate({ id });
   };
 
-  const openEditDialog = (vendor: any) => {
+  const openEditDialog = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setFormData({
       name: vendor.name,
@@ -477,8 +529,8 @@ export default function VendorsPage() {
         paymentTerms: vendor.metadata?.terms || '',
         vendorType: vendor.metadata?.vendor_type || '',
         ein: vendor.metadata?.ein || '',
-        w9OnFile: false,
-        defaultExpenseAccount: '',
+        w9OnFile: vendor.metadata?.w9OnFile || false,
+        defaultExpenseAccount: vendor.metadata?.defaultExpenseAccount || '',
       }
     });
     setIsEditOpen(true);
@@ -515,10 +567,6 @@ export default function VendorsPage() {
     setSelectedVendor(null);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
   // Remove the VendorForm definition from here since it's now outside
 
   if (isLoading) {
@@ -552,7 +600,11 @@ export default function VendorsPage() {
                     Add a new vendor to your organization
                   </DialogDescription>
                 </DialogHeader>
-                <VendorForm formData={formData} setFormData={setFormData} />
+                <VendorForm
+                  formData={formData}
+                  setFormData={setFormData}
+                  defaultAccountOptions={defaultAccountOptions}
+                />
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
@@ -580,13 +632,13 @@ export default function VendorsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vendors.map((vendor: any) => (
+              {vendors.map((vendor) => (
                 <TableRow key={vendor.id}>
                   <TableCell className="font-medium">
                     {vendor.displayName || vendor.name}
                   </TableCell>
                   <TableCell>{vendor.code || '-'}</TableCell>
-                  <TableCell>{vendor.metadata?.vendorType || '-'}</TableCell>
+                  <TableCell>{vendor.metadata?.vendorType || vendor.metadata?.vendor_type || '-'}</TableCell>
                   <TableCell>{vendor.email || '-'}</TableCell>
                   <TableCell>{vendor.phone || '-'}</TableCell>
                   <TableCell>
@@ -654,7 +706,11 @@ export default function VendorsPage() {
               Update vendor information
             </DialogDescription>
           </DialogHeader>
-          <VendorForm formData={formData} setFormData={setFormData} />
+          <VendorForm
+            formData={formData}
+            setFormData={setFormData}
+            defaultAccountOptions={defaultAccountOptions}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel

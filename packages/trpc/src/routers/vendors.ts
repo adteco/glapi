@@ -7,16 +7,31 @@ const vendorSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   entityId: z.string().optional(),
   isActive: z.boolean().default(true),
+  displayName: z.string().optional(),
+  code: z.string().optional(),
   legalName: z.string().optional(),
+  taxId: z.string().optional(),
   taxIdNumber: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
   website: z.string().url().optional().or(z.literal('')),
+  description: z.string().optional(),
   notes: z.string().optional(),
+  status: z.enum(['active', 'inactive', 'archived']).optional(),
+  address: z.object({
+    line1: z.string().optional(),
+    line2: z.string().optional(),
+    city: z.string().optional(),
+    stateProvince: z.string().optional(),
+    postalCode: z.string().optional(),
+    countryCode: z.string().length(2).optional(),
+  }).optional(),
   metadata: z.object({
     ein: z.string().optional(),
     vendor_type: z.string().optional(),
     terms: z.string().optional(),
+    w9OnFile: z.boolean().optional(),
+    defaultExpenseAccount: z.string().optional(),
     creditLimit: z.number().optional(),
   }).optional(),
 });
@@ -29,6 +44,17 @@ const vendorQuerySchema = z.object({
   search: z.string().optional(),
   isActive: z.boolean().optional(),
 });
+
+const getVendorByIdProcedure = authenticatedProcedure
+  .meta({ ai: createReadOnlyAIMeta('get_vendor', 'Get a single vendor by ID', {
+    scopes: ['vendors', 'purchasing', 'global'],
+    permissions: ['read:vendors'],
+  }) })
+  .input(z.object({ id: z.string() }))
+  .query(async ({ ctx, input }) => {
+    const service = new VendorService(ctx.serviceContext, { db: ctx.db });
+    return await service.findById(input.id);
+  });
 
 export const vendorsRouter = router({
   list: authenticatedProcedure
@@ -51,16 +77,9 @@ export const vendorsRouter = router({
       });
     }),
 
-  getById: authenticatedProcedure
-    .meta({ ai: createReadOnlyAIMeta('get_vendor', 'Get a single vendor by ID', {
-      scopes: ['vendors', 'purchasing', 'global'],
-      permissions: ['read:vendors'],
-    }) })
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const service = new VendorService(ctx.serviceContext, { db: ctx.db });
-      return await service.findById(input.id);
-    }),
+  get: getVendorByIdProcedure,
+
+  getById: getVendorByIdProcedure,
 
   create: authenticatedProcedure
     .meta({ ai: createWriteAIMeta('create_vendor', 'Create a new vendor record', {

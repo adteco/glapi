@@ -4,11 +4,29 @@ import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Edit, Plus, Mail, Phone, Globe } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, Phone, Globe } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 import { EntityContactsList } from '@/components/contacts';
+
+type VendorMetadataValues = {
+  paymentTerms?: string;
+  terms?: string;
+  vendorType?: string;
+  vendor_type?: string;
+  ein?: string;
+  w9OnFile?: boolean;
+  defaultExpenseAccount?: string;
+};
+
+type VendorAddress = {
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  stateProvince?: string | null;
+  postalCode?: string | null;
+  countryCode?: string | null;
+};
 
 export default function VendorDetailPage() {
   const params = useParams();
@@ -85,7 +103,11 @@ export default function VendorDetailPage() {
     });
   };
 
-  const formatAddress = (address: any) => {
+  const metadata = vendor.metadata as VendorMetadataValues | null | undefined;
+  const paymentTerms = metadata?.paymentTerms || metadata?.terms;
+  const vendorType = metadata?.vendorType || metadata?.vendor_type;
+
+  const formatAddress = (address?: VendorAddress | null) => {
     if (!address) return 'N/A';
     const parts = [];
     if (address.line1) parts.push(address.line1);
@@ -210,34 +232,40 @@ export default function VendorDetailPage() {
               <dd className="mt-1 text-sm text-gray-900">{formatAddress(vendor.address)}</dd>
             </div>
 
-            {vendor.metadata && (
+            {metadata && (
               <div className="border-t pt-4">
                 <h3 className="text-sm font-medium text-gray-900 mb-3">Additional Information</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  {vendor.metadata.paymentTerms && (
+                  {paymentTerms && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Payment Terms</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{vendor.metadata.paymentTerms}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{paymentTerms}</dd>
                     </div>
                   )}
-                  {vendor.metadata.vendorType && (
+                  {vendorType && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Vendor Type</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{vendor.metadata.vendorType}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{vendorType}</dd>
                     </div>
                   )}
-                  {vendor.metadata.ein && (
+                  {metadata.ein && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">EIN</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{vendor.metadata.ein}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{metadata.ein}</dd>
                     </div>
                   )}
-                  {vendor.metadata.w9OnFile !== undefined && (
+                  {metadata.defaultExpenseAccount && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Default Expense Account</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{metadata.defaultExpenseAccount}</dd>
+                    </div>
+                  )}
+                  {metadata.w9OnFile !== undefined && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">W9 on File</dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        <Badge variant={vendor.metadata.w9OnFile ? 'default' : 'secondary'}>
-                          {vendor.metadata.w9OnFile ? 'Yes' : 'No'}
+                        <Badge variant={metadata.w9OnFile ? 'default' : 'secondary'}>
+                          {metadata.w9OnFile ? 'Yes' : 'No'}
                         </Badge>
                       </dd>
                     </div>

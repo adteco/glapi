@@ -6,7 +6,6 @@ import { useAuth } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,6 +55,18 @@ const vendorSchema = z.object({
 
 type VendorFormValues = z.infer<typeof vendorSchema>;
 
+const NO_DEFAULT_ACCOUNT = '__no_default_account__';
+
+type VendorMetadataValues = {
+  paymentTerms?: string;
+  terms?: string;
+  vendorType?: string;
+  vendor_type?: string;
+  ein?: string;
+  w9OnFile?: boolean;
+  defaultExpenseAccount?: string;
+};
+
 export default function EditVendorPage() {
   const params = useParams();
   const id = params.id as string;
@@ -103,6 +114,16 @@ export default function EditVendorPage() {
     }
   );
 
+  const { data: accountsData } = trpc.accounts.list.useQuery({
+    limit: 500,
+    isActive: true,
+  }, {
+    enabled: !!orgId,
+  });
+
+  const defaultAccountOptions = (accountsData?.data || [])
+    .filter((account) => account.accountCategory === 'Expense' || account.accountCategory === 'COGS');
+
   // Update mutation
   const updateMutation = trpc.vendors.update.useMutation({
     onSuccess: () => {
@@ -117,6 +138,8 @@ export default function EditVendorPage() {
   // Populate form when vendor data is loaded
   useEffect(() => {
     if (vendor) {
+      const metadata = vendor.metadata as VendorMetadataValues | null | undefined;
+
       form.reset({
         name: vendor.name,
         displayName: vendor.displayName || '',
@@ -137,11 +160,11 @@ export default function EditVendorPage() {
           countryCode: vendor.address?.countryCode || '',
         },
         metadata: {
-          paymentTerms: vendor.metadata?.paymentTerms || vendor.metadata?.terms || '',
-          vendorType: vendor.metadata?.vendorType || vendor.metadata?.vendor_type || '',
-          ein: vendor.metadata?.ein || '',
-          w9OnFile: vendor.metadata?.w9OnFile || false,
-          defaultExpenseAccount: vendor.metadata?.defaultExpenseAccount || '',
+          paymentTerms: metadata?.paymentTerms || metadata?.terms || '',
+          vendorType: metadata?.vendorType || metadata?.vendor_type || '',
+          ein: metadata?.ein || '',
+          w9OnFile: metadata?.w9OnFile || false,
+          defaultExpenseAccount: metadata?.defaultExpenseAccount || '',
         },
       });
     }
@@ -426,9 +449,31 @@ export default function EditVendorPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Default Expense Account</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
+                        <Select
+                          onValueChange={(value) => {
+                            field.onChange(value === NO_DEFAULT_ACCOUNT ? '' : value);
+                          }}
+                          value={field.value || NO_DEFAULT_ACCOUNT}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select account" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value={NO_DEFAULT_ACCOUNT}>No default account</SelectItem>
+                            {defaultAccountOptions.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.accountNumber} - {account.accountName}
+                              </SelectItem>
+                            ))}
+                            {defaultAccountOptions.length === 0 && (
+                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                No expense accounts found
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
