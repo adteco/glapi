@@ -7,7 +7,11 @@
 
 import { z } from 'zod';
 import { authenticatedProcedure, router } from '../trpc';
-import { PendingDocumentsService, DocumentConversionService } from '@glapi/api-service';
+import {
+  PendingDocumentsService,
+  DocumentConversionService,
+  VendorBillIntakeService,
+} from '@glapi/api-service';
 import { TRPCError } from '@trpc/server';
 import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 
@@ -96,6 +100,21 @@ const extractedDataSchema = z
   })
   .optional();
 
+const manualVendorBillUploadSchema = z.object({
+  file: z.object({
+    name: z.string().min(1).max(255),
+    contentType: z.string().max(255).optional(),
+    size: z.number().int().positive().max(25 * 1024 * 1024),
+  }),
+  vendorId: z.string().uuid().optional(),
+  vendorName: z.string().max(255).optional(),
+  invoiceNumber: z.string().max(100).optional(),
+  invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  totalAmount: z.number().nonnegative().optional(),
+  memo: z.string().max(1000).optional(),
+});
+
 // Filter schema
 const pendingDocumentFiltersSchema = z
   .object({
@@ -120,6 +139,37 @@ const pendingDocumentFiltersSchema = z
 // ============================================================================
 
 export const pendingDocumentsRouter = router({
+  /**
+   * Create a pending document from a manually uploaded vendor bill.
+   *
+   * This initial intake stores metadata and queues the document for review;
+   * binary storage and full OCR extraction can plug into this same contract.
+   */
+  createManualVendorBillUpload: authenticatedProcedure
+    .meta({ ai: createWriteAIMeta('create_manual_vendor_bill_upload', 'Create a pending vendor bill document from a manual file upload', {
+      scopes: ['documents', 'inbox', 'magic-inbox', 'transactions'],
+      permissions: ['write:pending-documents'],
+      riskLevel: 'MEDIUM',
+    }) })
+    .input(manualVendorBillUploadSchema)
+    .mutation(async ({ ctx, input }) => {
+      const service = new VendorBillIntakeService(ctx.serviceContext, { db: ctx.db });
+      return service.createManualUpload({
+        file: {
+          name: input.file.name,
+          contentType: input.file.contentType,
+          size: input.file.size,
+        },
+        vendorId: input.vendorId,
+        vendorName: input.vendorName,
+        invoiceNumber: input.invoiceNumber,
+        invoiceDate: input.invoiceDate,
+        dueDate: input.dueDate,
+        totalAmount: input.totalAmount,
+        memo: input.memo,
+      });
+    }),
+
   /**
    * List pending documents with filters and pagination
    */

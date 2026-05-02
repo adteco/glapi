@@ -32,6 +32,11 @@ const vendorSchema = z.object({
     terms: z.string().optional(),
     w9OnFile: z.boolean().optional(),
     defaultExpenseAccount: z.string().optional(),
+    trustedForBills: z.boolean().optional(),
+    billApproval: z.object({
+      mode: z.enum(['manual_review', 'auto_approve']).optional(),
+      maxAutoApproveAmount: z.number().nonnegative().optional(),
+    }).optional(),
     creditLimit: z.number().optional(),
   }).optional(),
 });

@@ -8,6 +8,7 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { simpleParser, type ParsedMail } from 'mailparser';
 import type { SESNotification, EmailAttachment, GlapiWebhookPayload, DocumentType } from './types';
+import type { InvoiceExtractionResult } from './ai-extraction';
 
 const s3Client = new S3Client({});
 
@@ -140,7 +141,8 @@ export function buildWebhookPayload(
   emailData: ParsedEmailData,
   orgId: string,
   documentType: DocumentType = 'unknown',
-  confidence: number = 0.5
+  confidence: number = 0.5,
+  extraction?: InvoiceExtractionResult | null
 ): GlapiWebhookPayload {
   return {
     messageId: emailData.messageId,
@@ -151,6 +153,8 @@ export function buildWebhookPayload(
     subject: emailData.subject,
     documentType,
     confidence,
+    summary: extraction?.summary,
+    extractedInvoice: extraction?.extractedInvoice,
     s3Bucket: emailData.s3Bucket,
     s3Key: emailData.s3Key,
     receivedAt: emailData.receivedAt,
@@ -161,6 +165,7 @@ export function buildWebhookPayload(
         attemptCount: 1,
         lastProcessed: new Date().toISOString(),
       },
+      headers: extraction?.metadata,
     },
   };
 }

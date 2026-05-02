@@ -34,6 +34,7 @@ interface VendorMetadata {
   ein?: string;
   w9OnFile?: boolean;
   defaultExpenseAccount?: string;
+  trustedForBills?: boolean;
 }
 
 interface Vendor {
@@ -80,6 +81,7 @@ interface FormData {
     ein: string;
     w9OnFile: boolean;
     defaultExpenseAccount: string;
+    trustedForBills: boolean;
   };
 }
 
@@ -247,6 +249,17 @@ const VendorForm: React.FC<VendorFormProps> = ({ formData, setFormData, defaultA
         />
         <Label htmlFor="w9OnFile">W-9 On File</Label>
       </div>
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="trustedForBills"
+          checked={formData.metadata.trustedForBills}
+          onCheckedChange={(checked) => setFormData(prev => ({
+            ...prev,
+            metadata: { ...prev.metadata, trustedForBills: checked }
+          }))}
+        />
+        <Label htmlFor="trustedForBills">Trusted for Bills</Label>
+      </div>
     </div>
     
     <div className="space-y-2">
@@ -357,6 +370,7 @@ export default function VendorsPage() {
       ein: '',
       w9OnFile: false,
       defaultExpenseAccount: '',
+      trustedForBills: false,
     }
   });
 
@@ -456,6 +470,10 @@ export default function VendorsPage() {
         ein: formData.metadata.ein || undefined,
         w9OnFile: formData.metadata.w9OnFile,
         defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
+        trustedForBills: formData.metadata.trustedForBills,
+        billApproval: formData.metadata.trustedForBills
+          ? { mode: 'auto_approve' as const }
+          : { mode: 'manual_review' as const },
         creditLimit: undefined,
       },
     });
@@ -492,6 +510,10 @@ export default function VendorsPage() {
           ein: formData.metadata.ein || undefined,
           w9OnFile: formData.metadata.w9OnFile,
           defaultExpenseAccount: formData.metadata.defaultExpenseAccount || undefined,
+          trustedForBills: formData.metadata.trustedForBills,
+          billApproval: formData.metadata.trustedForBills
+            ? { mode: 'auto_approve' as const }
+            : { mode: 'manual_review' as const },
           creditLimit: undefined,
         },
       },
@@ -531,6 +553,7 @@ export default function VendorsPage() {
         ein: vendor.metadata?.ein || '',
         w9OnFile: vendor.metadata?.w9OnFile || false,
         defaultExpenseAccount: vendor.metadata?.defaultExpenseAccount || '',
+        trustedForBills: vendor.metadata?.trustedForBills || false,
       }
     });
     setIsEditOpen(true);
@@ -562,6 +585,7 @@ export default function VendorsPage() {
         ein: '',
         w9OnFile: false,
         defaultExpenseAccount: '',
+        trustedForBills: false,
       }
     });
     setSelectedVendor(null);
@@ -627,6 +651,7 @@ export default function VendorsPage() {
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>W-9</TableHead>
+                <TableHead>Bill Trust</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -646,6 +671,13 @@ export default function VendorsPage() {
                       <Badge variant="default">Yes</Badge>
                     ) : (
                       <Badge variant="secondary">No</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {vendor.metadata?.trustedForBills ? (
+                      <Badge variant="default">Trusted</Badge>
+                    ) : (
+                      <Badge variant="outline">Review</Badge>
                     )}
                   </TableCell>
                   <TableCell>

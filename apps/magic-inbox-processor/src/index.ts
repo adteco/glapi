@@ -15,6 +15,7 @@ import type { SNSEvent, Context } from 'aws-lambda';
 import type { SESNotification, ProcessorConfig, ProcessingResult, DocumentType } from './types';
 import { parseSesNotification, buildWebhookPayload, getRecipientEmail, isEmailSafe } from './ses-parser';
 import { lookupOrganizationByEmail, sendToWebhook } from './glapi-client';
+import { createInvoiceExtractionProvider } from './ai-extraction';
 
 // Load configuration from environment
 function getConfig(): ProcessorConfig {
@@ -34,7 +35,9 @@ function getConfig(): ProcessorConfig {
     glapiInternalToken,
     emailStorageBucket: process.env.EMAIL_STORAGE_BUCKET,
     enableAiExtraction: process.env.ENABLE_AI_EXTRACTION === 'true',
+    aiExtractionProvider: process.env.AI_EXTRACTION_PROVIDER === 'bedrock' ? 'bedrock' : 'heuristic',
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    bedrockModelId: process.env.BEDROCK_MODEL_ID,
   };
 }
 
@@ -115,22 +118,30 @@ async function processSesNotification(
     // Parse email content
     const emailData = await parseSesNotification(notification, config.emailStorageBucket);
 
-    // Classify document type
-    const classification = classifyDocumentType(emailData.subject);
+    let classification = classifyDocumentType(emailData.subject);
+    const extractionProvider = createInvoiceExtractionProvider(config);
+    const extraction = await extractionProvider.extract({
+      subject: emailData.subject,
+      bodyText: emailData.bodyText,
+      sender: emailData.sender,
+      senderName: emailData.senderName,
+      attachments: emailData.attachments,
+    });
 
-    // TODO: Add AI extraction if enabled
-    // if (config.enableAiExtraction && config.anthropicApiKey) {
-    //   const aiResult = await extractWithAI(emailData, config);
-    //   classification = aiResult.classification;
-    //   extractedInvoice = aiResult.extractedInvoice;
-    // }
+    if (extraction) {
+      classification = {
+        documentType: extraction.documentType,
+        confidence: Math.max(classification.confidence, extraction.confidence),
+      };
+    }
 
     // Build webhook payload
     const payload = buildWebhookPayload(
       emailData,
       orgLookup.organizationId,
       classification.documentType,
-      classification.confidence
+      classification.confidence,
+      extraction
     );
 
     // Send to GLAPI webhook

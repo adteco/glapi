@@ -21,6 +21,7 @@ import {
   mapExtractedInvoice,
 } from '../types/magic-inbox.types';
 import { MagicInboxUsageService } from './magic-inbox-usage-service';
+import { VendorBillIntakeService } from './vendor-bill-intake-service';
 
 // ============================================================================
 // Service Functions
@@ -118,13 +119,27 @@ export async function processMagicInboxWebhook(
     }
   );
 
-  console.log(`[MagicInbox] Created pending document ${document.id} for org ${organizationId}`);
+  let processedDocument = document;
+  if (document.documentType === 'INVOICE') {
+    try {
+      const intakeService = new VendorBillIntakeService({ organizationId });
+      const result = await intakeService.applyApprovalRules(document.id);
+      processedDocument = result.document;
+      console.log(
+        `[MagicInbox] Applied bill approval rule ${result.approval.ruleId} to ${document.id}: ${result.approval.status}`
+      );
+    } catch (approvalError) {
+      console.error(`[MagicInbox] Failed to apply bill approval rules for ${document.id}:`, approvalError);
+    }
+  }
+
+  console.log(`[MagicInbox] Created pending document ${processedDocument.id} for org ${organizationId}`);
 
   // Track usage for billing
   try {
     const usageService = new MagicInboxUsageService({ organizationId });
-    await usageService.recordDocumentProcessed(document.id);
-    console.log(`[MagicInbox] Recorded usage for document ${document.id}`);
+    await usageService.recordDocumentProcessed(processedDocument.id);
+    console.log(`[MagicInbox] Recorded usage for document ${processedDocument.id}`);
   } catch (usageError) {
     // Log but don't fail the webhook - usage tracking is not critical path
     console.error(`[MagicInbox] Failed to record usage for document ${document.id}:`, usageError);
@@ -132,7 +147,7 @@ export async function processMagicInboxWebhook(
 
   return {
     received: true,
-    documentId: document.id,
+    documentId: processedDocument.id,
   };
 }
 

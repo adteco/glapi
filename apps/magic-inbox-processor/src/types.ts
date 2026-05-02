@@ -205,6 +205,10 @@ export interface ProcessorConfig {
   emailStorageBucket?: string;
   /** Whether to enable AI extraction */
   enableAiExtraction: boolean;
-  /** Anthropic API key for AI extraction */
+  /** AI extraction provider */
+  aiExtractionProvider?: 'heuristic' | 'bedrock';
+  /** Anthropic API key for legacy AI extraction */
   anthropicApiKey?: string;
+  /** Bedrock model ID for invoice extraction */
+  bedrockModelId?: string;
 }

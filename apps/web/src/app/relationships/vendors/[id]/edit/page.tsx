@@ -50,6 +50,7 @@ const vendorSchema = z.object({
     ein: z.string().optional(),
     w9OnFile: z.boolean().optional(),
     defaultExpenseAccount: z.string().optional(),
+    trustedForBills: z.boolean().optional(),
   }).optional(),
 });
 
@@ -65,6 +66,7 @@ type VendorMetadataValues = {
   ein?: string;
   w9OnFile?: boolean;
   defaultExpenseAccount?: string;
+  trustedForBills?: boolean;
 };
 
 export default function EditVendorPage() {
@@ -101,6 +103,7 @@ export default function EditVendorPage() {
         ein: '',
         w9OnFile: false,
         defaultExpenseAccount: '',
+        trustedForBills: false,
       },
     },
   });
@@ -165,6 +168,7 @@ export default function EditVendorPage() {
           ein: metadata?.ein || '',
           w9OnFile: metadata?.w9OnFile || false,
           defaultExpenseAccount: metadata?.defaultExpenseAccount || '',
+          trustedForBills: metadata?.trustedForBills || false,
         },
       });
     }
@@ -200,6 +204,10 @@ export default function EditVendorPage() {
             ein: values.metadata?.ein || undefined,
             w9OnFile: values.metadata?.w9OnFile,
             defaultExpenseAccount: values.metadata?.defaultExpenseAccount || undefined,
+            trustedForBills: values.metadata?.trustedForBills,
+            billApproval: values.metadata?.trustedForBills
+              ? { mode: 'auto_approve' as const }
+              : { mode: 'manual_review' as const },
           },
         },
       });
@@ -491,6 +499,22 @@ export default function EditVendorPage() {
                           />
                         </FormControl>
                         <FormLabel className="!mt-0">W-9 On File</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="metadata.trustedForBills"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center space-x-2">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="!mt-0">Trusted for Bills</FormLabel>
                       </FormItem>
                     )}
                   />

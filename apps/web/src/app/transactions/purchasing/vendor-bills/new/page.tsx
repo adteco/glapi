@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Mail, Plus, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import {
@@ -65,6 +66,7 @@ type VendorBillFormValues = z.infer<typeof vendorBillFormSchema>;
 export default function NewVendorBillPage() {
   const router = useRouter();
   const { orgId } = useAuth();
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // TRPC for vendors list
   const { data: vendorsData } = trpc.vendors.list.useQuery(
@@ -100,11 +102,47 @@ export default function NewVendorBillPage() {
     name: "lines",
   });
 
+  const createUploadMutation = trpc.pendingDocuments.createManualVendorBillUpload.useMutation({
+    onSuccess: (result) => {
+      const status = result.document.status === 'APPROVED' ? 'approved' : 'queued for review';
+      toast.success(`Vendor bill upload ${status}`);
+      router.push(`/pending-documents/${result.document.id}`);
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to queue vendor bill upload');
+    },
+  });
+
   const handleSubmit = async (values: VendorBillFormValues) => {
     // TODO: Connect to actual TRPC mutation when backend is ready
     console.log('Vendor Bill data:', values);
     toast.success('Vendor bill created successfully');
     router.push('/transactions/purchasing/vendor-bills');
+  };
+
+  const handleFiles = (files: FileList | File[]) => {
+    const file = Array.from(files)[0];
+    if (!file) {
+      return;
+    }
+
+    const values = form.getValues();
+    const selectedVendor = vendors.find((vendor: Vendor) => vendor.id === values.vendorId);
+
+    createUploadMutation.mutate({
+      file: {
+        name: file.name,
+        contentType: file.type || undefined,
+        size: file.size,
+      },
+      vendorId: values.vendorId || undefined,
+      vendorName: selectedVendor?.name,
+      invoiceNumber: values.referenceNumber || undefined,
+      invoiceDate: values.transactionDate || undefined,
+      dueDate: values.dueDate || undefined,
+      totalAmount: grandTotal || undefined,
+      memo: values.memo || undefined,
+    });
   };
 
   // Calculate line totals for display
@@ -154,6 +192,99 @@ export default function NewVendorBillPage() {
           <h1 className="text-3xl font-bold">New Vendor Bill</h1>
           <p className="text-muted-foreground">Record a bill from a vendor</p>
         </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)] mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload Bill
+            </CardTitle>
+            <CardDescription>Drop an invoice file to queue it for extraction and approval.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`flex min-h-[180px] flex-col items-center justify-center rounded-md border border-dashed p-6 text-center transition-colors ${
+                isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 bg-muted/20'
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragOver(false);
+                handleFiles(event.dataTransfer.files);
+              }}
+            >
+              <FileText className="mb-3 h-10 w-10 text-muted-foreground" />
+              <div className="space-y-1">
+                <p className="font-medium">Drop invoice PDF or image</p>
+                <p className="text-sm text-muted-foreground">The bill lands in Magic Inbox for approval rules.</p>
+              </div>
+              <div className="mt-4">
+                <Input
+                  id="vendor-bill-upload"
+                  type="file"
+                  accept=".pdf,image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    if (event.target.files) {
+                      handleFiles(event.target.files);
+                      event.target.value = '';
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" asChild disabled={createUploadMutation.isPending}>
+                  <label htmlFor="vendor-bill-upload" className="cursor-pointer">
+                    {createUploadMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    Choose File
+                  </label>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Email Bills
+            </CardTitle>
+            <CardDescription>Forward vendor invoices to Magic Inbox.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md border p-4">
+              <p className="text-sm font-medium">Forwarded invoice attachments</p>
+              <p className="text-sm text-muted-foreground">
+                Email intake uses the Magic Inbox address configured in Admin Settings.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push('/admin/settings')}
+              >
+                Configure Email
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push('/pending-documents?type=INVOICE')}
+              >
+                View Queue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Form {...form}>
