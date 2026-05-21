@@ -726,15 +726,22 @@ The API is accessible at:
     components: {
       schemas: {},
       securitySchemes: {
-        ClerkAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Clerk authentication token',
+        BetterAuthSession: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'better-auth.session_token',
+          description:
+            'Better Auth session cookie issued by /api/auth endpoints for browser clients.',
+        },
+        ApiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-api-key',
+          description: 'GLAPI API key for server-to-server and SDK clients.',
         },
       },
     },
-    security: [{ ClerkAuth: [] }],
+    security: [{ BetterAuthSession: [] }, { ApiKeyAuth: [] }],
   };
 
   // Generate paths for each router

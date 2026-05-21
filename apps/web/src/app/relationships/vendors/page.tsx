@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { trpc } from '@/lib/trpc';
 import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';

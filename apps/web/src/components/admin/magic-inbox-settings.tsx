@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useOrganization } from '@clerk/nextjs';
+import { useOrganization } from '@/lib/auth-compat.client';
 import { Mail, Check, X, Copy, RefreshCw, TestTube2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getBrowserApiUrl } from '@/lib/browser-api';

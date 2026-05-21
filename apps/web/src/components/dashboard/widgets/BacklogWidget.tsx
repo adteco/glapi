@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Briefcase, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { DashboardWidgetConfig } from '../types';
 
 interface BacklogWidgetProps {

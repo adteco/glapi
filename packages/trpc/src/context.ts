@@ -8,16 +8,29 @@ import type {
 /**
  * User context from authentication.
  *
- * Contains both Clerk IDs (external auth) and Entity IDs (database).
+ * Contains external auth IDs and Entity IDs (database).
  * The entityId may be null for new users who don't yet have an entity record.
  */
 export interface User {
   /**
-   * Clerk user ID - external authentication identifier.
+   * Clerk user ID - legacy external authentication identifier.
    * Format: "user_" followed by alphanumeric characters.
    * Example: "user_2pP7GmO19H0eTgKpX6ehokxVBnM"
+   *
+   * @deprecated Prefer `betterAuthUserId` for new auth flows and `entityId`
+   * for database audit fields.
    */
   clerkId: ClerkUserId;
+
+  /**
+   * Better Auth user ID - current external authentication identifier.
+   */
+  betterAuthUserId?: string;
+
+  /**
+   * Authentication source used for this request.
+   */
+  authProvider?: 'better-auth' | 'api-key' | 'clerk';
 
   /**
    * Database entity ID - UUID for the entities table.
@@ -33,7 +46,7 @@ export interface User {
   organizationId: OrganizationId;
 
   /**
-   * User's email address from Clerk.
+   * User's email address from the auth provider.
    */
   email: string | null;
 
@@ -72,9 +85,16 @@ export interface ServiceContext {
   entityId: EntityId | null;
 
   /**
-   * Clerk user ID for external reference and logging.
+   * Clerk user ID for legacy external reference and logging.
+   *
+   * @deprecated Prefer `betterAuthUserId` for new auth flows.
    */
   clerkUserId: ClerkUserId;
+
+  /**
+   * Better Auth user ID for current external reference and logging.
+   */
+  betterAuthUserId?: string;
 
   /**
    * @deprecated Use `clerkUserId` instead.
@@ -99,6 +119,7 @@ export async function createContext(opts: CreateContextOptions) {
     organizationId: user.organizationId,
     entityId: user.entityId,
     clerkUserId: user.clerkId,
+    betterAuthUserId: user.betterAuthUserId,
     // Deprecated alias
     // Many tables use UUID audit fields; prefer entityId when present.
     userId: user.entityId ?? user.id,

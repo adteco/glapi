@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Building2, Mail, Phone, Globe } from 'lucide-react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { useApiClient } from '@/lib/api-client.client';
 import { toast } from 'sonner';
 

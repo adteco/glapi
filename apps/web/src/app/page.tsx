@@ -1,6 +1,6 @@
 'use client';
 
-import { SignUpButton } from '@clerk/nextjs';
+import { SignUpButton } from '@/lib/auth-compat.client';
 import { MessageCircle, Sparkles, Network, Database, ArrowRight, CheckCircle, TrendingUp, Building, DollarSign, FileText, Clock, History, GitBranch, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';

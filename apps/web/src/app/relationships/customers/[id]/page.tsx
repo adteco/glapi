@@ -28,7 +28,7 @@ import {
   Briefcase,
   ListChecks,
 } from 'lucide-react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { trpc } from '@/lib/trpc';
 import {
   DropdownMenu,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
+import { useUser } from '@/lib/auth-compat.client';
 import { usePathname } from 'next/navigation';
 import NewPageSidebar from "@/components/NewPageSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";

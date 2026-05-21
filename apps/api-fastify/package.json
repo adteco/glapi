@@ -17,6 +17,7 @@
     "@fastify/swagger": "^8.15.0",
     "@fastify/swagger-ui": "^3.0.0",
     "@glapi/api-service": "workspace:*",
+    "@glapi/auth": "workspace:*",
     "@glapi/database": "workspace:*",
     "@glapi/shared-types": "workspace:*",
     "@glapi/trpc": "workspace:*",

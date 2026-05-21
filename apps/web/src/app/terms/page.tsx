@@ -1,6 +1,6 @@
 'use client';
 
-import { SignInButton, SignUpButton } from '@clerk/nextjs';
+import { SignInButton, SignUpButton } from '@/lib/auth-compat.client';
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';

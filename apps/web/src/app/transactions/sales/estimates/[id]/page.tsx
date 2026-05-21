@@ -2,7 +2,7 @@
 
 import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { toast } from 'sonner';
 import { ArrowLeft, Send, Check, X, Copy, Users, Mail, FileText, Trash2, ShoppingCart, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';

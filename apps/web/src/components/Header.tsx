@@ -5,7 +5,7 @@ import SignUpButton from './SignUpButton';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 
 export function Header() {
   const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || 'https://docs.glapi.net';

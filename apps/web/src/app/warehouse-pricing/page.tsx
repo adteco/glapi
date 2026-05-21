@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { useApiClient } from '@/lib/api-client.client';
 import { WarehousePriceLookup } from '@/components/warehouse-price-lookup';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

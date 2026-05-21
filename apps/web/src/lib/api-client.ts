@@ -1,4 +1,5 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth.server';
+import { headers as nextHeaders } from 'next/headers';
 import { getServerApiBaseUrl } from '@/lib/browser-api';
 
 interface ApiClientOptions extends RequestInit {
@@ -45,6 +46,11 @@ export async function apiClient(
   
   if (includeOrgId && orgId) {
     requestHeaders['x-organization-id'] = orgId;
+  }
+
+  const cookieHeader = (await nextHeaders()).get('cookie');
+  if (cookieHeader) {
+    requestHeaders.cookie = cookieHeader;
   }
   
   const baseUrl = getServerApiBaseUrl();

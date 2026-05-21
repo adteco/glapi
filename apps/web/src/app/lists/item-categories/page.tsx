@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Plus, ChevronRight, ChevronDown, Edit, Trash2, Folder, FolderOpen } from 'lucide-react';

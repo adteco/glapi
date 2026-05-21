@@ -300,12 +300,14 @@ resource "aws_ecs_task_definition" "web" {
         { name = "PORT", value = "3000" },
         { name = "HOSTNAME", value = "0.0.0.0" },
         { name = "NEXT_PUBLIC_API_URL", value = "https://${var.api_domain_name}" },
-        { name = "NEXT_PUBLIC_APP_URL", value = "https://${var.web_domain_name}" }
+        { name = "NEXT_PUBLIC_APP_URL", value = "https://${var.web_domain_name}" },
+        { name = "BETTER_AUTH_URL", value = "https://${var.api_domain_name}" },
+        { name = "BETTER_AUTH_TRUSTED_ORIGINS", value = "https://${var.web_domain_name},https://${var.api_domain_name}" },
+        { name = "AUTH_PROVIDER_MODE", value = "better-auth" }
       ]
       secrets = [
         { name = "DATABASE_URL", valueFrom = "${var.web_secret_arn}:DATABASE_URL::" },
-        { name = "CLERK_SECRET_KEY", valueFrom = "${var.web_secret_arn}:CLERK_SECRET_KEY::" },
-        { name = "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", valueFrom = "${var.web_secret_arn}:NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY::" }
+        { name = "BETTER_AUTH_SECRET", valueFrom = "${var.web_secret_arn}:BETTER_AUTH_SECRET::" }
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -344,11 +346,16 @@ resource "aws_ecs_task_definition" "api" {
       environment = [
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = "3041" },
-        { name = "API_BASE_URL", value = "https://${var.api_domain_name}" }
+        { name = "API_BASE_URL", value = "https://${var.api_domain_name}" },
+        { name = "BETTER_AUTH_URL", value = "https://${var.api_domain_name}" },
+        { name = "NEXT_PUBLIC_API_URL", value = "https://${var.api_domain_name}" },
+        { name = "NEXT_PUBLIC_APP_URL", value = "https://${var.web_domain_name}" },
+        { name = "BETTER_AUTH_TRUSTED_ORIGINS", value = "https://${var.web_domain_name},https://${var.api_domain_name}" },
+        { name = "AUTH_PROVIDER_MODE", value = "better-auth" }
       ]
       secrets = [
         { name = "DATABASE_URL", valueFrom = "${var.api_secret_arn}:DATABASE_URL::" },
-        { name = "CLERK_SECRET_KEY", valueFrom = "${var.api_secret_arn}:CLERK_SECRET_KEY::" },
+        { name = "BETTER_AUTH_SECRET", valueFrom = "${var.api_secret_arn}:BETTER_AUTH_SECRET::" },
         { name = "GLAPI_API_KEYS_JSON", valueFrom = "${var.api_secret_arn}:GLAPI_API_KEYS_JSON::" }
       ]
       logConfiguration = {

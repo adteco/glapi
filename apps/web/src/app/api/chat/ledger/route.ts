@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@/lib/auth.server';
 import {
   createGeminiConversationalService,
   GLAPI_SYSTEM_PROMPT,
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       message,
       conversationHistory || [],
       userContext,
-      'clerk-auth-token', // The TRPC client handles auth via context
+      'better-auth-session',
       conversationId || `conv_${Date.now()}`
     );
 

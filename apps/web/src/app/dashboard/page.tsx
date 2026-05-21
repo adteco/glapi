@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { DashboardManager } from '@/components/dashboard/DashboardManager';
 
 const DashboardPage = () => {

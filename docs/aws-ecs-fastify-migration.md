@@ -9,12 +9,13 @@ This document defines the target deployment model for moving GLAPI from the curr
 | Staging | `staging` | `https://staging.glapi.net` | `https://staging-api.glapi.net` | `https://staging-api.glapi.net/docs` |
 | Production | `main` | `https://web.glapi.net` | `https://api.glapi.net` | `https://api.glapi.net/docs` |
 
-Staging and production must use separate databases, provider callback URLs, API keys, and Secrets Manager secrets.
+Staging and production must use separate databases, Better Auth secrets, provider callback URLs, API keys, and Secrets Manager secrets.
 
 ## Runtime Targets
 
 - Web: `apps/web` builds as a Next.js standalone container with `apps/web/Dockerfile`.
 - API: `apps/api-fastify` builds as a Fastify container with `apps/api-fastify/Dockerfile`.
+- Authentication: Fastify serves Better Auth at `/api/auth/*`; browser API calls authenticate with the Better Auth session cookie, while SDK/server clients use `x-api-key`.
 - API documentation: Fastify serves generated OpenAPI at `/openapi.json` and Swagger UI at `/docs`.
 - Infrastructure: `infra/aws-ecs` provisions ECR, ALB, ECS/Fargate services, CloudWatch logs, IAM task roles, and staging/production configuration templates.
 
@@ -69,6 +70,18 @@ The deployment workflows expect:
 - Existing Secrets Manager JSON secrets for web and API runtime values
 - DNS records pointing the web and API hostnames to the ALB DNS name
 
+Secrets Manager JSON shape:
+
+```json
+{
+  "DATABASE_URL": "postgres://...",
+  "BETTER_AUTH_SECRET": "generate-a-strong-random-secret",
+  "GLAPI_API_KEYS_JSON": "{\"glapi_live_sk_...\":{\"organizationId\":\"...\",\"actorEntityId\":\"...\",\"name\":\"Production API key\",\"scopes\":[\"read\",\"write\"]}}"
+}
+```
+
+The web secret only requires `DATABASE_URL` and `BETTER_AUTH_SECRET`. The API secret also requires `GLAPI_API_KEYS_JSON` when server-to-server or SDK clients are enabled. Use distinct `BETTER_AUTH_SECRET` and API keys per environment.
+
 ## Current Migration Boundary
 
-`apps/api-fastify` initially exposes the existing tRPC router and generated OpenAPI docs. The existing Next API remains available until REST route parity, bearer auth parity, web proxy updates, and production cutover are complete.
+`apps/api-fastify` exposes the existing tRPC router, Better Auth endpoints, generated OpenAPI docs, and API-key machine access. The existing Next API can remain as a fallback until legacy REST route parity and the final DNS cutover are complete.

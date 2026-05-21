@@ -7,6 +7,7 @@ export default defineConfig({
   sourcemap: true,
   noExternal: [
     '@glapi/trpc',
+    '@glapi/auth',
     '@glapi/database',
     '@glapi/api-service',
     '@glapi/business',

@@ -339,9 +339,12 @@ describe('generateOpenAPISpec', () => {
     const spec = generateOpenAPISpec();
 
     expect(spec.components.securitySchemes).toBeDefined();
-    expect(spec.components.securitySchemes.ClerkAuth).toBeDefined();
-    expect(spec.components.securitySchemes.ClerkAuth.type).toBe('http');
-    expect(spec.components.securitySchemes.ClerkAuth.scheme).toBe('bearer');
+    expect(spec.components.securitySchemes.BetterAuthSession).toBeDefined();
+    expect(spec.components.securitySchemes.BetterAuthSession.type).toBe('apiKey');
+    expect(spec.components.securitySchemes.BetterAuthSession.in).toBe('cookie');
+    expect(spec.components.securitySchemes.ApiKeyAuth).toBeDefined();
+    expect(spec.components.securitySchemes.ApiKeyAuth.type).toBe('apiKey');
+    expect(spec.components.securitySchemes.ApiKeyAuth.in).toBe('header');
   });
 
   it('should generate paths for all routers', () => {
