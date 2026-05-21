@@ -11,6 +11,20 @@ locals {
   api_container_name = "api"
 }
 
+data "aws_secretsmanager_secret" "web" {
+  name = var.web_secret_name
+}
+
+data "aws_secretsmanager_secret" "api" {
+  name = var.api_secret_name
+}
+
+data "aws_route53_zone" "public" {
+  count        = var.route53_zone_name == "" ? 0 : 1
+  name         = var.route53_zone_name
+  private_zone = false
+}
+
 resource "aws_ecr_repository" "web" {
   name                 = "${local.name_prefix}-web"
   image_tag_mutability = "MUTABLE"
@@ -93,8 +107,8 @@ resource "aws_iam_role_policy" "task_execution_secrets" {
           "secretsmanager:GetSecretValue"
         ]
         Resource = [
-          var.web_secret_arn,
-          var.api_secret_arn
+          data.aws_secretsmanager_secret.web.arn,
+          data.aws_secretsmanager_secret.api.arn
         ]
       }
     ]
@@ -275,6 +289,32 @@ resource "aws_lb_listener_rule" "api_host" {
   }
 }
 
+resource "aws_route53_record" "web" {
+  count   = var.route53_zone_name == "" ? 0 : 1
+  zone_id = data.aws_route53_zone.public[0].zone_id
+  name    = var.web_domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.main.dns_name
+    zone_id                = aws_lb.main.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "api" {
+  count   = var.route53_zone_name == "" ? 0 : 1
+  zone_id = data.aws_route53_zone.public[0].zone_id
+  name    = var.api_domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.main.dns_name
+    zone_id                = aws_lb.main.zone_id
+    evaluate_target_health = true
+  }
+}
+
 resource "aws_ecs_task_definition" "web" {
   family                   = "${local.name_prefix}-web"
   requires_compatibilities = ["FARGATE"]
@@ -306,8 +346,8 @@ resource "aws_ecs_task_definition" "web" {
         { name = "AUTH_PROVIDER_MODE", value = "better-auth" }
       ]
       secrets = [
-        { name = "DATABASE_URL", valueFrom = "${var.web_secret_arn}:DATABASE_URL::" },
-        { name = "BETTER_AUTH_SECRET", valueFrom = "${var.web_secret_arn}:BETTER_AUTH_SECRET::" }
+        { name = "DATABASE_URL", valueFrom = "${data.aws_secretsmanager_secret.web.arn}:DATABASE_URL::" },
+        { name = "BETTER_AUTH_SECRET", valueFrom = "${data.aws_secretsmanager_secret.web.arn}:BETTER_AUTH_SECRET::" }
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -354,9 +394,9 @@ resource "aws_ecs_task_definition" "api" {
         { name = "AUTH_PROVIDER_MODE", value = "better-auth" }
       ]
       secrets = [
-        { name = "DATABASE_URL", valueFrom = "${var.api_secret_arn}:DATABASE_URL::" },
-        { name = "BETTER_AUTH_SECRET", valueFrom = "${var.api_secret_arn}:BETTER_AUTH_SECRET::" },
-        { name = "GLAPI_API_KEYS_JSON", valueFrom = "${var.api_secret_arn}:GLAPI_API_KEYS_JSON::" }
+        { name = "DATABASE_URL", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:DATABASE_URL::" },
+        { name = "BETTER_AUTH_SECRET", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:BETTER_AUTH_SECRET::" },
+        { name = "GLAPI_API_KEYS_JSON", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:GLAPI_API_KEYS_JSON::" }
       ]
       logConfiguration = {
         logDriver = "awslogs"

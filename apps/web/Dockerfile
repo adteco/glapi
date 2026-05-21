@@ -4,12 +4,21 @@ RUN corepack enable && corepack prepare pnpm@10.6.4 --activate
 
 WORKDIR /app
 
+ARG NEXT_PUBLIC_API_URL=http://localhost:3041
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ARG BETTER_AUTH_URL=http://localhost:3041
+
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json ./
 COPY apps ./apps
 COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter web build
+RUN DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi \
+    BETTER_AUTH_SECRET=build-time-placeholder-build-time-placeholder \
+    BETTER_AUTH_URL="$BETTER_AUTH_URL" \
+    NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
+    NEXT_PUBLIC_APP_URL="$NEXT_PUBLIC_APP_URL" \
+    pnpm turbo run build --filter=web
 
 FROM node:22-alpine AS runner
 
@@ -22,11 +31,9 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-COPY --from=builder /app/apps/web/public ./apps/web/public
-COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
-
-RUN chown -R nextjs:nodejs /app
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 USER nextjs
 

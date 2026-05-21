@@ -9,7 +9,7 @@ COPY apps ./apps
 COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @glapi/api-fastify build
+RUN pnpm turbo run build --filter=@glapi/api-fastify
 
 FROM node:22-alpine AS runner
 
@@ -20,15 +20,14 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 api
 
-COPY --from=builder /app/apps/api-fastify/dist ./apps/api-fastify/dist
-COPY --from=builder /app/apps/api-fastify/package.json ./apps/api-fastify/package.json
-COPY --from=builder /app/apps/docs/public/api ./apps/docs/public/api
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-
-RUN chown -R api:nodejs /app
+COPY --from=builder --chown=api:nodejs /app/apps/api-fastify/dist ./apps/api-fastify/dist
+COPY --from=builder --chown=api:nodejs /app/apps/api-fastify/node_modules ./apps/api-fastify/node_modules
+COPY --from=builder --chown=api:nodejs /app/apps/api-fastify/package.json ./apps/api-fastify/package.json
+COPY --from=builder --chown=api:nodejs /app/apps/docs/public/api ./apps/docs/public/api
+COPY --from=builder --chown=api:nodejs /app/packages ./packages
+COPY --from=builder --chown=api:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=api:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=api:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 USER api
 

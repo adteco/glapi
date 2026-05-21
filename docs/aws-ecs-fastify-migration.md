@@ -6,10 +6,10 @@ This document defines the target deployment model for moving GLAPI from the curr
 
 | Environment | Branch | Web | API | API Docs |
 | --- | --- | --- | --- | --- |
-| Staging | `staging` | `https://staging.glapi.net` | `https://staging-api.glapi.net` | `https://staging-api.glapi.net/docs` |
-| Production | `main` | `https://web.glapi.net` | `https://api.glapi.net` | `https://api.glapi.net/docs` |
+| Staging | `staging` | `https://glapi-staging.adteco.com` | `https://glapi-staging-api.adteco.com` | `https://glapi-staging-api.adteco.com/docs` |
+| Production | `main` | `https://glapi.adteco.com` | `https://glapi-api.adteco.com` | `https://glapi-api.adteco.com/docs` |
 
-Staging and production must use separate databases, Better Auth secrets, provider callback URLs, API keys, and Secrets Manager secrets.
+Staging and production use separate Better Auth secrets, provider callback URLs, API keys, and Secrets Manager secrets. The initial AWS cutover points both environments at the existing GLAPI-compatible Postgres endpoint; split databases can be introduced later by changing each environment secret.
 
 ## Runtime Targets
 
@@ -17,7 +17,7 @@ Staging and production must use separate databases, Better Auth secrets, provide
 - API: `apps/api-fastify` builds as a Fastify container with `apps/api-fastify/Dockerfile`.
 - Authentication: Fastify serves Better Auth at `/api/auth/*`; browser API calls authenticate with the Better Auth session cookie, while SDK/server clients use `x-api-key`.
 - API documentation: Fastify serves generated OpenAPI at `/openapi.json` and Swagger UI at `/docs`.
-- Infrastructure: `infra/aws-ecs` provisions ECR, ALB, ECS/Fargate services, CloudWatch logs, IAM task roles, and staging/production configuration templates.
+- Infrastructure: `infra/aws-ecs` provisions ECR, ALB, ECS/Fargate services, CloudWatch logs, IAM task roles, Route53 aliases, and staging/production configuration.
 
 ## API-First Rules
 
@@ -43,14 +43,7 @@ The AWS deployment workflows mirror the Sureshake pattern:
 
 ## Provisioning
 
-Create environment tfvars from the templates:
-
-```bash
-cp infra/aws-ecs/environments/staging.tfvars.example infra/aws-ecs/environments/staging.tfvars
-cp infra/aws-ecs/environments/prod.tfvars.example infra/aws-ecs/environments/prod.tfvars
-```
-
-Then provision each environment:
+Provision each environment:
 
 ```bash
 cd infra/aws-ecs
@@ -67,8 +60,8 @@ The deployment workflows expect:
 - GitHub Actions variable `AWS_ACCOUNT_ID`
 - GitHub Actions secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 - Existing ACM certificate covering the web and API hostnames
-- Existing Secrets Manager JSON secrets for web and API runtime values
-- DNS records pointing the web and API hostnames to the ALB DNS name
+- Existing Secrets Manager JSON secrets named by each environment tfvars file
+- Route53 hosted zone for `adteco.com`; Terraform creates the web and API alias records
 
 Secrets Manager JSON shape:
 

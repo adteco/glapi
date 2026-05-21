@@ -60,6 +60,18 @@ docker-compose.override.yml
 # AWS
 .aws/
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # Supabase
 .supabase/
 

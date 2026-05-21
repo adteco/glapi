@@ -7,6 +7,14 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "adteco-terraform-state"
+    key            = "glapi/aws-ecs/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "adteco-terraform-locks"
+  }
 }
 
 provider "aws" {

@@ -52,14 +52,20 @@ jobs:
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-prod-web" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-prod-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-prod-web" >> "$GITHUB_ENV"
-            echo "WEB_URL=https://web.glapi.net" >> "$GITHUB_ENV"
-            echo "API_HEALTH_URL=https://api.glapi.net/api/health" >> "$GITHUB_ENV"
+            echo "WEB_URL=https://glapi.adteco.com" >> "$GITHUB_ENV"
+            echo "API_HEALTH_URL=https://glapi-api.adteco.com/api/health" >> "$GITHUB_ENV"
+            echo "NEXT_PUBLIC_APP_URL=https://glapi.adteco.com" >> "$GITHUB_ENV"
+            echo "NEXT_PUBLIC_API_URL=https://glapi-api.adteco.com" >> "$GITHUB_ENV"
+            echo "BETTER_AUTH_URL=https://glapi-api.adteco.com" >> "$GITHUB_ENV"
           else
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-staging-web" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-staging-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-staging-web" >> "$GITHUB_ENV"
-            echo "WEB_URL=https://staging.glapi.net" >> "$GITHUB_ENV"
-            echo "API_HEALTH_URL=https://staging-api.glapi.net/api/health" >> "$GITHUB_ENV"
+            echo "WEB_URL=https://glapi-staging.adteco.com" >> "$GITHUB_ENV"
+            echo "API_HEALTH_URL=https://glapi-staging-api.adteco.com/api/health" >> "$GITHUB_ENV"
+            echo "NEXT_PUBLIC_APP_URL=https://glapi-staging.adteco.com" >> "$GITHUB_ENV"
+            echo "NEXT_PUBLIC_API_URL=https://glapi-staging-api.adteco.com" >> "$GITHUB_ENV"
+            echo "BETTER_AUTH_URL=https://glapi-staging-api.adteco.com" >> "$GITHUB_ENV"
           fi
 
           if [ -z "$AWS_ACCOUNT_ID" ]; then
@@ -97,6 +103,12 @@ jobs:
 
       - name: Build web
         run: pnpm --filter web build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/glapi
+          BETTER_AUTH_SECRET: build-time-placeholder-build-time-placeholder
+          BETTER_AUTH_URL: ${{ env.BETTER_AUTH_URL }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -164,6 +176,10 @@ jobs:
           tags: |
             ${{ env.ECR_REPO }}:${{ steps.image-tag.outputs.tag }}
             ${{ env.ECR_REPO }}:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_URL=${{ env.NEXT_PUBLIC_APP_URL }}
+            BETTER_AUTH_URL=${{ env.BETTER_AUTH_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

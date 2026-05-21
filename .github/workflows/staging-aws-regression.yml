@@ -35,20 +35,20 @@ jobs:
 
       - name: API health and docs smoke
         run: |
-          curl -fsS https://staging-api.glapi.net/api/health | jq -e '.status == "ok"'
-          curl -fsS https://staging-api.glapi.net/openapi.json | jq -e '.openapi and (.paths | length > 0)'
+          curl -fsS https://glapi-staging-api.adteco.com/api/health | jq -e '.status == "ok"'
+          curl -fsS https://glapi-staging-api.adteco.com/openapi.json | jq -e '.openapi and (.paths | length > 0)'
 
       - name: tRPC auth smoke
         run: pnpm test:karate:trpc-auth
         env:
-          KARATE_BASE_URL: https://staging-api.glapi.net
+          KARATE_BASE_URL: https://glapi-staging-api.adteco.com
           KARATE_ORG_ID: ${{ vars.KARATE_ORG_ID }}
           KARATE_USER_ID: ${{ vars.KARATE_USER_ID }}
           KARATE_API_KEY: ${{ secrets.KARATE_API_KEY }}
 
       - name: Web smoke
         run: |
-          STATUS="$(curl -s -o /dev/null -w "%{http_code}" https://staging.glapi.net || true)"
+          STATUS="$(curl -s -o /dev/null -w "%{http_code}" https://glapi-staging.adteco.com || true)"
           if [ "$STATUS" != "200" ] && [ "$STATUS" != "307" ] && [ "$STATUS" != "308" ]; then
             echo "::error::Unexpected web status $STATUS"
             exit 1

@@ -22,6 +22,14 @@ output "alb_dns_name" {
   value = aws_lb.main.dns_name
 }
 
+output "route53_web_record" {
+  value = try(aws_route53_record.web[0].fqdn, null)
+}
+
+output "route53_api_record" {
+  value = try(aws_route53_record.api[0].fqdn, null)
+}
+
 output "web_url" {
   value = "https://${var.web_domain_name}"
 }

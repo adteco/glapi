@@ -55,15 +55,15 @@ jobs:
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-prod-api" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-prod-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-prod-api" >> "$GITHUB_ENV"
-            echo "HEALTH_URL=https://api.glapi.net/api/health" >> "$GITHUB_ENV"
-            echo "OPENAPI_URL=https://api.glapi.net/openapi.json" >> "$GITHUB_ENV"
+            echo "HEALTH_URL=https://glapi-api.adteco.com/api/health" >> "$GITHUB_ENV"
+            echo "OPENAPI_URL=https://glapi-api.adteco.com/openapi.json" >> "$GITHUB_ENV"
           else
             echo "TF_ENV=staging" >> "$GITHUB_ENV"
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-staging-api" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-staging-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-staging-api" >> "$GITHUB_ENV"
-            echo "HEALTH_URL=https://staging-api.glapi.net/api/health" >> "$GITHUB_ENV"
-            echo "OPENAPI_URL=https://staging-api.glapi.net/openapi.json" >> "$GITHUB_ENV"
+            echo "HEALTH_URL=https://glapi-staging-api.adteco.com/api/health" >> "$GITHUB_ENV"
+            echo "OPENAPI_URL=https://glapi-staging-api.adteco.com/openapi.json" >> "$GITHUB_ENV"
           fi
 
           if [ -z "$AWS_ACCOUNT_ID" ]; then

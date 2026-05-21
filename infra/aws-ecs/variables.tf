@@ -35,6 +35,12 @@ variable "certificate_arn" {
   type        = string
 }
 
+variable "route53_zone_name" {
+  description = "Optional public Route53 zone name used to create web/API alias records."
+  type        = string
+  default     = ""
+}
+
 variable "web_domain_name" {
   description = "Public web hostname."
   type        = string
@@ -45,13 +51,13 @@ variable "api_domain_name" {
   type        = string
 }
 
-variable "web_secret_arn" {
-  description = "Secrets Manager secret ARN containing web runtime env vars."
+variable "web_secret_name" {
+  description = "Secrets Manager secret name containing web runtime env vars."
   type        = string
 }
 
-variable "api_secret_arn" {
-  description = "Secrets Manager secret ARN containing API runtime env vars."
+variable "api_secret_name" {
+  description = "Secrets Manager secret name containing API runtime env vars."
   type        = string
 }
 
