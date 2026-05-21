@@ -1,0 +1,62 @@
+name: Promote Staging to Main
+
+on:
+  workflow_run:
+    workflows: ["Staging AWS Regression"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: promote-staging-to-main
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'staging' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check staging vs main divergence
+        id: divergence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          AHEAD_BY="$(gh api repos/${{ github.repository }}/compare/main...staging --jq '.ahead_by')"
+          echo "ahead_by=$AHEAD_BY" >> "$GITHUB_OUTPUT"
+          if [ "$AHEAD_BY" -gt 0 ]; then
+            echo "needs_promotion=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_promotion=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or refresh promotion PR
+        if: steps.divergence.outputs.needs_promotion == 'true'
+        id: promotion_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROMOTE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          PR_NUMBER="$(gh pr list --base main --head staging --state open --json number --jq '.[0].number // empty')"
+
+          if [ -z "$PR_NUMBER" ]; then
+            PR_URL="$(gh pr create \
+              --base main \
+              --head staging \
+              --title "Promote staging to main" \
+              --body "Automated promotion PR after successful staging AWS regression for commit \`$PROMOTE_SHA\`.")"
+            PR_NUMBER="$(gh pr view "$PR_URL" --json number --jq '.number')"
+          else
+            gh pr edit "$PR_NUMBER" \
+              --body "Automated promotion PR refreshed after successful staging AWS regression for commit \`$PROMOTE_SHA\`."
+          fi
+
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Enable auto-merge
+        if: steps.divergence.outputs.needs_promotion == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "${{ steps.promotion_pr.outputs.number }}" --merge --auto

@@ -3,7 +3,7 @@
   "info": {
     "title": "GLAPI - General Ledger and Accounting API",
     "version": "1.0.0",
-    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## AI Extensions\n\nEndpoints with `x-ai-tool` extensions can be used by AI assistants for automated operations.\nSee the x-ai-* extension fields for risk levels, permissions, and rate limits.\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031/api\n- Production: https://api.glapi.io/api"
+    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## AI Extensions\n\nEndpoints with `x-ai-tool` extensions can be used by AI assistants for automated operations.\nSee the x-ai-* extension fields for risk levels, permissions, and rate limits.\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031/api\n- Staging: https://staging-api.glapi.net/api\n- Production: https://api.glapi.net/api"
   },
   "servers": [
     {
@@ -11,7 +11,11 @@
       "description": "Development server"
     },
     {
-      "url": "https://api.glapi.io/api",
+      "url": "https://staging-api.glapi.net/api",
+      "description": "Staging server"
+    },
+    {
+      "url": "https://api.glapi.net/api",
       "description": "Production server"
     }
   ],

@@ -14,6 +14,7 @@
     "db:generate": "turbo run generate --filter=database",
     "db:studio": "turbo run studio --filter=database",
     "dev:api": "pnpm --filter @glapi/api dev",
+    "dev:api-fastify": "pnpm --filter @glapi/api-fastify dev",
     "precommit": "./scripts/precommit.sh",
     "lint:fix": "turbo lint:fix",
     "api:mock": "prism mock docs/api-specs/*.openapi.yaml",

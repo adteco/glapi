@@ -652,6 +652,8 @@ export interface GenerateOpenAPIOptions {
   useDefaultAIMeta?: boolean;
   /** Custom AI metadata overrides by operationId */
   aiMetaOverrides?: Record<string, AIProcedureMeta>;
+  /** Override generated server URLs for the runtime serving the spec */
+  servers?: Array<{ url: string; description: string }>;
 }
 
 /**
@@ -662,6 +664,7 @@ export function generateOpenAPISpec(options: GenerateOpenAPIOptions = {}): OpenA
     includeAIExtensions = true,
     useDefaultAIMeta = true,
     aiMetaOverrides = {},
+    servers,
   } = options;
 
   const spec: OpenAPISpec = {
@@ -701,16 +704,21 @@ See the x-ai-* extension fields for risk levels, permissions, and rate limits.
 
 The API is accessible at:
 - Development: http://localhost:3031/api
-- Production: https://api.glapi.io/api
+- Staging: https://staging-api.glapi.net/api
+- Production: https://api.glapi.net/api
       `.trim(),
     },
-    servers: [
+    servers: servers ?? [
       {
         url: 'http://localhost:3031/api',
         description: 'Development server',
       },
       {
-        url: 'https://api.glapi.io/api',
+        url: 'https://staging-api.glapi.net/api',
+        description: 'Staging server',
+      },
+      {
+        url: 'https://api.glapi.net/api',
         description: 'Production server',
       },
     ],

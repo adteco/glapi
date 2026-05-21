@@ -1,0 +1,55 @@
+name: Production AWS Verification
+
+on:
+  workflow_run:
+    workflows: ["Deploy API ECS", "Deploy Web ECS"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: production-aws-verification-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Production API health and docs smoke
+        run: |
+          curl -fsS https://api.glapi.net/api/health | jq -e '.status == "ok"'
+          curl -fsS https://api.glapi.net/openapi.json | jq -e '.openapi and (.paths | length > 0)'
+
+      - name: Production tRPC auth smoke
+        run: pnpm test:karate:trpc-auth
+        env:
+          KARATE_BASE_URL: https://api.glapi.net
+          KARATE_ORG_ID: ${{ vars.KARATE_ORG_ID }}
+          KARATE_USER_ID: ${{ vars.KARATE_USER_ID }}
+          KARATE_API_KEY: ${{ secrets.KARATE_API_KEY }}
+
+      - name: Production web smoke
+        run: |
+          STATUS="$(curl -s -o /dev/null -w "%{http_code}" https://web.glapi.net || true)"
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "307" ] && [ "$STATUS" != "308" ]; then
+            echo "::error::Unexpected web status $STATUS"
+            exit 1
+          fi

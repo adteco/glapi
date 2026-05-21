@@ -1,0 +1,10 @@
+environment       = "staging"
+web_domain_name   = "staging.glapi.net"
+api_domain_name   = "staging-api.glapi.net"
+vpc_id            = "vpc-xxxxxxxx"
+public_subnet_ids = ["subnet-xxxxxxxx", "subnet-yyyyyyyy"]
+certificate_arn   = "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/STAGING_CERT_ID"
+web_secret_arn    = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:glapi/staging/web"
+api_secret_arn    = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:glapi/staging/api"
+web_desired_count = 1
+api_desired_count = 1
