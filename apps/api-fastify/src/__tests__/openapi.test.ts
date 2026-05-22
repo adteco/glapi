@@ -24,4 +24,15 @@ describe('runtime OpenAPI spec', () => {
     expect(spec.components?.schemas?.SavedSearchDefinition).toBeDefined();
     expect(spec.components?.schemas?.SavedSearchRunResult).toBeDefined();
   });
+
+  it('documents custom field endpoints and schemas', () => {
+    const spec = generateRuntimeOpenApiSpec();
+
+    expect(spec.paths?.['/api/custom-field-definitions']).toBeDefined();
+    expect(spec.paths?.['/api/custom-field-definitions/validate']).toBeDefined();
+    expect(spec.paths?.['/api/custom-field-definitions/validate-values']).toBeDefined();
+    expect(spec.paths?.['/api/custom-field-definitions/{id}']).toBeDefined();
+    expect(spec.components?.schemas?.CustomFieldDefinition).toBeDefined();
+    expect(spec.components?.schemas?.CustomFieldValuesValidationResult).toBeDefined();
+  });
 });

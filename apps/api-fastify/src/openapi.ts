@@ -2,6 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { OpenAPIV3 } from 'openapi-types';
 import {
+  customFieldLifecycleSchema,
+  customFieldPlacementSchema,
+} from '@glapi/types/custom-fields';
+import {
   ontologyFieldTypeSchema,
   ontologyLifecycleStateSchema,
   ontologyOperationSchema,
@@ -32,6 +36,7 @@ export function generateRuntimeOpenApiSpec(): OpenAPIV3.Document {
 
   addOntologyOpenApiSpec(spec);
   addSavedSearchOpenApiSpec(spec);
+  addCustomFieldOpenApiSpec(spec);
 
   return spec;
 }
@@ -288,6 +293,129 @@ function addSavedSearchOpenApiSpec(spec: OpenAPIV3.Document): void {
         '200': jsonResponse('Saved search run result', 'SavedSearchRunResult'),
         '400': jsonResponse('Invalid run payload', 'ErrorResponse'),
         '404': jsonResponse('Saved search not found', 'ErrorResponse'),
+      },
+    },
+  };
+}
+
+function addCustomFieldOpenApiSpec(spec: OpenAPIV3.Document): void {
+  spec.tags = [
+    ...(spec.tags ?? []).filter((tag: { name?: string }) => tag.name !== 'Custom Fields'),
+    {
+      name: 'Custom Fields',
+      description: 'Ontology-backed custom field definitions and customFields payload validation.',
+    },
+  ];
+
+  spec.components ??= {};
+  spec.components.schemas ??= {};
+  Object.assign(spec.components.schemas, customFieldSchemas());
+  spec.paths ??= {};
+
+  spec.paths['/api/custom-field-definitions'] = {
+    get: {
+      tags: ['Custom Fields'],
+      operationId: 'listCustomFieldDefinitions',
+      summary: 'List custom field definitions',
+      parameters: [
+        {
+          name: 'recordKey',
+          in: 'query',
+          required: false,
+          schema: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+          },
+        },
+        {
+          name: 'lifecycle',
+          in: 'query',
+          required: false,
+          schema: {
+            type: 'string',
+            enum: customFieldLifecycleSchema.options,
+          },
+        },
+      ],
+      responses: {
+        '200': jsonResponse('Custom field definitions', 'CustomFieldDefinitionListResponse'),
+      },
+    },
+    post: {
+      tags: ['Custom Fields'],
+      operationId: 'createCustomFieldDefinition',
+      summary: 'Create a custom field definition',
+      requestBody: jsonRequest('CreateCustomFieldDefinitionRequest'),
+      responses: {
+        '201': jsonResponse('Custom field definition created', 'CustomFieldDefinitionResponse'),
+        '400': jsonResponse('Invalid custom field definition payload', 'ErrorResponse'),
+        '403': jsonResponse('Custom field write forbidden', 'ErrorResponse'),
+        '422': jsonResponse('Custom field definition validation failed', 'ErrorResponse'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-field-definitions/validate'] = {
+    post: {
+      tags: ['Custom Fields'],
+      operationId: 'validateCustomFieldDefinition',
+      summary: 'Validate a custom field definition',
+      requestBody: jsonRequest('CreateCustomFieldDefinitionRequest'),
+      responses: {
+        '200': jsonResponse('Custom field definition validation result', 'CustomFieldValidationResult'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-field-definitions/validate-values'] = {
+    post: {
+      tags: ['Custom Fields'],
+      operationId: 'validateCustomFieldValues',
+      summary: 'Validate customFields values for a record',
+      requestBody: jsonRequest('CustomFieldValuesValidationRequest'),
+      responses: {
+        '200': jsonResponse('Custom field values validation result', 'CustomFieldValuesValidationResult'),
+        '400': jsonResponse('Invalid custom field values payload', 'ErrorResponse'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-field-definitions/{id}'] = {
+    get: {
+      tags: ['Custom Fields'],
+      operationId: 'getCustomFieldDefinition',
+      summary: 'Get a custom field definition',
+      parameters: [pathIdParameter()],
+      responses: {
+        '200': jsonResponse('Custom field definition', 'CustomFieldDefinitionResponse'),
+        '404': jsonResponse('Custom field definition not found', 'ErrorResponse'),
+      },
+    },
+    put: {
+      tags: ['Custom Fields'],
+      operationId: 'updateCustomFieldDefinition',
+      summary: 'Update a custom field definition',
+      parameters: [pathIdParameter()],
+      requestBody: jsonRequest('UpdateCustomFieldDefinitionRequest'),
+      responses: {
+        '200': jsonResponse('Custom field definition updated', 'CustomFieldDefinitionResponse'),
+        '400': jsonResponse('Invalid custom field definition payload', 'ErrorResponse'),
+        '403': jsonResponse('Custom field update forbidden', 'ErrorResponse'),
+        '404': jsonResponse('Custom field definition not found', 'ErrorResponse'),
+        '422': jsonResponse('Custom field definition validation failed', 'ErrorResponse'),
+      },
+    },
+    delete: {
+      tags: ['Custom Fields'],
+      operationId: 'deleteCustomFieldDefinition',
+      summary: 'Delete a custom field definition',
+      parameters: [pathIdParameter()],
+      responses: {
+        '204': {
+          description: 'Custom field definition deleted',
+        },
+        '403': jsonResponse('Custom field delete forbidden', 'ErrorResponse'),
+        '404': jsonResponse('Custom field definition not found', 'ErrorResponse'),
       },
     },
   };
@@ -1060,6 +1188,283 @@ function savedSearchSchemas() {
         totalRows: {
           type: 'integer',
           minimum: 0,
+        },
+      },
+    },
+  };
+}
+
+function customFieldSchemas() {
+  return {
+    CustomFieldValidationRule: {
+      type: 'object',
+      properties: {
+        min: { type: 'number' },
+        max: { type: 'number' },
+        minLength: { type: 'integer', minimum: 0 },
+        maxLength: { type: 'integer', minimum: 0 },
+        regex: { type: 'string' },
+        enumValues: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        precision: { type: 'integer', minimum: 0 },
+        scale: { type: 'integer', minimum: 0 },
+      },
+    },
+    CustomFieldPermission: {
+      type: 'object',
+      properties: {
+        readRoles: {
+          type: 'array',
+          items: { type: 'string' },
+          default: [],
+        },
+        writeRoles: {
+          type: 'array',
+          items: { type: 'string' },
+          default: [],
+        },
+      },
+    },
+    CustomFieldUi: {
+      type: 'object',
+      properties: {
+        section: { type: 'string' },
+        helpText: { type: 'string' },
+        placeholder: { type: 'string' },
+        displayOrder: {
+          type: 'integer',
+          default: 0,
+        },
+      },
+    },
+    CustomFieldDefinition: {
+      type: 'object',
+      required: [
+        'id',
+        'organizationId',
+        'recordKey',
+        'fieldKey',
+        'label',
+        'type',
+        'lifecycle',
+        'placement',
+        'required',
+        'readOnly',
+        'searchable',
+        'filterable',
+        'sortable',
+        'visibleInApi',
+        'validation',
+        'permissions',
+        'ui',
+        'createdBy',
+        'createdAt',
+        'updatedAt',
+      ],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        organizationId: { type: 'string' },
+        recordKey: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        fieldKey: {
+          type: 'string',
+          pattern: '^[a-z][A-Za-z0-9]*$',
+        },
+        label: { type: 'string', maxLength: 120 },
+        description: { type: 'string', maxLength: 1000 },
+        type: {
+          type: 'string',
+          enum: ontologyFieldTypeSchema.options,
+        },
+        lifecycle: {
+          type: 'string',
+          enum: customFieldLifecycleSchema.options,
+        },
+        placement: {
+          type: 'string',
+          enum: customFieldPlacementSchema.options,
+        },
+        required: { type: 'boolean' },
+        readOnly: { type: 'boolean' },
+        defaultValue: {},
+        searchable: { type: 'boolean' },
+        filterable: { type: 'boolean' },
+        sortable: { type: 'boolean' },
+        visibleInApi: { type: 'boolean' },
+        referenceTo: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        validation: {
+          $ref: '#/components/schemas/CustomFieldValidationRule',
+        },
+        permissions: {
+          $ref: '#/components/schemas/CustomFieldPermission',
+        },
+        ui: {
+          $ref: '#/components/schemas/CustomFieldUi',
+        },
+        createdBy: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    CreateCustomFieldDefinitionRequest: {
+      type: 'object',
+      required: ['recordKey', 'fieldKey', 'label', 'type'],
+      properties: {
+        recordKey: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        fieldKey: {
+          type: 'string',
+          pattern: '^[a-z][A-Za-z0-9]*$',
+        },
+        label: { type: 'string', maxLength: 120 },
+        description: { type: 'string', maxLength: 1000 },
+        type: {
+          type: 'string',
+          enum: ontologyFieldTypeSchema.options,
+        },
+        lifecycle: {
+          type: 'string',
+          enum: customFieldLifecycleSchema.options,
+          default: 'active',
+        },
+        placement: {
+          type: 'string',
+          enum: customFieldPlacementSchema.options,
+          default: 'body',
+        },
+        required: { type: 'boolean', default: false },
+        readOnly: { type: 'boolean', default: false },
+        defaultValue: {},
+        searchable: { type: 'boolean', default: false },
+        filterable: { type: 'boolean', default: false },
+        sortable: { type: 'boolean', default: false },
+        visibleInApi: { type: 'boolean', default: true },
+        referenceTo: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        validation: {
+          $ref: '#/components/schemas/CustomFieldValidationRule',
+        },
+        permissions: {
+          $ref: '#/components/schemas/CustomFieldPermission',
+        },
+        ui: {
+          $ref: '#/components/schemas/CustomFieldUi',
+        },
+      },
+    },
+    UpdateCustomFieldDefinitionRequest: {
+      type: 'object',
+      properties: {
+        label: { type: 'string', maxLength: 120 },
+        description: { type: 'string', maxLength: 1000 },
+        lifecycle: {
+          type: 'string',
+          enum: customFieldLifecycleSchema.options,
+        },
+        required: { type: 'boolean' },
+        readOnly: { type: 'boolean' },
+        defaultValue: {},
+        searchable: { type: 'boolean' },
+        filterable: { type: 'boolean' },
+        sortable: { type: 'boolean' },
+        visibleInApi: { type: 'boolean' },
+        validation: {
+          $ref: '#/components/schemas/CustomFieldValidationRule',
+        },
+        permissions: {
+          $ref: '#/components/schemas/CustomFieldPermission',
+        },
+        ui: {
+          $ref: '#/components/schemas/CustomFieldUi',
+        },
+      },
+    },
+    CustomFieldDefinitionResponse: {
+      type: 'object',
+      required: ['customFieldDefinition'],
+      properties: {
+        customFieldDefinition: {
+          $ref: '#/components/schemas/CustomFieldDefinition',
+        },
+      },
+    },
+    CustomFieldDefinitionListResponse: {
+      type: 'object',
+      required: ['count', 'customFieldDefinitions'],
+      properties: {
+        count: { type: 'integer', minimum: 0 },
+        customFieldDefinitions: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/CustomFieldDefinition',
+          },
+        },
+      },
+    },
+    CustomFieldValidationIssue: {
+      type: 'object',
+      required: ['code', 'message', 'path'],
+      properties: {
+        code: { type: 'string' },
+        message: { type: 'string' },
+        path: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+      },
+    },
+    CustomFieldValidationResult: {
+      type: 'object',
+      required: ['valid', 'issues'],
+      properties: {
+        valid: { type: 'boolean' },
+        issues: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/CustomFieldValidationIssue',
+          },
+        },
+      },
+    },
+    CustomFieldValuesValidationRequest: {
+      type: 'object',
+      required: ['recordKey', 'values'],
+      properties: {
+        recordKey: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+      },
+    },
+    CustomFieldValuesValidationResult: {
+      type: 'object',
+      required: ['valid', 'issues', 'normalizedValues'],
+      properties: {
+        valid: { type: 'boolean' },
+        issues: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/CustomFieldValidationIssue',
+          },
+        },
+        normalizedValues: {
+          type: 'object',
+          additionalProperties: true,
         },
       },
     },

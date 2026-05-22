@@ -128,6 +128,22 @@ Custom field definitions should include:
 This lets customers extend records without schema churn while still keeping the
 API contract discoverable and documented.
 
+Fastify exposes the generalized custom-field API at
+`/api/custom-field-definitions`. The first implementation validates definitions
+and `customFields` payloads against the ontology, and stores definitions in the
+API process while durable database persistence is deferred. Admin-only writes are
+enforced at the route layer.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/custom-field-definitions` | List definitions by record or lifecycle. |
+| `POST` | `/api/custom-field-definitions` | Create a definition. |
+| `POST` | `/api/custom-field-definitions/validate` | Validate a definition without saving it. |
+| `POST` | `/api/custom-field-definitions/validate-values` | Validate a record `customFields` payload. |
+| `GET` | `/api/custom-field-definitions/{id}` | Read one definition. |
+| `PUT` | `/api/custom-field-definitions/{id}` | Update one definition. |
+| `DELETE` | `/api/custom-field-definitions/{id}` | Delete one definition. |
+
 ## Custom Records
 
 NetSuite custom records are user-defined tables with fields, permissions,

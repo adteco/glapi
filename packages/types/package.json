@@ -44,6 +44,11 @@
       "types": "./src/saved-searches/index.ts",
       "import": "./src/saved-searches/index.ts",
       "require": "./src/saved-searches/index.ts"
+    },
+    "./custom-fields": {
+      "types": "./src/custom-fields/index.ts",
+      "import": "./src/custom-fields/index.ts",
+      "require": "./src/custom-fields/index.ts"
     }
   },
   "scripts": {
