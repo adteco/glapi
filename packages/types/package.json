@@ -34,6 +34,11 @@
       "types": "./src/transactions/index.ts",
       "import": "./src/transactions/index.ts",
       "require": "./src/transactions/index.ts"
+    },
+    "./ontology": {
+      "types": "./src/ontology/index.ts",
+      "import": "./src/ontology/index.ts",
+      "require": "./src/ontology/index.ts"
     }
   },
   "scripts": {
