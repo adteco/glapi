@@ -6,6 +6,11 @@ import {
   customFieldPlacementSchema,
 } from '@glapi/types/custom-fields';
 import {
+  customRecordInstanceLifecycleSchema,
+  customRecordLifecycleSchema,
+  customRecordNumberingModeSchema,
+} from '@glapi/types/custom-records';
+import {
   ontologyFieldTypeSchema,
   ontologyLifecycleStateSchema,
   ontologyOperationSchema,
@@ -37,6 +42,7 @@ export function generateRuntimeOpenApiSpec(): OpenAPIV3.Document {
   addOntologyOpenApiSpec(spec);
   addSavedSearchOpenApiSpec(spec);
   addCustomFieldOpenApiSpec(spec);
+  addCustomRecordOpenApiSpec(spec);
 
   return spec;
 }
@@ -416,6 +422,235 @@ function addCustomFieldOpenApiSpec(spec: OpenAPIV3.Document): void {
         },
         '403': jsonResponse('Custom field delete forbidden', 'ErrorResponse'),
         '404': jsonResponse('Custom field definition not found', 'ErrorResponse'),
+      },
+    },
+  };
+}
+
+function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
+  spec.tags = [
+    ...(spec.tags ?? []).filter((tag: { name?: string }) => tag.name !== 'Custom Records'),
+    {
+      name: 'Custom Records',
+      description: 'Ontology-backed custom record type definitions and custom record instances.',
+    },
+  ];
+
+  spec.components ??= {};
+  spec.components.schemas ??= {};
+  Object.assign(spec.components.schemas, customRecordSchemas());
+  spec.paths ??= {};
+
+  spec.paths['/api/custom-record-types'] = {
+    get: {
+      tags: ['Custom Records'],
+      operationId: 'listCustomRecordTypes',
+      summary: 'List custom record types',
+      parameters: [
+        {
+          name: 'recordKey',
+          in: 'query',
+          required: false,
+          schema: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+          },
+        },
+        {
+          name: 'lifecycle',
+          in: 'query',
+          required: false,
+          schema: {
+            type: 'string',
+            enum: customRecordLifecycleSchema.options,
+          },
+        },
+      ],
+      responses: {
+        '200': jsonResponse('Custom record types', 'CustomRecordTypeListResponse'),
+      },
+    },
+    post: {
+      tags: ['Custom Records'],
+      operationId: 'createCustomRecordType',
+      summary: 'Create a custom record type',
+      requestBody: jsonRequest('CreateCustomRecordTypeRequest'),
+      responses: {
+        '201': jsonResponse('Custom record type created', 'CustomRecordTypeResponse'),
+        '400': jsonResponse('Invalid custom record type payload', 'ErrorResponse'),
+        '403': jsonResponse('Custom record type write forbidden', 'ErrorResponse'),
+        '422': jsonResponse('Custom record type validation failed', 'ErrorResponse'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-record-types/validate'] = {
+    post: {
+      tags: ['Custom Records'],
+      operationId: 'validateCustomRecordType',
+      summary: 'Validate a custom record type',
+      requestBody: jsonRequest('CreateCustomRecordTypeRequest'),
+      responses: {
+        '200': jsonResponse('Custom record type validation result', 'CustomRecordValidationResult'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-record-types/{id}'] = {
+    get: {
+      tags: ['Custom Records'],
+      operationId: 'getCustomRecordType',
+      summary: 'Get a custom record type',
+      parameters: [pathIdParameter()],
+      responses: {
+        '200': jsonResponse('Custom record type', 'CustomRecordTypeResponse'),
+        '404': jsonResponse('Custom record type not found', 'ErrorResponse'),
+      },
+    },
+    put: {
+      tags: ['Custom Records'],
+      operationId: 'updateCustomRecordType',
+      summary: 'Update a custom record type',
+      parameters: [pathIdParameter()],
+      requestBody: jsonRequest('UpdateCustomRecordTypeRequest'),
+      responses: {
+        '200': jsonResponse('Custom record type updated', 'CustomRecordTypeResponse'),
+        '400': jsonResponse('Invalid custom record type payload', 'ErrorResponse'),
+        '403': jsonResponse('Custom record type update forbidden', 'ErrorResponse'),
+        '404': jsonResponse('Custom record type not found', 'ErrorResponse'),
+        '422': jsonResponse('Custom record type validation failed', 'ErrorResponse'),
+      },
+    },
+    delete: {
+      tags: ['Custom Records'],
+      operationId: 'deleteCustomRecordType',
+      summary: 'Delete a custom record type',
+      parameters: [pathIdParameter()],
+      responses: {
+        '204': {
+          description: 'Custom record type deleted',
+        },
+        '403': jsonResponse('Custom record type delete forbidden', 'ErrorResponse'),
+        '404': jsonResponse('Custom record type not found', 'ErrorResponse'),
+        '409': jsonResponse('Custom record type has records', 'ErrorResponse'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-record-types/{id}/ontology'] = {
+    get: {
+      tags: ['Custom Records'],
+      operationId: 'getCustomRecordTypeOntology',
+      summary: 'Get the compiled ontology record for a custom record type',
+      parameters: [pathIdParameter()],
+      responses: {
+        '200': jsonResponse('Compiled custom record ontology record', 'CustomRecordOntologyResponse'),
+        '404': jsonResponse('Custom record type not found', 'ErrorResponse'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-records'] = {
+    get: {
+      tags: ['Custom Records'],
+      operationId: 'listCustomRecords',
+      summary: 'List custom records',
+      parameters: [
+        {
+          name: 'recordTypeId',
+          in: 'query',
+          required: false,
+          schema: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+        {
+          name: 'recordKey',
+          in: 'query',
+          required: false,
+          schema: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+          },
+        },
+        {
+          name: 'lifecycle',
+          in: 'query',
+          required: false,
+          schema: {
+            type: 'string',
+            enum: customRecordInstanceLifecycleSchema.options,
+          },
+        },
+      ],
+      responses: {
+        '200': jsonResponse('Custom records', 'CustomRecordListResponse'),
+      },
+    },
+    post: {
+      tags: ['Custom Records'],
+      operationId: 'createCustomRecord',
+      summary: 'Create a custom record',
+      requestBody: jsonRequest('CreateCustomRecordRequest'),
+      responses: {
+        '201': jsonResponse('Custom record created', 'CustomRecordResponse'),
+        '400': jsonResponse('Invalid custom record payload', 'ErrorResponse'),
+        '404': jsonResponse('Custom record type not found', 'ErrorResponse'),
+        '422': jsonResponse('Custom record validation failed', 'ErrorResponse'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-records/validate'] = {
+    post: {
+      tags: ['Custom Records'],
+      operationId: 'validateCustomRecordValues',
+      summary: 'Validate custom record values',
+      requestBody: jsonRequest('CustomRecordValuesValidationRequest'),
+      responses: {
+        '200': jsonResponse('Custom record values validation result', 'CustomRecordValuesValidationResult'),
+        '400': jsonResponse('Invalid custom record values payload', 'ErrorResponse'),
+        '404': jsonResponse('Custom record type not found', 'ErrorResponse'),
+      },
+    },
+  };
+
+  spec.paths['/api/custom-records/{id}'] = {
+    get: {
+      tags: ['Custom Records'],
+      operationId: 'getCustomRecord',
+      summary: 'Get a custom record',
+      parameters: [pathIdParameter()],
+      responses: {
+        '200': jsonResponse('Custom record', 'CustomRecordResponse'),
+        '404': jsonResponse('Custom record not found', 'ErrorResponse'),
+      },
+    },
+    put: {
+      tags: ['Custom Records'],
+      operationId: 'updateCustomRecord',
+      summary: 'Update a custom record',
+      parameters: [pathIdParameter()],
+      requestBody: jsonRequest('UpdateCustomRecordRequest'),
+      responses: {
+        '200': jsonResponse('Custom record updated', 'CustomRecordResponse'),
+        '400': jsonResponse('Invalid custom record payload', 'ErrorResponse'),
+        '404': jsonResponse('Custom record not found', 'ErrorResponse'),
+        '409': jsonResponse('Custom record type missing', 'ErrorResponse'),
+        '422': jsonResponse('Custom record validation failed', 'ErrorResponse'),
+      },
+    },
+    delete: {
+      tags: ['Custom Records'],
+      operationId: 'deleteCustomRecord',
+      summary: 'Delete a custom record',
+      parameters: [pathIdParameter()],
+      responses: {
+        '204': {
+          description: 'Custom record deleted',
+        },
+        '404': jsonResponse('Custom record not found', 'ErrorResponse'),
       },
     },
   };
@@ -1460,6 +1695,391 @@ function customFieldSchemas() {
           type: 'array',
           items: {
             $ref: '#/components/schemas/CustomFieldValidationIssue',
+          },
+        },
+        normalizedValues: {
+          type: 'object',
+          additionalProperties: true,
+        },
+      },
+    },
+  };
+}
+
+function customRecordSchemas() {
+  const customRecordFieldDefinition = {
+    type: 'object',
+    required: ['key', 'label', 'type'],
+    properties: {
+      key: {
+        type: 'string',
+        pattern: '^[a-z][A-Za-z0-9]*$',
+      },
+      label: { type: 'string', maxLength: 120 },
+      description: { type: 'string', maxLength: 1000 },
+      type: {
+        type: 'string',
+        enum: ontologyFieldTypeSchema.options,
+      },
+      required: { type: 'boolean', default: false },
+      readOnly: { type: 'boolean', default: false },
+      defaultValue: {},
+      searchable: { type: 'boolean', default: false },
+      filterable: { type: 'boolean', default: false },
+      sortable: { type: 'boolean', default: false },
+      enumValues: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      referenceTo: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+      },
+      validation: {
+        $ref: '#/components/schemas/CustomRecordFieldValidationRule',
+      },
+    },
+  };
+  const customRecordTypeProperties = {
+    recordKey: {
+      type: 'string',
+      pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+    },
+    label: { type: 'string', maxLength: 120 },
+    pluralLabel: { type: 'string', maxLength: 120 },
+    description: { type: 'string', maxLength: 1000 },
+    lifecycle: {
+      type: 'string',
+      enum: customRecordLifecycleSchema.options,
+      default: 'active',
+    },
+    fields: {
+      type: 'array',
+      minItems: 1,
+      items: customRecordFieldDefinition,
+    },
+    relationships: {
+      type: 'array',
+      items: {
+        $ref: '#/components/schemas/CustomRecordRelationship',
+      },
+    },
+    permissions: {
+      $ref: '#/components/schemas/CustomRecordPermission',
+    },
+    numbering: {
+      $ref: '#/components/schemas/CustomRecordNumbering',
+    },
+    nameFieldKey: {
+      type: 'string',
+      pattern: '^[a-z][A-Za-z0-9]*$',
+    },
+    searchable: { type: 'boolean', default: true },
+    auditEnabled: { type: 'boolean', default: true },
+    evented: { type: 'boolean', default: true },
+  };
+
+  return {
+    CustomRecordFieldValidationRule: {
+      type: 'object',
+      properties: {
+        min: { type: 'number' },
+        max: { type: 'number' },
+        minLength: { type: 'integer', minimum: 0 },
+        maxLength: { type: 'integer', minimum: 0 },
+        regex: { type: 'string' },
+        enumValues: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+      },
+    },
+    CustomRecordFieldDefinition: customRecordFieldDefinition,
+    CustomRecordRelationship: {
+      type: 'object',
+      required: ['key', 'label', 'type', 'targetRecordKey'],
+      properties: {
+        key: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        label: { type: 'string', maxLength: 120 },
+        type: {
+          type: 'string',
+          enum: ontologyRelationshipTypeSchema.options,
+        },
+        targetRecordKey: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        sourceFieldKey: {
+          type: 'string',
+          pattern: '^[a-z][A-Za-z0-9]*$',
+        },
+        targetFieldKey: {
+          type: 'string',
+          pattern: '^[a-z][A-Za-z0-9]*$',
+        },
+        description: { type: 'string', maxLength: 1000 },
+      },
+    },
+    CustomRecordPermission: {
+      type: 'object',
+      properties: {
+        readRoles: {
+          type: 'array',
+          items: { type: 'string' },
+          default: [],
+        },
+        writeRoles: {
+          type: 'array',
+          items: { type: 'string' },
+          default: [],
+        },
+        adminRoles: {
+          type: 'array',
+          items: { type: 'string' },
+          default: [],
+        },
+      },
+    },
+    CustomRecordNumbering: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: customRecordNumberingModeSchema.options,
+          default: 'manual',
+        },
+        prefix: { type: 'string', maxLength: 40 },
+        nextNumber: {
+          type: 'integer',
+          minimum: 1,
+          default: 1,
+        },
+        minDigits: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 20,
+          default: 5,
+        },
+      },
+    },
+    CustomRecordType: {
+      type: 'object',
+      required: [
+        'id',
+        'organizationId',
+        'recordKey',
+        'label',
+        'pluralLabel',
+        'lifecycle',
+        'fields',
+        'relationships',
+        'permissions',
+        'numbering',
+        'searchable',
+        'auditEnabled',
+        'evented',
+        'createdBy',
+        'createdAt',
+        'updatedAt',
+      ],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        organizationId: { type: 'string' },
+        ...customRecordTypeProperties,
+        createdBy: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    CreateCustomRecordTypeRequest: {
+      type: 'object',
+      required: ['recordKey', 'label', 'pluralLabel', 'fields'],
+      properties: customRecordTypeProperties,
+    },
+    UpdateCustomRecordTypeRequest: {
+      type: 'object',
+      properties: customRecordTypeProperties,
+    },
+    CustomRecordTypeResponse: {
+      type: 'object',
+      required: ['customRecordType'],
+      properties: {
+        customRecordType: {
+          $ref: '#/components/schemas/CustomRecordType',
+        },
+      },
+    },
+    CustomRecordTypeListResponse: {
+      type: 'object',
+      required: ['count', 'customRecordTypes'],
+      properties: {
+        count: { type: 'integer', minimum: 0 },
+        customRecordTypes: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/CustomRecordType',
+          },
+        },
+      },
+    },
+    CustomRecordOntologyResponse: {
+      type: 'object',
+      required: ['ontologyRecord'],
+      properties: {
+        ontologyRecord: {
+          $ref: '#/components/schemas/OntologyRecordDefinition',
+        },
+      },
+    },
+    CustomRecord: {
+      type: 'object',
+      required: [
+        'id',
+        'organizationId',
+        'recordTypeId',
+        'recordKey',
+        'name',
+        'lifecycle',
+        'values',
+        'createdBy',
+        'createdAt',
+        'updatedAt',
+      ],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        organizationId: { type: 'string' },
+        recordTypeId: { type: 'string', format: 'uuid' },
+        recordKey: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        externalId: { type: 'string', maxLength: 120 },
+        name: { type: 'string', maxLength: 240 },
+        lifecycle: {
+          type: 'string',
+          enum: customRecordInstanceLifecycleSchema.options,
+        },
+        values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        createdBy: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    CreateCustomRecordRequest: {
+      type: 'object',
+      required: ['values'],
+      properties: {
+        recordTypeId: { type: 'string', format: 'uuid' },
+        recordKey: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        externalId: { type: 'string', maxLength: 120 },
+        name: { type: 'string', maxLength: 240 },
+        lifecycle: {
+          type: 'string',
+          enum: customRecordInstanceLifecycleSchema.options,
+          default: 'active',
+        },
+        values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+      },
+    },
+    UpdateCustomRecordRequest: {
+      type: 'object',
+      properties: {
+        externalId: { type: 'string', maxLength: 120 },
+        name: { type: 'string', maxLength: 240 },
+        lifecycle: {
+          type: 'string',
+          enum: customRecordInstanceLifecycleSchema.options,
+        },
+        values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+      },
+    },
+    CustomRecordResponse: {
+      type: 'object',
+      required: ['customRecord'],
+      properties: {
+        customRecord: {
+          $ref: '#/components/schemas/CustomRecord',
+        },
+      },
+    },
+    CustomRecordListResponse: {
+      type: 'object',
+      required: ['count', 'customRecords'],
+      properties: {
+        count: { type: 'integer', minimum: 0 },
+        customRecords: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/CustomRecord',
+          },
+        },
+      },
+    },
+    CustomRecordValidationIssue: {
+      type: 'object',
+      required: ['code', 'message', 'path'],
+      properties: {
+        code: { type: 'string' },
+        message: { type: 'string' },
+        path: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+      },
+    },
+    CustomRecordValidationResult: {
+      type: 'object',
+      required: ['valid', 'issues'],
+      properties: {
+        valid: { type: 'boolean' },
+        issues: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/CustomRecordValidationIssue',
+          },
+        },
+      },
+    },
+    CustomRecordValuesValidationRequest: {
+      type: 'object',
+      required: ['values'],
+      properties: {
+        recordTypeId: { type: 'string', format: 'uuid' },
+        recordKey: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$',
+        },
+        name: { type: 'string', maxLength: 240 },
+        values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+      },
+    },
+    CustomRecordValuesValidationResult: {
+      type: 'object',
+      required: ['valid', 'issues', 'normalizedValues'],
+      properties: {
+        valid: { type: 'boolean' },
+        issues: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/CustomRecordValidationIssue',
           },
         },
         normalizedValues: {

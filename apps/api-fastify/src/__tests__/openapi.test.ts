@@ -35,4 +35,19 @@ describe('runtime OpenAPI spec', () => {
     expect(spec.components?.schemas?.CustomFieldDefinition).toBeDefined();
     expect(spec.components?.schemas?.CustomFieldValuesValidationResult).toBeDefined();
   });
+
+  it('documents custom record endpoints and schemas', () => {
+    const spec = generateRuntimeOpenApiSpec();
+
+    expect(spec.paths?.['/api/custom-record-types']).toBeDefined();
+    expect(spec.paths?.['/api/custom-record-types/validate']).toBeDefined();
+    expect(spec.paths?.['/api/custom-record-types/{id}']).toBeDefined();
+    expect(spec.paths?.['/api/custom-record-types/{id}/ontology']).toBeDefined();
+    expect(spec.paths?.['/api/custom-records']).toBeDefined();
+    expect(spec.paths?.['/api/custom-records/validate']).toBeDefined();
+    expect(spec.paths?.['/api/custom-records/{id}']).toBeDefined();
+    expect(spec.components?.schemas?.CustomRecordType).toBeDefined();
+    expect(spec.components?.schemas?.CustomRecord).toBeDefined();
+    expect(spec.components?.schemas?.CustomRecordValuesValidationResult).toBeDefined();
+  });
 });

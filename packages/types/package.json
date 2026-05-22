@@ -49,6 +49,11 @@
       "types": "./src/custom-fields/index.ts",
       "import": "./src/custom-fields/index.ts",
       "require": "./src/custom-fields/index.ts"
+    },
+    "./custom-records": {
+      "types": "./src/custom-records/index.ts",
+      "import": "./src/custom-records/index.ts",
+      "require": "./src/custom-records/index.ts"
     }
   },
   "scripts": {

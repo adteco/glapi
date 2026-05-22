@@ -9,6 +9,7 @@ import { db } from '@glapi/database';
 import { allowedOrigins } from './config';
 import { authPreHandler, resolveRequestUser } from './auth';
 import { registerCustomFieldRoutes } from './custom-field-routes';
+import { registerCustomRecordRoutes } from './custom-record-routes';
 import { AuthenticationError } from './errors';
 import { registerOntologyRoutes } from './ontology-routes';
 import { generateRuntimeOpenApiSpec } from './openapi';
@@ -138,6 +139,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(async (protectedApi) => {
     protectedApi.addHook('preHandler', authPreHandler);
     await protectedApi.register(registerCustomFieldRoutes);
+    await protectedApi.register(registerCustomRecordRoutes);
     await protectedApi.register(registerSavedSearchRoutes);
 
     await protectedApi.register(fastifyTRPCPlugin, {

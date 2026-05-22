@@ -24,3 +24,4 @@ export * from './financial-statements';
 export * from './ontology';
 export * from './saved-searches';
 export * from './custom-fields';
+export * from './custom-records';

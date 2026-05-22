@@ -160,6 +160,29 @@ The API should treat custom records like first-class records:
 - Audited and evented.
 - Importable and exportable with external IDs.
 
+Fastify now exposes the generalized custom-record API at
+`/api/custom-record-types` and `/api/custom-records`. The current
+implementation validates custom record type metadata, compiles each type into
+an ontology record, validates custom record values, and stores definitions and
+records in the API process while durable database persistence is deferred.
+Admin-only writes are enforced for record type metadata.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/custom-record-types` | List custom record type definitions by key or lifecycle. |
+| `POST` | `/api/custom-record-types` | Create a custom record type definition. |
+| `POST` | `/api/custom-record-types/validate` | Validate a type definition without saving it. |
+| `GET` | `/api/custom-record-types/{id}` | Read one type definition. |
+| `PUT` | `/api/custom-record-types/{id}` | Update one type definition. |
+| `DELETE` | `/api/custom-record-types/{id}` | Delete one type definition if it has no records. |
+| `GET` | `/api/custom-record-types/{id}/ontology` | Return the compiled ontology record for a type. |
+| `GET` | `/api/custom-records` | List custom records by type key, type id, or lifecycle. |
+| `POST` | `/api/custom-records` | Create a custom record instance. |
+| `POST` | `/api/custom-records/validate` | Validate custom record values against a type. |
+| `GET` | `/api/custom-records/{id}` | Read one custom record. |
+| `PUT` | `/api/custom-records/{id}` | Update one custom record. |
+| `DELETE` | `/api/custom-records/{id}` | Delete one custom record. |
+
 ## Versioning And Deprecation
 
 The ontology version changes when record names, fields, relationships,
