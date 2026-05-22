@@ -122,8 +122,19 @@ export type CustomFieldDefinitionValidationResult = z.infer<typeof customFieldDe
 export type CustomFieldValuesValidationInput = z.infer<typeof customFieldValuesValidationInputSchema>;
 export type CustomFieldValuesValidationResult = z.infer<typeof customFieldValuesValidationResultSchema>;
 
+export type CustomFieldDefinitionValidationOptions = {
+  registry?: OntologyRegistry;
+  customRecordKeys?: string[];
+};
+
 function issue(code: string, message: string, path: string[] = []): CustomFieldValidationIssue {
   return { code, message, path };
+}
+
+function isOntologyRegistry(
+  value: OntologyRegistry | CustomFieldDefinitionValidationOptions,
+): value is OntologyRegistry {
+  return Array.isArray((value as OntologyRegistry).records);
 }
 
 function valueMatchesType(type: OntologyFieldType, value: unknown): boolean {
@@ -237,8 +248,16 @@ function validateValueRules(
 export function validateCustomFieldDefinition(
   definition: unknown,
   existingDefinitions: CustomFieldDefinition[] = [],
-  registry: OntologyRegistry = ONTOLOGY_REGISTRY,
+  registryOrOptions: OntologyRegistry | CustomFieldDefinitionValidationOptions = ONTOLOGY_REGISTRY,
 ): CustomFieldDefinitionValidationResult {
+  const options: CustomFieldDefinitionValidationOptions = isOntologyRegistry(registryOrOptions)
+    ? { registry: registryOrOptions, customRecordKeys: [] }
+    : {
+      registry: registryOrOptions.registry ?? ONTOLOGY_REGISTRY,
+      customRecordKeys: registryOrOptions.customRecordKeys ?? [],
+    };
+  const registry = options.registry;
+  const customRecordKeys = new Set(options.customRecordKeys);
   const parsed = createCustomFieldDefinitionSchema.safeParse(definition);
   if (!parsed.success) {
     return {
@@ -252,12 +271,13 @@ export function validateCustomFieldDefinition(
   const field = parsed.data;
   const issues: CustomFieldValidationIssue[] = [];
   const record = getOntologyRecord(field.recordKey, registry);
-  if (!record) {
+  const isCustomRecord = customRecordKeys.has(field.recordKey);
+  if (!record && !isCustomRecord) {
     issues.push(issue('unknown_record', `Unknown ontology record "${field.recordKey}"`, ['recordKey']));
     return { valid: false, issues };
   }
 
-  if (!record.customizable) {
+  if (record && !record.customizable) {
     issues.push(issue(
       'record_not_customizable',
       `Ontology record "${field.recordKey}" does not allow custom fields`,
@@ -265,7 +285,7 @@ export function validateCustomFieldDefinition(
     ));
   }
 
-  if (record.fields.some((recordField) => recordField.key === field.fieldKey)) {
+  if (record?.fields.some((recordField) => recordField.key === field.fieldKey)) {
     issues.push(issue(
       'field_key_collision',
       `Custom field key "${field.fieldKey}" collides with system field on "${field.recordKey}"`,
@@ -287,7 +307,11 @@ export function validateCustomFieldDefinition(
     ));
   }
 
-  if (field.referenceTo && !getOntologyRecord(field.referenceTo, registry)) {
+  if (
+    field.referenceTo
+    && !getOntologyRecord(field.referenceTo, registry)
+    && !customRecordKeys.has(field.referenceTo)
+  ) {
     issues.push(issue(
       'unknown_reference_record',
       `Custom field "${field.fieldKey}" references unknown record "${field.referenceTo}"`,

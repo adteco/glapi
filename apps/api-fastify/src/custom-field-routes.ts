@@ -9,6 +9,12 @@ import {
   type CustomFieldDefinition,
 } from '@glapi/types/custom-fields';
 import { resolveRequestUser } from './auth';
+import {
+  customFieldOrganizationStore,
+  listCustomFieldDefinitionsForOrganization,
+  resetCustomFieldStore,
+} from './custom-field-store';
+import { listCustomRecordTypesForOrganization } from './custom-record-store';
 
 type CustomFieldRouteUser = {
   entityId?: string;
@@ -28,17 +34,6 @@ type CustomFieldListQuery = {
   recordKey?: string;
   lifecycle?: string;
 };
-
-const customFieldStore = new Map<string, Map<string, CustomFieldDefinition>>();
-
-function organizationStore(organizationId: string): Map<string, CustomFieldDefinition> {
-  let store = customFieldStore.get(organizationId);
-  if (!store) {
-    store = new Map<string, CustomFieldDefinition>();
-    customFieldStore.set(organizationId, store);
-  }
-  return store;
-}
 
 function actorId(user: CustomFieldRouteUser): string {
   return String(user.entityId ?? 'system');
@@ -65,12 +60,15 @@ function sendError(
 }
 
 function listDefinitions(user: CustomFieldRouteUser): CustomFieldDefinition[] {
-  return Array.from(organizationStore(user.organizationId).values())
-    .sort((a, b) => a.recordKey.localeCompare(b.recordKey) || a.ui.displayOrder - b.ui.displayOrder);
+  return listCustomFieldDefinitionsForOrganization(user.organizationId);
+}
+
+function customRecordKeys(user: CustomFieldRouteUser): string[] {
+  return listCustomRecordTypesForOrganization(user.organizationId).map((recordType) => recordType.recordKey);
 }
 
 export function resetCustomFieldStoreForTests(): void {
-  customFieldStore.clear();
+  resetCustomFieldStore();
 }
 
 export async function registerCustomFieldRoutes(
@@ -107,6 +105,7 @@ export async function registerCustomFieldRoutes(
     return validateCustomFieldDefinition(
       request.body,
       listDefinitions(user),
+      { customRecordKeys: customRecordKeys(user) },
     );
   });
 
@@ -132,7 +131,11 @@ export async function registerCustomFieldRoutes(
     }
 
     const existingDefinitions = listDefinitions(user);
-    const validation = validateCustomFieldDefinition(parsed.data, existingDefinitions);
+    const validation = validateCustomFieldDefinition(
+      parsed.data,
+      existingDefinitions,
+      { customRecordKeys: customRecordKeys(user) },
+    );
     if (!validation.valid) {
       return sendError(reply, 422, 'VALIDATION_FAILED', 'Custom field definition is invalid', validation.issues);
     }
@@ -147,7 +150,7 @@ export async function registerCustomFieldRoutes(
       updatedAt: now,
     };
 
-    organizationStore(user.organizationId).set(definition.id, definition);
+    customFieldOrganizationStore(user.organizationId).set(definition.id, definition);
     return reply.status(201).send({ customFieldDefinition: definition });
   });
 
@@ -155,7 +158,7 @@ export async function registerCustomFieldRoutes(
     '/api/custom-field-definitions/:id',
     async (request, reply) => {
       const user = await getUser(request);
-      const definition = organizationStore(user.organizationId).get(request.params.id);
+      const definition = customFieldOrganizationStore(user.organizationId).get(request.params.id);
       if (!definition) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom field definition "${request.params.id}" was not found`);
       }
@@ -172,7 +175,7 @@ export async function registerCustomFieldRoutes(
         return sendError(reply, 403, 'FORBIDDEN', 'Only admins can update custom field definitions');
       }
 
-      const store = organizationStore(user.organizationId);
+      const store = customFieldOrganizationStore(user.organizationId);
       const existing = store.get(request.params.id);
       if (!existing) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom field definition "${request.params.id}" was not found`);
@@ -188,7 +191,11 @@ export async function registerCustomFieldRoutes(
         ...parsed.data,
       };
       const existingDefinitions = listDefinitions(user).filter((definition) => definition.id !== existing.id);
-      const validation = validateCustomFieldDefinition(candidate, existingDefinitions);
+      const validation = validateCustomFieldDefinition(
+        candidate,
+        existingDefinitions,
+        { customRecordKeys: customRecordKeys(user) },
+      );
       if (!validation.valid) {
         return sendError(reply, 422, 'VALIDATION_FAILED', 'Custom field definition is invalid', validation.issues);
       }
@@ -211,7 +218,7 @@ export async function registerCustomFieldRoutes(
         return sendError(reply, 403, 'FORBIDDEN', 'Only admins can delete custom field definitions');
       }
 
-      const store = organizationStore(user.organizationId);
+      const store = customFieldOrganizationStore(user.organizationId);
       if (!store.has(request.params.id)) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom field definition "${request.params.id}" was not found`);
       }

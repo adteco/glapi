@@ -4,6 +4,10 @@ import {
   registerCustomRecordRoutes,
   resetCustomRecordStoreForTests,
 } from '../custom-record-routes';
+import {
+  registerCustomFieldRoutes,
+  resetCustomFieldStoreForTests,
+} from '../custom-field-routes';
 
 const adminUser = {
   entityId: '00000000-0000-0000-0000-000000000001',
@@ -60,6 +64,9 @@ const contractType = {
 
 async function buildCustomRecordTestServer(user = adminUser) {
   const server = Fastify();
+  await server.register(registerCustomFieldRoutes, {
+    resolveUser: async () => user,
+  });
   await server.register(registerCustomRecordRoutes, {
     resolveUser: async () => user,
   });
@@ -75,6 +82,7 @@ async function createRecordType(server: Awaited<ReturnType<typeof buildCustomRec
 }
 
 afterEach(() => {
+  resetCustomFieldStoreForTests();
   resetCustomRecordStoreForTests();
 });
 
@@ -222,5 +230,66 @@ describe('custom record routes', () => {
     });
 
     expect(deleteResponse.statusCode).toBe(204);
+  });
+
+  it('enforces custom field definitions on custom record writes', async () => {
+    const server = await buildCustomRecordTestServer();
+    await createRecordType(server);
+    const fieldResponse = await server.inject({
+      method: 'POST',
+      url: '/api/custom-field-definitions',
+      payload: {
+        recordKey: 'customer_contract',
+        fieldKey: 'approvalStatus',
+        label: 'Approval Status',
+        type: 'enum',
+        required: true,
+        validation: {
+          enumValues: ['pending', 'approved'],
+        },
+      },
+    });
+
+    expect(fieldResponse.statusCode).toBe(201);
+
+    const invalidResponse = await server.inject({
+      method: 'POST',
+      url: '/api/custom-records',
+      payload: {
+        recordKey: 'customer_contract',
+        values: {
+          contractName: 'MSA 2026',
+          customerId: 'customer_123',
+          status: 'draft',
+        },
+        customFields: {
+          approvalStatus: 'rejected',
+        },
+      },
+    });
+
+    expect(invalidResponse.statusCode).toBe(422);
+    expect(invalidResponse.json().error.details[0].code).toBe('enum_value_not_allowed');
+
+    const createResponse = await server.inject({
+      method: 'POST',
+      url: '/api/custom-records',
+      payload: {
+        recordKey: 'customer_contract',
+        values: {
+          contractName: 'MSA 2026',
+          customerId: 'customer_123',
+          status: 'draft',
+        },
+        customFields: {
+          approvalStatus: 'pending',
+        },
+      },
+    });
+
+    expect(createResponse.statusCode).toBe(201);
+    expect(createResponse.json().customRecord.customFields).toEqual({
+      approvalStatus: 'pending',
+    });
   });
 });

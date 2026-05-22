@@ -1944,6 +1944,7 @@ function customRecordSchemas() {
         'name',
         'lifecycle',
         'values',
+        'customFields',
         'createdBy',
         'createdAt',
         'updatedAt',
@@ -1963,6 +1964,10 @@ function customRecordSchemas() {
           enum: customRecordInstanceLifecycleSchema.options,
         },
         values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        customFields: {
           type: 'object',
           additionalProperties: true,
         },
@@ -1991,6 +1996,10 @@ function customRecordSchemas() {
           type: 'object',
           additionalProperties: true,
         },
+        customFields: {
+          type: 'object',
+          additionalProperties: true,
+        },
       },
     },
     UpdateCustomRecordRequest: {
@@ -2003,6 +2012,10 @@ function customRecordSchemas() {
           enum: customRecordInstanceLifecycleSchema.options,
         },
         values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        customFields: {
           type: 'object',
           additionalProperties: true,
         },
@@ -2066,6 +2079,10 @@ function customRecordSchemas() {
         },
         name: { type: 'string', maxLength: 240 },
         values: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        customFields: {
           type: 'object',
           additionalProperties: true,
         },

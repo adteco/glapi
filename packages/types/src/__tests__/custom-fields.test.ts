@@ -47,6 +47,25 @@ describe('custom field contracts', () => {
     });
   });
 
+  it('validates a custom field definition against a custom record key', () => {
+    const result = validateCustomFieldDefinition(
+      {
+        recordKey: 'customer_contract',
+        fieldKey: 'approvalCode',
+        label: 'Approval Code',
+        type: 'string',
+        required: true,
+      },
+      [],
+      { customRecordKeys: ['customer_contract'] },
+    );
+
+    expect(result).toEqual({
+      valid: true,
+      issues: [],
+    });
+  });
+
   it('rejects system field collisions', () => {
     const result = validateCustomFieldDefinition({
       ...customerRegionInput,

@@ -163,9 +163,10 @@ The API should treat custom records like first-class records:
 Fastify now exposes the generalized custom-record API at
 `/api/custom-record-types` and `/api/custom-records`. The current
 implementation validates custom record type metadata, compiles each type into
-an ontology record, validates custom record values, and stores definitions and
-records in the API process while durable database persistence is deferred.
-Admin-only writes are enforced for record type metadata.
+an ontology record, validates custom record values and `customFields` payloads,
+and stores definitions and records in the API process while durable database
+persistence is deferred. Admin-only writes are enforced for record type
+metadata.
 
 | Method | Path | Purpose |
 | --- | --- | --- |

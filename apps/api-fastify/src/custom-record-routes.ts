@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { validateCustomFieldValues } from '@glapi/types/custom-fields';
 import {
   compileCustomRecordOntologyRecord,
   createCustomRecordSchema,
@@ -13,6 +14,14 @@ import {
   type CustomRecordTypeDefinition,
 } from '@glapi/types/custom-records';
 import { resolveRequestUser } from './auth';
+import { listCustomFieldDefinitionsForOrganization } from './custom-field-store';
+import {
+  customRecordOrganizationStore,
+  customRecordTypeOrganizationStore,
+  listCustomRecordsForOrganization,
+  listCustomRecordTypesForOrganization,
+  resetCustomRecordStore,
+} from './custom-record-store';
 
 type CustomRecordRouteUser = {
   entityId?: string;
@@ -39,27 +48,6 @@ type CustomRecordListQuery = {
   lifecycle?: string;
 };
 
-const customRecordTypeStore = new Map<string, Map<string, CustomRecordTypeDefinition>>();
-const customRecordStore = new Map<string, Map<string, CustomRecord>>();
-
-function organizationTypeStore(organizationId: string): Map<string, CustomRecordTypeDefinition> {
-  let store = customRecordTypeStore.get(organizationId);
-  if (!store) {
-    store = new Map<string, CustomRecordTypeDefinition>();
-    customRecordTypeStore.set(organizationId, store);
-  }
-  return store;
-}
-
-function organizationRecordStore(organizationId: string): Map<string, CustomRecord> {
-  let store = customRecordStore.get(organizationId);
-  if (!store) {
-    store = new Map<string, CustomRecord>();
-    customRecordStore.set(organizationId, store);
-  }
-  return store;
-}
-
 function actorId(user: CustomRecordRouteUser): string {
   return String(user.entityId ?? 'system');
 }
@@ -85,20 +73,18 @@ function sendError(
 }
 
 function listTypes(user: CustomRecordRouteUser): CustomRecordTypeDefinition[] {
-  return Array.from(organizationTypeStore(user.organizationId).values())
-    .sort((a, b) => a.recordKey.localeCompare(b.recordKey));
+  return listCustomRecordTypesForOrganization(user.organizationId);
 }
 
 function listRecords(user: CustomRecordRouteUser): CustomRecord[] {
-  return Array.from(organizationRecordStore(user.organizationId).values())
-    .sort((a, b) => a.recordKey.localeCompare(b.recordKey) || a.name.localeCompare(b.name));
+  return listCustomRecordsForOrganization(user.organizationId);
 }
 
 function findType(
   user: CustomRecordRouteUser,
   input: { recordTypeId?: string; recordKey?: string },
 ): CustomRecordTypeDefinition | undefined {
-  const store = organizationTypeStore(user.organizationId);
+  const store = customRecordTypeOrganizationStore(user.organizationId);
   if (input.recordTypeId) {
     return store.get(input.recordTypeId);
   }
@@ -132,7 +118,7 @@ function advanceNumbering(
 ): void {
   if (recordType.numbering.mode !== 'auto') return;
 
-  organizationTypeStore(user.organizationId).set(recordType.id, {
+  customRecordTypeOrganizationStore(user.organizationId).set(recordType.id, {
     ...recordType,
     numbering: {
       ...recordType.numbering,
@@ -143,8 +129,7 @@ function advanceNumbering(
 }
 
 export function resetCustomRecordStoreForTests(): void {
-  customRecordTypeStore.clear();
-  customRecordStore.clear();
+  resetCustomRecordStore();
 }
 
 export async function registerCustomRecordRoutes(
@@ -207,7 +192,7 @@ export async function registerCustomRecordRoutes(
       updatedAt: now,
     };
 
-    organizationTypeStore(user.organizationId).set(customRecordType.id, customRecordType);
+    customRecordTypeOrganizationStore(user.organizationId).set(customRecordType.id, customRecordType);
     return reply.status(201).send({ customRecordType });
   });
 
@@ -215,7 +200,7 @@ export async function registerCustomRecordRoutes(
     '/api/custom-record-types/:id',
     async (request, reply) => {
       const user = await getUser(request);
-      const customRecordType = organizationTypeStore(user.organizationId).get(request.params.id);
+      const customRecordType = customRecordTypeOrganizationStore(user.organizationId).get(request.params.id);
       if (!customRecordType) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom record type "${request.params.id}" was not found`);
       }
@@ -228,7 +213,7 @@ export async function registerCustomRecordRoutes(
     '/api/custom-record-types/:id/ontology',
     async (request, reply) => {
       const user = await getUser(request);
-      const customRecordType = organizationTypeStore(user.organizationId).get(request.params.id);
+      const customRecordType = customRecordTypeOrganizationStore(user.organizationId).get(request.params.id);
       if (!customRecordType) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom record type "${request.params.id}" was not found`);
       }
@@ -245,7 +230,7 @@ export async function registerCustomRecordRoutes(
         return sendError(reply, 403, 'FORBIDDEN', 'Only admins can update custom record types');
       }
 
-      const store = organizationTypeStore(user.organizationId);
+      const store = customRecordTypeOrganizationStore(user.organizationId);
       const existing = store.get(request.params.id);
       if (!existing) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom record type "${request.params.id}" was not found`);
@@ -286,7 +271,7 @@ export async function registerCustomRecordRoutes(
         return sendError(reply, 403, 'FORBIDDEN', 'Only admins can delete custom record types');
       }
 
-      const store = organizationTypeStore(user.organizationId);
+      const store = customRecordTypeOrganizationStore(user.organizationId);
       const existing = store.get(request.params.id);
       if (!existing) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom record type "${request.params.id}" was not found`);
@@ -366,6 +351,17 @@ export async function registerCustomRecordRoutes(
       return sendError(reply, 422, 'VALIDATION_FAILED', 'Custom record is invalid', validation.issues);
     }
 
+    const customFieldValidation = validateCustomFieldValues(
+      {
+        recordKey: customRecordType.recordKey,
+        values: parsed.data.customFields,
+      },
+      listCustomFieldDefinitionsForOrganization(user.organizationId),
+    );
+    if (!customFieldValidation.valid) {
+      return sendError(reply, 422, 'VALIDATION_FAILED', 'Custom fields are invalid', customFieldValidation.issues);
+    }
+
     const now = new Date().toISOString();
     const name = parsed.data.name ?? nextRecordName(customRecordType, validation.normalizedValues);
     if (!name) {
@@ -381,12 +377,13 @@ export async function registerCustomRecordRoutes(
       name,
       lifecycle: parsed.data.lifecycle,
       values: validation.normalizedValues,
+      customFields: customFieldValidation.normalizedValues,
       createdBy: actorId(user),
       createdAt: now,
       updatedAt: now,
     };
 
-    organizationRecordStore(user.organizationId).set(customRecord.id, customRecord);
+    customRecordOrganizationStore(user.organizationId).set(customRecord.id, customRecord);
     advanceNumbering(user, customRecordType);
 
     return reply.status(201).send({ customRecord });
@@ -396,7 +393,7 @@ export async function registerCustomRecordRoutes(
     '/api/custom-records/:id',
     async (request, reply) => {
       const user = await getUser(request);
-      const customRecord = organizationRecordStore(user.organizationId).get(request.params.id);
+      const customRecord = customRecordOrganizationStore(user.organizationId).get(request.params.id);
       if (!customRecord) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom record "${request.params.id}" was not found`);
       }
@@ -409,7 +406,7 @@ export async function registerCustomRecordRoutes(
     '/api/custom-records/:id',
     async (request, reply) => {
       const user = await getUser(request);
-      const store = organizationRecordStore(user.organizationId);
+      const store = customRecordOrganizationStore(user.organizationId);
       const existing = store.get(request.params.id);
       if (!existing) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom record "${request.params.id}" was not found`);
@@ -426,10 +423,24 @@ export async function registerCustomRecordRoutes(
       }
 
       const values = parsed.data.values ? { ...existing.values, ...parsed.data.values } : existing.values;
+      const customFields = parsed.data.customFields
+        ? { ...existing.customFields, ...parsed.data.customFields }
+        : existing.customFields;
       const name = parsed.data.name ?? nextRecordName(customRecordType, values) ?? existing.name;
       const validation = validateCustomRecordValues({ name, values }, customRecordType);
       if (!validation.valid) {
         return sendError(reply, 422, 'VALIDATION_FAILED', 'Custom record is invalid', validation.issues);
+      }
+
+      const customFieldValidation = validateCustomFieldValues(
+        {
+          recordKey: customRecordType.recordKey,
+          values: customFields,
+        },
+        listCustomFieldDefinitionsForOrganization(user.organizationId),
+      );
+      if (!customFieldValidation.valid) {
+        return sendError(reply, 422, 'VALIDATION_FAILED', 'Custom fields are invalid', customFieldValidation.issues);
       }
 
       const customRecord: CustomRecord = {
@@ -437,6 +448,7 @@ export async function registerCustomRecordRoutes(
         ...parsed.data,
         name,
         values: validation.normalizedValues,
+        customFields: customFieldValidation.normalizedValues,
         updatedAt: new Date().toISOString(),
       };
       store.set(customRecord.id, customRecord);
@@ -449,7 +461,7 @@ export async function registerCustomRecordRoutes(
     '/api/custom-records/:id',
     async (request, reply) => {
       const user = await getUser(request);
-      const store = organizationRecordStore(user.organizationId);
+      const store = customRecordOrganizationStore(user.organizationId);
       if (!store.has(request.params.id)) {
         return sendError(reply, 404, 'NOT_FOUND', `Custom record "${request.params.id}" was not found`);
       }

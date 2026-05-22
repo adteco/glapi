@@ -120,6 +120,7 @@ export const customRecordSchema = z.object({
   name: z.string().min(1).max(240),
   lifecycle: customRecordInstanceLifecycleSchema.default('active'),
   values: z.record(z.unknown()).default({}),
+  customFields: z.record(z.unknown()).default({}),
   createdBy: z.string().min(1),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -132,6 +133,7 @@ export const createCustomRecordSchema = z.object({
   name: z.string().min(1).max(240).optional(),
   lifecycle: customRecordInstanceLifecycleSchema.default('active'),
   values: z.record(z.unknown()).default({}),
+  customFields: z.record(z.unknown()).default({}),
 }).refine((record) => Boolean(record.recordTypeId) || Boolean(record.recordKey), {
   message: 'recordTypeId or recordKey is required',
   path: ['recordTypeId'],
@@ -142,6 +144,7 @@ export const updateCustomRecordSchema = z.object({
   name: z.string().min(1).max(240).optional(),
   lifecycle: customRecordInstanceLifecycleSchema.optional(),
   values: z.record(z.unknown()).optional(),
+  customFields: z.record(z.unknown()).optional(),
 });
 
 export const customRecordValuesValidationInputSchema = z.object({
@@ -149,6 +152,7 @@ export const customRecordValuesValidationInputSchema = z.object({
   recordKey: ontologyRecordKeySchema.optional(),
   name: z.string().min(1).max(240).optional(),
   values: z.record(z.unknown()).default({}),
+  customFields: z.record(z.unknown()).default({}),
 }).refine((record) => Boolean(record.recordTypeId) || Boolean(record.recordKey), {
   message: 'recordTypeId or recordKey is required',
   path: ['recordTypeId'],
@@ -541,6 +545,7 @@ export function compileCustomRecordOntologyRecord(
     { key: 'name', label: 'Name', type: 'string', required: true, readOnly: false, searchable: true, filterable: true, sortable: true, system: true },
     { key: 'lifecycle', label: 'Lifecycle', type: 'enum', enumValues: customRecordInstanceLifecycleSchema.options, required: false, readOnly: false, searchable: false, filterable: true, sortable: false, system: true },
     { key: 'values', label: 'Values', type: 'json', required: true, readOnly: false, searchable: recordType.searchable, filterable: false, sortable: false, system: true },
+    { key: 'customFields', label: 'Custom Fields', type: 'json', required: false, readOnly: false, searchable: recordType.searchable, filterable: false, sortable: false, system: true },
     { key: 'createdAt', label: 'Created At', type: 'datetime', required: false, readOnly: true, searchable: false, filterable: false, sortable: true, system: true },
     { key: 'updatedAt', label: 'Updated At', type: 'datetime', required: false, readOnly: true, searchable: false, filterable: false, sortable: true, system: true },
     ...recordType.fields.map((field) => ({
