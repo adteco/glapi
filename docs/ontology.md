@@ -48,6 +48,20 @@ Each record definition includes:
 The current standard registry is exported as `ONTOLOGY_REGISTRY` from
 `@glapi/types/ontology`.
 
+## Runtime API
+
+Fastify exposes the ontology registry through documented API endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/ontology/version` | Return ontology version and supported vocabulary. |
+| `GET` | `/api/ontology` | Return the complete registry. |
+| `GET` | `/api/ontology/records` | List record definitions with `category`, `customizable`, and `operation` filters. |
+| `GET` | `/api/ontology/records/{key}` | Return one record definition by stable record key. |
+| `GET` | `/api/ontology/events` | List all declared ontology event names. |
+
+These endpoints are included in `/openapi.json` under the `Ontology` tag.
+
 ## Standard And Custom Records
 
 Standard records are built into GLAPI and owned by packages such as

@@ -9,6 +9,7 @@ import { db } from '@glapi/database';
 import { allowedOrigins } from './config';
 import { authPreHandler, resolveRequestUser } from './auth';
 import { AuthenticationError } from './errors';
+import { registerOntologyRoutes } from './ontology-routes';
 import { generateRuntimeOpenApiSpec } from './openapi';
 
 export async function buildServer(): Promise<FastifyInstance> {
@@ -59,6 +60,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   server.get('/health', healthHandler);
   server.get('/api/health', healthHandler);
+  await server.register(registerOntologyRoutes);
 
   server.all('/api/auth/*', async (request, reply) => {
     const forwardedProto = request.headers['x-forwarded-proto'];
