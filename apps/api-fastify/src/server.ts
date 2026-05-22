@@ -11,6 +11,7 @@ import { authPreHandler, resolveRequestUser } from './auth';
 import { AuthenticationError } from './errors';
 import { registerOntologyRoutes } from './ontology-routes';
 import { generateRuntimeOpenApiSpec } from './openapi';
+import { registerSavedSearchRoutes } from './saved-search-routes';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -135,6 +136,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await server.register(async (protectedApi) => {
     protectedApi.addHook('preHandler', authPreHandler);
+    await protectedApi.register(registerSavedSearchRoutes);
 
     await protectedApi.register(fastifyTRPCPlugin, {
       prefix: '/api/trpc',

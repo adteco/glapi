@@ -39,6 +39,11 @@
       "types": "./src/ontology/index.ts",
       "import": "./src/ontology/index.ts",
       "require": "./src/ontology/index.ts"
+    },
+    "./saved-searches": {
+      "types": "./src/saved-searches/index.ts",
+      "import": "./src/saved-searches/index.ts",
+      "require": "./src/saved-searches/index.ts"
     }
   },
   "scripts": {

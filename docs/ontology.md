@@ -92,6 +92,22 @@ Saved searches should power list views, report views, exports, dashboards, MCP
 tools, and public API endpoints from one definition. Formula support should use
 a restricted expression engine, not arbitrary SQL.
 
+Fastify exposes the generalized saved-search API at `/api/saved-searches`.
+The first implementation validates and compiles ontology-backed definitions into
+safe query plans, and stores definitions in the API process while durable
+database persistence is deferred. The current endpoints are:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/saved-searches` | List visible saved searches by record or visibility. |
+| `POST` | `/api/saved-searches` | Create a saved search definition. |
+| `POST` | `/api/saved-searches/validate` | Validate a definition without saving it. |
+| `POST` | `/api/saved-searches/run` | Compile an ad hoc saved search into a query plan. |
+| `GET` | `/api/saved-searches/{id}` | Read one saved search. |
+| `PUT` | `/api/saved-searches/{id}` | Update one saved search. |
+| `DELETE` | `/api/saved-searches/{id}` | Delete one saved search. |
+| `POST` | `/api/saved-searches/{id}/run` | Compile a saved search into a query plan. |
+
 ## Custom Fields
 
 NetSuite custom fields attach metadata-defined fields to standard records,
