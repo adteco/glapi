@@ -22,7 +22,7 @@ env:
   # Test environment variables
   TEST_API_URL: http://localhost:3031
   DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-  BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+  BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'test-better-auth-secret-test-better-auth-secret' }}
   BETTER_AUTH_URL: http://localhost:3031
   NEXT_PUBLIC_API_URL: http://localhost:3031
 
@@ -141,17 +141,22 @@ jobs:
 
       - name: Build all apps
         run: pnpm build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/glapi_test
+          BETTER_AUTH_SECRET: test-better-auth-secret-test-better-auth-secret
+          BETTER_AUTH_URL: http://localhost:3031
+          NEXT_PUBLIC_API_URL: http://localhost:3031
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
 
       - name: Start services
         run: |
           # Start API server
-          pnpm --filter api start &
+          PORT=3031 pnpm --filter api start &
           # Start web app
           pnpm --filter web start &
           # Wait for services to be ready
           npx wait-on http://localhost:3031/api/health http://localhost:3000 --timeout 60000
         env:
-          PORT: 3031
           NEXT_PUBLIC_API_URL: http://localhost:3031
 
       - name: Run E2E tests

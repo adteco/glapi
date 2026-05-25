@@ -160,6 +160,12 @@ jobs:
 
       - name: Build
         id: build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/glapi
+          BETTER_AUTH_SECRET: build-time-placeholder-build-time-placeholder
+          BETTER_AUTH_URL: http://localhost:3031
+          NEXT_PUBLIC_API_URL: http://localhost:3031
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
         run: |
           START_TIME=$(date +%s)
           pnpm build
