@@ -163,6 +163,8 @@ jobs:
         run: pnpm playwright test --project=chromium
         env:
           CI: true
+          SKIP_WEBSERVER: true
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
