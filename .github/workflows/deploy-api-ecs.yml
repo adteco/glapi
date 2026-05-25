@@ -91,6 +91,9 @@ jobs:
           pnpm --filter @glapi/api-fastify verify:openapi
           git diff --exit-code apps/docs/public/api/openapi.json apps/web/src/lib/ai/generated/
 
+      - name: Build API workspace dependencies
+        run: pnpm --filter @glapi/business... build
+
       - name: Type check Fastify API
         run: pnpm --filter @glapi/api-fastify type-check
 
