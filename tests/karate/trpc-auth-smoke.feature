@@ -10,7 +10,8 @@ Feature: tRPC auth-context smoke checks
       {
         "Content-Type": "application/json",
         "x-organization-id": "#(orgId)",
-        "x-user-id": "#(userId)"
+        "x-user-id": "#(userId)",
+        "x-api-key": "#(apiKey)"
       }
       """
 
