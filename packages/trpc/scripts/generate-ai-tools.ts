@@ -831,10 +831,25 @@ export { default as toolsManifest } from './tools-manifest.json';
 
 function generateManifest(tools: ExtractedTool[], toolsContent: string): object {
   const hash = createHash('sha256').update(toolsContent).digest('hex').slice(0, 12);
+  let generatedAt = new Date().toISOString();
+
+  if (existsSync(MANIFEST_FILE)) {
+    try {
+      const existing = JSON.parse(readFileSync(MANIFEST_FILE, 'utf-8')) as {
+        contentHash?: string;
+        generatedAt?: string;
+      };
+      if (existing.contentHash === hash && existing.generatedAt) {
+        generatedAt = existing.generatedAt;
+      }
+    } catch {
+      // Regenerate the timestamp if the existing manifest cannot be parsed.
+    }
+  }
 
   return {
     version: '1.0.0',
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     contentHash: hash,
     toolCount: tools.filter((t) => t.tool.enabled !== false).length,
     tools: tools
