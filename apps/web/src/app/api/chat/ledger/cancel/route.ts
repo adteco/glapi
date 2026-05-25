@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth.server';
 import { createActionExecutor } from '@/lib/ai/action-executor';
 
 // Mock MCP client - shared with main route in production

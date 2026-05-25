@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { FileText, BarChart3, TrendingUp, Calendar, DollarSign, PieChart, Activity, Target, Building2, Wallet, Clock, Receipt, LayoutDashboard, Layers } from 'lucide-react';

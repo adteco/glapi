@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getBrowserApiUrl } from '@/lib/browser-api';

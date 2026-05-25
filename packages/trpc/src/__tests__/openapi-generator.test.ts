@@ -339,9 +339,12 @@ describe('generateOpenAPISpec', () => {
     const spec = generateOpenAPISpec();
 
     expect(spec.components.securitySchemes).toBeDefined();
-    expect(spec.components.securitySchemes.ClerkAuth).toBeDefined();
-    expect(spec.components.securitySchemes.ClerkAuth.type).toBe('http');
-    expect(spec.components.securitySchemes.ClerkAuth.scheme).toBe('bearer');
+    expect(spec.components.securitySchemes.BetterAuthSession).toBeDefined();
+    expect(spec.components.securitySchemes.BetterAuthSession.type).toBe('apiKey');
+    expect(spec.components.securitySchemes.BetterAuthSession.in).toBe('cookie');
+    expect(spec.components.securitySchemes.ApiKeyAuth).toBeDefined();
+    expect(spec.components.securitySchemes.ApiKeyAuth.type).toBe('apiKey');
+    expect(spec.components.securitySchemes.ApiKeyAuth.in).toBe('header');
   });
 
   it('should generate paths for all routers', () => {
@@ -352,6 +355,23 @@ describe('generateOpenAPISpec', () => {
     expect(spec.paths['/api/vendors']).toBeDefined();
     expect(spec.paths['/api/invoices']).toBeDefined();
     expect(spec.paths['/api/accounts']).toBeDefined();
+  });
+
+  it('should include ASC 606 revenue paths and schemas used by the SDK', () => {
+    const spec = generateOpenAPISpec();
+
+    expect(spec.paths['/api/revenue/asc606/sales-orders']?.post).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/sales-orders/{salesOrderId}/plan']?.post).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/plan']?.get).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview']?.post).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply']?.post).toBeDefined();
+
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview'].post.operationId)
+      .toBe('previewLicenseChange');
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview'].post.tags)
+      .toEqual(['Revenue ASC 606']);
+    expect(spec.components.schemas.Asc606LicenseChangeRequest).toBeDefined();
+    expect(spec.components.schemas.Asc606SubscriptionPlan).toBeDefined();
   });
 
   describe('with AI extensions enabled (default)', () => {

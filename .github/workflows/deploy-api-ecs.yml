@@ -1,0 +1,250 @@
+name: Deploy API ECS
+
+on:
+  push:
+    branches: [staging, main]
+    paths:
+      - "apps/api-fastify/**"
+      - "packages/**"
+      - "apps/docs/public/api/openapi.json"
+      - "docs/api-specs/**"
+      - "infra/aws-ecs/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - ".github/workflows/deploy-api-ecs.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+      image_tag:
+        description: "Deploy an existing ECR image tag"
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-api-ecs-${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  PNPM_VERSION: 10.6.4
+
+jobs:
+  deploy:
+    name: Deploy API to ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+
+    steps:
+      - name: Resolve deployment target
+        run: |
+          if [ "$ENVIRONMENT" = "production" ]; then
+            echo "TF_ENV=prod" >> "$GITHUB_ENV"
+            echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-prod-api" >> "$GITHUB_ENV"
+            echo "ECS_CLUSTER=glapi-prod-cluster" >> "$GITHUB_ENV"
+            echo "ECS_SERVICE=glapi-prod-api" >> "$GITHUB_ENV"
+            echo "HEALTH_URL=https://glapi-api.adteco.com/api/health" >> "$GITHUB_ENV"
+            echo "OPENAPI_URL=https://glapi-api.adteco.com/openapi.json" >> "$GITHUB_ENV"
+          else
+            echo "TF_ENV=staging" >> "$GITHUB_ENV"
+            echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-staging-api" >> "$GITHUB_ENV"
+            echo "ECS_CLUSTER=glapi-staging-cluster" >> "$GITHUB_ENV"
+            echo "ECS_SERVICE=glapi-staging-api" >> "$GITHUB_ENV"
+            echo "HEALTH_URL=https://glapi-staging-api.adteco.com/api/health" >> "$GITHUB_ENV"
+            echo "OPENAPI_URL=https://glapi-staging-api.adteco.com/openapi.json" >> "$GITHUB_ENV"
+          fi
+
+          if [ -z "$AWS_ACCOUNT_ID" ]; then
+            echo "::error::GitHub Actions variable AWS_ACCOUNT_ID is required"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: API contract and docs gates
+        run: |
+          pnpm turbo run generate:ai-tools generate:openapi --filter=@glapi/trpc
+          pnpm --filter @glapi/api-fastify verify:openapi
+          git diff --exit-code apps/docs/public/api/openapi.json apps/web/src/lib/ai/generated/
+
+      - name: Type check Fastify API
+        run: pnpm --filter @glapi/api-fastify type-check
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate ECS infrastructure exists
+        run: |
+          ECR_REPO_NAME="$(echo "$ECR_REPO" | cut -d'/' -f2)"
+
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPO_NAME" \
+            --region "$AWS_REGION" >/dev/null
+
+          aws ecs describe-clusters \
+            --clusters "$ECS_CLUSTER" \
+            --region "$AWS_REGION" \
+            --query 'clusters[0].clusterArn' \
+            --output text | grep -v None
+
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].serviceArn' \
+            --output text | grep -v None
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Determine image tag
+        id: image-tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
+          else
+            TAG="$(echo "${{ github.sha }}" | cut -c1-7)"
+            echo "skip_build=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Verify existing image exists
+        if: steps.image-tag.outputs.skip_build == 'true'
+        run: |
+          aws ecr describe-images \
+            --repository-name "$(echo "$ECR_REPO" | cut -d'/' -f2)" \
+            --image-ids imageTag=${{ steps.image-tag.outputs.tag }} \
+            --region "$AWS_REGION" >/dev/null
+
+      - name: Set up Docker Buildx
+        if: steps.image-tag.outputs.skip_build == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        if: steps.image-tag.outputs.skip_build == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api-fastify/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.ECR_REPO }}:${{ steps.image-tag.outputs.tag }}
+            ${{ env.ECR_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Register task definition revision
+        id: task-def
+        run: |
+          IMAGE="${ECR_REPO}:${{ steps.image-tag.outputs.tag }}"
+          TASK_DEF_ARN="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          TASK_DEF_JSON="$(aws ecs describe-task-definition \
+            --task-definition "$TASK_DEF_ARN" \
+            --region "$AWS_REGION" \
+            --query 'taskDefinition' \
+            --output json)"
+
+          NEW_TASK_DEF="$(echo "$TASK_DEF_JSON" | jq \
+            --arg IMAGE "$IMAGE" \
+            'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
+             .containerDefinitions[0].image = $IMAGE')"
+
+          NEW_ARN="$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --region "$AWS_REGION" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy task definition
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "${{ steps.task-def.outputs.arn }}" \
+            --force-new-deployment \
+            --region "$AWS_REGION" \
+            --no-cli-pager
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --region "$AWS_REGION"
+
+      - name: Verify running image
+        run: |
+          EXPECTED_TAG="${{ steps.image-tag.outputs.tag }}"
+          ACTIVE_TASK_DEF="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+          RUNNING_IMAGE="$(aws ecs describe-task-definition \
+            --task-definition "$ACTIVE_TASK_DEF" \
+            --region "$AWS_REGION" \
+            --query 'taskDefinition.containerDefinitions[0].image' \
+            --output text)"
+
+          if [[ "$RUNNING_IMAGE" != *":${EXPECTED_TAG}" ]]; then
+            echo "::error::Image mismatch. Expected tag $EXPECTED_TAG but service is running $RUNNING_IMAGE"
+            exit 1
+          fi
+
+      - name: Health and OpenAPI smoke
+        run: |
+          for i in 1 2 3 4 5; do
+            STATUS="$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+            if [ "$STATUS" = "200" ]; then
+              break
+            fi
+            if [ "$i" = "5" ]; then
+              echo "::error::Health check failed after 5 attempts; last status: $STATUS"
+              exit 1
+            fi
+            sleep 15
+          done
+
+          curl -fsS "$OPENAPI_URL" | jq -e '.openapi and (.paths | length > 0)' >/dev/null

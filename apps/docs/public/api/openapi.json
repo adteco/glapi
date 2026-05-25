@@ -3,7 +3,7 @@
   "info": {
     "title": "GLAPI - General Ledger and Accounting API",
     "version": "1.0.0",
-    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## AI Extensions\n\nEndpoints with `x-ai-tool` extensions can be used by AI assistants for automated operations.\nSee the x-ai-* extension fields for risk levels, permissions, and rate limits.\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031/api\n- Production: https://api.glapi.io/api"
+    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## AI Extensions\n\nEndpoints with `x-ai-tool` extensions can be used by AI assistants for automated operations.\nSee the x-ai-* extension fields for risk levels, permissions, and rate limits.\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031/api\n- Staging: https://staging-api.glapi.net/api\n- Production: https://api.glapi.net/api"
   },
   "servers": [
     {
@@ -11,7 +11,11 @@
       "description": "Development server"
     },
     {
-      "url": "https://api.glapi.io/api",
+      "url": "https://staging-api.glapi.net/api",
+      "description": "Staging server"
+    },
+    {
+      "url": "https://api.glapi.net/api",
       "description": "Production server"
     }
   ],
@@ -7512,22 +7516,1152 @@
           "scope": "user"
         }
       }
+    },
+    "/api/revenue/asc606/sales-orders": {
+      "post": {
+        "summary": "Create sales order and generate ASC 606 plan",
+        "description": "Creates a sales order and immediately returns generated ASC 606 obligations, schedules, and waterfall output.",
+        "tags": [
+          "Revenue ASC 606"
+        ],
+        "operationId": "createSalesOrderRevenuePlan",
+        "parameters": [
+          {
+            "name": "x-organization-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Organization context for the request. API keys may also provide this context."
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Actor ID used for audit attribution on server-to-server requests."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Sales order and ASC 606 plan created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asc606SalesOrderPlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Asc606CreateSalesOrderPlanRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/revenue/asc606/sales-orders/{salesOrderId}/plan": {
+      "post": {
+        "summary": "Generate ASC 606 plan for an existing sales order",
+        "description": "Generates or regenerates ASC 606 plan outputs for an existing sales order.",
+        "tags": [
+          "Revenue ASC 606"
+        ],
+        "operationId": "generateSalesOrderRevenuePlan",
+        "parameters": [
+          {
+            "name": "salesOrderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Sales order ID"
+          },
+          {
+            "name": "x-organization-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Organization context for the request. API keys may also provide this context."
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Actor ID used for audit attribution on server-to-server requests."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ASC 606 plan generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asc606SalesOrderPlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Asc606GenerateSalesOrderPlanRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/revenue/asc606/subscriptions/{subscriptionId}/plan": {
+      "get": {
+        "summary": "Get ASC 606 subscription plan",
+        "description": "Returns subscription-level ASC 606 summary, obligations, allocations, schedules, invoice schedule, and waterfall output.",
+        "tags": [
+          "Revenue ASC 606"
+        ],
+        "operationId": "getSubscriptionRevenuePlan",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Subscription ID"
+          },
+          {
+            "name": "x-organization-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Organization context for the request. API keys may also provide this context."
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Actor ID used for audit attribution on server-to-server requests."
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Inclusive schedule period start date filter."
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Inclusive schedule period end date filter."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ASC 606 subscription plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asc606SubscriptionPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview": {
+      "post": {
+        "summary": "Preview ASC 606 license change impact",
+        "description": "Returns what-if ASC 606 allocation impact for a software license add/remove change without persisting the amendment.",
+        "tags": [
+          "Revenue ASC 606"
+        ],
+        "operationId": "previewLicenseChange",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Subscription ID"
+          },
+          {
+            "name": "x-organization-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Organization context for the request. API keys may also provide this context."
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Actor ID used for audit attribution on server-to-server requests."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "License change preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asc606LicenseChangePreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Asc606LicenseChangeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply": {
+      "post": {
+        "summary": "Apply ASC 606 license change",
+        "description": "Persists a software license add/remove amendment and returns recalculated ASC 606 outputs.",
+        "tags": [
+          "Revenue ASC 606"
+        ],
+        "operationId": "applyLicenseChange",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Subscription ID"
+          },
+          {
+            "name": "x-organization-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Organization context for the request. API keys may also provide this context."
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Actor ID used for audit attribution on server-to-server requests."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "License change applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asc606LicenseChangeApplyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Asc606LicenseChangeRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
-    "schemas": {},
+    "schemas": {
+      "Asc606SalesOrderLineInput": {
+        "type": "object",
+        "required": [
+          "description",
+          "quantity",
+          "unitPrice"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sku": {
+            "type": "string"
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "unitOfMeasure": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "discountAmount": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "discountPercent": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "taxAmount": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "taxCode": {
+            "type": "string"
+          },
+          "requestedDeliveryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "promisedDeliveryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "classId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revenueAccountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deferredRevenueAccountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revenueBehavior": {
+            "type": "string",
+            "enum": [
+              "point_in_time",
+              "over_time"
+            ]
+          },
+          "sspAmount": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "listPrice": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "memo": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "_delete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Asc606SalesOrderInput": {
+        "type": "object",
+        "required": [
+          "subsidiaryId",
+          "entityId",
+          "orderDate",
+          "lines"
+        ],
+        "properties": {
+          "subsidiaryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "externalReference": {
+            "type": "string"
+          },
+          "billingAddressId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shippingAddressId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestedDeliveryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "promisedDeliveryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "expirationDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currencyCode": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "exchangeRate": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "discountAmount": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "discountPercent": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "shippingAmount": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "paymentTerms": {
+            "type": "string"
+          },
+          "shippingMethod": {
+            "type": "string"
+          },
+          "memo": {
+            "type": "string"
+          },
+          "internalNotes": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "approvalThreshold": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d+)?$"
+              }
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Asc606SalesOrderLineInput"
+            }
+          }
+        }
+      },
+      "Asc606RevenuePlanConfig": {
+        "type": "object",
+        "properties": {
+          "billingFrequency": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "quarterly",
+              "annual"
+            ],
+            "default": "monthly"
+          },
+          "termMonths": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 12
+          },
+          "autoActivateSubscription": {
+            "type": "boolean",
+            "default": true
+          },
+          "contractStartDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "contractEndDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "recognitionEffectiveDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "Asc606CreateSalesOrderPlanRequest": {
+        "type": "object",
+        "required": [
+          "order"
+        ],
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/Asc606SalesOrderInput"
+          },
+          "revenuePlan": {
+            "$ref": "#/components/schemas/Asc606RevenuePlanConfig"
+          }
+        }
+      },
+      "Asc606GenerateSalesOrderPlanRequest": {
+        "type": "object",
+        "properties": {
+          "revenuePlan": {
+            "$ref": "#/components/schemas/Asc606RevenuePlanConfig"
+          }
+        }
+      },
+      "Asc606LicenseChangeRequest": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "action",
+          "quantity",
+          "effectiveDate"
+        ],
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "add",
+              "remove"
+            ]
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "unitPrice": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "effectiveDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "Asc606SubscriptionPlan": {
+        "type": "object",
+        "properties": {
+          "subscription": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "totalScheduled": {
+                "type": "number"
+              },
+              "totalRecognized": {
+                "type": "number"
+              },
+              "totalDeferred": {
+                "type": "number"
+              }
+            }
+          },
+          "obligations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "invoiceSchedule": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "invoiceDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "amount": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "schedules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "waterfall": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "period": {
+                  "type": "string",
+                  "example": "2026-01"
+                },
+                "scheduled": {
+                  "type": "number"
+                },
+                "recognized": {
+                  "type": "number"
+                },
+                "deferredBalance": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Asc606SalesOrderPlanResponse": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "subscription": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "calculation": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "plan": {
+            "$ref": "#/components/schemas/Asc606SubscriptionPlan"
+          }
+        }
+      },
+      "Asc606LicenseChangePreviewResponse": {
+        "type": "object",
+        "properties": {
+          "baseline": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "scenario": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "delta": {
+            "type": "object",
+            "properties": {
+              "transactionPrice": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "Asc606LicenseChangeApplyResponse": {
+        "type": "object",
+        "properties": {
+          "subscription": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "calculation": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "plan": {
+            "$ref": "#/components/schemas/Asc606SubscriptionPlan"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "details": {}
+        }
+      }
+    },
     "securitySchemes": {
-      "ClerkAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "Clerk authentication token"
+      "BetterAuthSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token",
+        "description": "Better Auth session cookie issued by /api/auth endpoints for browser clients."
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "GLAPI API key for server-to-server and SDK clients."
       }
     }
   },
   "security": [
     {
-      "ClerkAuth": []
+      "BetterAuthSession": []
+    },
+    {
+      "ApiKeyAuth": []
     }
   ]
 }

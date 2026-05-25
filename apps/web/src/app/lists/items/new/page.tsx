@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { toast } from 'sonner';
 import { ItemForm } from '@/components/forms/item-form';
 import { trpc } from '@/lib/trpc';

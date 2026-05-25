@@ -1,0 +1,19 @@
+environment       = "prod"
+aws_region        = "us-east-1"
+web_domain_name   = "glapi.adteco.com"
+api_domain_name   = "glapi-api.adteco.com"
+route53_zone_name = "adteco.com"
+
+vpc_id   = "vpc-xxxxxxxx"
+vpc_cidr = "10.1.0.0/16"
+public_subnet_ids = [
+  "subnet-xxxxxxxx",
+  "subnet-yyyyyyyy",
+]
+
+certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/PROD_CERT_ID"
+web_secret_name = "glapi/prod/web"
+api_secret_name = "glapi/prod/api"
+
+web_desired_count = 2
+api_desired_count = 2

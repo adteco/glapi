@@ -1,4 +1,4 @@
-import { useOrganization } from '@clerk/nextjs';
+import { useOrganization } from '@/lib/auth-compat.client';
 import { trpc } from '@/lib/trpc';
 
 export function useCurrentOrganization() {

@@ -359,7 +359,10 @@ export async function seedWorkflowTemplates(): Promise<void> {
 // ============================================================================
 
 // Allow running this script directly
-const isMainModule = require.main === module;
+const entrypoint = process.argv[1] || '';
+const isMainModule =
+  require.main === module &&
+  /workflow-templates\.(ts|js)$/.test(entrypoint);
 
 if (isMainModule) {
   seedWorkflowTemplates()

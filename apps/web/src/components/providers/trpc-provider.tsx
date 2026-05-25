@@ -5,7 +5,7 @@ import { httpBatchLink } from '@trpc/client';
 import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc';
 import { getBrowserTrpcUrl } from '@/lib/browser-api';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import superjson from 'superjson';
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {

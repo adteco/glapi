@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserButton, useUser, useAuth } from '@clerk/nextjs';
+import { UserButton, useUser, useAuth } from '@/lib/auth-compat.client';
 import { OrganizationSwitcher } from '@/components/organization-switcher';
 import { trpc } from '@/lib/trpc';
 import {

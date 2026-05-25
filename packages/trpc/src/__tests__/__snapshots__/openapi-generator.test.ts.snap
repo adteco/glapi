@@ -535,7 +535,8 @@ See the x-ai-* extension fields for risk levels, permissions, and rate limits.
 
 The API is accessible at:
 - Development: http://localhost:3031/api
-- Production: https://api.glapi.io/api",
+- Staging: https://staging-api.glapi.net/api
+- Production: https://api.glapi.net/api",
     "title": "GLAPI - General Ledger and Accounting API",
     "version": "1.0.0",
   },

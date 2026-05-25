@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@/lib/auth.server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       const data = await mcpClient.callTool(
         pendingAction.toolName,
         pendingAction.parameters,
-        'clerk-auth-token'
+        'better-auth-session'
       );
       result = {
         success: true,

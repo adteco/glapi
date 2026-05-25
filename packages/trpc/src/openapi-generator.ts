@@ -645,6 +645,438 @@ function getDefaultAIMeta(
 // OpenAPI Spec Generation
 // =============================================================================
 
+const monetaryValueSchema = {
+  oneOf: [
+    { type: 'number', minimum: 0 },
+    { type: 'string', pattern: '^\\d+(\\.\\d+)?$' },
+  ],
+};
+
+const dateSchema = {
+  type: 'string',
+  format: 'date',
+};
+
+const jsonObjectSchema = {
+  type: 'object',
+  additionalProperties: true,
+};
+
+const asc606Schemas: Record<string, any> = {
+  Asc606SalesOrderLineInput: {
+    type: 'object',
+    required: ['description', 'quantity', 'unitPrice'],
+    properties: {
+      id: { type: 'string', format: 'uuid' },
+      itemId: { type: 'string', format: 'uuid' },
+      description: { type: 'string', minLength: 1 },
+      sku: { type: 'string' },
+      quantity: {
+        oneOf: [
+          { type: 'number', minimum: 0, exclusiveMinimum: true },
+          { type: 'string', pattern: '^\\d+(\\.\\d+)?$' },
+        ],
+      },
+      unitOfMeasure: { type: 'string' },
+      unitPrice: monetaryValueSchema,
+      discountAmount: monetaryValueSchema,
+      discountPercent: {
+        oneOf: [
+          { type: 'number', minimum: 0, maximum: 100 },
+          { type: 'string', pattern: '^\\d+(\\.\\d+)?$' },
+        ],
+      },
+      taxAmount: monetaryValueSchema,
+      taxCode: { type: 'string' },
+      requestedDeliveryDate: dateSchema,
+      promisedDeliveryDate: dateSchema,
+      departmentId: { type: 'string', format: 'uuid' },
+      locationId: { type: 'string', format: 'uuid' },
+      classId: { type: 'string', format: 'uuid' },
+      projectId: { type: 'string', format: 'uuid' },
+      revenueAccountId: { type: 'string', format: 'uuid' },
+      deferredRevenueAccountId: { type: 'string', format: 'uuid' },
+      revenueBehavior: { type: 'string', enum: ['point_in_time', 'over_time'] },
+      sspAmount: monetaryValueSchema,
+      listPrice: monetaryValueSchema,
+      memo: { type: 'string' },
+      metadata: jsonObjectSchema,
+      _delete: { type: 'boolean' },
+    },
+  },
+  Asc606SalesOrderInput: {
+    type: 'object',
+    required: ['subsidiaryId', 'entityId', 'orderDate', 'lines'],
+    properties: {
+      subsidiaryId: { type: 'string', format: 'uuid' },
+      entityId: { type: 'string', format: 'uuid' },
+      orderDate: dateSchema,
+      externalReference: { type: 'string' },
+      billingAddressId: { type: 'string', format: 'uuid' },
+      shippingAddressId: { type: 'string', format: 'uuid' },
+      requestedDeliveryDate: dateSchema,
+      promisedDeliveryDate: dateSchema,
+      expirationDate: dateSchema,
+      currencyCode: { type: 'string', minLength: 3, maxLength: 3 },
+      exchangeRate: {
+        oneOf: [
+          { type: 'number', minimum: 0, exclusiveMinimum: true },
+          { type: 'string', pattern: '^\\d+(\\.\\d+)?$' },
+        ],
+      },
+      discountAmount: monetaryValueSchema,
+      discountPercent: {
+        oneOf: [
+          { type: 'number', minimum: 0, maximum: 100 },
+          { type: 'string', pattern: '^\\d+(\\.\\d+)?$' },
+        ],
+      },
+      shippingAmount: monetaryValueSchema,
+      paymentTerms: { type: 'string' },
+      shippingMethod: { type: 'string' },
+      memo: { type: 'string' },
+      internalNotes: { type: 'string' },
+      metadata: jsonObjectSchema,
+      requiresApproval: { type: 'boolean' },
+      approvalThreshold: monetaryValueSchema,
+      lines: {
+        type: 'array',
+        minItems: 1,
+        items: { $ref: '#/components/schemas/Asc606SalesOrderLineInput' },
+      },
+    },
+  },
+  Asc606RevenuePlanConfig: {
+    type: 'object',
+    properties: {
+      billingFrequency: {
+        type: 'string',
+        enum: ['monthly', 'quarterly', 'annual'],
+        default: 'monthly',
+      },
+      termMonths: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 120,
+        default: 12,
+      },
+      autoActivateSubscription: { type: 'boolean', default: true },
+      contractStartDate: dateSchema,
+      contractEndDate: dateSchema,
+      recognitionEffectiveDate: dateSchema,
+    },
+  },
+  Asc606CreateSalesOrderPlanRequest: {
+    type: 'object',
+    required: ['order'],
+    properties: {
+      order: { $ref: '#/components/schemas/Asc606SalesOrderInput' },
+      revenuePlan: { $ref: '#/components/schemas/Asc606RevenuePlanConfig' },
+    },
+  },
+  Asc606GenerateSalesOrderPlanRequest: {
+    type: 'object',
+    properties: {
+      revenuePlan: { $ref: '#/components/schemas/Asc606RevenuePlanConfig' },
+    },
+  },
+  Asc606LicenseChangeRequest: {
+    type: 'object',
+    required: ['itemId', 'action', 'quantity', 'effectiveDate'],
+    properties: {
+      itemId: { type: 'string', format: 'uuid' },
+      action: { type: 'string', enum: ['add', 'remove'] },
+      quantity: { type: 'number', minimum: 0, exclusiveMinimum: true },
+      unitPrice: { type: 'number', minimum: 0, exclusiveMinimum: true },
+      effectiveDate: dateSchema,
+      endDate: dateSchema,
+      reason: { type: 'string' },
+    },
+  },
+  Asc606SubscriptionPlan: {
+    type: 'object',
+    properties: {
+      subscription: jsonObjectSchema,
+      summary: {
+        type: 'object',
+        properties: {
+          totalScheduled: { type: 'number' },
+          totalRecognized: { type: 'number' },
+          totalDeferred: { type: 'number' },
+        },
+      },
+      obligations: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+      },
+      allocations: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+      },
+      invoiceSchedule: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            invoiceDate: dateSchema,
+            amount: { type: 'number' },
+          },
+        },
+      },
+      schedules: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+      },
+      waterfall: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            period: { type: 'string', example: '2026-01' },
+            scheduled: { type: 'number' },
+            recognized: { type: 'number' },
+            deferredBalance: { type: 'number' },
+          },
+        },
+      },
+    },
+  },
+  Asc606SalesOrderPlanResponse: {
+    type: 'object',
+    properties: {
+      order: jsonObjectSchema,
+      subscription: jsonObjectSchema,
+      calculation: jsonObjectSchema,
+      plan: { $ref: '#/components/schemas/Asc606SubscriptionPlan' },
+    },
+  },
+  Asc606LicenseChangePreviewResponse: {
+    type: 'object',
+    properties: {
+      baseline: jsonObjectSchema,
+      scenario: jsonObjectSchema,
+      delta: {
+        type: 'object',
+        properties: {
+          transactionPrice: { type: 'number' },
+        },
+      },
+    },
+  },
+  Asc606LicenseChangeApplyResponse: {
+    type: 'object',
+    properties: {
+      subscription: jsonObjectSchema,
+      calculation: jsonObjectSchema,
+      plan: { $ref: '#/components/schemas/Asc606SubscriptionPlan' },
+    },
+  },
+  ErrorResponse: {
+    type: 'object',
+    properties: {
+      message: { type: 'string' },
+      code: { type: 'string' },
+      details: {},
+    },
+  },
+};
+
+function schemaRef(name: keyof typeof asc606Schemas): Record<string, string> {
+  return { $ref: `#/components/schemas/${name}` };
+}
+
+function jsonContent(schema: any): Record<string, any> {
+  return {
+    'application/json': {
+      schema,
+    },
+  };
+}
+
+function successResponse(description: string, schema: any): Record<string, any> {
+  return {
+    description,
+    content: jsonContent(schema),
+  };
+}
+
+function errorResponses(): Record<string, any> {
+  return {
+    '400': successResponse('Bad request', schemaRef('ErrorResponse')),
+    '401': successResponse('Unauthorized - Invalid or missing authentication', schemaRef('ErrorResponse')),
+    '403': successResponse('Forbidden', schemaRef('ErrorResponse')),
+    '404': successResponse('Resource not found', schemaRef('ErrorResponse')),
+    '500': successResponse('Internal server error', schemaRef('ErrorResponse')),
+  };
+}
+
+function uuidPathParameter(name: string, description: string): Record<string, any> {
+  return {
+    name,
+    in: 'path',
+    required: true,
+    schema: {
+      type: 'string',
+      format: 'uuid',
+    },
+    description,
+  };
+}
+
+function asc606ContextHeaders(): Array<Record<string, any>> {
+  return [
+    {
+      name: 'x-organization-id',
+      in: 'header',
+      required: false,
+      schema: { type: 'string', format: 'uuid' },
+      description: 'Organization context for the request. API keys may also provide this context.',
+    },
+    {
+      name: 'x-user-id',
+      in: 'header',
+      required: false,
+      schema: { type: 'string' },
+      description: 'Actor ID used for audit attribution on server-to-server requests.',
+    },
+  ];
+}
+
+function addRequestBody(operationSpec: Record<string, any>, schema: any): void {
+  operationSpec.requestBody = {
+    required: true,
+    content: jsonContent(schema),
+  };
+}
+
+function addAsc606RevenuePaths(spec: OpenAPISpec): void {
+  Object.assign(spec.components.schemas, asc606Schemas);
+
+  const tag = 'Revenue ASC 606';
+  const baseParameters = asc606ContextHeaders();
+
+  const operations: Array<{
+    path: string;
+    method: 'get' | 'post';
+    operation: Record<string, any>;
+    requestSchema?: any;
+  }> = [
+    {
+      path: '/api/revenue/asc606/sales-orders',
+      method: 'post',
+      operation: {
+        summary: 'Create sales order and generate ASC 606 plan',
+        description: 'Creates a sales order and immediately returns generated ASC 606 obligations, schedules, and waterfall output.',
+        tags: [tag],
+        operationId: 'createSalesOrderRevenuePlan',
+        parameters: baseParameters,
+        responses: {
+          '201': successResponse('Sales order and ASC 606 plan created', schemaRef('Asc606SalesOrderPlanResponse')),
+          ...errorResponses(),
+        },
+      },
+      requestSchema: schemaRef('Asc606CreateSalesOrderPlanRequest'),
+    },
+    {
+      path: '/api/revenue/asc606/sales-orders/{salesOrderId}/plan',
+      method: 'post',
+      operation: {
+        summary: 'Generate ASC 606 plan for an existing sales order',
+        description: 'Generates or regenerates ASC 606 plan outputs for an existing sales order.',
+        tags: [tag],
+        operationId: 'generateSalesOrderRevenuePlan',
+        parameters: [
+          uuidPathParameter('salesOrderId', 'Sales order ID'),
+          ...baseParameters,
+        ],
+        responses: {
+          '200': successResponse('ASC 606 plan generated', schemaRef('Asc606SalesOrderPlanResponse')),
+          ...errorResponses(),
+        },
+      },
+      requestSchema: schemaRef('Asc606GenerateSalesOrderPlanRequest'),
+    },
+    {
+      path: '/api/revenue/asc606/subscriptions/{subscriptionId}/plan',
+      method: 'get',
+      operation: {
+        summary: 'Get ASC 606 subscription plan',
+        description: 'Returns subscription-level ASC 606 summary, obligations, allocations, schedules, invoice schedule, and waterfall output.',
+        tags: [tag],
+        operationId: 'getSubscriptionRevenuePlan',
+        parameters: [
+          uuidPathParameter('subscriptionId', 'Subscription ID'),
+          ...baseParameters,
+          {
+            name: 'startDate',
+            in: 'query',
+            required: false,
+            schema: dateSchema,
+            description: 'Inclusive schedule period start date filter.',
+          },
+          {
+            name: 'endDate',
+            in: 'query',
+            required: false,
+            schema: dateSchema,
+            description: 'Inclusive schedule period end date filter.',
+          },
+        ],
+        responses: {
+          '200': successResponse('ASC 606 subscription plan', schemaRef('Asc606SubscriptionPlan')),
+          ...errorResponses(),
+        },
+      },
+    },
+    {
+      path: '/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview',
+      method: 'post',
+      operation: {
+        summary: 'Preview ASC 606 license change impact',
+        description: 'Returns what-if ASC 606 allocation impact for a software license add/remove change without persisting the amendment.',
+        tags: [tag],
+        operationId: 'previewLicenseChange',
+        parameters: [
+          uuidPathParameter('subscriptionId', 'Subscription ID'),
+          ...baseParameters,
+        ],
+        responses: {
+          '200': successResponse('License change preview', schemaRef('Asc606LicenseChangePreviewResponse')),
+          ...errorResponses(),
+        },
+      },
+      requestSchema: schemaRef('Asc606LicenseChangeRequest'),
+    },
+    {
+      path: '/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply',
+      method: 'post',
+      operation: {
+        summary: 'Apply ASC 606 license change',
+        description: 'Persists a software license add/remove amendment and returns recalculated ASC 606 outputs.',
+        tags: [tag],
+        operationId: 'applyLicenseChange',
+        parameters: [
+          uuidPathParameter('subscriptionId', 'Subscription ID'),
+          ...baseParameters,
+        ],
+        responses: {
+          '200': successResponse('License change applied', schemaRef('Asc606LicenseChangeApplyResponse')),
+          ...errorResponses(),
+        },
+      },
+      requestSchema: schemaRef('Asc606LicenseChangeRequest'),
+    },
+  ];
+
+  for (const { path, method, operation, requestSchema } of operations) {
+    spec.paths[path] ??= {};
+    if (requestSchema) {
+      addRequestBody(operation, requestSchema);
+    }
+    spec.paths[path][method] = operation;
+  }
+}
+
 export interface GenerateOpenAPIOptions {
   /** Include x-ai-* extensions for AI tooling (default: true) */
   includeAIExtensions?: boolean;
@@ -652,6 +1084,8 @@ export interface GenerateOpenAPIOptions {
   useDefaultAIMeta?: boolean;
   /** Custom AI metadata overrides by operationId */
   aiMetaOverrides?: Record<string, AIProcedureMeta>;
+  /** Override generated server URLs for the runtime serving the spec */
+  servers?: Array<{ url: string; description: string }>;
 }
 
 /**
@@ -662,6 +1096,7 @@ export function generateOpenAPISpec(options: GenerateOpenAPIOptions = {}): OpenA
     includeAIExtensions = true,
     useDefaultAIMeta = true,
     aiMetaOverrides = {},
+    servers,
   } = options;
 
   const spec: OpenAPISpec = {
@@ -701,16 +1136,21 @@ See the x-ai-* extension fields for risk levels, permissions, and rate limits.
 
 The API is accessible at:
 - Development: http://localhost:3031/api
-- Production: https://api.glapi.io/api
+- Staging: https://staging-api.glapi.net/api
+- Production: https://api.glapi.net/api
       `.trim(),
     },
-    servers: [
+    servers: servers ?? [
       {
         url: 'http://localhost:3031/api',
         description: 'Development server',
       },
       {
-        url: 'https://api.glapi.io/api',
+        url: 'https://staging-api.glapi.net/api',
+        description: 'Staging server',
+      },
+      {
+        url: 'https://api.glapi.net/api',
         description: 'Production server',
       },
     ],
@@ -718,15 +1158,22 @@ The API is accessible at:
     components: {
       schemas: {},
       securitySchemes: {
-        ClerkAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Clerk authentication token',
+        BetterAuthSession: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'better-auth.session_token',
+          description:
+            'Better Auth session cookie issued by /api/auth endpoints for browser clients.',
+        },
+        ApiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-api-key',
+          description: 'GLAPI API key for server-to-server and SDK clients.',
         },
       },
     },
-    security: [{ ClerkAuth: [] }],
+    security: [{ BetterAuthSession: [] }, { ApiKeyAuth: [] }],
   };
 
   // Generate paths for each router
@@ -828,6 +1275,8 @@ The API is accessible at:
       spec.paths[path][method] = operationSpec;
     }
   }
+
+  addAsc606RevenuePaths(spec);
 
   return spec;
 }

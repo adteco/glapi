@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-compat.client';
 import { Button } from '@/components/ui/button'; // Assuming you have a Button component from Shadcn/ui
 import { toast } from 'sonner'; // Assuming you use sonner for toasts
 import { useApiClient } from '@/lib/api-client.client';

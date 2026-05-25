@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useOrganization, useOrganizationList, useAuth } from '@clerk/nextjs';
+import { useOrganization, useOrganizationList, useAuth } from '@/lib/auth-compat.client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';

@@ -1,6 +1,6 @@
 'use client';
 
-import { OrganizationProfile, useAuth, useUser } from '@clerk/nextjs';
+import { OrganizationProfile, useAuth, useUser } from '@/lib/auth-compat.client';
 
 import { SeedAccountsButton } from '@/components/SeedAccountsButton';
 import { StripePaymentMethods } from '@/components/billing/stripe-payment-methods';

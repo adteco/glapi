@@ -1,4 +1,3 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
@@ -75,63 +74,18 @@ export async function proxyAuthenticatedApiRequest(
   request: NextRequest,
   upstreamPath: string
 ): Promise<NextResponse> {
-  let userId: string | null = null;
-  let orgId: string | null = null;
-  let token: string | null = null;
-  let authErrorMessage: string | null = null;
-
-  try {
-    const clerkAuth = await auth();
-    userId = clerkAuth.userId;
-    orgId = clerkAuth.orgId;
-    token = userId ? await clerkAuth.getToken() : null;
-  } catch (error) {
-    // During the Better Auth migration, requests may reach this proxy without a
-    // valid Clerk session. In that case we still forward cookies so the API can
-    // resolve Better Auth sessions directly.
-    authErrorMessage = error instanceof Error ? error.message : String(error);
-    console.warn('[api-proxy] Clerk auth() threw, forwarding request with cookies only', {
-      path: upstreamPath,
-      error: authErrorMessage,
-    });
-  }
-
   const cookieHeader = request.headers.get('cookie') ?? '';
-  const hasClerkSession = /(?:^|;\s*)__session=/.test(cookieHeader);
   const hasBetterAuthSession = /(?:^|;\s*)better-auth\.session/.test(cookieHeader);
 
-  // Diagnostic: the #1 silent-failure mode in production was `auth()` returning
-  // { userId: null } for an apparently-signed-in user (satellite cookie issues,
-  // org-less sessions, etc). Log that branch explicitly so we can tell it apart
-  // from a genuinely unauthenticated request.
-  if (!userId && !authErrorMessage) {
-    console.warn('[api-proxy] auth() returned no userId — no auth headers will be forwarded', {
+  if (!hasBetterAuthSession) {
+    console.warn('[api-proxy] Forwarding request without Better Auth session cookie', {
       path: upstreamPath,
       hasCookieHeader: Boolean(cookieHeader),
-      hasClerkSessionCookie: hasClerkSession,
-      hasBetterAuthSessionCookie: hasBetterAuthSession,
-    });
-  } else if (userId && !orgId) {
-    console.warn('[api-proxy] Clerk session has no active organization', {
-      path: upstreamPath,
-      userIdSuffix: userId.slice(-6),
     });
   }
 
   const upstreamUrl = buildUpstreamUrl(request, upstreamPath);
   const headers = buildUpstreamHeaders(request);
-
-  if (token) {
-    headers.set('authorization', `Bearer ${token}`);
-  }
-
-  if (orgId) {
-    headers.set('x-organization-id', orgId);
-  }
-
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
 
   const method = request.method.toUpperCase();
   const canHaveBody = method !== 'GET' && method !== 'HEAD';
@@ -148,10 +102,6 @@ export async function proxyAuthenticatedApiRequest(
     console.warn('[api-proxy] Upstream rejected request', {
       path: upstreamPath,
       status: upstream.status,
-      forwardedAuthHeader: Boolean(token),
-      forwardedOrgId: Boolean(orgId),
-      forwardedUserId: Boolean(userId),
-      hasClerkSessionCookie: hasClerkSession,
       hasBetterAuthSessionCookie: hasBetterAuthSession,
     });
   }
