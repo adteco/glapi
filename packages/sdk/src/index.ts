@@ -30,7 +30,13 @@ import {
   PriceListsService,
   UnitsOfMeasureService,
   RevenueService,
+  RevenueAsc606Service,
   BusinessTransactionsService,
+} from './generated';
+import type {
+  Asc606CreateSalesOrderPlanRequest,
+  Asc606GenerateSalesOrderPlanRequest,
+  Asc606LicenseChangeRequest,
 } from './generated';
 
 /**
@@ -44,10 +50,16 @@ export interface GlapiClientConfig {
   baseUrl?: string;
 
   /**
-   * Authentication token (Bearer token from Clerk)
+   * Authentication token (Bearer token from Clerk or a GLAPI API key)
    * Can be a string or an async function that returns a token
    */
   token?: string | (() => Promise<string>);
+
+  /**
+   * GLAPI API key for server-to-server SDK clients.
+   * Sets the same Authorization: Bearer <key> header as token.
+   */
+  apiKey?: string;
 
   /**
    * Custom headers to include with every request
@@ -68,10 +80,15 @@ export interface GlapiClientConfig {
  * ```typescript
  * import { configure } from '@glapi/sdk';
  *
- * // With static token
+ * // With static token or API key
  * configure({
  *   baseUrl: 'https://api.glapi.io/api',
  *   token: 'your-clerk-token',
+ * });
+ *
+ * configure({
+ *   baseUrl: 'https://api.glapi.io/api',
+ *   apiKey: 'glapi_prod_sk_...',
  * });
  *
  * // With dynamic token (e.g., from Clerk)
@@ -89,11 +106,13 @@ export function configure(config: GlapiClientConfig): void {
     OpenAPI.BASE = config.baseUrl;
   }
 
-  if (config.token) {
-    if (typeof config.token === 'string') {
-      OpenAPI.TOKEN = config.token;
+  const authToken = config.apiKey ?? config.token;
+
+  if (authToken) {
+    if (typeof authToken === 'string') {
+      OpenAPI.TOKEN = authToken;
     } else {
-      OpenAPI.TOKEN = config.token;
+      OpenAPI.TOKEN = authToken;
     }
   }
 
@@ -348,6 +367,66 @@ export class GlapiClient {
     update: (id: string, data: Record<string, unknown>) =>
       RevenueService.revenueUpdate({ id, requestBody: data }),
     delete: (id: string) => RevenueService.revenueDelete({ id }),
+    asc606: {
+      createSalesOrderPlan: (
+        requestBody: Asc606CreateSalesOrderPlanRequest,
+        context?: { organizationId?: string; userId?: string }
+      ) =>
+        RevenueAsc606Service.createSalesOrderRevenuePlan({
+          requestBody,
+          xOrganizationId: context?.organizationId,
+          xUserId: context?.userId,
+        }),
+      generateSalesOrderPlan: (
+        salesOrderId: string,
+        requestBody: Asc606GenerateSalesOrderPlanRequest = {},
+        context?: { organizationId?: string; userId?: string }
+      ) =>
+        RevenueAsc606Service.generateSalesOrderRevenuePlan({
+          salesOrderId,
+          requestBody,
+          xOrganizationId: context?.organizationId,
+          xUserId: context?.userId,
+        }),
+      getSubscriptionPlan: (
+        subscriptionId: string,
+        query?: {
+          startDate?: string;
+          endDate?: string;
+          organizationId?: string;
+          userId?: string;
+        }
+      ) =>
+        RevenueAsc606Service.getSubscriptionRevenuePlan({
+          subscriptionId,
+          startDate: query?.startDate,
+          endDate: query?.endDate,
+          xOrganizationId: query?.organizationId,
+          xUserId: query?.userId,
+        }),
+      previewLicenseChange: (
+        subscriptionId: string,
+        requestBody: Asc606LicenseChangeRequest,
+        context?: { organizationId?: string; userId?: string }
+      ) =>
+        RevenueAsc606Service.previewLicenseChange({
+          subscriptionId,
+          requestBody,
+          xOrganizationId: context?.organizationId,
+          xUserId: context?.userId,
+        }),
+      applyLicenseChange: (
+        subscriptionId: string,
+        requestBody: Asc606LicenseChangeRequest,
+        context?: { organizationId?: string; userId?: string }
+      ) =>
+        RevenueAsc606Service.applyLicenseChange({
+          subscriptionId,
+          requestBody,
+          xOrganizationId: context?.organizationId,
+          xUserId: context?.userId,
+        }),
+    },
   };
 
   /** Business transactions */

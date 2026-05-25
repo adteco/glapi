@@ -357,6 +357,23 @@ describe('generateOpenAPISpec', () => {
     expect(spec.paths['/api/accounts']).toBeDefined();
   });
 
+  it('should include ASC 606 revenue paths and schemas used by the SDK', () => {
+    const spec = generateOpenAPISpec();
+
+    expect(spec.paths['/api/revenue/asc606/sales-orders']?.post).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/sales-orders/{salesOrderId}/plan']?.post).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/plan']?.get).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview']?.post).toBeDefined();
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply']?.post).toBeDefined();
+
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview'].post.operationId)
+      .toBe('previewLicenseChange');
+    expect(spec.paths['/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview'].post.tags)
+      .toEqual(['Revenue ASC 606']);
+    expect(spec.components.schemas.Asc606LicenseChangeRequest).toBeDefined();
+    expect(spec.components.schemas.Asc606SubscriptionPlan).toBeDefined();
+  });
+
   describe('with AI extensions enabled (default)', () => {
     it('should include x-ai-tool on list operations', () => {
       const spec = generateOpenAPISpec();
