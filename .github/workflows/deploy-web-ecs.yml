@@ -33,6 +33,8 @@ concurrency:
 env:
   AWS_REGION: us-east-1
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  API_BASE_URL: ${{ vars.API_BASE_URL || 'https://api.glapi.net' }}
+  WEB_BASE_URL: ${{ vars.WEB_BASE_URL || 'https://glapi.net' }}
 
 jobs:
   deploy:
@@ -51,11 +53,11 @@ jobs:
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-prod-web" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-prod-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-prod-web" >> "$GITHUB_ENV"
-            echo "WEB_URL=https://glapi.adteco.com" >> "$GITHUB_ENV"
-            echo "API_HEALTH_URL=https://glapi-api.adteco.com/api/health" >> "$GITHUB_ENV"
-            echo "NEXT_PUBLIC_APP_URL=https://glapi.adteco.com" >> "$GITHUB_ENV"
-            echo "NEXT_PUBLIC_API_URL=https://glapi-api.adteco.com" >> "$GITHUB_ENV"
-            echo "BETTER_AUTH_URL=https://glapi-api.adteco.com" >> "$GITHUB_ENV"
+            echo "WEB_URL=${WEB_BASE_URL}" >> "$GITHUB_ENV"
+            echo "API_HEALTH_URL=${API_BASE_URL}/api/health" >> "$GITHUB_ENV"
+            echo "NEXT_PUBLIC_APP_URL=${WEB_BASE_URL}" >> "$GITHUB_ENV"
+            echo "NEXT_PUBLIC_API_URL=${API_BASE_URL}" >> "$GITHUB_ENV"
+            echo "BETTER_AUTH_URL=${API_BASE_URL}" >> "$GITHUB_ENV"
           else
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-staging-web" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-staging-cluster" >> "$GITHUB_ENV"
