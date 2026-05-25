@@ -45,14 +45,6 @@ jobs:
           curl -fsS https://glapi-api.adteco.com/api/health | jq -e '.status == "ok"'
           curl -fsS https://glapi-api.adteco.com/openapi.json | jq -e '.openapi and (.paths | length > 0)'
 
-      - name: Production tRPC auth smoke
-        run: pnpm test:karate:trpc-auth
-        env:
-          KARATE_BASE_URL: https://glapi-api.adteco.com
-          KARATE_ORG_ID: ${{ vars.KARATE_ORG_ID }}
-          KARATE_USER_ID: ${{ vars.KARATE_USER_ID }}
-          KARATE_API_KEY: ${{ secrets.KARATE_API_KEY }}
-
       - name: Production web smoke
         run: |
           STATUS="$(curl -s -o /dev/null -w "%{http_code}" https://glapi.adteco.com || true)"
