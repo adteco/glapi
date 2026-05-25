@@ -15,10 +15,13 @@
  * Environment variables:
  *   BETTER_AUTH_TEST_EMAIL    - Test user email (default: test-admin@glapi-test.local)
  *   BETTER_AUTH_TEST_PASSWORD - Test user password (default: TestPassword123!)
+ *   BETTER_AUTH_ORIGIN        - Origin header to send (must be in API's trustedOrigins);
+ *                               defaults to NEXT_PUBLIC_APP_URL, then API_URL
  *   DATABASE_URL              - Database connection string
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.TEST_API_URL || 'http://localhost:3031';
+const ORIGIN = process.env.BETTER_AUTH_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || API_URL;
 const TEST_EMAIL = process.env.BETTER_AUTH_TEST_EMAIL || 'test-admin@glapi-test.local';
 const TEST_PASSWORD = process.env.BETTER_AUTH_TEST_PASSWORD || 'TestPassword123!';
 const TEST_NAME = 'Test Admin User';
@@ -27,6 +30,7 @@ const DEV_ORG_ID = 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2';
 async function main() {
   console.log('=== Provisioning Better Auth Test Data ===');
   console.log(`API URL: ${API_URL}`);
+  console.log(`Origin:  ${ORIGIN}`);
   console.log(`Test Email: ${TEST_EMAIL}`);
   console.log('');
 
@@ -36,7 +40,7 @@ async function main() {
   try {
     signUpResponse = await fetch(`${API_URL}/api/auth/sign-up/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Origin': API_URL },
+      headers: { 'Content-Type': 'application/json', 'Origin': ORIGIN },
       body: JSON.stringify({
         email: TEST_EMAIL,
         password: TEST_PASSWORD,
@@ -65,7 +69,7 @@ async function main() {
   console.log('Step 2: Signing in...');
   const signInResponse = await fetch(`${API_URL}/api/auth/sign-in/email`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Origin': API_URL },
+    headers: { 'Content-Type': 'application/json', 'Origin': ORIGIN },
     body: JSON.stringify({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
@@ -92,7 +96,7 @@ async function main() {
   // Step 3: Get current session to see user ID
   console.log('Step 3: Getting session info...');
   const sessionResponse = await fetch(`${API_URL}/api/auth/get-session`, {
-    headers: { cookie: sessionCookie, 'Origin': API_URL },
+    headers: { cookie: sessionCookie, 'Origin': ORIGIN },
   });
 
   if (!sessionResponse.ok) {
@@ -110,7 +114,7 @@ async function main() {
 
   // Try to list existing organizations first
   const listOrgsResponse = await fetch(`${API_URL}/api/auth/organization/list`, {
-    headers: { cookie: sessionCookie, 'Origin': API_URL },
+    headers: { cookie: sessionCookie, 'Origin': ORIGIN },
   });
 
   if (listOrgsResponse.ok) {
@@ -131,7 +135,7 @@ async function main() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Origin': API_URL,
+        'Origin': ORIGIN,
         cookie: sessionCookie,
       },
       body: JSON.stringify({
@@ -161,7 +165,7 @@ async function main() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Origin': API_URL,
+        'Origin': ORIGIN,
         cookie: sessionCookie,
       },
       body: JSON.stringify({
