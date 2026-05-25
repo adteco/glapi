@@ -14,7 +14,7 @@ Feature: tRPC auth-context smoke checks
     * def signInUrl = baseUrl + '/api/auth/sign-in/email'
     * def setActiveOrgUrl = baseUrl + '/api/auth/organization/set-active'
     * def noAuthHeaders = { 'Content-Type': 'application/json' }
-    * def sessionHeaders = { 'Content-Type': 'application/json', 'Origin': '#(baseUrl)' }
+    * def sessionHeaders = { 'Content-Type': 'application/json', 'Origin': '#(betterAuthOrigin)' }
 
   Scenario: workflows.list returns 401 without auth
     * configure headers = noAuthHeaders

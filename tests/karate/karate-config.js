@@ -16,6 +16,9 @@ function fn() {
     betterAuthEmail: get('KARATE_BETTER_AUTH_EMAIL') || get('BETTER_AUTH_TEST_EMAIL') || '',
     betterAuthPassword: get('KARATE_BETTER_AUTH_PASSWORD') || get('BETTER_AUTH_TEST_PASSWORD') || '',
     betterAuthOrgId: get('KARATE_BETTER_AUTH_ORG_ID') || get('BETTER_AUTH_TEST_ORG_ID') || '',
+    // Origin header for Better Auth sign-in (must match the API's trustedOrigins).
+    // Defaults to baseUrl for in-server tests; override per-environment in CI.
+    betterAuthOrigin: get('KARATE_BETTER_AUTH_ORIGIN') || get('BETTER_AUTH_ORIGIN') || get('KARATE_BASE_URL') || get('TEST_API_URL') || 'http://localhost:3031',
   };
 
   var headers = {
