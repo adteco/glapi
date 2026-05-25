@@ -57,9 +57,9 @@ jobs:
         run: pnpm test:karate:trpc-auth
         env:
           KARATE_BASE_URL: ${{ vars.API_BASE_URL }}
-          KARATE_ORG_ID: ${{ vars.KARATE_ORG_ID }}
-          KARATE_USER_ID: ${{ vars.KARATE_USER_ID }}
-          KARATE_API_KEY: ${{ secrets.KARATE_API_KEY }}
+          BETTER_AUTH_TEST_EMAIL: ${{ secrets.BETTER_AUTH_TEST_EMAIL }}
+          BETTER_AUTH_TEST_PASSWORD: ${{ secrets.BETTER_AUTH_TEST_PASSWORD }}
+          BETTER_AUTH_TEST_ORG_ID: ${{ secrets.BETTER_AUTH_TEST_ORG_ID }}
 
   verify-production:
     name: Verify Production API Smoke
@@ -98,6 +98,6 @@ jobs:
         run: pnpm test:karate:trpc-auth
         env:
           KARATE_BASE_URL: ${{ vars.API_BASE_URL }}
-          KARATE_ORG_ID: ${{ vars.KARATE_ORG_ID }}
-          KARATE_USER_ID: ${{ vars.KARATE_USER_ID }}
-          KARATE_API_KEY: ${{ secrets.KARATE_API_KEY }}
+          BETTER_AUTH_TEST_EMAIL: ${{ secrets.BETTER_AUTH_TEST_EMAIL }}
+          BETTER_AUTH_TEST_PASSWORD: ${{ secrets.BETTER_AUTH_TEST_PASSWORD }}
+          BETTER_AUTH_TEST_ORG_ID: ${{ secrets.BETTER_AUTH_TEST_ORG_ID }}
