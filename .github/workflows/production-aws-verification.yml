@@ -31,6 +31,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Resolve AWS ALB hostnames
+        run: |
+          ALB_IP="$(dig +short glapi-prod-alb-515642753.us-east-1.elb.amazonaws.com | head -n 1)"
+          if [ -z "$ALB_IP" ]; then
+            echo "::error::Could not resolve production GLAPI ALB"
+            exit 1
+          fi
+          echo "$ALB_IP glapi-api.adteco.com glapi.adteco.com" | sudo tee -a /etc/hosts
+
       - name: Production API health and docs smoke
         run: |
           curl -fsS https://glapi-api.adteco.com/api/health | jq -e '.status == "ok"'

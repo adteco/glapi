@@ -36,6 +36,7 @@ env:
   AWS_REGION: us-east-1
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
   API_BASE_URL: ${{ vars.API_BASE_URL || 'https://api.glapi.net' }}
+  ECS_API_BASE_URL: ${{ vars.ECS_API_BASE_URL || 'https://glapi-api.adteco.com' }}
 
 jobs:
   deploy:
@@ -55,8 +56,9 @@ jobs:
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-prod-api" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-prod-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-prod-api" >> "$GITHUB_ENV"
-            echo "HEALTH_URL=${API_BASE_URL}/api/health" >> "$GITHUB_ENV"
-            echo "OPENAPI_URL=${API_BASE_URL}/openapi.json" >> "$GITHUB_ENV"
+            echo "HEALTH_URL=${ECS_API_BASE_URL}/api/health" >> "$GITHUB_ENV"
+            echo "OPENAPI_URL=${ECS_API_BASE_URL}/openapi.json" >> "$GITHUB_ENV"
+            echo "API_CURL_CONNECT_TO=glapi-api.adteco.com:443:glapi-prod-alb-515642753.us-east-1.elb.amazonaws.com:443" >> "$GITHUB_ENV"
           else
             echo "TF_ENV=staging" >> "$GITHUB_ENV"
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-staging-api" >> "$GITHUB_ENV"
@@ -237,8 +239,13 @@ jobs:
 
       - name: Health and OpenAPI smoke
         run: |
+          CONNECT_ARGS=()
+          if [ -n "${API_CURL_CONNECT_TO:-}" ]; then
+            CONNECT_ARGS=(--connect-to "$API_CURL_CONNECT_TO")
+          fi
+
           for i in 1 2 3 4 5; do
-            STATUS="$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+            STATUS="$(curl "${CONNECT_ARGS[@]}" -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
             if [ "$STATUS" = "200" ]; then
               break
             fi
@@ -249,4 +256,4 @@ jobs:
             sleep 15
           done
 
-          curl -fsS "$OPENAPI_URL" | jq -e '.openapi and (.paths | length > 0)' >/dev/null
+          curl "${CONNECT_ARGS[@]}" -fsS "$OPENAPI_URL" | jq -e '.openapi and (.paths | length > 0)' >/dev/null

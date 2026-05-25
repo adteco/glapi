@@ -35,6 +35,8 @@ env:
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
   API_BASE_URL: ${{ vars.API_BASE_URL || 'https://api.glapi.net' }}
   WEB_BASE_URL: ${{ vars.WEB_BASE_URL || 'https://glapi.net' }}
+  ECS_API_BASE_URL: ${{ vars.ECS_API_BASE_URL || 'https://glapi-api.adteco.com' }}
+  ECS_WEB_BASE_URL: ${{ vars.ECS_WEB_BASE_URL || 'https://glapi.adteco.com' }}
 
 jobs:
   deploy:
@@ -53,8 +55,10 @@ jobs:
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-prod-web" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-prod-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-prod-web" >> "$GITHUB_ENV"
-            echo "WEB_URL=${WEB_BASE_URL}" >> "$GITHUB_ENV"
-            echo "API_HEALTH_URL=${API_BASE_URL}/api/health" >> "$GITHUB_ENV"
+            echo "WEB_URL=${ECS_WEB_BASE_URL}" >> "$GITHUB_ENV"
+            echo "API_HEALTH_URL=${ECS_API_BASE_URL}/api/health" >> "$GITHUB_ENV"
+            echo "API_CURL_CONNECT_TO=glapi-api.adteco.com:443:glapi-prod-alb-515642753.us-east-1.elb.amazonaws.com:443" >> "$GITHUB_ENV"
+            echo "WEB_CURL_CONNECT_TO=glapi.adteco.com:443:glapi-prod-alb-515642753.us-east-1.elb.amazonaws.com:443" >> "$GITHUB_ENV"
             echo "NEXT_PUBLIC_APP_URL=${WEB_BASE_URL}" >> "$GITHUB_ENV"
             echo "NEXT_PUBLIC_API_URL=${API_BASE_URL}" >> "$GITHUB_ENV"
             echo "BETTER_AUTH_URL=${API_BASE_URL}" >> "$GITHUB_ENV"
@@ -79,8 +83,13 @@ jobs:
 
       - name: Check API health before web deploy
         run: |
+          CONNECT_ARGS=()
+          if [ -n "${API_CURL_CONNECT_TO:-}" ]; then
+            CONNECT_ARGS=(--connect-to "$API_CURL_CONNECT_TO")
+          fi
+
           for i in 1 2 3; do
-            STATUS="$(curl -s -o /dev/null -w "%{http_code}" "$API_HEALTH_URL" || true)"
+            STATUS="$(curl "${CONNECT_ARGS[@]}" -s -o /dev/null -w "%{http_code}" "$API_HEALTH_URL" || true)"
             if [ "$STATUS" = "200" ]; then
               exit 0
             fi
@@ -252,8 +261,13 @@ jobs:
 
       - name: Web smoke
         run: |
+          CONNECT_ARGS=()
+          if [ -n "${WEB_CURL_CONNECT_TO:-}" ]; then
+            CONNECT_ARGS=(--connect-to "$WEB_CURL_CONNECT_TO")
+          fi
+
           for i in 1 2 3 4 5; do
-            STATUS="$(curl -s -o /dev/null -w "%{http_code}" "$WEB_URL" || true)"
+            STATUS="$(curl "${CONNECT_ARGS[@]}" -s -o /dev/null -w "%{http_code}" "$WEB_URL" || true)"
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ] || [ "$STATUS" = "308" ]; then
               exit 0
             fi

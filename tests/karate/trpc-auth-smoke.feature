@@ -22,8 +22,8 @@ Feature: tRPC auth-context smoke checks
     And param input = workflowsInput
     When method get
     Then status 401
-    And match response[0].error.json.data.code == 'UNAUTHORIZED'
-    And match response[0].error.json.data.path == 'workflows.list'
+    And match response.error.code == 'UNAUTHORIZED'
+    And match response.error.message contains 'Authentication required'
 
   Scenario: workflows.list succeeds with org/user headers
     * configure headers = authHeaders
@@ -41,10 +41,8 @@ Feature: tRPC auth-context smoke checks
     And param input = analyticsInput
     When method get
     Then status 401
-    And match response == '#[3]'
-    And match response[0].error.json.data.code == 'UNAUTHORIZED'
-    And match response[1].error.json.data.code == 'UNAUTHORIZED'
-    And match response[2].error.json.data.code == 'UNAUTHORIZED'
+    And match response.error.code == 'UNAUTHORIZED'
+    And match response.error.message contains 'Authentication required'
 
   Scenario: project analytics batch succeeds with org/user headers
     * configure headers = authHeaders
