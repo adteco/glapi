@@ -69,7 +69,7 @@ jobs:
         run: |
           cd packages/sdk
           # Type-check examples without actually running against API
-          npx tsc --noEmit --skipLibCheck examples/*.ts
+          npx tsc --noEmit --skipLibCheck --moduleResolution node16 --module Node16 examples/*.ts
           echo "Example scripts type-check passed"
 
   python-sdk:
