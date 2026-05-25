@@ -324,6 +324,11 @@ resource "aws_ecs_task_definition" "web" {
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task.arn
 
+  runtime_platform {
+    cpu_architecture        = "ARM64"
+    operating_system_family = "LINUX"
+  }
+
   container_definitions = jsonencode([
     {
       name      = local.web_container_name
@@ -371,6 +376,11 @@ resource "aws_ecs_task_definition" "api" {
   memory                   = var.api_memory
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task.arn
+
+  runtime_platform {
+    cpu_architecture        = "ARM64"
+    operating_system_family = "LINUX"
+  }
 
   container_definitions = jsonencode([
     {

@@ -169,7 +169,7 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: true
-          platforms: linux/amd64
+          platforms: linux/arm64
           tags: |
             ${{ env.ECR_REPO }}:${{ steps.image-tag.outputs.tag }}
             ${{ env.ECR_REPO }}:latest
@@ -200,7 +200,8 @@ jobs:
           NEW_TASK_DEF="$(echo "$TASK_DEF_JSON" | jq \
             --arg IMAGE "$IMAGE" \
             'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-             .containerDefinitions[0].image = $IMAGE')"
+             .containerDefinitions[0].image = $IMAGE |
+             .runtimePlatform = {"cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX"}')"
 
           NEW_ARN="$(aws ecs register-task-definition \
             --cli-input-json "$NEW_TASK_DEF" \
