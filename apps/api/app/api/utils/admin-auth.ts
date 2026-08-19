@@ -1,35 +1,15 @@
 import type { NextRequest } from 'next/server';
 import { headers } from 'next/headers';
-import { extractBearerToken } from './request-auth';
-import {
-  getClerkOrganizationMembership,
-  getClerkSecretKey,
-  verifyClerkBearerToken,
-} from './clerk-token';
 import { auth as betterAuth } from '@glapi/auth';
 import {
   OrganizationRepository,
   PermissionRepository,
   withOrganizationContext,
 } from '@glapi/database';
+import { unsafeOrganizationId } from '@glapi/shared-types';
 
 const ADMIN_ROLES = new Set(['admin', 'owner', 'org:admin', 'org:owner']);
 const ADMIN_RBAC_ROLES = new Set(['ADMIN', 'OWNER', 'SUPER_ADMIN']);
-
-type AuthProviderMode = 'clerk' | 'dual' | 'better-auth';
-
-function getAuthProviderMode(): AuthProviderMode {
-  const configuredMode = process.env.AUTH_PROVIDER_MODE?.trim().toLowerCase();
-  switch (configuredMode) {
-    case 'clerk': return 'clerk';
-    case 'better-auth':
-    case 'better_auth': return 'better-auth';
-    case 'dual':
-    case undefined:
-    case '': return 'dual';
-    default: return 'dual';
-  }
-}
 
 export class AdminAuthError extends Error {
   status: number;
@@ -45,118 +25,29 @@ export interface AdminContext {
   orgId: string;
   userId: string;
   role?: string;
-  /** @deprecated Use orgId */
-  clerkOrgId: string;
-  /** @deprecated Use userId */
-  clerkUserId: string;
 }
 
 /**
  * Verify that the request is from an admin user.
- * Supports both Clerk bearer tokens and Better Auth session cookies.
+ * Supports Better Auth session cookies.
  */
 export async function requireAdminContext(request: NextRequest): Promise<AdminContext> {
-  const authMode = getAuthProviderMode();
-  const token = extractBearerToken(request.headers);
-
-  // 1. Try Clerk bearer token (when available and mode allows it)
-  if (token && authMode !== 'better-auth') {
-    const clerkSecret = getClerkSecretKey();
-    if (clerkSecret) {
-      try {
-        return await verifyClerkAdmin(token, request);
-      } catch (error) {
-        // In dual mode, fall through to Better Auth
-        if (authMode !== 'dual') throw error;
-        console.warn('[admin-auth] Clerk verification failed, trying Better Auth:',
-          error instanceof Error ? error.message : error);
-      }
-    }
-  }
-
-  // 2. Try Better Auth session cookie (when mode allows it)
-  if (authMode === 'dual' || authMode === 'better-auth') {
-    try {
-      return await verifyBetterAuthAdmin(request);
-    } catch (error) {
-      if (authMode === 'better-auth') throw error;
-      console.warn('[admin-auth] Better Auth verification failed:',
-        error instanceof Error ? error.message : error);
-    }
-  }
-
-  // 3. No valid auth found
-  throw new AdminAuthError('Missing or invalid authorization', 401);
-}
-
-/**
- * Verify admin access using Clerk bearer token (existing logic)
- */
-async function verifyClerkAdmin(token: string, request: NextRequest): Promise<AdminContext> {
-  let verifiedToken;
   try {
-    verifiedToken = await verifyClerkBearerToken(token);
+    return await verifyBetterAuthAdmin(request);
   } catch (error) {
-    console.error('Failed to verify Clerk token:', error);
     throw new AdminAuthError(
-      error instanceof Error ? error.message : 'Invalid or expired token',
-      401
+      error instanceof Error ? error.message : 'Missing or invalid authorization',
+      error instanceof AdminAuthError ? error.status : 401
     );
   }
-
-  const requestedOrganizationId = request.headers.get('x-organization-id');
-  let clerkOrgId = verifiedToken.organizationId;
-
-  if (!clerkOrgId && requestedOrganizationId?.startsWith('org_')) {
-    const membership = await getClerkOrganizationMembership(
-      verifiedToken.userId,
-      requestedOrganizationId
-    );
-
-    if (!membership) {
-      throw new AdminAuthError(
-        'Authenticated user is not a member of the requested organization',
-        403
-      );
-    }
-
-    clerkOrgId = membership.clerkOrgId;
-    verifiedToken.role = verifiedToken.role || membership.role;
-  }
-
-  if (!clerkOrgId) {
-    throw new AdminAuthError(
-      'No organization context found in token or verified request headers',
-      401
-    );
-  }
-
-  const role = verifiedToken.role;
-  if (!role || !ADMIN_ROLES.has(role)) {
-    throw new AdminAuthError('Admin role required', 403);
-  }
-
-  return {
-    orgId: clerkOrgId,
-    userId: verifiedToken.userId,
-    clerkOrgId,
-    clerkUserId: verifiedToken.userId,
-    role,
-  };
 }
 
 /**
  * Resolve an organization from an admin context orgId.
- * Handles both Clerk org IDs (org_xxx) and database UUIDs.
- * Use this in billing/admin routes instead of orgRepo.findByClerkId().
+ * Handles database UUIDs or Better Auth IDs.
  */
 export async function resolveAdminOrganization(orgId: string) {
   const orgRepo = new OrganizationRepository();
-
-  // Try by Clerk ID first (org_xxx format)
-  if (orgId.startsWith('org_')) {
-    return orgRepo.findByClerkId(orgId);
-  }
 
   // Try by database UUID
   const byId = await orgRepo.findById(orgId);
@@ -166,8 +57,7 @@ export async function resolveAdminOrganization(orgId: string) {
   const byBetterAuth = await orgRepo.findByBetterAuthId(orgId);
   if (byBetterAuth) return byBetterAuth;
 
-  // Last resort: try Clerk ID anyway (might be a non-standard format)
-  return orgRepo.findByClerkId(orgId);
+  return null;
 }
 
 /**
@@ -211,7 +101,6 @@ async function verifyBetterAuthAdmin(request: NextRequest): Promise<AdminContext
       const dbOrg = await orgRepo.findByBetterAuthId(betterAuthOrgId);
 
       if (dbOrg) {
-        const { unsafeOrganizationId } = await import('@glapi/shared-types');
         const orgId = unsafeOrganizationId(dbOrg.id);
 
         isAdmin = await withOrganizationContext({ organizationId: orgId }, async (contextDb) => {
@@ -244,8 +133,6 @@ async function verifyBetterAuthAdmin(request: NextRequest): Promise<AdminContext
   return {
     orgId: resolvedOrgId,
     userId: betterAuthUserId,
-    clerkOrgId: resolvedOrgId, // backward compat
-    clerkUserId: betterAuthUserId, // backward compat
     role: 'admin',
   };
 }

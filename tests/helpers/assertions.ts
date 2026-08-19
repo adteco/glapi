@@ -243,7 +243,7 @@ export const authAssertions = {
    */
   async expectAuthenticated(page: Page): Promise<void> {
     const userButton = page.locator(
-      '[data-clerk-user-button], .cl-userButton-root, [aria-label*="user"]'
+      '[aria-label*="user menu"], [aria-label*="user"], button:has-text("Profile"), img[alt*="Avatar"]'
     ).first();
     await expect(userButton).toBeVisible({ timeout: 10000 });
   },

@@ -93,10 +93,8 @@ export function normalizeApiRequestHeaders(
 
   if (hasAuthorization) {
     // Bearer-authenticated requests may supply the active organization as a requested
-    // context, but user identity must still come from the verified Clerk token.
+    // context, but user identity must still come from the verified token.
     requestHeaders.delete('x-user-id');
-    requestHeaders.delete('x-clerk-organization-id');
-    requestHeaders.delete('x-clerk-user-id');
 
     return {
       requestHeaders,
@@ -108,8 +106,6 @@ export function normalizeApiRequestHeaders(
   if (options.isProduction) {
     requestHeaders.delete('x-organization-id');
     requestHeaders.delete('x-user-id');
-    requestHeaders.delete('x-clerk-organization-id');
-    requestHeaders.delete('x-clerk-user-id');
   }
 
   return {
@@ -126,13 +122,13 @@ export function middleware(request: NextRequest): NextResponse | Response {
   let requestHeaders = new Headers(request.headers);
 
   // Handle preflight requests first
-  if (request.method === 'OPTIONS') {
+    if (request.method === 'OPTIONS') {
     const preflightResponse = new Response(null, { status: 200 });
     if (!origin || allowedOrigins.includes(origin)) {
       preflightResponse.headers.set('Access-Control-Allow-Origin', origin || '*');
       preflightResponse.headers.set('Access-Control-Allow-Credentials', 'true');
       preflightResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      preflightResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id, x-clerk-organization-id, x-clerk-user-id');
+      preflightResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id');
     }
     return preflightResponse;
   }
@@ -149,8 +145,6 @@ export function middleware(request: NextRequest): NextResponse | Response {
       hasApiKey: Boolean(apiKey),
       hasXOrganizationId: Boolean(request.headers.get('x-organization-id')),
       hasXUserId: Boolean(request.headers.get('x-user-id')),
-      hasXClerkOrganizationId: Boolean(request.headers.get('x-clerk-organization-id')),
-      hasXClerkUserId: Boolean(request.headers.get('x-clerk-user-id')),
       xOrganizationId: summarizeValue(request.headers.get('x-organization-id')),
       xUserId: summarizeValue(request.headers.get('x-user-id')),
       origin: origin || null,
@@ -199,7 +193,7 @@ export function middleware(request: NextRequest): NextResponse | Response {
     response.headers.set('Access-Control-Allow-Origin', origin || '*');
     response.headers.set('Access-Control-Allow-Credentials', 'true');
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id, x-clerk-organization-id, x-clerk-user-id');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-organization-id, x-user-id');
   }
 
   return response;

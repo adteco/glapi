@@ -4,8 +4,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 // Auth storage file paths
-const STORAGE_STATE = path.join(__dirname, 'playwright/.auth/user.json');
-const BETTER_AUTH_STORAGE_STATE = path.join(__dirname, 'playwright/.auth/betterauth-user.json');
+const STORAGE_STATE = path.join(__dirname, 'playwright/.auth/betterauth-user.json');
 
 const webEnvLocal = path.join(__dirname, 'apps/web/.env.local');
 if (fs.existsSync(webEnvLocal)) {
@@ -91,28 +90,15 @@ export default defineConfig({
     // SETUP PROJECTS
     // ==========================================
 
-    // Global setup - Clerk testing token setup
-    {
-      name: 'global-setup',
-      testMatch: /global\.setup\.ts/,
-    },
-
     // Auth setup project - authenticates and stores session
     {
       name: 'setup',
-      testMatch: /auth\.setup\.ts/,
-      dependencies: ['global-setup'],
+      testMatch: /auth-betterauth\.setup\.ts/,
     },
 
     // ==========================================
     // BETTER AUTH SETUP & TESTS
     // ==========================================
-
-    // Better Auth setup project - authenticates via Better Auth API
-    {
-      name: 'betterauth-setup',
-      testMatch: /auth-betterauth\.setup\.ts/,
-    },
 
     // Better Auth API tests - API-level auth verification (no browser)
     {
@@ -129,9 +115,9 @@ export default defineConfig({
       testMatch: /tests\/auth\/better-auth-e2e\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: BETTER_AUTH_STORAGE_STATE,
+        storageState: STORAGE_STATE,
       },
-      dependencies: ['betterauth-setup'],
+      dependencies: ['setup'],
     },
 
     // ==========================================

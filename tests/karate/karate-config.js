@@ -12,7 +12,7 @@ function fn() {
     customerId: get('KARATE_CUSTOMER_ID') || '26af6027-ba92-499f-870b-83ab62b746f6',
     itemId: get('KARATE_ITEM_ID') || '05d8aef8-9ddc-4afb-8a05-bb58f9f20c62',
     // Better Auth configuration
-    authMode: get('KARATE_AUTH_MODE') || 'api-key', // 'api-key', 'better-auth', 'clerk'
+    authMode: get('KARATE_AUTH_MODE') || 'api-key', // 'api-key', 'better-auth'
     betterAuthEmail: get('KARATE_BETTER_AUTH_EMAIL') || get('BETTER_AUTH_TEST_EMAIL') || '',
     betterAuthPassword: get('KARATE_BETTER_AUTH_PASSWORD') || get('BETTER_AUTH_TEST_PASSWORD') || '',
     betterAuthOrgId: get('KARATE_BETTER_AUTH_ORG_ID') || get('BETTER_AUTH_TEST_ORG_ID') || '',
@@ -34,7 +34,7 @@ function fn() {
     }
   }
   // For 'better-auth' mode, headers are set per-request with cookies
-  // For 'clerk' mode, bearer token would be set per-request
+  // Set bearer token for API key mode
 
   karate.configure('headers', headers);
 

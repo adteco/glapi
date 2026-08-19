@@ -8,7 +8,6 @@ import {
 } from '@glapi/database';
 import {
   isValidUuid,
-  unsafeClerkUserId,
   unsafeEntityId,
   unsafeOrganizationId,
   type EntityId,
@@ -283,7 +282,6 @@ export async function resolveRequestUser(request: FastifyRequest) {
 
     return {
       id: entityId,
-      clerkId: unsafeClerkUserId(entityId),
       entityId,
       organizationId,
       email: null,
@@ -340,7 +338,6 @@ export async function resolveRequestUser(request: FastifyRequest) {
 
   return {
     id: entityId,
-    clerkId: unsafeClerkUserId(entityId),
     betterAuthUserId,
     betterAuthOrganizationId,
     authProvider: 'better-auth' as const,

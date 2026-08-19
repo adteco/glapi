@@ -37,13 +37,13 @@ const handler = async (req: NextRequest) => {
   }
 
   // Create a user object compatible with the tRPC User interface
-  // Must include clerkId and entityId for proper serviceContext creation
+  // Must include betterAuthUserId and entityId for proper serviceContext creation
   const user = {
     id: context.userId,
-    clerkId: context.clerkUserId,
+    betterAuthUserId: context.betterAuthUserId,
     entityId: context.entityId,
     organizationId: context.organizationId,
-    email: null, // Would come from Clerk/auth provider
+    email: null, // Would come from auth provider
     role: (context.role ?? 'user') as 'user' | 'admin',
   };
 

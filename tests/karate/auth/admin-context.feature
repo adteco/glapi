@@ -1,6 +1,6 @@
 Feature: Admin context authentication for billing endpoints
   Validates that Better Auth admin sessions can access billing and admin-only routes.
-  The requireAdminContext() function must support Better Auth sessions, not just Clerk.
+  The requireAdminContext() function must support Better Auth sessions.
 
   Background:
     # Clear global API key/org headers -- these tests use cookie-only auth

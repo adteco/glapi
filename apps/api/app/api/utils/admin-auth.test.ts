@@ -1,13 +1,33 @@
 import type { NextRequest } from 'next/server';
 import { AdminAuthError, requireAdminContext } from './admin-auth';
 
-const mockVerifyClerkBearerToken = jest.fn();
-const mockGetClerkOrganizationMembership = jest.fn();
+const mockBetterAuthGetSession = jest.fn();
+const mockBetterAuthGetFullOrganization = jest.fn();
 
-jest.mock('./clerk-token', () => ({
-  verifyClerkBearerToken: (...args: unknown[]) => mockVerifyClerkBearerToken(...args),
-  getClerkOrganizationMembership: (...args: unknown[]) =>
-    mockGetClerkOrganizationMembership(...args),
+jest.mock('@glapi/auth', () => ({
+  auth: {
+    api: {
+      getSession: (...args: unknown[]) => mockBetterAuthGetSession(...args),
+      getFullOrganization: (...args: unknown[]) => mockBetterAuthGetFullOrganization(...args),
+    },
+  },
+}));
+
+jest.mock('@glapi/database', () => ({
+  OrganizationRepository: jest.fn().mockImplementation(() => ({
+    findByBetterAuthId: jest.fn().mockResolvedValue({ id: 'org_uuid_123' }),
+    findById: jest.fn().mockResolvedValue({ id: 'org_uuid_123' }),
+  })),
+  PermissionRepository: jest.fn().mockImplementation(() => ({
+    findEntityRoles: jest.fn().mockResolvedValue([]),
+  })),
+  AuthEntityRepository: jest.fn().mockImplementation(() => ({
+    findByBetterAuthId: jest.fn().mockResolvedValue({ id: 'entity_uuid_123' }),
+  })),
+  withOrganizationContext: (...args: unknown[]) => {
+      const callback = args[1] as any;
+      return callback({});
+  },
 }));
 
 function makeRequest(headersInit: HeadersInit): NextRequest {
@@ -22,82 +42,56 @@ describe('requireAdminContext', () => {
   });
 
   it('accepts an admin token with embedded org context', async () => {
-    mockVerifyClerkBearerToken.mockResolvedValue({
-      userId: 'user_test_123',
-      organizationId: 'org_test_123',
-      role: 'org:admin',
+    mockBetterAuthGetSession.mockResolvedValue({
+      user: { id: 'user_test_123' },
+      session: { activeOrganizationId: 'org_test_123' },
+    });
+    mockBetterAuthGetFullOrganization.mockResolvedValue({
+      members: [
+        { userId: 'user_test_123', role: 'admin' }
+      ]
     });
 
     await expect(
       requireAdminContext(
         makeRequest({
-          Authorization: 'Bearer valid-token',
+          'cookie': 'better-auth.session_token=valid-token',
         })
       )
     ).resolves.toEqual({
-      clerkOrgId: 'org_test_123',
-      clerkUserId: 'user_test_123',
-      role: 'org:admin',
-    });
-  });
-
-  it('accepts an admin token without org claim when Clerk verifies membership for the requested org', async () => {
-    mockVerifyClerkBearerToken.mockResolvedValue({
+      orgId: 'org_uuid_123',
       userId: 'user_test_123',
+      role: 'admin',
     });
-    mockGetClerkOrganizationMembership.mockResolvedValue({
-      clerkOrgId: 'org_test_123',
-      role: 'org:admin',
-    });
-
-    await expect(
-      requireAdminContext(
-        makeRequest({
-          Authorization: 'Bearer valid-token',
-          'x-organization-id': 'org_test_123',
-        })
-      )
-    ).resolves.toEqual({
-      clerkOrgId: 'org_test_123',
-      clerkUserId: 'user_test_123',
-      role: 'org:admin',
-    });
-  });
-
-  it('rejects a requested org when the authenticated user is not a member', async () => {
-    mockVerifyClerkBearerToken.mockResolvedValue({
-      userId: 'user_test_123',
-    });
-    mockGetClerkOrganizationMembership.mockResolvedValue(null);
-
-    await expect(
-      requireAdminContext(
-        makeRequest({
-          Authorization: 'Bearer valid-token',
-          'x-organization-id': 'org_test_123',
-        })
-      )
-    ).rejects.toThrow(
-      new AdminAuthError(
-        'Authenticated user is not a member of the requested organization',
-        403
-      )
-    );
   });
 
   it('rejects non-admin memberships', async () => {
-    mockVerifyClerkBearerToken.mockResolvedValue({
-      userId: 'user_test_123',
-      organizationId: 'org_test_123',
-      role: 'org:member',
+    mockBetterAuthGetSession.mockResolvedValue({
+      user: { id: 'user_test_123' },
+      session: { activeOrganizationId: 'org_test_123' },
+    });
+    mockBetterAuthGetFullOrganization.mockResolvedValue({
+      members: [
+        { userId: 'user_test_123', role: 'member' }
+      ]
     });
 
     await expect(
       requireAdminContext(
         makeRequest({
-          Authorization: 'Bearer valid-token',
+          'cookie': 'better-auth.session_token=valid-token',
         })
       )
     ).rejects.toThrow(new AdminAuthError('Admin role required', 403));
+  });
+
+  it('rejects unauthenticated requests', async () => {
+    mockBetterAuthGetSession.mockResolvedValue(null);
+
+    await expect(
+      requireAdminContext(
+        makeRequest({})
+      )
+    ).rejects.toThrow(new AdminAuthError('No valid Better Auth session found', 401));
   });
 });
