@@ -39,6 +39,7 @@
     "run:entities-migration": "tsx src/scripts/run-entities-migration.ts",
     "check:better-auth-schema": "tsx src/scripts/check-better-auth-schema.ts",
     "reconcile:better-auth": "tsx src/scripts/backfill-better-auth-mappings.ts",
+    "provision:better-auth-access": "tsx src/scripts/provision-better-auth-access.ts",
     "backfill:entity-roles": "tsx src/scripts/backfill-entity-roles.ts"
   },
   "dependencies": {
