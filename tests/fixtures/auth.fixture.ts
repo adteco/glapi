@@ -56,11 +56,11 @@ export { expect };
  */
 export async function isAuthenticated(page: Page): Promise<boolean> {
   try {
-    // Check for Clerk user button or other auth indicators
-    const userButton = page.locator(
-      '[data-clerk-user-button], .cl-userButton-root, [aria-label*="user menu"]'
+    // Check for user button or other auth indicators
+    const authIndicator = page.locator(
+      '[aria-label*="user menu"], [aria-label*="user"], button:has-text("Profile"), img[alt*="Avatar"]'
     );
-    return await userButton.isVisible({ timeout: 5000 });
+    return await authIndicator.isVisible({ timeout: 5000 });
   } catch {
     return false;
   }
@@ -72,13 +72,13 @@ export async function isAuthenticated(page: Page): Promise<boolean> {
 export async function signOut(page: Page): Promise<void> {
   // Click user button to open menu
   const userButton = page.locator(
-    '[data-clerk-user-button], .cl-userButton-root, [aria-label*="user menu"]'
+    '[aria-label*="user menu"], [aria-label*="user"], button:has-text("Profile"), img[alt*="Avatar"]'
   ).first();
   await userButton.click();
 
   // Click sign out option
   const signOutButton = page.locator(
-    'button:has-text("Sign out"), [data-clerk-sign-out]'
+    'button:has-text("Sign out"), button:has-text("Log out")'
   ).first();
   await signOutButton.click();
 
@@ -96,11 +96,13 @@ export async function goToDashboard(page: Page): Promise<void> {
 }
 
 /**
- * Helper to switch organization (if using Clerk organizations)
+ * Helper to switch organization
+ * @param page Playwright Page object
+ * @param orgName Organization name to switch to
  */
 export async function switchOrganization(page: Page, orgName: string): Promise<void> {
   const orgSwitcher = page.locator(
-    '[data-clerk-organization-switcher], .cl-organizationSwitcher-root'
+      '[aria-label*="organization"], button:has-text("Organization")'
   ).first();
 
   if (await orgSwitcher.isVisible()) {

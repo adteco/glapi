@@ -68,8 +68,6 @@ describe('proxyAuthenticatedApiRequest', () => {
         cookie: 'better-auth.session_token=session123',
         'x-organization-id': 'forged-org',
         'x-user-id': 'forged-user',
-        'x-clerk-organization-id': 'org_123',
-        'x-clerk-user-id': 'user_123',
       },
     });
 
@@ -83,8 +81,6 @@ describe('proxyAuthenticatedApiRequest', () => {
     expect(headers.get('authorization')).toBeNull();
     expect(headers.get('x-organization-id')).toBeNull();
     expect(headers.get('x-user-id')).toBeNull();
-    expect(headers.get('x-clerk-organization-id')).toBeNull();
-    expect(headers.get('x-clerk-user-id')).toBeNull();
     expect(headers.get('cookie')).toContain('better-auth.session_token=session123');
   });
 });

@@ -69,11 +69,16 @@ Secrets Manager JSON shape:
 {
   "DATABASE_URL": "postgres://...",
   "BETTER_AUTH_SECRET": "generate-a-strong-random-secret",
+  "GOOGLE_CLIENT_ID": "...",
+  "GOOGLE_CLIENT_SECRET": "...",
+  "MICROSOFT_CLIENT_ID": "...",
+  "MICROSOFT_CLIENT_SECRET": "...",
+  "MICROSOFT_TENANT_ID": "...",
   "GLAPI_API_KEYS_JSON": "{\"glapi_live_sk_...\":{\"organizationId\":\"...\",\"actorEntityId\":\"...\",\"name\":\"Production API key\",\"scopes\":[\"read\",\"write\"]}}"
 }
 ```
 
-The web secret only requires `DATABASE_URL` and `BETTER_AUTH_SECRET`. The API secret also requires `GLAPI_API_KEYS_JSON` when server-to-server or SDK clients are enabled. Use distinct `BETTER_AUTH_SECRET` and API keys per environment.
+The web secret only requires `DATABASE_URL` and `BETTER_AUTH_SECRET`. The API secret also requires the Google and Microsoft OAuth credentials shown above, plus `GLAPI_API_KEYS_JSON` when server-to-server or SDK clients are enabled. Register `${BETTER_AUTH_URL}/api/auth/callback/google` and `${BETTER_AUTH_URL}/api/auth/callback/microsoft` with the respective providers. Use distinct `BETTER_AUTH_SECRET` and API keys per environment.
 
 ## Current Migration Boundary
 

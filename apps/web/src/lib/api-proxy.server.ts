@@ -22,8 +22,6 @@ function buildUpstreamHeaders(request: NextRequest): Headers {
   headers.delete('authorization');
   headers.delete('x-organization-id');
   headers.delete('x-user-id');
-  headers.delete('x-clerk-organization-id');
-  headers.delete('x-clerk-user-id');
 
   return headers;
 }

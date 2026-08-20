@@ -8,26 +8,9 @@ import {
 } from '@glapi/database';
 import { auth as betterAuth } from '@glapi/auth';
 import type { ResourceType, Action, AccessLevel } from '@glapi/api-service';
-import type {
-  ClerkUserId,
-  ClerkOrgId,
-  EntityId,
-  OrganizationId,
-} from '@glapi/shared-types';
-import {
-  isValidUuid,
-  unsafeClerkUserId,
-  unsafeClerkOrgId,
-  unsafeEntityId,
-  unsafeOrganizationId,
-} from '@glapi/shared-types';
+import type { EntityId, OrganizationId } from '@glapi/shared-types';
+import { isValidUuid, unsafeEntityId, unsafeOrganizationId } from '@glapi/shared-types';
 import { extractBearerToken } from './request-auth';
-import {
-  getClerkOrganization,
-  getClerkOrganizationMembership,
-  getClerkSecretKey,
-  verifyClerkBearerToken,
-} from './clerk-token';
 
 export interface OrganizationContext {
   /**
@@ -42,19 +25,9 @@ export interface OrganizationContext {
   entityId: EntityId | null;
 
   /**
-   * Clerk user ID for external reference and logging.
-   */
-  clerkUserId?: ClerkUserId;
-
-  /**
    * Better Auth user ID.
    */
   betterAuthUserId?: string;
-
-  /**
-   * Clerk organization ID (original value from header).
-   */
-  clerkOrganizationId?: ClerkOrgId;
 
   /**
    * Better Auth organization ID.
@@ -78,7 +51,7 @@ export interface OrganizationContext {
   role?: 'user' | 'admin';
 
   /**
-   * @deprecated Use `clerkUserId` or `betterAuthUserId` instead.
+   * @deprecated Use `betterAuthUserId` instead.
    */
   userId: string;
 }
@@ -90,16 +63,14 @@ export class AuthenticationError extends Error {
   }
 }
 
-// Cache for Clerk/BetterAuth org ID to database org ID and name mapping
-const orgCache = new Map<string, { id: string; name: string; clerkOrgId?: string; betterAuthOrgId?: string }>();
+// Cache for BetterAuth org ID to database org ID and name mapping
+const orgCache = new Map<string, { id: string; name: string; betterAuthOrgId?: string }>();
 
 // Cache for external user ID to entity ID mapping
 const entityIdCache = new Map<string, string>();
 
 const AUTH_MAPPING_RECONCILIATION_COMMAND =
   'pnpm --filter @glapi/database reconcile:better-auth -- --write';
-
-type AuthProviderMode = 'clerk' | 'dual' | 'better-auth';
 
 function parseBooleanEnvFlag(value: string | undefined): boolean | undefined {
   if (!value) {
@@ -132,33 +103,11 @@ function canAutoProvisionExternalAuthRecords(): boolean {
   return process.env.NODE_ENV !== 'production';
 }
 
-function getAuthProviderMode(): AuthProviderMode {
-  const configuredMode = process.env.AUTH_PROVIDER_MODE?.trim().toLowerCase();
-
-  switch (configuredMode) {
-    case 'clerk':
-      return 'clerk';
-    case 'better-auth':
-    case 'better_auth':
-      return 'better-auth';
-    case 'dual':
-    case undefined:
-    case '':
-      return 'dual';
-    default:
-      console.warn(
-        `[auth] Unsupported AUTH_PROVIDER_MODE "${process.env.AUTH_PROVIDER_MODE}". Falling back to "clerk".`
-      );
-      return 'clerk';
-  }
-}
-
 function buildAuthDebugInfo(
-  headersList: Awaited<ReturnType<typeof headers>>,
-  authProviderMode: AuthProviderMode
+  headersList: Awaited<ReturnType<typeof headers>>
 ) {
   return {
-    mode: authProviderMode,
+    mode: 'better-auth',
     requestPath:
       headersList.get('next-url') ??
       headersList.get('x-invoke-path') ??
@@ -172,7 +121,7 @@ function buildAuthDebugInfo(
 }
 
 function logAuthFailure(
-  provider: 'clerk' | 'better-auth' | 'final',
+  provider: 'better-auth' | 'final',
   error: unknown,
   debugInfo: ReturnType<typeof buildAuthDebugInfo>
 ) {
@@ -187,7 +136,7 @@ function logAuthFailure(
 }
 
 function createMissingOrganizationMappingError(
-  providerLabel: 'Clerk organization' | 'Better Auth organization',
+  providerLabel: 'Better Auth organization',
   externalOrganizationId: string
 ): AuthenticationError {
   return new AuthenticationError(
@@ -196,7 +145,7 @@ function createMissingOrganizationMappingError(
 }
 
 function createMissingEntityMappingError(
-  providerLabel: 'Clerk user' | 'Better Auth user',
+  providerLabel: 'Better Auth user',
   externalUserId: string
 ): AuthenticationError {
   return new AuthenticationError(
@@ -212,16 +161,7 @@ export function resetAuthCachesForTest() {
 interface ResolvedOrganization {
   id: OrganizationId;
   name?: string;
-  clerkOrgId?: string;
   betterAuthOrgId?: string;
-}
-
-interface VerifiedClerkRequestContext {
-  organizationId: OrganizationId;
-  organizationName?: string;
-  entityId: EntityId;
-  clerkUserId: ClerkUserId;
-  clerkOrganizationId: ClerkOrgId;
 }
 
 interface VerifiedBetterAuthRequestContext {
@@ -258,15 +198,12 @@ async function resolveHeaderBackedContext(
   if (!resolvedEntityId && rawUserId) {
     if (!canAutoProvisionExternalAuthRecords() && !isValidUuid(rawUserId)) {
       throw createMissingEntityMappingError(
-        rawUserId.startsWith('user_') ? 'Clerk user' : 'Better Auth user',
+        'Better Auth user',
         rawUserId
       );
     }
 
-    // Try to ensure entity for Clerk user if it looks like one, or just treat as Better Auth
-    if (rawUserId.startsWith('user_')) {
-      resolvedEntityId = await ensureEntityForClerkUser(rawUserId, resolvedOrg.id);
-    } else if (!isValidUuid(rawUserId)) {
+    if (!isValidUuid(rawUserId)) {
       resolvedEntityId = await ensureEntityForBetterAuthUser(rawUserId, resolvedOrg.id);
     }
   }
@@ -285,124 +222,10 @@ async function resolveHeaderBackedContext(
     organizationId: resolvedOrg.id,
     organizationName: resolvedOrg.name,
     entityId: resolvedEntityId ?? (isValidUuid(rawUserId) ? unsafeEntityId(rawUserId) : null),
-    clerkUserId: rawUserId.startsWith('user_') ? unsafeClerkUserId(rawUserId) : undefined,
-    betterAuthUserId: !rawUserId.startsWith('user_') && !isValidUuid(rawUserId) ? rawUserId : undefined,
-    clerkOrganizationId: rawOrganizationId.startsWith('org_')
-      ? unsafeClerkOrgId(rawOrganizationId)
-      : undefined,
+    betterAuthUserId: !isValidUuid(rawUserId) ? rawUserId : undefined,
     betterAuthOrganizationId: resolvedOrg.betterAuthOrgId,
     apiKeyName,
     userId: dbUserId,
-  };
-}
-
-async function verifyClerkRequest(
-  headersList: Awaited<ReturnType<typeof headers>>
-): Promise<VerifiedClerkRequestContext | null> {
-  const token = extractBearerToken(headersList);
-  if (!token) {
-    return null;
-  }
-  
-  // Basic check to avoid verifying Clerk tokens if it's a Better Auth session
-  // Better Auth sessions are typically longer random strings or handled via cookies
-  if (!token.startsWith('clerk_') && token.length > 50 && !token.includes('.')) {
-    return null; // Likely a Better Auth session token, not a Clerk JWT
-  }
-
-  const rawOrganizationId = headersList.get('x-organization-id');
-  const requestedOrganization = rawOrganizationId
-    ? await resolveOrganization(rawOrganizationId)
-    : null;
-
-  let verifiedToken;
-  try {
-    verifiedToken = await verifyClerkBearerToken(token);
-  } catch (error) {
-    // A JWT-shaped token (contains dots) that fails verification is almost
-    // certainly a real Clerk token that the server can't validate — most
-    // commonly a CLERK_SECRET_KEY mismatch, a token issued by a different
-    // Clerk instance (dev vs prod), or an expired / malformed JWT. Surfacing
-    // the underlying error here turns a silent 401 into an actionable log.
-    const looksLikeJwt = token.includes('.');
-    const message = error instanceof Error ? error.message : String(error);
-    if (looksLikeJwt) {
-      console.warn('[auth] Clerk bearer token failed verification', {
-        error: message,
-        tokenLength: token.length,
-        tokenPrefix: token.slice(0, 8),
-      });
-      throw new AuthenticationError(`Clerk token verification failed: ${message}`);
-    }
-    // Otherwise it might be a Better Auth session token forwarded as a bearer;
-    // returning null lets the dual-mode fallthrough continue.
-    return null;
-  }
-
-  let tokenOrganizationId = verifiedToken.organizationId;
-  let resolvedOrg =
-    tokenOrganizationId ? await resolveOrganization(tokenOrganizationId) : null;
-
-  if (!tokenOrganizationId && requestedOrganization?.clerkOrgId) {
-    const membership = await getClerkOrganizationMembership(
-      verifiedToken.userId,
-      requestedOrganization.clerkOrgId
-    );
-
-    if (!membership) {
-      throw new AuthenticationError(
-        'Authenticated user is not a member of the requested organization.'
-      );
-    }
-
-    tokenOrganizationId = membership.clerkOrgId;
-    resolvedOrg = requestedOrganization;
-  }
-
-  if (!resolvedOrg) {
-    if (tokenOrganizationId) {
-      throw createMissingOrganizationMappingError(
-        'Clerk organization',
-        tokenOrganizationId
-      );
-    }
-
-    throw new AuthenticationError(
-      'No organization context found in bearer token or verified request headers'
-    );
-  }
-
-  let resolvedEntityId = await resolveEntityId(verifiedToken.userId, resolvedOrg.id);
-  if (!resolvedEntityId) {
-    if (!canAutoProvisionExternalAuthRecords()) {
-      throw createMissingEntityMappingError('Clerk user', verifiedToken.userId);
-    }
-
-    resolvedEntityId = await ensureEntityForClerkUser(verifiedToken.userId, resolvedOrg.id);
-  }
-
-  if (!resolvedEntityId) {
-    throw new AuthenticationError(
-      'Authenticated user could not be resolved to an entity record.'
-    );
-  }
-
-  if (rawOrganizationId) {
-    if (!requestedOrganization || requestedOrganization.id !== resolvedOrg.id) {
-      throw new AuthenticationError(
-        'Organization header does not match authenticated token context.'
-      );
-    }
-  }
-
-  return {
-    organizationId: resolvedOrg.id,
-    organizationName: resolvedOrg.name,
-    entityId: resolvedEntityId,
-    clerkUserId: unsafeClerkUserId(verifiedToken.userId),
-    clerkOrganizationId: tokenOrganizationId.startsWith('org_')
-      ? unsafeClerkOrgId(tokenOrganizationId)
-      : undefined,
   };
 }
 
@@ -468,7 +291,6 @@ async function resolveOrganization(orgId: string): Promise<ResolvedOrganization 
     return {
       id: unsafeOrganizationId(cached.id),
       name: cached.name,
-      clerkOrgId: cached.clerkOrgId,
       betterAuthOrgId: cached.betterAuthOrgId,
     };
   }
@@ -483,17 +305,14 @@ async function resolveOrganization(orgId: string): Promise<ResolvedOrganization 
         const resolved = { 
             id: org.id, 
             name: org.name, 
-            clerkOrgId: org.clerkOrgId || undefined,
             betterAuthOrgId: org.betterAuthOrgId || undefined
         };
         orgCache.set(orgId, resolved);
-        if (org.clerkOrgId) orgCache.set(org.clerkOrgId, resolved);
         if (org.betterAuthOrgId) orgCache.set(org.betterAuthOrgId, resolved);
         
         return {
           id: unsafeOrganizationId(org.id),
           name: org.name,
-          clerkOrgId: org.clerkOrgId || undefined,
           betterAuthOrgId: org.betterAuthOrgId || undefined
         };
       }
@@ -503,56 +322,12 @@ async function resolveOrganization(orgId: string): Promise<ResolvedOrganization 
     return { id: unsafeOrganizationId(orgId) };
   }
 
-  // Look up by Clerk org ID
-  if (orgId.startsWith('org_')) {
-      const org = await orgRepo.findByClerkId(orgId);
-      if (org) {
-          const resolved = { 
-              id: org.id, 
-              name: org.name, 
-              clerkOrgId: org.clerkOrgId || undefined,
-              betterAuthOrgId: org.betterAuthOrgId || undefined
-          };
-          orgCache.set(orgId, resolved);
-          orgCache.set(org.id, resolved);
-          return {
-              id: unsafeOrganizationId(org.id),
-              name: org.name,
-              clerkOrgId: org.clerkOrgId || undefined,
-              betterAuthOrgId: org.betterAuthOrgId || undefined
-          };
-      }
-      
-      // Auto-provision Clerk
-      const clerkOrg = await getClerkOrganization(orgId);
-      if (clerkOrg) {
-        if (!canAutoProvisionExternalAuthRecords()) {
-          throw createMissingOrganizationMappingError('Clerk organization', orgId);
-        }
-
-        const created = await orgRepo.createFromClerk({
-          clerkOrgId: orgId,
-          name: clerkOrg.name,
-          slug: clerkOrg.slug || clerkOrg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-        });
-        const resolved = { id: created.id, name: created.name, clerkOrgId: created.clerkOrgId || undefined };
-        orgCache.set(orgId, resolved);
-        orgCache.set(created.id, resolved);
-        return {
-          id: unsafeOrganizationId(created.id),
-          name: created.name,
-          clerkOrgId: created.clerkOrgId || undefined,
-        };
-      }
-  }
-
   // Look up by Better Auth org ID
   const org = await orgRepo.findByBetterAuthId(orgId);
   if (org) {
       const resolved = { 
           id: org.id, 
           name: org.name, 
-          clerkOrgId: org.clerkOrgId || undefined,
           betterAuthOrgId: org.betterAuthOrgId || undefined
       };
       orgCache.set(orgId, resolved);
@@ -560,7 +335,6 @@ async function resolveOrganization(orgId: string): Promise<ResolvedOrganization 
       return {
           id: unsafeOrganizationId(org.id),
           name: org.name,
-          clerkOrgId: org.clerkOrgId || undefined,
           betterAuthOrgId: org.betterAuthOrgId || undefined
       };
   }
@@ -585,13 +359,7 @@ async function resolveEntityId(
 
   try {
     const authEntityRepo = new AuthEntityRepository();
-    let entity;
-
-    if (externalUserId.startsWith('user_')) {
-        entity = await authEntityRepo.findByClerkId(externalUserId);
-    } else {
-        entity = await authEntityRepo.findByBetterAuthId(externalUserId);
-    }
+    const entity = await authEntityRepo.findByBetterAuthId(externalUserId);
 
     if (entity) {
       entityIdCache.set(externalUserId, entity.id);
@@ -602,41 +370,6 @@ async function resolveEntityId(
   }
 
   return null;
-}
-
-/**
- * Ensure a Clerk user has an auth-enabled entity row
- */
-async function ensureEntityForClerkUser(
-  clerkUserId: string,
-  organizationId: OrganizationId
-): Promise<EntityId | null> {
-  try {
-    const entityId = await withOrganizationContext({ organizationId }, async (contextDb) => {
-        const authEntityRepo = new AuthEntityRepository(contextDb);
-        const existing = await authEntityRepo.findByClerkId(clerkUserId);
-        if (existing) return existing.id;
-
-        const created = await authEntityRepo.createUserEntity({
-          clerkUserId,
-          email: `${clerkUserId}@placeholder.local`,
-          name: `User ${clerkUserId.slice(-8)}`,
-          organizationId,
-          role: 'user',
-        });
-        return created.id;
-    });
-
-    entityIdCache.set(clerkUserId, entityId);
-
-    // Auto-assign default RBAC role on entity provisioning
-    await assignDefaultRoleIfMissing(entityId, organizationId);
-
-    return unsafeEntityId(entityId);
-  } catch (error) {
-    console.error('[auth] Failed to auto-provision Clerk auth entity', error);
-    return null;
-  }
 }
 
 /**
@@ -740,125 +473,58 @@ export async function getServiceContext(): Promise<OrganizationContext> {
   const apiKeyName = headersList.get('x-api-key-name');
 
   const isProduction = process.env.NODE_ENV === 'production';
-  const authProviderMode = getAuthProviderMode();
-  const authDebugInfo = buildAuthDebugInfo(headersList, authProviderMode);
+  const authDebugInfo = buildAuthDebugInfo(headersList);
 
-  // Tracks which providers were attempted and what they returned, so the final
-  // "Authentication required" log can explain *why* both paths failed.
-  const attemptTrace: { provider: 'better-auth' | 'clerk'; outcome: 'null' | 'error' | 'success'; error?: string }[] = [];
+  const attemptTrace: { provider: 'better-auth'; outcome: 'null' | 'error' | 'success'; error?: string }[] = [];
 
   if (apiKeyName) {
     return resolveHeaderBackedContext(rawOrganizationId, rawUserId, apiKeyName || undefined);
   }
 
-  // 1. Try Better Auth only when explicitly enabled.
-  if (authProviderMode === 'dual' || authProviderMode === 'better-auth') {
-    try {
-      const betterAuthContext = await verifyBetterAuthRequest(headersList);
-      if (!betterAuthContext) {
-        attemptTrace.push({ provider: 'better-auth', outcome: 'null' });
-      }
-      if (betterAuthContext) {
-          if (
-            rawUserId &&
-            rawUserId !== betterAuthContext.betterAuthUserId &&
-            rawUserId !== betterAuthContext.entityId
-          ) {
-            throw new AuthenticationError(
-              'User header does not match authenticated token context.'
-            );
-          }
-
-          const betterAuthRole = await resolveEntityRole(
-            betterAuthContext.entityId,
-            betterAuthContext.organizationId,
-          );
-
-          return {
-              organizationId: betterAuthContext.organizationId,
-              organizationName: betterAuthContext.organizationName,
-              entityId: betterAuthContext.entityId,
-              betterAuthUserId: betterAuthContext.betterAuthUserId,
-              betterAuthOrganizationId: betterAuthContext.betterAuthOrganizationId,
-              role: betterAuthRole,
-              userId: betterAuthContext.entityId,
-          };
-      }
-    } catch (error) {
-      attemptTrace.push({
-        provider: 'better-auth',
-        outcome: 'error',
-        error: error instanceof Error ? error.message : String(error),
-      });
-      logAuthFailure('better-auth', error, authDebugInfo);
-
-      if (authProviderMode === 'better-auth' && isProduction) {
-        throw error;
-      }
-
-      if (!isProduction) {
-        console.warn('[auth] Better Auth authentication failed:', error);
-      }
+  try {
+    const betterAuthContext = await verifyBetterAuthRequest(headersList);
+    if (!betterAuthContext) {
+      attemptTrace.push({ provider: 'better-auth', outcome: 'null' });
     }
-  }
-
-  // 2. Try Clerk
-  const clerkSecret =
-    authProviderMode === 'better-auth'
-      ? null
-      : getClerkSecretKey();
-
-  if (clerkSecret) {
-    try {
-      const verifiedClerkContext = await verifyClerkRequest(headersList);
-      if (!verifiedClerkContext) {
-        attemptTrace.push({ provider: 'clerk', outcome: 'null' });
-      }
-      if (verifiedClerkContext) {
+    if (betterAuthContext) {
         if (
           rawUserId &&
-          rawUserId !== verifiedClerkContext.clerkUserId &&
-          rawUserId !== verifiedClerkContext.entityId
+          rawUserId !== betterAuthContext.betterAuthUserId &&
+          rawUserId !== betterAuthContext.entityId
         ) {
           throw new AuthenticationError(
             'User header does not match authenticated token context.'
           );
         }
 
-        const clerkRole = await resolveEntityRole(
-          verifiedClerkContext.entityId,
-          verifiedClerkContext.organizationId,
+        const betterAuthRole = await resolveEntityRole(
+          betterAuthContext.entityId,
+          betterAuthContext.organizationId,
         );
 
         return {
-          organizationId: verifiedClerkContext.organizationId,
-          organizationName: verifiedClerkContext.organizationName,
-          entityId: verifiedClerkContext.entityId,
-          clerkUserId: verifiedClerkContext.clerkUserId,
-          clerkOrganizationId: verifiedClerkContext.clerkOrganizationId,
-          role: clerkRole,
-          userId: verifiedClerkContext.entityId,
+            organizationId: betterAuthContext.organizationId,
+            organizationName: betterAuthContext.organizationName,
+            entityId: betterAuthContext.entityId,
+            betterAuthUserId: betterAuthContext.betterAuthUserId,
+            betterAuthOrganizationId: betterAuthContext.betterAuthOrganizationId,
+            role: betterAuthRole,
+            userId: betterAuthContext.entityId,
         };
-      }
-    } catch (error) {
-      attemptTrace.push({
-        provider: 'clerk',
-        outcome: 'error',
-        error: error instanceof Error ? error.message : String(error),
-      });
-      logAuthFailure('clerk', error, authDebugInfo);
-      if (isProduction) throw error;
-      console.warn('[auth] Clerk authentication failed:', error instanceof Error ? error.message : error);
     }
-  } else {
+  } catch (error) {
     attemptTrace.push({
-      provider: 'clerk',
+      provider: 'better-auth',
       outcome: 'error',
-      error:
-        authProviderMode === 'better-auth'
-          ? 'skipped: AUTH_PROVIDER_MODE=better-auth'
-          : 'skipped: CLERK_SECRET_KEY not configured',
+      error: error instanceof Error ? error.message : String(error),
     });
+    logAuthFailure('better-auth', error, authDebugInfo);
+
+    if (isProduction) {
+      throw error;
+    }
+
+    console.warn('[auth] Better Auth authentication failed:', error);
   }
 
   if (isProduction) {

@@ -3,14 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w"
   },
   "dependencies": {
-    "better-auth": "^1.1.0",
+    "better-auth": "^1.6.2",
     "@glapi/database": "workspace:*",
     "drizzle-orm": "^0.39.0"
   },

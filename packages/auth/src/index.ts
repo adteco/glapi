@@ -27,6 +27,27 @@ const baseURL =
   process.env.NEXT_PUBLIC_APP_URL ||
   'http://localhost:3031';
 
+function configuredSocialProviders() {
+  const providers: Record<string, Record<string, string>> = {};
+
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    providers.google = {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    };
+  }
+
+  if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
+    providers.microsoft = {
+      clientId: process.env.MICROSOFT_CLIENT_ID,
+      clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+      tenantId: process.env.MICROSOFT_TENANT_ID || 'common',
+    };
+  }
+
+  return providers;
+}
+
 export const auth = betterAuth({
   baseURL,
   secret: process.env.BETTER_AUTH_SECRET,
@@ -50,6 +71,13 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+  },
+  socialProviders: configuredSocialProviders(),
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ['google', 'microsoft'],
+    },
   },
   plugins: [
     organization({

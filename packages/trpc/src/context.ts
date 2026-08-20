@@ -20,7 +20,7 @@ export interface User {
    * @deprecated Prefer `betterAuthUserId` for new auth flows and `entityId`
    * for database audit fields.
    */
-  clerkId: ClerkUserId;
+  clerkId?: ClerkUserId;
 
   /**
    * Better Auth user ID - current external authentication identifier.
@@ -89,7 +89,7 @@ export interface ServiceContext {
    *
    * @deprecated Prefer `betterAuthUserId` for new auth flows.
    */
-  clerkUserId: ClerkUserId;
+  clerkUserId?: ClerkUserId;
 
   /**
    * Better Auth user ID for current external reference and logging.

@@ -22,11 +22,11 @@ export class BasePage {
     // Initialize common locators
     this.sidebar = page.locator('[data-testid="sidebar"], aside, nav[role="navigation"]');
     this.userButton = page.locator(
-      '[data-clerk-user-button], .cl-userButton-root, [aria-label*="user"]'
-    );
+      '[aria-label*="user menu"], [aria-label*="user"], button:has-text("Profile"), img[alt*="Avatar"]'
+    ).first();
     this.orgSwitcher = page.locator(
-      '[data-clerk-organization-switcher], .cl-organizationSwitcher-root'
-    );
+      '[aria-label*="organization"], button:has-text("Organization")'
+    ).first();
     this.loadingSpinner = page.locator(
       '[data-testid="loading"], .loading, [role="progressbar"], .animate-spin'
     );

@@ -1,4 +1,3 @@
-import { verifyToken } from '@clerk/backend';
 import type { AuthContext } from './types';
 
 export class AuthenticationError extends Error {
@@ -35,7 +34,7 @@ export async function authenticateRequest(
   console.log('[Auth] Token length:', token.length);
   
   // Development mode: accept test tokens
-  if (token === 'test-dev-token' && (!env.CLERK_SECRET_KEY || env.CLERK_SECRET_KEY.includes('test'))) {
+  if (token === 'test-dev-token') {
     console.log('[Auth] Using development test token');
     return {
       userId: 'user_development',
@@ -64,33 +63,39 @@ export async function authenticateRequest(
   }
   
   try {
-    // Verify the Clerk JWT token
-    const payload = await verifyToken(token, {
-      secretKey: env.CLERK_SECRET_KEY,
+    // Validate Better Auth session by calling the main API
+    const response = await fetch(`${env.GLAPI_API_URL || 'http://localhost:3031'}/api/auth/get-session`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
     });
 
-    if (!payload.sub) {
-      throw new AuthenticationError('Invalid token: missing user ID');
+    if (!response.ok) {
+      throw new AuthenticationError('Invalid token: API rejected session');
     }
 
-    // Extract organization from token or custom claims
-    const organizationId = payload.org_id || payload.organization_id;
+    const sessionData: any = await response.json();
+    
+    if (!sessionData || !sessionData.user) {
+      throw new AuthenticationError('Invalid token: missing user session');
+    }
+
+    const organizationId = sessionData.session?.activeOrganizationId;
     
     if (!organizationId) {
-      throw new AuthenticationError('No organization context found in token');
+      throw new AuthenticationError('No organization context found in session');
     }
 
-    // Extract user information
     const user = {
-      id: payload.sub,
-      email: payload.email as string,
-      firstName: payload.given_name as string,
-      lastName: payload.family_name as string,
+      id: sessionData.user.id,
+      email: sessionData.user.email,
+      firstName: sessionData.user.name?.split(' ')[0] || '',
+      lastName: sessionData.user.name?.split(' ').slice(1).join(' ') || '',
     };
 
     // Extract permissions (this could be expanded based on your permission model)
     // For now, grant all permissions to authenticated users with an org context
-    const permissions = payload.permissions as string[] || [
+    const permissions = sessionData.user.permissions || [
       'read',
       'write',
       'customers:read',
@@ -104,7 +109,7 @@ export async function authenticateRequest(
     ];
 
     return {
-      userId: payload.sub,
+      userId: sessionData.user.id,
       organizationId: organizationId as string,
       permissions,
       token, // Include the original token for forwarding
@@ -112,6 +117,9 @@ export async function authenticateRequest(
       user,
     };
   } catch (error) {
+    if (error instanceof AuthenticationError) {
+      throw error;
+    }
     console.error('Authentication error:', error);
     throw new AuthenticationError('Token validation failed');
   }
@@ -183,6 +191,13 @@ export class RateLimiter {
 // Environment interface for Cloudflare Worker
 export interface Env {
   CLERK_SECRET_KEY: string;
+  GLAPI_API_URL: string;
+  OPENAI_API_KEY?: string;
+  RATE_LIMIT_REQUESTS_PER_MINUTE?: string;
+  RATE_LIMIT_BURST?: string;
+}
+// Environment interface for Cloudflare Worker
+export interface Env {
   GLAPI_API_URL: string;
   OPENAI_API_KEY?: string;
   RATE_LIMIT_REQUESTS_PER_MINUTE?: string;

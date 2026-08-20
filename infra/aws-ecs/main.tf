@@ -406,6 +406,11 @@ resource "aws_ecs_task_definition" "api" {
       secrets = [
         { name = "DATABASE_URL", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:DATABASE_URL::" },
         { name = "BETTER_AUTH_SECRET", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:BETTER_AUTH_SECRET::" },
+        { name = "GOOGLE_CLIENT_ID", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:GOOGLE_CLIENT_ID::" },
+        { name = "GOOGLE_CLIENT_SECRET", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:GOOGLE_CLIENT_SECRET::" },
+        { name = "MICROSOFT_CLIENT_ID", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:MICROSOFT_CLIENT_ID::" },
+        { name = "MICROSOFT_CLIENT_SECRET", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:MICROSOFT_CLIENT_SECRET::" },
+        { name = "MICROSOFT_TENANT_ID", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:MICROSOFT_TENANT_ID::" },
         { name = "GLAPI_API_KEYS_JSON", valueFrom = "${data.aws_secretsmanager_secret.api.arn}:GLAPI_API_KEYS_JSON::" }
       ]
       logConfiguration = {

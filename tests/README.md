@@ -20,8 +20,8 @@ tests/
 ├── ui/                     # UI component tests
 ├── helpers/                # Test utilities and helpers
 ├── fixtures/               # Test data fixtures
-├── auth.setup.ts           # Authentication setup (runs before authenticated tests)
-├── global.setup.ts         # Global setup (Clerk testing tokens)
+├── auth-betterauth.setup.ts # BetterAuth setup
+├── auth.spec.ts            # Basic auth tests
 └── smoke.spec.ts           # Quick verification smoke tests
 ```
 
@@ -131,7 +131,7 @@ Key settings:
 ## Authentication
 
 Tests requiring authentication depend on the `setup` project which:
-1. Runs `global.setup.ts` - Sets up Clerk testing tokens
+1. Runs `auth-betterauth.setup.ts` - Creates Better Auth sessions and saves state
 2. Runs `auth.setup.ts` - Authenticates and saves session state
 
 Session state is stored in `playwright/.auth/user.json` and reused by authenticated tests.

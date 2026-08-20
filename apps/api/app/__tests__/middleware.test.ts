@@ -7,8 +7,6 @@ describe('normalizeApiRequestHeaders', () => {
         Authorization: 'Bearer valid-token',
         'x-organization-id': 'org_test_123',
         'x-user-id': 'user_test_123',
-        'x-clerk-organization-id': 'org_test_123',
-        'x-clerk-user-id': 'user_test_123',
       }),
       { isProduction: true }
     );
@@ -17,8 +15,6 @@ describe('normalizeApiRequestHeaders', () => {
     expect(invalidApiKey).toBe(false);
     expect(requestHeaders.get('x-organization-id')).toBe('org_test_123');
     expect(requestHeaders.get('x-user-id')).toBeNull();
-    expect(requestHeaders.get('x-clerk-organization-id')).toBeNull();
-    expect(requestHeaders.get('x-clerk-user-id')).toBeNull();
   });
 
   it('strips browser-supplied org and user headers from unauthenticated production requests', () => {

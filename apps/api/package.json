@@ -13,9 +13,8 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@clerk/backend": "^2.17.2",
-    "@glapi/auth": "workspace:*",
     "@glapi/api-service": "workspace:*",
+    "@glapi/auth": "workspace:*",
     "@glapi/database": "workspace:*",
     "@glapi/shared-types": "workspace:*",
     "@glapi/trpc": "workspace:*",

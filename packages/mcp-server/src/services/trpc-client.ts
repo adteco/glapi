@@ -20,8 +20,6 @@ export function createBackendClient(apiUrl: string, authContext: AuthContext) {
             authorization: `Bearer ${authContext.token}`,
             'x-organization-id': authContext.organizationId,
             'x-user-id': authContext.userId,
-            'x-clerk-user-id': authContext.userId,
-            'x-clerk-organization-id': authContext.organizationId,
           };
         },
         fetch: async (input, init) => {

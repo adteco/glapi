@@ -1,15 +1,14 @@
 import { SignIn } from "@/lib/auth-compat.client";
 
+export const metadata = {
+  title: "Sign in - GLAPI",
+  description: "Sign in to your GLAPI account",
+};
+
 export default function SignInPage() {
   return (
-    <section className="relative bg-gray-900">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="pt-32 pb-12 md:pt-40 md:pb-20">
-          <div className="flex justify-center">
-            <SignIn />
-          </div>
-        </div>
-      </div>
+    <section className="flex min-h-svh items-center justify-center px-4 py-16 sm:px-6">
+      <SignIn />
     </section>
   );
 }
