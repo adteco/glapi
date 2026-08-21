@@ -338,7 +338,7 @@ import type { AppRouter } from '@glapi/trpc';
 const client = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
-      url: 'https://api.glapi.io/api/trpc',
+      url: 'https://api.glapi.io/trpc',
       headers: () => ({
         Authorization: \`Bearer \${process.env.GLAPI_TOKEN}\`,
       }),

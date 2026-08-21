@@ -38,13 +38,13 @@ describe('proxyAuthenticatedApiRequest', () => {
       }
     );
 
-    const response = await proxyAuthenticatedApiRequest(request, '/api/trpc/workflows.list');
+    const response = await proxyAuthenticatedApiRequest(request, '/trpc/workflows.list');
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('http://localhost:3031/api/trpc/workflows.list?batch=1');
+    expect(url).toBe('http://localhost:3031/trpc/workflows.list?batch=1');
 
     const headers = new Headers(init.headers);
     expect(headers.get('cookie')).toContain('better-auth.session_token=session123');
@@ -71,7 +71,7 @@ describe('proxyAuthenticatedApiRequest', () => {
       },
     });
 
-    const response = await proxyAuthenticatedApiRequest(request, '/api/trpc/workflows.list');
+    const response = await proxyAuthenticatedApiRequest(request, '/trpc/workflows.list');
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(1);

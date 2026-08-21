@@ -64,7 +64,7 @@ export async function authenticateRequest(
   
   try {
     // Validate Better Auth session by calling the main API
-    const response = await fetch(`${env.GLAPI_API_URL || 'http://localhost:3031'}/api/auth/get-session`, {
+    const response = await fetch(`${env.GLAPI_API_URL || 'http://localhost:3031'}/auth/get-session`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

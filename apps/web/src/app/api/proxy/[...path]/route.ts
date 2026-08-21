@@ -9,7 +9,7 @@ async function proxyToApi(
   context: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await context.params;
-  const upstreamPath = `/api/${(path || []).map((segment) => encodeURIComponent(segment)).join('/')}`;
+  const upstreamPath = `/v1/${(path || []).map((segment) => encodeURIComponent(segment)).join('/')}`;
   return proxyAuthenticatedApiRequest(request, upstreamPath);
 }
 

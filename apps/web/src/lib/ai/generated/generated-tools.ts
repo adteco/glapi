@@ -102,7 +102,7 @@ export const LIST_CUSTOMERS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'customers.list',
-    path: '/api/customers',
+    path: '/v1/customers',
     method: 'GET',
   },
 };
@@ -141,7 +141,7 @@ export const CREATE_CUSTOMER_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'customers.create',
-    path: '/api/customers',
+    path: '/v1/customers',
     method: 'POST',
   },
 };
@@ -194,7 +194,7 @@ export const GET_CUSTOMER_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'customers.get',
-    path: '/api/customers/{id}',
+    path: '/v1/customers/{id}',
     method: 'GET',
   },
 };
@@ -242,7 +242,7 @@ export const UPDATE_CUSTOMER_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'customers.update',
-    path: '/api/customers/{id}',
+    path: '/v1/customers/{id}',
     method: 'PUT',
   },
 };
@@ -291,7 +291,7 @@ export const DELETE_CUSTOMER_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'customers.delete',
-    path: '/api/customers/{id}',
+    path: '/v1/customers/{id}',
     method: 'DELETE',
   },
 };
@@ -335,7 +335,7 @@ export const LIST_ORGANIZATIONS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'organizations.list',
-    path: '/api/organizations',
+    path: '/v1/organizations',
     method: 'GET',
   },
 };
@@ -374,7 +374,7 @@ export const CREATE_ORGANIZATION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'organizations.create',
-    path: '/api/organizations',
+    path: '/v1/organizations',
     method: 'POST',
   },
 };
@@ -427,7 +427,7 @@ export const GET_ORGANIZATION_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'organizations.get',
-    path: '/api/organizations/{id}',
+    path: '/v1/organizations/{id}',
     method: 'GET',
   },
 };
@@ -475,7 +475,7 @@ export const UPDATE_ORGANIZATION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'organizations.update',
-    path: '/api/organizations/{id}',
+    path: '/v1/organizations/{id}',
     method: 'PUT',
   },
 };
@@ -524,7 +524,7 @@ export const DELETE_ORGANIZATION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'organizations.delete',
-    path: '/api/organizations/{id}',
+    path: '/v1/organizations/{id}',
     method: 'DELETE',
   },
 };
@@ -568,7 +568,7 @@ export const LIST_SUBSIDIARIES_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'subsidiaries.list',
-    path: '/api/subsidiaries',
+    path: '/v1/subsidiaries',
     method: 'GET',
   },
 };
@@ -607,7 +607,7 @@ export const CREATE_SUBSIDIARIE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'subsidiaries.create',
-    path: '/api/subsidiaries',
+    path: '/v1/subsidiaries',
     method: 'POST',
   },
 };
@@ -660,7 +660,7 @@ export const GET_SUBSIDIARIE_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'subsidiaries.get',
-    path: '/api/subsidiaries/{id}',
+    path: '/v1/subsidiaries/{id}',
     method: 'GET',
   },
 };
@@ -708,7 +708,7 @@ export const UPDATE_SUBSIDIARIE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'subsidiaries.update',
-    path: '/api/subsidiaries/{id}',
+    path: '/v1/subsidiaries/{id}',
     method: 'PUT',
   },
 };
@@ -757,7 +757,7 @@ export const DELETE_SUBSIDIARIE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'subsidiaries.delete',
-    path: '/api/subsidiaries/{id}',
+    path: '/v1/subsidiaries/{id}',
     method: 'DELETE',
   },
 };
@@ -801,7 +801,7 @@ export const LIST_DEPARTMENTS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'departments.list',
-    path: '/api/departments',
+    path: '/v1/departments',
     method: 'GET',
   },
 };
@@ -840,7 +840,7 @@ export const CREATE_DEPARTMENT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'departments.create',
-    path: '/api/departments',
+    path: '/v1/departments',
     method: 'POST',
   },
 };
@@ -893,7 +893,7 @@ export const GET_DEPARTMENT_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'departments.get',
-    path: '/api/departments/{id}',
+    path: '/v1/departments/{id}',
     method: 'GET',
   },
 };
@@ -941,7 +941,7 @@ export const UPDATE_DEPARTMENT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'departments.update',
-    path: '/api/departments/{id}',
+    path: '/v1/departments/{id}',
     method: 'PUT',
   },
 };
@@ -990,7 +990,7 @@ export const DELETE_DEPARTMENT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'departments.delete',
-    path: '/api/departments/{id}',
+    path: '/v1/departments/{id}',
     method: 'DELETE',
   },
 };
@@ -1034,7 +1034,7 @@ export const LIST_LOCATIONS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'locations.list',
-    path: '/api/locations',
+    path: '/v1/locations',
     method: 'GET',
   },
 };
@@ -1073,7 +1073,7 @@ export const CREATE_LOCATION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'locations.create',
-    path: '/api/locations',
+    path: '/v1/locations',
     method: 'POST',
   },
 };
@@ -1126,7 +1126,7 @@ export const GET_LOCATION_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'locations.get',
-    path: '/api/locations/{id}',
+    path: '/v1/locations/{id}',
     method: 'GET',
   },
 };
@@ -1174,7 +1174,7 @@ export const UPDATE_LOCATION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'locations.update',
-    path: '/api/locations/{id}',
+    path: '/v1/locations/{id}',
     method: 'PUT',
   },
 };
@@ -1223,7 +1223,7 @@ export const DELETE_LOCATION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'locations.delete',
-    path: '/api/locations/{id}',
+    path: '/v1/locations/{id}',
     method: 'DELETE',
   },
 };
@@ -1267,7 +1267,7 @@ export const LIST_CLASSES_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'classes.list',
-    path: '/api/classes',
+    path: '/v1/classes',
     method: 'GET',
   },
 };
@@ -1306,7 +1306,7 @@ export const CREATE_CLASSE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'classes.create',
-    path: '/api/classes',
+    path: '/v1/classes',
     method: 'POST',
   },
 };
@@ -1359,7 +1359,7 @@ export const GET_CLASSE_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'classes.get',
-    path: '/api/classes/{id}',
+    path: '/v1/classes/{id}',
     method: 'GET',
   },
 };
@@ -1407,7 +1407,7 @@ export const UPDATE_CLASSE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'classes.update',
-    path: '/api/classes/{id}',
+    path: '/v1/classes/{id}',
     method: 'PUT',
   },
 };
@@ -1456,7 +1456,7 @@ export const DELETE_CLASSE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'classes.delete',
-    path: '/api/classes/{id}',
+    path: '/v1/classes/{id}',
     method: 'DELETE',
   },
 };
@@ -1500,7 +1500,7 @@ export const LIST_ITEMS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'items.list',
-    path: '/api/items',
+    path: '/v1/items',
     method: 'GET',
   },
 };
@@ -1539,7 +1539,7 @@ export const CREATE_ITEM_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'items.create',
-    path: '/api/items',
+    path: '/v1/items',
     method: 'POST',
   },
 };
@@ -1592,7 +1592,7 @@ export const GET_ITEM_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'items.get',
-    path: '/api/items/{id}',
+    path: '/v1/items/{id}',
     method: 'GET',
   },
 };
@@ -1640,7 +1640,7 @@ export const UPDATE_ITEM_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'items.update',
-    path: '/api/items/{id}',
+    path: '/v1/items/{id}',
     method: 'PUT',
   },
 };
@@ -1689,7 +1689,7 @@ export const DELETE_ITEM_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'items.delete',
-    path: '/api/items/{id}',
+    path: '/v1/items/{id}',
     method: 'DELETE',
   },
 };
@@ -1733,7 +1733,7 @@ export const LIST_PRICELISTS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'priceLists.list',
-    path: '/api/priceLists',
+    path: '/v1/priceLists',
     method: 'GET',
   },
 };
@@ -1772,7 +1772,7 @@ export const CREATE_PRICELIST_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'priceLists.create',
-    path: '/api/priceLists',
+    path: '/v1/priceLists',
     method: 'POST',
   },
 };
@@ -1825,7 +1825,7 @@ export const GET_PRICELIST_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'priceLists.get',
-    path: '/api/priceLists/{id}',
+    path: '/v1/priceLists/{id}',
     method: 'GET',
   },
 };
@@ -1873,7 +1873,7 @@ export const UPDATE_PRICELIST_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'priceLists.update',
-    path: '/api/priceLists/{id}',
+    path: '/v1/priceLists/{id}',
     method: 'PUT',
   },
 };
@@ -1922,7 +1922,7 @@ export const DELETE_PRICELIST_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'priceLists.delete',
-    path: '/api/priceLists/{id}',
+    path: '/v1/priceLists/{id}',
     method: 'DELETE',
   },
 };
@@ -1966,7 +1966,7 @@ export const LIST_WAREHOUSES_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'warehouses.list',
-    path: '/api/warehouses',
+    path: '/v1/warehouses',
     method: 'GET',
   },
 };
@@ -2005,7 +2005,7 @@ export const CREATE_WAREHOUSE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'warehouses.create',
-    path: '/api/warehouses',
+    path: '/v1/warehouses',
     method: 'POST',
   },
 };
@@ -2058,7 +2058,7 @@ export const GET_WAREHOUSE_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'warehouses.get',
-    path: '/api/warehouses/{id}',
+    path: '/v1/warehouses/{id}',
     method: 'GET',
   },
 };
@@ -2106,7 +2106,7 @@ export const UPDATE_WAREHOUSE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'warehouses.update',
-    path: '/api/warehouses/{id}',
+    path: '/v1/warehouses/{id}',
     method: 'PUT',
   },
 };
@@ -2155,7 +2155,7 @@ export const DELETE_WAREHOUSE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'warehouses.delete',
-    path: '/api/warehouses/{id}',
+    path: '/v1/warehouses/{id}',
     method: 'DELETE',
   },
 };
@@ -2199,7 +2199,7 @@ export const LIST_VENDORS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'vendors.list',
-    path: '/api/vendors',
+    path: '/v1/vendors',
     method: 'GET',
   },
 };
@@ -2238,7 +2238,7 @@ export const CREATE_VENDOR_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'vendors.create',
-    path: '/api/vendors',
+    path: '/v1/vendors',
     method: 'POST',
   },
 };
@@ -2291,7 +2291,7 @@ export const GET_VENDOR_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'vendors.get',
-    path: '/api/vendors/{id}',
+    path: '/v1/vendors/{id}',
     method: 'GET',
   },
 };
@@ -2339,7 +2339,7 @@ export const UPDATE_VENDOR_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'vendors.update',
-    path: '/api/vendors/{id}',
+    path: '/v1/vendors/{id}',
     method: 'PUT',
   },
 };
@@ -2388,7 +2388,7 @@ export const DELETE_VENDOR_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'vendors.delete',
-    path: '/api/vendors/{id}',
+    path: '/v1/vendors/{id}',
     method: 'DELETE',
   },
 };
@@ -2432,7 +2432,7 @@ export const LIST_ACCOUNTS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'accounts.list',
-    path: '/api/accounts',
+    path: '/v1/accounts',
     method: 'GET',
   },
 };
@@ -2471,7 +2471,7 @@ export const CREATE_ACCOUNT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'accounts.create',
-    path: '/api/accounts',
+    path: '/v1/accounts',
     method: 'POST',
   },
 };
@@ -2524,7 +2524,7 @@ export const GET_ACCOUNT_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'accounts.get',
-    path: '/api/accounts/{id}',
+    path: '/v1/accounts/{id}',
     method: 'GET',
   },
 };
@@ -2572,7 +2572,7 @@ export const UPDATE_ACCOUNT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'accounts.update',
-    path: '/api/accounts/{id}',
+    path: '/v1/accounts/{id}',
     method: 'PUT',
   },
 };
@@ -2621,7 +2621,7 @@ export const DELETE_ACCOUNT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'accounts.delete',
-    path: '/api/accounts/{id}',
+    path: '/v1/accounts/{id}',
     method: 'DELETE',
   },
 };
@@ -2665,7 +2665,7 @@ export const LIST_LEADS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'leads.list',
-    path: '/api/leads',
+    path: '/v1/leads',
     method: 'GET',
   },
 };
@@ -2704,7 +2704,7 @@ export const CREATE_LEAD_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'leads.create',
-    path: '/api/leads',
+    path: '/v1/leads',
     method: 'POST',
   },
 };
@@ -2757,7 +2757,7 @@ export const GET_LEAD_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'leads.get',
-    path: '/api/leads/{id}',
+    path: '/v1/leads/{id}',
     method: 'GET',
   },
 };
@@ -2805,7 +2805,7 @@ export const UPDATE_LEAD_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'leads.update',
-    path: '/api/leads/{id}',
+    path: '/v1/leads/{id}',
     method: 'PUT',
   },
 };
@@ -2854,7 +2854,7 @@ export const DELETE_LEAD_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'leads.delete',
-    path: '/api/leads/{id}',
+    path: '/v1/leads/{id}',
     method: 'DELETE',
   },
 };
@@ -2898,7 +2898,7 @@ export const LIST_EMPLOYEES_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'employees.list',
-    path: '/api/employees',
+    path: '/v1/employees',
     method: 'GET',
   },
 };
@@ -2937,7 +2937,7 @@ export const CREATE_EMPLOYEE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'employees.create',
-    path: '/api/employees',
+    path: '/v1/employees',
     method: 'POST',
   },
 };
@@ -2990,7 +2990,7 @@ export const GET_EMPLOYEE_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'employees.get',
-    path: '/api/employees/{id}',
+    path: '/v1/employees/{id}',
     method: 'GET',
   },
 };
@@ -3038,7 +3038,7 @@ export const UPDATE_EMPLOYEE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'employees.update',
-    path: '/api/employees/{id}',
+    path: '/v1/employees/{id}',
     method: 'PUT',
   },
 };
@@ -3087,7 +3087,7 @@ export const DELETE_EMPLOYEE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'employees.delete',
-    path: '/api/employees/{id}',
+    path: '/v1/employees/{id}',
     method: 'DELETE',
   },
 };
@@ -3131,7 +3131,7 @@ export const LIST_PROSPECTS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'prospects.list',
-    path: '/api/prospects',
+    path: '/v1/prospects',
     method: 'GET',
   },
 };
@@ -3170,7 +3170,7 @@ export const CREATE_PROSPECT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'prospects.create',
-    path: '/api/prospects',
+    path: '/v1/prospects',
     method: 'POST',
   },
 };
@@ -3223,7 +3223,7 @@ export const GET_PROSPECT_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'prospects.get',
-    path: '/api/prospects/{id}',
+    path: '/v1/prospects/{id}',
     method: 'GET',
   },
 };
@@ -3271,7 +3271,7 @@ export const UPDATE_PROSPECT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'prospects.update',
-    path: '/api/prospects/{id}',
+    path: '/v1/prospects/{id}',
     method: 'PUT',
   },
 };
@@ -3320,7 +3320,7 @@ export const DELETE_PROSPECT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'prospects.delete',
-    path: '/api/prospects/{id}',
+    path: '/v1/prospects/{id}',
     method: 'DELETE',
   },
 };
@@ -3364,7 +3364,7 @@ export const LIST_CONTACTS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'contacts.list',
-    path: '/api/contacts',
+    path: '/v1/contacts',
     method: 'GET',
   },
 };
@@ -3403,7 +3403,7 @@ export const CREATE_CONTACT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'contacts.create',
-    path: '/api/contacts',
+    path: '/v1/contacts',
     method: 'POST',
   },
 };
@@ -3456,7 +3456,7 @@ export const GET_CONTACT_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'contacts.get',
-    path: '/api/contacts/{id}',
+    path: '/v1/contacts/{id}',
     method: 'GET',
   },
 };
@@ -3504,7 +3504,7 @@ export const UPDATE_CONTACT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'contacts.update',
-    path: '/api/contacts/{id}',
+    path: '/v1/contacts/{id}',
     method: 'PUT',
   },
 };
@@ -3553,7 +3553,7 @@ export const DELETE_CONTACT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'contacts.delete',
-    path: '/api/contacts/{id}',
+    path: '/v1/contacts/{id}',
     method: 'DELETE',
   },
 };
@@ -3597,7 +3597,7 @@ export const LIST_UNITSOFMEASURE_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'unitsOfMeasure.list',
-    path: '/api/unitsOfMeasure',
+    path: '/v1/unitsOfMeasure',
     method: 'GET',
   },
 };
@@ -3636,7 +3636,7 @@ export const CREATE_UNITSOFMEASURE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'unitsOfMeasure.create',
-    path: '/api/unitsOfMeasure',
+    path: '/v1/unitsOfMeasure',
     method: 'POST',
   },
 };
@@ -3689,7 +3689,7 @@ export const GET_UNITSOFMEASURE_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'unitsOfMeasure.get',
-    path: '/api/unitsOfMeasure/{id}',
+    path: '/v1/unitsOfMeasure/{id}',
     method: 'GET',
   },
 };
@@ -3737,7 +3737,7 @@ export const UPDATE_UNITSOFMEASURE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'unitsOfMeasure.update',
-    path: '/api/unitsOfMeasure/{id}',
+    path: '/v1/unitsOfMeasure/{id}',
     method: 'PUT',
   },
 };
@@ -3786,7 +3786,7 @@ export const DELETE_UNITSOFMEASURE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'unitsOfMeasure.delete',
-    path: '/api/unitsOfMeasure/{id}',
+    path: '/v1/unitsOfMeasure/{id}',
     method: 'DELETE',
   },
 };
@@ -3830,7 +3830,7 @@ export const LIST_BUSINESSTRANSACTIONS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'businessTransactions.list',
-    path: '/api/businessTransactions',
+    path: '/v1/businessTransactions',
     method: 'GET',
   },
 };
@@ -3869,7 +3869,7 @@ export const CREATE_BUSINESSTRANSACTION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'businessTransactions.create',
-    path: '/api/businessTransactions',
+    path: '/v1/businessTransactions',
     method: 'POST',
   },
 };
@@ -3922,7 +3922,7 @@ export const GET_BUSINESSTRANSACTION_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'businessTransactions.get',
-    path: '/api/businessTransactions/{id}',
+    path: '/v1/businessTransactions/{id}',
     method: 'GET',
   },
 };
@@ -3970,7 +3970,7 @@ export const UPDATE_BUSINESSTRANSACTION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'businessTransactions.update',
-    path: '/api/businessTransactions/{id}',
+    path: '/v1/businessTransactions/{id}',
     method: 'PUT',
   },
 };
@@ -4019,7 +4019,7 @@ export const DELETE_BUSINESSTRANSACTION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'businessTransactions.delete',
-    path: '/api/businessTransactions/{id}',
+    path: '/v1/businessTransactions/{id}',
     method: 'DELETE',
   },
 };
@@ -4063,7 +4063,7 @@ export const LIST_SUBSCRIPTIONS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'subscriptions.list',
-    path: '/api/subscriptions',
+    path: '/v1/subscriptions',
     method: 'GET',
   },
 };
@@ -4102,7 +4102,7 @@ export const CREATE_SUBSCRIPTION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'subscriptions.create',
-    path: '/api/subscriptions',
+    path: '/v1/subscriptions',
     method: 'POST',
   },
 };
@@ -4155,7 +4155,7 @@ export const GET_SUBSCRIPTION_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'subscriptions.get',
-    path: '/api/subscriptions/{id}',
+    path: '/v1/subscriptions/{id}',
     method: 'GET',
   },
 };
@@ -4203,7 +4203,7 @@ export const UPDATE_SUBSCRIPTION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'subscriptions.update',
-    path: '/api/subscriptions/{id}',
+    path: '/v1/subscriptions/{id}',
     method: 'PUT',
   },
 };
@@ -4252,7 +4252,7 @@ export const DELETE_SUBSCRIPTION_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'subscriptions.delete',
-    path: '/api/subscriptions/{id}',
+    path: '/v1/subscriptions/{id}',
     method: 'DELETE',
   },
 };
@@ -4296,7 +4296,7 @@ export const LIST_INVOICES_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'invoices.list',
-    path: '/api/invoices',
+    path: '/v1/invoices',
     method: 'GET',
   },
 };
@@ -4335,7 +4335,7 @@ export const CREATE_INVOICE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'invoices.create',
-    path: '/api/invoices',
+    path: '/v1/invoices',
     method: 'POST',
   },
 };
@@ -4388,7 +4388,7 @@ export const GET_INVOICE_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'invoices.get',
-    path: '/api/invoices/{id}',
+    path: '/v1/invoices/{id}',
     method: 'GET',
   },
 };
@@ -4436,7 +4436,7 @@ export const UPDATE_INVOICE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'invoices.update',
-    path: '/api/invoices/{id}',
+    path: '/v1/invoices/{id}',
     method: 'PUT',
   },
 };
@@ -4485,7 +4485,7 @@ export const DELETE_INVOICE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'invoices.delete',
-    path: '/api/invoices/{id}',
+    path: '/v1/invoices/{id}',
     method: 'DELETE',
   },
 };
@@ -4529,7 +4529,7 @@ export const LIST_PAYMENTS_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'payments.list',
-    path: '/api/payments',
+    path: '/v1/payments',
     method: 'GET',
   },
 };
@@ -4568,7 +4568,7 @@ export const CREATE_PAYMENT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'payments.create',
-    path: '/api/payments',
+    path: '/v1/payments',
     method: 'POST',
   },
 };
@@ -4621,7 +4621,7 @@ export const GET_PAYMENT_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'payments.get',
-    path: '/api/payments/{id}',
+    path: '/v1/payments/{id}',
     method: 'GET',
   },
 };
@@ -4669,7 +4669,7 @@ export const UPDATE_PAYMENT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'payments.update',
-    path: '/api/payments/{id}',
+    path: '/v1/payments/{id}',
     method: 'PUT',
   },
 };
@@ -4718,7 +4718,7 @@ export const DELETE_PAYMENT_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'payments.delete',
-    path: '/api/payments/{id}',
+    path: '/v1/payments/{id}',
     method: 'DELETE',
   },
 };
@@ -4762,7 +4762,7 @@ export const LIST_REVENUE_TOOL: GeneratedAITool = {
       varyBy: ["search","limit","offset"],
     },
     operationId: 'revenue.list',
-    path: '/api/revenue',
+    path: '/v1/revenue',
     method: 'GET',
   },
 };
@@ -4801,7 +4801,7 @@ export const CREATE_REVENUE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'revenue.create',
-    path: '/api/revenue',
+    path: '/v1/revenue',
     method: 'POST',
   },
 };
@@ -4854,7 +4854,7 @@ export const GET_REVENUE_TOOL: GeneratedAITool = {
       varyBy: ["id"],
     },
     operationId: 'revenue.get',
-    path: '/api/revenue/{id}',
+    path: '/v1/revenue/{id}',
     method: 'GET',
   },
 };
@@ -4902,7 +4902,7 @@ export const UPDATE_REVENUE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'revenue.update',
-    path: '/api/revenue/{id}',
+    path: '/v1/revenue/{id}',
     method: 'PUT',
   },
 };
@@ -4951,7 +4951,7 @@ export const DELETE_REVENUE_TOOL: GeneratedAITool = {
       scope: 'user',
     },
     operationId: 'revenue.delete',
-    path: '/api/revenue/{id}',
+    path: '/v1/revenue/{id}',
     method: 'DELETE',
   },
 };

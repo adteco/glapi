@@ -13,7 +13,7 @@ describe('ontology routes', () => {
     const server = await buildOntologyTestServer();
     const response = await server.inject({
       method: 'GET',
-      url: '/api/ontology/version',
+      url: '/v1/ontology/version',
     });
 
     expect(response.statusCode).toBe(200);
@@ -28,7 +28,7 @@ describe('ontology routes', () => {
     const server = await buildOntologyTestServer();
     const response = await server.inject({
       method: 'GET',
-      url: '/api/ontology/records?category=financial&customizable=false',
+      url: '/v1/ontology/records?category=financial&customizable=false',
     });
 
     expect(response.statusCode).toBe(200);
@@ -42,13 +42,13 @@ describe('ontology routes', () => {
     const server = await buildOntologyTestServer();
     const response = await server.inject({
       method: 'GET',
-      url: '/api/ontology/records/customer',
+      url: '/v1/ontology/records/customer',
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json().record).toMatchObject({
       key: 'customer',
-      apiPath: '/api/customers',
+      apiPath: '/v1/customers',
       customizable: true,
     });
   });
@@ -57,7 +57,7 @@ describe('ontology routes', () => {
     const server = await buildOntologyTestServer();
     const response = await server.inject({
       method: 'GET',
-      url: '/api/ontology/records?customizable=maybe',
+      url: '/v1/ontology/records?customizable=maybe',
     });
 
     expect(response.statusCode).toBe(400);
@@ -68,7 +68,7 @@ describe('ontology routes', () => {
     const server = await buildOntologyTestServer();
     const response = await server.inject({
       method: 'GET',
-      url: '/api/ontology/events',
+      url: '/v1/ontology/events',
     });
 
     expect(response.statusCode).toBe(200);

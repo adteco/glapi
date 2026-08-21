@@ -7,7 +7,7 @@ import { auth as betterAuth } from '@glapi/auth';
 import { appRouter, createContext, type User } from '@glapi/trpc';
 import { db } from '@glapi/database';
 import { allowedOrigins } from './config';
-import { authPreHandler, resolveRequestUser } from './auth';
+import { authPreHandler, getRequestUser } from './auth';
 import { registerCustomFieldRoutes } from './custom-field-routes';
 import { registerCustomRecordRoutes } from './custom-record-routes';
 import { AuthenticationError } from './errors';
@@ -18,6 +18,22 @@ import { registerSavedSearchRoutes } from './saved-search-routes';
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
     logger: true,
+    // Legacy path compat: routes moved from /api/* to /auth, /trpc, /health,
+    // and /v1/* (REST). Rewrite old-style URLs until all clients migrate.
+    rewriteUrl(request) {
+      const url = request.url ?? '/';
+      if (url === '/api' || url.startsWith('/api/') || url.startsWith('/api?')) {
+        const rest = url.slice('/api'.length) || '/';
+        if (
+          rest === '/' ||
+          /^\/(auth|trpc|health)([/?].*)?$/.test(rest)
+        ) {
+          return rest;
+        }
+        return `/v1${rest}`;
+      }
+      return url;
+    },
   });
 
   await server.register(cors, {
@@ -62,10 +78,9 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   server.get('/health', healthHandler);
-  server.get('/api/health', healthHandler);
   await server.register(registerOntologyRoutes);
 
-  server.all('/api/auth/*', async (request, reply) => {
+  server.all('/auth/*', async (request, reply) => {
     const forwardedProto = request.headers['x-forwarded-proto'];
     const protocol = Array.isArray(forwardedProto)
       ? forwardedProto[0]
@@ -143,11 +158,11 @@ export async function buildServer(): Promise<FastifyInstance> {
     await protectedApi.register(registerSavedSearchRoutes);
 
     await protectedApi.register(fastifyTRPCPlugin, {
-      prefix: '/api/trpc',
+      prefix: '/trpc',
       trpcOptions: {
         router: appRouter,
         async createContext({ req, res }) {
-          const user = await resolveRequestUser(req);
+          const user = await getRequestUser(req);
           res.header('X-Organization-Id', user.organizationId);
 
           return createContext({

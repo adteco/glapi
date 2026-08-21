@@ -15,7 +15,7 @@ Feature: API key authentication regression guard
 
   Scenario: API key auth succeeds for tRPC customers.list
     * configure headers = authHeaders
-    Given url baseUrl + '/api/trpc/customers.list'
+    Given url baseUrl + '/trpc/customers.list'
     And param batch = 1
     And param input = '{"0":{"json":{}}}'
     When method get
@@ -24,7 +24,7 @@ Feature: API key authentication regression guard
 
   Scenario: API key auth succeeds for tRPC workflows.list
     * configure headers = authHeaders
-    Given url baseUrl + '/api/trpc/workflows.list'
+    Given url baseUrl + '/trpc/workflows.list'
     And param batch = 1
     And param input = '{"0":{"json":{}}}'
     When method get
@@ -32,7 +32,7 @@ Feature: API key authentication regression guard
 
   Scenario: API key auth succeeds for tRPC accounts.list
     * configure headers = authHeaders
-    Given url baseUrl + '/api/trpc/accounts.list'
+    Given url baseUrl + '/trpc/accounts.list'
     And param batch = 1
     And param input = '{"0":{"json":{}}}'
     When method get
@@ -40,7 +40,7 @@ Feature: API key authentication regression guard
 
   Scenario: Invalid API key returns 401
     * configure headers = { 'Content-Type': 'application/json', 'x-api-key': 'invalid_key_12345' }
-    Given url baseUrl + '/api/trpc/customers.list'
+    Given url baseUrl + '/trpc/customers.list'
     And param batch = 1
     And param input = '{"0":{"json":{}}}'
     When method get
@@ -48,7 +48,7 @@ Feature: API key authentication regression guard
 
   Scenario: No auth at all returns 401 in production (200 in dev fallback)
     * configure headers = { 'Content-Type': 'application/json' }
-    Given url baseUrl + '/api/trpc/customers.list'
+    Given url baseUrl + '/trpc/customers.list'
     And param batch = 1
     And param input = '{"0":{"json":{}}}'
     When method get

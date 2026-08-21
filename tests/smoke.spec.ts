@@ -145,7 +145,7 @@ test.describe('Smoke Tests - Relationship Pages', () => {
 
 test.describe('Smoke Tests - API Health', () => {
   test('should respond to health check', async () => {
-    const response = await fetch(`${TEST_CONFIG.apiUrl}/api/health`);
+    const response = await fetch(`${TEST_CONFIG.apiUrl}/health`);
     expect(response.ok).toBe(true);
   });
 

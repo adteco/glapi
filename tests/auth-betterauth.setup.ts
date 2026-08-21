@@ -22,7 +22,7 @@ setup('authenticate with Better Auth', async ({ request, page }) => {
   setup.skip(!BETTER_AUTH_PASSWORD, 'BETTER_AUTH_TEST_PASSWORD not set');
 
   // Sign in via Better Auth API
-  const signInResponse = await request.post(`${API_URL}/api/auth/sign-in/email`, {
+  const signInResponse = await request.post(`${API_URL}/auth/sign-in/email`, {
     data: {
       email: BETTER_AUTH_EMAIL,
       password: BETTER_AUTH_PASSWORD,
@@ -43,7 +43,7 @@ setup('authenticate with Better Auth', async ({ request, page }) => {
 
   // Set active organization if provided
   if (BETTER_AUTH_ORG_ID) {
-    const setOrgResponse = await request.post(`${API_URL}/api/auth/organization/set-active`, {
+    const setOrgResponse = await request.post(`${API_URL}/auth/organization/set-active`, {
       data: { organizationId: BETTER_AUTH_ORG_ID },
       headers: { cookie: `better-auth.session_token=${sessionToken}`, 'Origin': API_URL },
     });

@@ -42,7 +42,7 @@ jobs:
 
       - name: Production API health and docs smoke
         run: |
-          curl -fsS https://glapi-api.adteco.com/api/health | jq -e '.status == "ok"'
+          curl -fsS https://glapi-api.adteco.com/health | jq -e '.status == "ok"'
           curl -fsS https://glapi-api.adteco.com/openapi.json | jq -e '.openapi and (.paths | length > 0)'
 
       - name: Production web smoke

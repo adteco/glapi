@@ -70,11 +70,11 @@ jobs:
         continue-on-error: true
 
       - name: Build packages
-        run: pnpm turbo build --filter=@glapi/trpc --filter=@glapi/api-service --filter=@glapi/database
+        run: pnpm turbo build --filter=@glapi/trpc --filter=@glapi/api-service --filter=@glapi/database --filter=@glapi/auth
 
       - name: Start API server
         run: |
-          pnpm --filter api dev &
+          pnpm --filter @glapi/api-fastify dev &
           sleep 10
         env:
           PORT: 3031
@@ -151,11 +151,11 @@ jobs:
       - name: Start services
         run: |
           # Start API server
-          PORT=3031 pnpm --filter api start &
+          PORT=3031 pnpm --filter @glapi/api-fastify start &
           # Start web app
           pnpm --filter web start &
           # Wait for services to be ready
-          npx wait-on http://localhost:3031/api/health http://localhost:3000 --timeout 60000
+          npx wait-on http://localhost:3031/health http://localhost:3000 --timeout 60000
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3031
 
@@ -251,7 +251,7 @@ jobs:
 
       - name: Start API server
         run: |
-          pnpm --filter api dev &
+          pnpm --filter @glapi/api-fastify dev &
           sleep 15
         env:
           PORT: 3031

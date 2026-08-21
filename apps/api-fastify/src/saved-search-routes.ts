@@ -88,7 +88,7 @@ export async function registerSavedSearchRoutes(
   const getUser = options.resolveUser ?? resolveRequestUser;
 
   server.get<{ Querystring: SavedSearchListQuery }>(
-    '/api/saved-searches',
+    '/v1/saved-searches',
     async (request) => {
       const user = await getUser(request);
       const searches = visibleSearches(user).filter((search) => {
@@ -110,12 +110,12 @@ export async function registerSavedSearchRoutes(
     }
   );
 
-  server.post('/api/saved-searches/validate', async (request) => {
+  server.post('/v1/saved-searches/validate', async (request) => {
     const body = request.body as { definition?: unknown };
     return validateSavedSearchDefinition(body.definition ?? body);
   });
 
-  server.post('/api/saved-searches/run', async (request, reply) => {
+  server.post('/v1/saved-searches/run', async (request, reply) => {
     const body = runSavedSearchSchema.safeParse(request.body ?? {});
     if (!body.success || !body.data.definition) {
       return sendError(reply, 400, 'BAD_REQUEST', 'A saved search definition is required', body.success ? undefined : body.error.flatten());
@@ -142,7 +142,7 @@ export async function registerSavedSearchRoutes(
     };
   });
 
-  server.post('/api/saved-searches', async (request, reply) => {
+  server.post('/v1/saved-searches', async (request, reply) => {
     const user = await getUser(request);
     const parsed = createSavedSearchSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -176,7 +176,7 @@ export async function registerSavedSearchRoutes(
   });
 
   server.get<{ Params: SavedSearchParams }>(
-    '/api/saved-searches/:id',
+    '/v1/saved-searches/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const savedSearch = organizationStore(user.organizationId).get(request.params.id);
@@ -189,7 +189,7 @@ export async function registerSavedSearchRoutes(
   );
 
   server.put<{ Params: SavedSearchParams }>(
-    '/api/saved-searches/:id',
+    '/v1/saved-searches/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const store = organizationStore(user.organizationId);
@@ -230,7 +230,7 @@ export async function registerSavedSearchRoutes(
   );
 
   server.delete<{ Params: SavedSearchParams }>(
-    '/api/saved-searches/:id',
+    '/v1/saved-searches/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const store = organizationStore(user.organizationId);
@@ -249,7 +249,7 @@ export async function registerSavedSearchRoutes(
   );
 
   server.post<{ Params: SavedSearchParams }>(
-    '/api/saved-searches/:id/run',
+    '/v1/saved-searches/:id/run',
     async (request, reply) => {
       const user = await getUser(request);
       const savedSearch = organizationStore(user.organizationId).get(request.params.id);

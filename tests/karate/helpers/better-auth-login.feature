@@ -8,7 +8,7 @@ Feature: Better Auth Login Helper
     * configure headers = { 'Content-Type': 'application/json', 'Origin': '#(baseUrl)' }
 
     # Step 1: Sign in to get session cookie
-    Given url baseUrl + '/api/auth/sign-in/email'
+    Given url baseUrl + '/auth/sign-in/email'
     And request { "email": "#(betterAuthEmail)", "password": "#(betterAuthPassword)" }
     When method post
     Then status 200
@@ -17,7 +17,7 @@ Feature: Better Auth Login Helper
     * def sessionToken = sessionCookie.value
 
     # Step 2: Set active organization
-    Given url baseUrl + '/api/auth/organization/set-active'
+    Given url baseUrl + '/auth/organization/set-active'
     And cookie better-auth.session_token = sessionToken
     And request { "organizationId": "#(betterAuthOrgId)" }
     When method post

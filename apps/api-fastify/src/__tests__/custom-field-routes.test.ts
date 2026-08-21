@@ -45,7 +45,7 @@ describe('custom field routes', () => {
     const server = await buildCustomFieldTestServer();
     const response = await server.inject({
       method: 'POST',
-      url: '/api/custom-field-definitions/validate',
+      url: '/v1/custom-field-definitions/validate',
       payload: regionField,
     });
 
@@ -60,7 +60,7 @@ describe('custom field routes', () => {
     const server = await buildCustomFieldTestServer();
     const createResponse = await server.inject({
       method: 'POST',
-      url: '/api/custom-field-definitions',
+      url: '/v1/custom-field-definitions',
       payload: regionField,
     });
 
@@ -73,7 +73,7 @@ describe('custom field routes', () => {
 
     const listResponse = await server.inject({
       method: 'GET',
-      url: '/api/custom-field-definitions?recordKey=customer',
+      url: '/v1/custom-field-definitions?recordKey=customer',
     });
 
     expect(listResponse.statusCode).toBe(200);
@@ -85,7 +85,7 @@ describe('custom field routes', () => {
     const server = await buildCustomFieldTestServer(regularUser);
     const response = await server.inject({
       method: 'POST',
-      url: '/api/custom-field-definitions',
+      url: '/v1/custom-field-definitions',
       payload: regionField,
     });
 
@@ -97,13 +97,13 @@ describe('custom field routes', () => {
     const server = await buildCustomFieldTestServer();
     await server.inject({
       method: 'POST',
-      url: '/api/custom-field-definitions',
+      url: '/v1/custom-field-definitions',
       payload: regionField,
     });
 
     const response = await server.inject({
       method: 'POST',
-      url: '/api/custom-field-definitions/validate-values',
+      url: '/v1/custom-field-definitions/validate-values',
       payload: {
         recordKey: 'customer',
         values: {
@@ -126,14 +126,14 @@ describe('custom field routes', () => {
     const server = await buildCustomFieldTestServer();
     const createResponse = await server.inject({
       method: 'POST',
-      url: '/api/custom-field-definitions',
+      url: '/v1/custom-field-definitions',
       payload: regionField,
     });
     const id = createResponse.json().customFieldDefinition.id;
 
     const updateResponse = await server.inject({
       method: 'PUT',
-      url: `/api/custom-field-definitions/${id}`,
+      url: `/v1/custom-field-definitions/${id}`,
       payload: {
         label: 'Customer Territory',
       },
@@ -144,7 +144,7 @@ describe('custom field routes', () => {
 
     const deleteResponse = await server.inject({
       method: 'DELETE',
-      url: `/api/custom-field-definitions/${id}`,
+      url: `/v1/custom-field-definitions/${id}`,
     });
 
     expect(deleteResponse.statusCode).toBe(204);

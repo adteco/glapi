@@ -262,8 +262,21 @@ export function normalizeApiRequest(request: FastifyRequest): void {
   request.headers['x-api-key-name'] = keyRecord.name;
 }
 
+const resolvedRequestUsers = new WeakMap<
+  FastifyRequest,
+  Awaited<ReturnType<typeof resolveRequestUser>>
+>();
+
 export async function authPreHandler(request: FastifyRequest, _reply: FastifyReply) {
   normalizeApiRequest(request);
+  // Resolve eagerly so unauthenticated requests fail here with the standard
+  // 401 {error:{code:'UNAUTHORIZED'}} shape instead of surfacing as a tRPC
+  // INTERNAL_SERVER_ERROR from createContext.
+  resolvedRequestUsers.set(request, await resolveRequestUser(request));
+}
+
+export async function getRequestUser(request: FastifyRequest) {
+  return resolvedRequestUsers.get(request) ?? resolveRequestUser(request);
 }
 
 export async function resolveRequestUser(request: FastifyRequest) {

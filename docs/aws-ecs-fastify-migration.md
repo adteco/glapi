@@ -78,7 +78,7 @@ Secrets Manager JSON shape:
 }
 ```
 
-The web secret only requires `DATABASE_URL` and `BETTER_AUTH_SECRET`. The API secret also requires the Google and Microsoft OAuth credentials shown above, plus `GLAPI_API_KEYS_JSON` when server-to-server or SDK clients are enabled. Register `${BETTER_AUTH_URL}/api/auth/callback/google` and `${BETTER_AUTH_URL}/api/auth/callback/microsoft` with the respective providers. Use distinct `BETTER_AUTH_SECRET` and API keys per environment.
+The web secret only requires `DATABASE_URL` and `BETTER_AUTH_SECRET`. The API secret also requires the Google and Microsoft OAuth credentials shown above, plus `GLAPI_API_KEYS_JSON` when server-to-server or SDK clients are enabled. Register `${BETTER_AUTH_URL}/auth/callback/google` and `${BETTER_AUTH_URL}/auth/callback/microsoft` with the respective providers. Use distinct `BETTER_AUTH_SECRET` and API keys per environment.
 
 ## Current Migration Boundary
 

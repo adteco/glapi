@@ -123,7 +123,7 @@ export function useOrganizationList(_options?: unknown) {
       }
 
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031'}/api/auth/organization/set-active`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031'}/auth/organization/set-active`,
         {
           method: 'POST',
           credentials: 'include',

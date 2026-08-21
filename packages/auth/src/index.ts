@@ -50,6 +50,9 @@ function configuredSocialProviders() {
 
 export const auth = betterAuth({
   baseURL,
+  // Auth endpoints live at /auth/* (default is /api/auth/*); OAuth callbacks
+  // must be registered as {baseURL}/auth/callback/{provider}.
+  basePath: '/auth',
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
     baseURL,

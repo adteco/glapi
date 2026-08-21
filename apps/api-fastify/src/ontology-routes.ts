@@ -104,15 +104,15 @@ function filterRecords(query: OntologyRecordsQuery, reply: FastifyReply) {
 }
 
 export async function registerOntologyRoutes(server: FastifyInstance): Promise<void> {
-  server.get('/api/ontology/version', async () => ontologyMetadata());
+  server.get('/v1/ontology/version', async () => ontologyMetadata());
 
-  server.get('/api/ontology', async () => ({
+  server.get('/v1/ontology', async () => ({
     ...ontologyMetadata(),
     records: ONTOLOGY_REGISTRY.records,
   }));
 
   server.get<{ Querystring: OntologyRecordsQuery }>(
-    '/api/ontology/records',
+    '/v1/ontology/records',
     async (request, reply) => {
       const records = filterRecords(request.query, reply);
       if (!Array.isArray(records)) return records;
@@ -126,7 +126,7 @@ export async function registerOntologyRoutes(server: FastifyInstance): Promise<v
   );
 
   server.get<{ Params: OntologyRecordParams }>(
-    '/api/ontology/records/:key',
+    '/v1/ontology/records/:key',
     async (request, reply) => {
       const record = getOntologyRecord(request.params.key);
       if (!record) {
@@ -145,7 +145,7 @@ export async function registerOntologyRoutes(server: FastifyInstance): Promise<v
     }
   );
 
-  server.get('/api/ontology/events', async () => ({
+  server.get('/v1/ontology/events', async () => ({
     version: ONTOLOGY_REGISTRY.version,
     count: eventDefinitions().length,
     events: eventDefinitions(),

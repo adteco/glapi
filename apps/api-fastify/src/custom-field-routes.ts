@@ -78,7 +78,7 @@ export async function registerCustomFieldRoutes(
   const getUser = options.resolveUser ?? resolveRequestUser;
 
   server.get<{ Querystring: CustomFieldListQuery }>(
-    '/api/custom-field-definitions',
+    '/v1/custom-field-definitions',
     async (request) => {
       const user = await getUser(request);
       const definitions = listDefinitions(user).filter((definition) => {
@@ -100,7 +100,7 @@ export async function registerCustomFieldRoutes(
     }
   );
 
-  server.post('/api/custom-field-definitions/validate', async (request) => {
+  server.post('/v1/custom-field-definitions/validate', async (request) => {
     const user = await getUser(request);
     return validateCustomFieldDefinition(
       request.body,
@@ -109,7 +109,7 @@ export async function registerCustomFieldRoutes(
     );
   });
 
-  server.post('/api/custom-field-definitions/validate-values', async (request, reply) => {
+  server.post('/v1/custom-field-definitions/validate-values', async (request, reply) => {
     const user = await getUser(request);
     const parsed = customFieldValuesValidationInputSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -119,7 +119,7 @@ export async function registerCustomFieldRoutes(
     return validateCustomFieldValues(parsed.data, listDefinitions(user));
   });
 
-  server.post('/api/custom-field-definitions', async (request, reply) => {
+  server.post('/v1/custom-field-definitions', async (request, reply) => {
     const user = await getUser(request);
     if (!isAdmin(user)) {
       return sendError(reply, 403, 'FORBIDDEN', 'Only admins can create custom field definitions');
@@ -155,7 +155,7 @@ export async function registerCustomFieldRoutes(
   });
 
   server.get<{ Params: CustomFieldParams }>(
-    '/api/custom-field-definitions/:id',
+    '/v1/custom-field-definitions/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const definition = customFieldOrganizationStore(user.organizationId).get(request.params.id);
@@ -168,7 +168,7 @@ export async function registerCustomFieldRoutes(
   );
 
   server.put<{ Params: CustomFieldParams }>(
-    '/api/custom-field-definitions/:id',
+    '/v1/custom-field-definitions/:id',
     async (request, reply) => {
       const user = await getUser(request);
       if (!isAdmin(user)) {
@@ -211,7 +211,7 @@ export async function registerCustomFieldRoutes(
   );
 
   server.delete<{ Params: CustomFieldParams }>(
-    '/api/custom-field-definitions/:id',
+    '/v1/custom-field-definitions/:id',
     async (request, reply) => {
       const user = await getUser(request);
       if (!isAdmin(user)) {
