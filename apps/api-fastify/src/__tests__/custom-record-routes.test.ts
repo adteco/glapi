@@ -76,7 +76,7 @@ async function buildCustomRecordTestServer(user = adminUser) {
 async function createRecordType(server: Awaited<ReturnType<typeof buildCustomRecordTestServer>>) {
   return server.inject({
     method: 'POST',
-    url: '/api/custom-record-types',
+    url: '/v1/custom-record-types',
     payload: contractType,
   });
 }
@@ -91,7 +91,7 @@ describe('custom record routes', () => {
     const server = await buildCustomRecordTestServer();
     const response = await server.inject({
       method: 'POST',
-      url: '/api/custom-record-types/validate',
+      url: '/v1/custom-record-types/validate',
       payload: contractType,
     });
 
@@ -116,7 +116,7 @@ describe('custom record routes', () => {
     const id = createResponse.json().customRecordType.id;
     const listResponse = await server.inject({
       method: 'GET',
-      url: '/api/custom-record-types?recordKey=customer_contract',
+      url: '/v1/custom-record-types?recordKey=customer_contract',
     });
 
     expect(listResponse.statusCode).toBe(200);
@@ -124,7 +124,7 @@ describe('custom record routes', () => {
 
     const ontologyResponse = await server.inject({
       method: 'GET',
-      url: `/api/custom-record-types/${id}/ontology`,
+      url: `/v1/custom-record-types/${id}/ontology`,
     });
 
     expect(ontologyResponse.statusCode).toBe(200);
@@ -139,7 +139,7 @@ describe('custom record routes', () => {
     const server = await buildCustomRecordTestServer(regularUser);
     const response = await server.inject({
       method: 'POST',
-      url: '/api/custom-record-types',
+      url: '/v1/custom-record-types',
       payload: contractType,
     });
 
@@ -153,7 +153,7 @@ describe('custom record routes', () => {
 
     const response = await server.inject({
       method: 'POST',
-      url: '/api/custom-records/validate',
+      url: '/v1/custom-records/validate',
       payload: {
         recordKey: 'customer_contract',
         values: {
@@ -182,7 +182,7 @@ describe('custom record routes', () => {
 
     const createResponse = await server.inject({
       method: 'POST',
-      url: '/api/custom-records',
+      url: '/v1/custom-records',
       payload: {
         recordKey: 'customer_contract',
         values: {
@@ -205,7 +205,7 @@ describe('custom record routes', () => {
     const id = createResponse.json().customRecord.id;
     const updateResponse = await server.inject({
       method: 'PUT',
-      url: `/api/custom-records/${id}`,
+      url: `/v1/custom-records/${id}`,
       payload: {
         values: {
           status: 'active',
@@ -218,7 +218,7 @@ describe('custom record routes', () => {
 
     const listResponse = await server.inject({
       method: 'GET',
-      url: '/api/custom-records?recordKey=customer_contract',
+      url: '/v1/custom-records?recordKey=customer_contract',
     });
 
     expect(listResponse.statusCode).toBe(200);
@@ -226,7 +226,7 @@ describe('custom record routes', () => {
 
     const deleteResponse = await server.inject({
       method: 'DELETE',
-      url: `/api/custom-records/${id}`,
+      url: `/v1/custom-records/${id}`,
     });
 
     expect(deleteResponse.statusCode).toBe(204);
@@ -237,7 +237,7 @@ describe('custom record routes', () => {
     await createRecordType(server);
     const fieldResponse = await server.inject({
       method: 'POST',
-      url: '/api/custom-field-definitions',
+      url: '/v1/custom-field-definitions',
       payload: {
         recordKey: 'customer_contract',
         fieldKey: 'approvalStatus',
@@ -254,7 +254,7 @@ describe('custom record routes', () => {
 
     const invalidResponse = await server.inject({
       method: 'POST',
-      url: '/api/custom-records',
+      url: '/v1/custom-records',
       payload: {
         recordKey: 'customer_contract',
         values: {
@@ -273,7 +273,7 @@ describe('custom record routes', () => {
 
     const createResponse = await server.inject({
       method: 'POST',
-      url: '/api/custom-records',
+      url: '/v1/custom-records',
       payload: {
         recordKey: 'customer_contract',
         values: {

@@ -139,7 +139,7 @@ export async function registerCustomRecordRoutes(
   const getUser = options.resolveUser ?? resolveRequestUser;
 
   server.get<{ Querystring: CustomRecordTypeListQuery }>(
-    '/api/custom-record-types',
+    '/v1/custom-record-types',
     async (request) => {
       const user = await getUser(request);
       const customRecordTypes = listTypes(user).filter((recordType) => {
@@ -161,12 +161,12 @@ export async function registerCustomRecordRoutes(
     },
   );
 
-  server.post('/api/custom-record-types/validate', async (request) => {
+  server.post('/v1/custom-record-types/validate', async (request) => {
     const user = await getUser(request);
     return validateCustomRecordTypeDefinition(request.body, listTypes(user));
   });
 
-  server.post('/api/custom-record-types', async (request, reply) => {
+  server.post('/v1/custom-record-types', async (request, reply) => {
     const user = await getUser(request);
     if (!isAdmin(user)) {
       return sendError(reply, 403, 'FORBIDDEN', 'Only admins can create custom record types');
@@ -197,7 +197,7 @@ export async function registerCustomRecordRoutes(
   });
 
   server.get<{ Params: IdParams }>(
-    '/api/custom-record-types/:id',
+    '/v1/custom-record-types/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const customRecordType = customRecordTypeOrganizationStore(user.organizationId).get(request.params.id);
@@ -210,7 +210,7 @@ export async function registerCustomRecordRoutes(
   );
 
   server.get<{ Params: IdParams }>(
-    '/api/custom-record-types/:id/ontology',
+    '/v1/custom-record-types/:id/ontology',
     async (request, reply) => {
       const user = await getUser(request);
       const customRecordType = customRecordTypeOrganizationStore(user.organizationId).get(request.params.id);
@@ -223,7 +223,7 @@ export async function registerCustomRecordRoutes(
   );
 
   server.put<{ Params: IdParams }>(
-    '/api/custom-record-types/:id',
+    '/v1/custom-record-types/:id',
     async (request, reply) => {
       const user = await getUser(request);
       if (!isAdmin(user)) {
@@ -264,7 +264,7 @@ export async function registerCustomRecordRoutes(
   );
 
   server.delete<{ Params: IdParams }>(
-    '/api/custom-record-types/:id',
+    '/v1/custom-record-types/:id',
     async (request, reply) => {
       const user = await getUser(request);
       if (!isAdmin(user)) {
@@ -293,7 +293,7 @@ export async function registerCustomRecordRoutes(
   );
 
   server.get<{ Querystring: CustomRecordListQuery }>(
-    '/api/custom-records',
+    '/v1/custom-records',
     async (request) => {
       const user = await getUser(request);
       const customRecords = listRecords(user).filter((record) => {
@@ -319,7 +319,7 @@ export async function registerCustomRecordRoutes(
     },
   );
 
-  server.post('/api/custom-records/validate', async (request, reply) => {
+  server.post('/v1/custom-records/validate', async (request, reply) => {
     const user = await getUser(request);
     const parsed = customRecordValuesValidationInputSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -334,7 +334,7 @@ export async function registerCustomRecordRoutes(
     return validateCustomRecordValues(parsed.data, customRecordType);
   });
 
-  server.post('/api/custom-records', async (request, reply) => {
+  server.post('/v1/custom-records', async (request, reply) => {
     const user = await getUser(request);
     const parsed = createCustomRecordSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -390,7 +390,7 @@ export async function registerCustomRecordRoutes(
   });
 
   server.get<{ Params: IdParams }>(
-    '/api/custom-records/:id',
+    '/v1/custom-records/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const customRecord = customRecordOrganizationStore(user.organizationId).get(request.params.id);
@@ -403,7 +403,7 @@ export async function registerCustomRecordRoutes(
   );
 
   server.put<{ Params: IdParams }>(
-    '/api/custom-records/:id',
+    '/v1/custom-records/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const store = customRecordOrganizationStore(user.organizationId);
@@ -458,7 +458,7 @@ export async function registerCustomRecordRoutes(
   );
 
   server.delete<{ Params: IdParams }>(
-    '/api/custom-records/:id',
+    '/v1/custom-records/:id',
     async (request, reply) => {
       const user = await getUser(request);
       const store = customRecordOrganizationStore(user.organizationId);

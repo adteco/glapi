@@ -3,24 +3,24 @@
   "info": {
     "title": "GLAPI - General Ledger and Accounting API",
     "version": "1.0.0",
-    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## AI Extensions\n\nEndpoints with `x-ai-tool` extensions can be used by AI assistants for automated operations.\nSee the x-ai-* extension fields for risk levels, permissions, and rate limits.\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031/api\n- Staging: https://staging-api.glapi.net/api\n- Production: https://api.glapi.net/api"
+    "description": "# GLAPI - Comprehensive Accounting and Revenue Recognition API\n\nGLAPI provides a complete accounting dimensions API with advanced revenue recognition capabilities.\n\n## Features\n\n- **Multi-tenant Architecture**: Organization-based data isolation\n- **Accounting Dimensions**: Customers, Vendors, Subsidiaries, Departments, Locations, Classes\n- **Revenue Recognition**: ASC 606 compliant revenue recognition\n- **Inventory Management**: Items, Warehouses, Price Lists\n- **Financial Operations**: Invoices, Payments, Subscriptions\n- **General Ledger**: Chart of Accounts, GL Transactions\n- **AI Integration**: AI-enabled endpoints with x-ai-* extensions for LLM tool calling\n\n## Authentication\n\nAll endpoints require authentication using Clerk. Include your authentication token in the Authorization header:\n\n```\nAuthorization: Bearer YOUR_TOKEN\n```\n\n## AI Extensions\n\nEndpoints with `x-ai-tool` extensions can be used by AI assistants for automated operations.\nSee the x-ai-* extension fields for risk levels, permissions, and rate limits.\n\n## Base URL\n\nThe API is accessible at:\n- Development: http://localhost:3031\n- Staging: https://staging-api.glapi.net\n- Production: https://api.glapi.net"
   },
   "servers": [
     {
-      "url": "http://localhost:3031/api",
+      "url": "http://localhost:3031",
       "description": "Development server"
     },
     {
-      "url": "https://staging-api.glapi.net/api",
+      "url": "https://staging-api.glapi.net",
       "description": "Staging server"
     },
     {
-      "url": "https://api.glapi.net/api",
+      "url": "https://api.glapi.net",
       "description": "Production server"
     }
   ],
   "paths": {
-    "/api/customers": {
+    "/v1/customers": {
       "get": {
         "summary": "List all customers",
         "tags": [
@@ -154,7 +154,7 @@
         }
       }
     },
-    "/api/customers/{id}": {
+    "/v1/customers/{id}": {
       "get": {
         "summary": "Get a specific customers by ID",
         "tags": [
@@ -377,7 +377,7 @@
         }
       }
     },
-    "/api/organizations": {
+    "/v1/organizations": {
       "get": {
         "summary": "List all organizations",
         "tags": [
@@ -511,7 +511,7 @@
         }
       }
     },
-    "/api/organizations/{id}": {
+    "/v1/organizations/{id}": {
       "get": {
         "summary": "Get a specific organizations by ID",
         "tags": [
@@ -734,7 +734,7 @@
         }
       }
     },
-    "/api/subsidiaries": {
+    "/v1/subsidiaries": {
       "get": {
         "summary": "List all subsidiaries",
         "tags": [
@@ -868,7 +868,7 @@
         }
       }
     },
-    "/api/subsidiaries/{id}": {
+    "/v1/subsidiaries/{id}": {
       "get": {
         "summary": "Get a specific subsidiaries by ID",
         "tags": [
@@ -1091,7 +1091,7 @@
         }
       }
     },
-    "/api/departments": {
+    "/v1/departments": {
       "get": {
         "summary": "List all departments",
         "tags": [
@@ -1225,7 +1225,7 @@
         }
       }
     },
-    "/api/departments/{id}": {
+    "/v1/departments/{id}": {
       "get": {
         "summary": "Get a specific departments by ID",
         "tags": [
@@ -1448,7 +1448,7 @@
         }
       }
     },
-    "/api/locations": {
+    "/v1/locations": {
       "get": {
         "summary": "List all locations",
         "tags": [
@@ -1582,7 +1582,7 @@
         }
       }
     },
-    "/api/locations/{id}": {
+    "/v1/locations/{id}": {
       "get": {
         "summary": "Get a specific locations by ID",
         "tags": [
@@ -1805,7 +1805,7 @@
         }
       }
     },
-    "/api/classes": {
+    "/v1/classes": {
       "get": {
         "summary": "List all classes",
         "tags": [
@@ -1939,7 +1939,7 @@
         }
       }
     },
-    "/api/classes/{id}": {
+    "/v1/classes/{id}": {
       "get": {
         "summary": "Get a specific classes by ID",
         "tags": [
@@ -2162,7 +2162,7 @@
         }
       }
     },
-    "/api/items": {
+    "/v1/items": {
       "get": {
         "summary": "List all items",
         "tags": [
@@ -2296,7 +2296,7 @@
         }
       }
     },
-    "/api/items/{id}": {
+    "/v1/items/{id}": {
       "get": {
         "summary": "Get a specific items by ID",
         "tags": [
@@ -2519,7 +2519,7 @@
         }
       }
     },
-    "/api/priceLists": {
+    "/v1/priceLists": {
       "get": {
         "summary": "List all priceLists",
         "tags": [
@@ -2653,7 +2653,7 @@
         }
       }
     },
-    "/api/priceLists/{id}": {
+    "/v1/priceLists/{id}": {
       "get": {
         "summary": "Get a specific priceLists by ID",
         "tags": [
@@ -2876,7 +2876,7 @@
         }
       }
     },
-    "/api/warehouses": {
+    "/v1/warehouses": {
       "get": {
         "summary": "List all warehouses",
         "tags": [
@@ -3010,7 +3010,7 @@
         }
       }
     },
-    "/api/warehouses/{id}": {
+    "/v1/warehouses/{id}": {
       "get": {
         "summary": "Get a specific warehouses by ID",
         "tags": [
@@ -3233,7 +3233,7 @@
         }
       }
     },
-    "/api/vendors": {
+    "/v1/vendors": {
       "get": {
         "summary": "List all vendors",
         "tags": [
@@ -3367,7 +3367,7 @@
         }
       }
     },
-    "/api/vendors/{id}": {
+    "/v1/vendors/{id}": {
       "get": {
         "summary": "Get a specific vendors by ID",
         "tags": [
@@ -3590,7 +3590,7 @@
         }
       }
     },
-    "/api/accounts": {
+    "/v1/accounts": {
       "get": {
         "summary": "List all accounts",
         "tags": [
@@ -3724,7 +3724,7 @@
         }
       }
     },
-    "/api/accounts/{id}": {
+    "/v1/accounts/{id}": {
       "get": {
         "summary": "Get a specific accounts by ID",
         "tags": [
@@ -3947,7 +3947,7 @@
         }
       }
     },
-    "/api/leads": {
+    "/v1/leads": {
       "get": {
         "summary": "List all leads",
         "tags": [
@@ -4081,7 +4081,7 @@
         }
       }
     },
-    "/api/leads/{id}": {
+    "/v1/leads/{id}": {
       "get": {
         "summary": "Get a specific leads by ID",
         "tags": [
@@ -4304,7 +4304,7 @@
         }
       }
     },
-    "/api/employees": {
+    "/v1/employees": {
       "get": {
         "summary": "List all employees",
         "tags": [
@@ -4438,7 +4438,7 @@
         }
       }
     },
-    "/api/employees/{id}": {
+    "/v1/employees/{id}": {
       "get": {
         "summary": "Get a specific employees by ID",
         "tags": [
@@ -4661,7 +4661,7 @@
         }
       }
     },
-    "/api/prospects": {
+    "/v1/prospects": {
       "get": {
         "summary": "List all prospects",
         "tags": [
@@ -4795,7 +4795,7 @@
         }
       }
     },
-    "/api/prospects/{id}": {
+    "/v1/prospects/{id}": {
       "get": {
         "summary": "Get a specific prospects by ID",
         "tags": [
@@ -5018,7 +5018,7 @@
         }
       }
     },
-    "/api/contacts": {
+    "/v1/contacts": {
       "get": {
         "summary": "List all contacts",
         "tags": [
@@ -5152,7 +5152,7 @@
         }
       }
     },
-    "/api/contacts/{id}": {
+    "/v1/contacts/{id}": {
       "get": {
         "summary": "Get a specific contacts by ID",
         "tags": [
@@ -5375,7 +5375,7 @@
         }
       }
     },
-    "/api/unitsOfMeasure": {
+    "/v1/unitsOfMeasure": {
       "get": {
         "summary": "List all unitsOfMeasure",
         "tags": [
@@ -5509,7 +5509,7 @@
         }
       }
     },
-    "/api/unitsOfMeasure/{id}": {
+    "/v1/unitsOfMeasure/{id}": {
       "get": {
         "summary": "Get a specific unitsOfMeasure by ID",
         "tags": [
@@ -5732,7 +5732,7 @@
         }
       }
     },
-    "/api/businessTransactions": {
+    "/v1/businessTransactions": {
       "get": {
         "summary": "List all businessTransactions",
         "tags": [
@@ -5866,7 +5866,7 @@
         }
       }
     },
-    "/api/businessTransactions/{id}": {
+    "/v1/businessTransactions/{id}": {
       "get": {
         "summary": "Get a specific businessTransactions by ID",
         "tags": [
@@ -6089,7 +6089,7 @@
         }
       }
     },
-    "/api/subscriptions": {
+    "/v1/subscriptions": {
       "get": {
         "summary": "List all subscriptions",
         "tags": [
@@ -6223,7 +6223,7 @@
         }
       }
     },
-    "/api/subscriptions/{id}": {
+    "/v1/subscriptions/{id}": {
       "get": {
         "summary": "Get a specific subscriptions by ID",
         "tags": [
@@ -6446,7 +6446,7 @@
         }
       }
     },
-    "/api/invoices": {
+    "/v1/invoices": {
       "get": {
         "summary": "List all invoices",
         "tags": [
@@ -6580,7 +6580,7 @@
         }
       }
     },
-    "/api/invoices/{id}": {
+    "/v1/invoices/{id}": {
       "get": {
         "summary": "Get a specific invoices by ID",
         "tags": [
@@ -6803,7 +6803,7 @@
         }
       }
     },
-    "/api/payments": {
+    "/v1/payments": {
       "get": {
         "summary": "List all payments",
         "tags": [
@@ -6937,7 +6937,7 @@
         }
       }
     },
-    "/api/payments/{id}": {
+    "/v1/payments/{id}": {
       "get": {
         "summary": "Get a specific payments by ID",
         "tags": [
@@ -7160,7 +7160,7 @@
         }
       }
     },
-    "/api/revenue": {
+    "/v1/revenue": {
       "get": {
         "summary": "List all revenue",
         "tags": [
@@ -7294,7 +7294,7 @@
         }
       }
     },
-    "/api/revenue/{id}": {
+    "/v1/revenue/{id}": {
       "get": {
         "summary": "Get a specific revenue by ID",
         "tags": [
@@ -7517,7 +7517,7 @@
         }
       }
     },
-    "/api/revenue/asc606/sales-orders": {
+    "/v1/revenue/asc606/sales-orders": {
       "post": {
         "summary": "Create sales order and generate ASC 606 plan",
         "description": "Creates a sales order and immediately returns generated ASC 606 obligations, schedules, and waterfall output.",
@@ -7620,7 +7620,7 @@
         }
       }
     },
-    "/api/revenue/asc606/sales-orders/{salesOrderId}/plan": {
+    "/v1/revenue/asc606/sales-orders/{salesOrderId}/plan": {
       "post": {
         "summary": "Generate ASC 606 plan for an existing sales order",
         "description": "Generates or regenerates ASC 606 plan outputs for an existing sales order.",
@@ -7733,7 +7733,7 @@
         }
       }
     },
-    "/api/revenue/asc606/subscriptions/{subscriptionId}/plan": {
+    "/v1/revenue/asc606/subscriptions/{subscriptionId}/plan": {
       "get": {
         "summary": "Get ASC 606 subscription plan",
         "description": "Returns subscription-level ASC 606 summary, obligations, allocations, schedules, invoice schedule, and waterfall output.",
@@ -7856,7 +7856,7 @@
         }
       }
     },
-    "/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview": {
+    "/v1/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview": {
       "post": {
         "summary": "Preview ASC 606 license change impact",
         "description": "Returns what-if ASC 606 allocation impact for a software license add/remove change without persisting the amendment.",
@@ -7969,7 +7969,7 @@
         }
       }
     },
-    "/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply": {
+    "/v1/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply": {
       "post": {
         "summary": "Apply ASC 606 license change",
         "description": "Persists a software license add/remove amendment and returns recalculated ASC 606 outputs.",
@@ -8646,7 +8646,7 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "better-auth.session_token",
-        "description": "Better Auth session cookie issued by /api/auth endpoints for browser clients."
+        "description": "Better Auth session cookie issued by /auth endpoints for browser clients."
       },
       "ApiKeyAuth": {
         "type": "apiKey",

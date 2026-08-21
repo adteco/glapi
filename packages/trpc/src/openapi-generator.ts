@@ -962,7 +962,7 @@ function addAsc606RevenuePaths(spec: OpenAPISpec): void {
     requestSchema?: any;
   }> = [
     {
-      path: '/api/revenue/asc606/sales-orders',
+      path: '/v1/revenue/asc606/sales-orders',
       method: 'post',
       operation: {
         summary: 'Create sales order and generate ASC 606 plan',
@@ -978,7 +978,7 @@ function addAsc606RevenuePaths(spec: OpenAPISpec): void {
       requestSchema: schemaRef('Asc606CreateSalesOrderPlanRequest'),
     },
     {
-      path: '/api/revenue/asc606/sales-orders/{salesOrderId}/plan',
+      path: '/v1/revenue/asc606/sales-orders/{salesOrderId}/plan',
       method: 'post',
       operation: {
         summary: 'Generate ASC 606 plan for an existing sales order',
@@ -997,7 +997,7 @@ function addAsc606RevenuePaths(spec: OpenAPISpec): void {
       requestSchema: schemaRef('Asc606GenerateSalesOrderPlanRequest'),
     },
     {
-      path: '/api/revenue/asc606/subscriptions/{subscriptionId}/plan',
+      path: '/v1/revenue/asc606/subscriptions/{subscriptionId}/plan',
       method: 'get',
       operation: {
         summary: 'Get ASC 606 subscription plan',
@@ -1029,7 +1029,7 @@ function addAsc606RevenuePaths(spec: OpenAPISpec): void {
       },
     },
     {
-      path: '/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview',
+      path: '/v1/revenue/asc606/subscriptions/{subscriptionId}/license-changes/preview',
       method: 'post',
       operation: {
         summary: 'Preview ASC 606 license change impact',
@@ -1048,7 +1048,7 @@ function addAsc606RevenuePaths(spec: OpenAPISpec): void {
       requestSchema: schemaRef('Asc606LicenseChangeRequest'),
     },
     {
-      path: '/api/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply',
+      path: '/v1/revenue/asc606/subscriptions/{subscriptionId}/license-changes/apply',
       method: 'post',
       operation: {
         summary: 'Apply ASC 606 license change',
@@ -1135,22 +1135,22 @@ See the x-ai-* extension fields for risk levels, permissions, and rate limits.
 ## Base URL
 
 The API is accessible at:
-- Development: http://localhost:3031/api
-- Staging: https://staging-api.glapi.net/api
-- Production: https://api.glapi.net/api
+- Development: http://localhost:3031
+- Staging: https://staging-api.glapi.net
+- Production: https://api.glapi.net
       `.trim(),
     },
     servers: servers ?? [
       {
-        url: 'http://localhost:3031/api',
+        url: 'http://localhost:3031',
         description: 'Development server',
       },
       {
-        url: 'https://staging-api.glapi.net/api',
+        url: 'https://staging-api.glapi.net',
         description: 'Staging server',
       },
       {
-        url: 'https://api.glapi.net/api',
+        url: 'https://api.glapi.net',
         description: 'Production server',
       },
     ],
@@ -1163,7 +1163,7 @@ The API is accessible at:
           in: 'cookie',
           name: 'better-auth.session_token',
           description:
-            'Better Auth session cookie issued by /api/auth endpoints for browser clients.',
+            'Better Auth session cookie issued by /auth endpoints for browser clients.',
         },
         ApiKeyAuth: {
           type: 'apiKey',
@@ -1187,10 +1187,10 @@ The API is accessible at:
 
     for (const operation of operations) {
       const path = operation === 'list'
-        ? `/api/${routerName}`
+        ? `/v1/${routerName}`
         : operation === 'create'
-        ? `/api/${routerName}`
-        : `/api/${routerName}/{id}`;
+        ? `/v1/${routerName}`
+        : `/v1/${routerName}/{id}`;
 
       const method = operation === 'list' || operation === 'get' ? 'get' :
                      operation === 'create' ? 'post' :

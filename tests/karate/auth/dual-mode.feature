@@ -5,9 +5,9 @@ Feature: Dual mode authentication verification
   Background:
     # Clear global headers for clean dual-mode testing
     * configure headers = { 'Content-Type': 'application/json', 'Origin': '#(baseUrl)' }
-    * def signInUrl = baseUrl + '/api/auth/sign-in/email'
-    * def setActiveOrgUrl = baseUrl + '/api/auth/organization/set-active'
-    * def trpcUrl = baseUrl + '/api/trpc/'
+    * def signInUrl = baseUrl + '/auth/sign-in/email'
+    * def setActiveOrgUrl = baseUrl + '/auth/organization/set-active'
+    * def trpcUrl = baseUrl + '/trpc/'
 
   Scenario: Better Auth session works in dual mode
     # Sign in with Better Auth

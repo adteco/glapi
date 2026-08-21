@@ -24,7 +24,7 @@ test.describe('Better Auth E2E Browser Tests', () => {
 
   test('should sign in via Better Auth API and access dashboard', async ({ page, request }) => {
     // Sign in via API to get session cookie
-    const signInResponse = await request.post(`${API_URL}/api/auth/sign-in/email`, {
+    const signInResponse = await request.post(`${API_URL}/auth/sign-in/email`, {
       data: {
         email: BETTER_AUTH_EMAIL,
         password: BETTER_AUTH_PASSWORD,
@@ -47,7 +47,7 @@ test.describe('Better Auth E2E Browser Tests', () => {
 
     // Set active organization
     if (BETTER_AUTH_ORG_ID) {
-      await request.post(`${API_URL}/api/auth/organization/set-active`, {
+      await request.post(`${API_URL}/auth/organization/set-active`, {
         data: { organizationId: BETTER_AUTH_ORG_ID },
         headers: { cookie: `better-auth.session_token=${sessionMatch![1]}` },
       });
@@ -64,7 +64,7 @@ test.describe('Better Auth E2E Browser Tests', () => {
 
   test('should not get 403 errors on network requests after Better Auth sign-in', async ({ page, request }) => {
     // Sign in via API
-    const signInResponse = await request.post(`${API_URL}/api/auth/sign-in/email`, {
+    const signInResponse = await request.post(`${API_URL}/auth/sign-in/email`, {
       data: {
         email: BETTER_AUTH_EMAIL,
         password: BETTER_AUTH_PASSWORD,
@@ -84,7 +84,7 @@ test.describe('Better Auth E2E Browser Tests', () => {
     }]);
 
     if (BETTER_AUTH_ORG_ID) {
-      await request.post(`${API_URL}/api/auth/organization/set-active`, {
+      await request.post(`${API_URL}/auth/organization/set-active`, {
         data: { organizationId: BETTER_AUTH_ORG_ID },
         headers: { cookie: `better-auth.session_token=${sessionMatch![1]}` },
       });
@@ -110,7 +110,7 @@ test.describe('Better Auth E2E Browser Tests', () => {
 
   test('should persist session across page navigation', async ({ page, request }) => {
     // Sign in via API
-    const signInResponse = await request.post(`${API_URL}/api/auth/sign-in/email`, {
+    const signInResponse = await request.post(`${API_URL}/auth/sign-in/email`, {
       data: {
         email: BETTER_AUTH_EMAIL,
         password: BETTER_AUTH_PASSWORD,
@@ -129,7 +129,7 @@ test.describe('Better Auth E2E Browser Tests', () => {
     }]);
 
     if (BETTER_AUTH_ORG_ID) {
-      await request.post(`${API_URL}/api/auth/organization/set-active`, {
+      await request.post(`${API_URL}/auth/organization/set-active`, {
         data: { organizationId: BETTER_AUTH_ORG_ID },
         headers: { cookie: `better-auth.session_token=${sessionMatch![1]}` },
       });

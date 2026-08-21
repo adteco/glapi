@@ -46,7 +46,7 @@ describe('saved search routes', () => {
     const server = await buildSavedSearchTestServer();
     const response = await server.inject({
       method: 'POST',
-      url: '/api/saved-searches/validate',
+      url: '/v1/saved-searches/validate',
       payload: customerSearch.definition,
     });
 
@@ -61,7 +61,7 @@ describe('saved search routes', () => {
     const server = await buildSavedSearchTestServer();
     const createResponse = await server.inject({
       method: 'POST',
-      url: '/api/saved-searches',
+      url: '/v1/saved-searches',
       payload: customerSearch,
     });
 
@@ -74,7 +74,7 @@ describe('saved search routes', () => {
 
     const listResponse = await server.inject({
       method: 'GET',
-      url: '/api/saved-searches?recordKey=customer',
+      url: '/v1/saved-searches?recordKey=customer',
     });
 
     expect(listResponse.statusCode).toBe(200);
@@ -86,7 +86,7 @@ describe('saved search routes', () => {
     const server = await buildSavedSearchTestServer();
     const response = await server.inject({
       method: 'POST',
-      url: '/api/saved-searches',
+      url: '/v1/saved-searches',
       payload: {
         name: 'Bad Search',
         definition: {
@@ -104,14 +104,14 @@ describe('saved search routes', () => {
     const server = await buildSavedSearchTestServer();
     const createResponse = await server.inject({
       method: 'POST',
-      url: '/api/saved-searches',
+      url: '/v1/saved-searches',
       payload: customerSearch,
     });
     const id = createResponse.json().savedSearch.id;
 
     const runResponse = await server.inject({
       method: 'POST',
-      url: `/api/saved-searches/${id}/run`,
+      url: `/v1/saved-searches/${id}/run`,
       payload: { page: 1, pageSize: 25 },
     });
 
@@ -133,14 +133,14 @@ describe('saved search routes', () => {
     const server = await buildSavedSearchTestServer();
     const createResponse = await server.inject({
       method: 'POST',
-      url: '/api/saved-searches',
+      url: '/v1/saved-searches',
       payload: customerSearch,
     });
     const id = createResponse.json().savedSearch.id;
 
     const updateResponse = await server.inject({
       method: 'PUT',
-      url: `/api/saved-searches/${id}`,
+      url: `/v1/saved-searches/${id}`,
       payload: { name: 'Renamed Customers' },
     });
     expect(updateResponse.statusCode).toBe(200);
@@ -148,7 +148,7 @@ describe('saved search routes', () => {
 
     const deleteResponse = await server.inject({
       method: 'DELETE',
-      url: `/api/saved-searches/${id}`,
+      url: `/v1/saved-searches/${id}`,
     });
     expect(deleteResponse.statusCode).toBe(204);
   });

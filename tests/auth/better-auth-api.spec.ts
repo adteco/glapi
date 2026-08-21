@@ -24,7 +24,7 @@ test.describe('Better Auth API Authentication', () => {
     test.skip(!BETTER_AUTH_PASSWORD, 'BETTER_AUTH_TEST_PASSWORD not set');
 
     // Sign in with Better Auth
-    const signInResponse = await request.post(`${API_URL}/api/auth/sign-in/email`, {
+    const signInResponse = await request.post(`${API_URL}/auth/sign-in/email`, {
       data: {
         email: BETTER_AUTH_EMAIL,
         password: BETTER_AUTH_PASSWORD,
@@ -44,7 +44,7 @@ test.describe('Better Auth API Authentication', () => {
 
     // Set active organization if org ID is provided
     if (BETTER_AUTH_ORG_ID) {
-      const setOrgResponse = await request.post(`${API_URL}/api/auth/organization/set-active`, {
+      const setOrgResponse = await request.post(`${API_URL}/auth/organization/set-active`, {
         data: { organizationId: BETTER_AUTH_ORG_ID },
         headers: { cookie: sessionCookie, 'Origin': API_URL },
       });
@@ -53,7 +53,7 @@ test.describe('Better Auth API Authentication', () => {
   });
 
   test('should sign in with Better Auth and get session cookie', async ({ request }) => {
-    const response = await request.post(`${API_URL}/api/auth/sign-in/email`, {
+    const response = await request.post(`${API_URL}/auth/sign-in/email`, {
       data: {
         email: BETTER_AUTH_EMAIL,
         password: BETTER_AUTH_PASSWORD,
@@ -68,7 +68,7 @@ test.describe('Better Auth API Authentication', () => {
 
   test('should access tRPC customers.list with Better Auth session', async ({ request }) => {
     const response = await request.get(
-      `${API_URL}/api/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
+      `${API_URL}/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ test.describe('Better Auth API Authentication', () => {
 
   test('should access tRPC workflows.list with Better Auth session', async ({ request }) => {
     const response = await request.get(
-      `${API_URL}/api/trpc/workflows.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
+      `${API_URL}/trpc/workflows.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ test.describe('Better Auth API Authentication', () => {
 
   test('should access tRPC accounts.list with Better Auth session', async ({ request }) => {
     const response = await request.get(
-      `${API_URL}/api/trpc/accounts.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
+      `${API_URL}/trpc/accounts.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +120,7 @@ test.describe('Better Auth API Authentication', () => {
 
     for (const endpoint of endpoints) {
       const response = await request.get(
-        `${API_URL}/api/trpc/${endpoint}?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
+        `${API_URL}/trpc/${endpoint}?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ test.describe('Better Auth API Authentication', () => {
 
   test('should return 401 without any auth', async ({ request }) => {
     const response = await request.get(
-      `${API_URL}/api/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
+      `${API_URL}/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ test.describe('API Key Auth Regression Guard', () => {
 
   test('should access tRPC endpoint with API key', async ({ request }) => {
     const response = await request.get(
-      `${API_URL}/api/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
+      `${API_URL}/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +187,7 @@ test.describe('API Key Auth Regression Guard', () => {
 
   test('should reject invalid API key', async ({ request }) => {
     const response = await request.get(
-      `${API_URL}/api/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
+      `${API_URL}/trpc/customers.list?batch=1&input=${encodeURIComponent('{"0":{"json":{}}}')}`,
       {
         headers: {
           'Content-Type': 'application/json',

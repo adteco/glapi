@@ -35,7 +35,7 @@ export function createTestTRPCClient(options?: {
   return createTRPCProxyClient<AppRouter>({
     links: [
       httpBatchLink({
-        url: `${config.apiUrl}/api/trpc`,
+        url: `${config.apiUrl}/trpc`,
         transformer: superjson,
         headers() {
           return {
@@ -210,7 +210,7 @@ export async function waitForApi(
 ): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const response = await fetch(`${TEST_CONFIG.apiUrl}/api/health`);
+      const response = await fetch(`${TEST_CONFIG.apiUrl}/health`);
       if (response.ok) {
         return true;
       }

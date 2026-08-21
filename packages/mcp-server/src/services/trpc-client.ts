@@ -7,7 +7,7 @@ import superjson from 'superjson';
  * Create tRPC client for backend communication
  */
 export function createBackendClient(apiUrl: string, authContext: AuthContext) {
-  const trpcUrl = `${apiUrl}/api/trpc`;
+  const trpcUrl = `${apiUrl}/trpc`;
   console.log('[tRPC Client] Connecting to:', trpcUrl);
   
   return createTRPCProxyClient<AppRouter>({

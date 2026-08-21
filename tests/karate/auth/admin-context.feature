@@ -5,8 +5,8 @@ Feature: Admin context authentication for billing endpoints
   Background:
     # Clear global API key/org headers -- these tests use cookie-only auth
     * configure headers = { 'Content-Type': 'application/json', 'Origin': '#(baseUrl)' }
-    * def signInUrl = baseUrl + '/api/auth/sign-in/email'
-    * def setActiveOrgUrl = baseUrl + '/api/auth/organization/set-active'
+    * def signInUrl = baseUrl + '/auth/sign-in/email'
+    * def setActiveOrgUrl = baseUrl + '/auth/organization/set-active'
 
   Scenario: Better Auth admin can access billing connect status
     # Sign in as admin

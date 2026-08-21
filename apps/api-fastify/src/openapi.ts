@@ -34,7 +34,7 @@ export function generateRuntimeOpenApiSpec(): OpenAPIV3.Document {
 
   spec.servers = [
     {
-      url: `${baseUrl}/api`,
+      url: baseUrl,
       description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Runtime server',
     },
   ];
@@ -61,7 +61,7 @@ function addOntologyOpenApiSpec(spec: OpenAPIV3.Document): void {
   Object.assign(spec.components.schemas, ontologySchemas());
   spec.paths ??= {};
 
-  spec.paths['/api/ontology/version'] = {
+  spec.paths['/v1/ontology/version'] = {
     get: {
       tags: ['Ontology'],
       operationId: 'getOntologyVersion',
@@ -73,7 +73,7 @@ function addOntologyOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/ontology'] = {
+  spec.paths['/v1/ontology'] = {
     get: {
       tags: ['Ontology'],
       operationId: 'getOntologyRegistry',
@@ -85,7 +85,7 @@ function addOntologyOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/ontology/records'] = {
+  spec.paths['/v1/ontology/records'] = {
     get: {
       tags: ['Ontology'],
       operationId: 'listOntologyRecords',
@@ -126,7 +126,7 @@ function addOntologyOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/ontology/records/{key}'] = {
+  spec.paths['/v1/ontology/records/{key}'] = {
     get: {
       tags: ['Ontology'],
       operationId: 'getOntologyRecord',
@@ -151,7 +151,7 @@ function addOntologyOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/ontology/events'] = {
+  spec.paths['/v1/ontology/events'] = {
     get: {
       tags: ['Ontology'],
       operationId: 'listOntologyEvents',
@@ -178,7 +178,7 @@ function addSavedSearchOpenApiSpec(spec: OpenAPIV3.Document): void {
   Object.assign(spec.components.schemas, savedSearchSchemas());
   spec.paths ??= {};
 
-  spec.paths['/api/saved-searches'] = {
+  spec.paths['/v1/saved-searches'] = {
     get: {
       tags: ['Saved Searches'],
       operationId: 'listSavedSearches',
@@ -220,7 +220,7 @@ function addSavedSearchOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/saved-searches/validate'] = {
+  spec.paths['/v1/saved-searches/validate'] = {
     post: {
       tags: ['Saved Searches'],
       operationId: 'validateSavedSearch',
@@ -232,7 +232,7 @@ function addSavedSearchOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/saved-searches/run'] = {
+  spec.paths['/v1/saved-searches/run'] = {
     post: {
       tags: ['Saved Searches'],
       operationId: 'runAdHocSavedSearch',
@@ -247,7 +247,7 @@ function addSavedSearchOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/saved-searches/{id}'] = {
+  spec.paths['/v1/saved-searches/{id}'] = {
     get: {
       tags: ['Saved Searches'],
       operationId: 'getSavedSearch',
@@ -287,7 +287,7 @@ function addSavedSearchOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/saved-searches/{id}/run'] = {
+  spec.paths['/v1/saved-searches/{id}/run'] = {
     post: {
       tags: ['Saved Searches'],
       operationId: 'runSavedSearch',
@@ -318,7 +318,7 @@ function addCustomFieldOpenApiSpec(spec: OpenAPIV3.Document): void {
   Object.assign(spec.components.schemas, customFieldSchemas());
   spec.paths ??= {};
 
-  spec.paths['/api/custom-field-definitions'] = {
+  spec.paths['/v1/custom-field-definitions'] = {
     get: {
       tags: ['Custom Fields'],
       operationId: 'listCustomFieldDefinitions',
@@ -361,7 +361,7 @@ function addCustomFieldOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-field-definitions/validate'] = {
+  spec.paths['/v1/custom-field-definitions/validate'] = {
     post: {
       tags: ['Custom Fields'],
       operationId: 'validateCustomFieldDefinition',
@@ -373,7 +373,7 @@ function addCustomFieldOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-field-definitions/validate-values'] = {
+  spec.paths['/v1/custom-field-definitions/validate-values'] = {
     post: {
       tags: ['Custom Fields'],
       operationId: 'validateCustomFieldValues',
@@ -386,7 +386,7 @@ function addCustomFieldOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-field-definitions/{id}'] = {
+  spec.paths['/v1/custom-field-definitions/{id}'] = {
     get: {
       tags: ['Custom Fields'],
       operationId: 'getCustomFieldDefinition',
@@ -441,7 +441,7 @@ function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
   Object.assign(spec.components.schemas, customRecordSchemas());
   spec.paths ??= {};
 
-  spec.paths['/api/custom-record-types'] = {
+  spec.paths['/v1/custom-record-types'] = {
     get: {
       tags: ['Custom Records'],
       operationId: 'listCustomRecordTypes',
@@ -484,7 +484,7 @@ function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-record-types/validate'] = {
+  spec.paths['/v1/custom-record-types/validate'] = {
     post: {
       tags: ['Custom Records'],
       operationId: 'validateCustomRecordType',
@@ -496,7 +496,7 @@ function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-record-types/{id}'] = {
+  spec.paths['/v1/custom-record-types/{id}'] = {
     get: {
       tags: ['Custom Records'],
       operationId: 'getCustomRecordType',
@@ -537,7 +537,7 @@ function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-record-types/{id}/ontology'] = {
+  spec.paths['/v1/custom-record-types/{id}/ontology'] = {
     get: {
       tags: ['Custom Records'],
       operationId: 'getCustomRecordTypeOntology',
@@ -550,7 +550,7 @@ function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-records'] = {
+  spec.paths['/v1/custom-records'] = {
     get: {
       tags: ['Custom Records'],
       operationId: 'listCustomRecords',
@@ -602,7 +602,7 @@ function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-records/validate'] = {
+  spec.paths['/v1/custom-records/validate'] = {
     post: {
       tags: ['Custom Records'],
       operationId: 'validateCustomRecordValues',
@@ -616,7 +616,7 @@ function addCustomRecordOpenApiSpec(spec: OpenAPIV3.Document): void {
     },
   };
 
-  spec.paths['/api/custom-records/{id}'] = {
+  spec.paths['/v1/custom-records/{id}'] = {
     get: {
       tags: ['Custom Records'],
       operationId: 'getCustomRecord',
@@ -870,7 +870,7 @@ function ontologySchemas() {
         },
         apiPath: {
           type: 'string',
-          pattern: '^/api/[a-zA-Z0-9/_{}-]+$',
+          pattern: '^/v1/[a-zA-Z0-9/_{}-]+$',
         },
         description: {
           type: 'string',

@@ -5,7 +5,7 @@ Feature: Cross-domain endpoint auth coverage with Better Auth
   Background:
     # Clear global API key/org headers -- these tests use cookie-only auth
     * configure headers = { 'Content-Type': 'application/json', 'Origin': '#(baseUrl)' }
-    * def trpcUrl = baseUrl + '/api/trpc/'
+    * def trpcUrl = baseUrl + '/trpc/'
 
     # Sign in once and set org for all scenarios
     * def signInResult = call read('../helpers/better-auth-login.feature')

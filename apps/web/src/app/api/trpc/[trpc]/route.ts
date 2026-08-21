@@ -8,7 +8,12 @@ async function proxyToApi(
   request: NextRequest,
   context: { params: Promise<{ trpc: string }> }
 ) {
-  return proxyAuthenticatedApiRequest(request, request.nextUrl.pathname);
+  // Browser hits the web-origin Next route /api/trpc/*; upstream Fastify
+  // serves tRPC at /trpc/*.
+  return proxyAuthenticatedApiRequest(
+    request,
+    request.nextUrl.pathname.replace(/^\/api\/trpc/, '/trpc')
+  );
 }
 
 export async function GET(

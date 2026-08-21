@@ -7,12 +7,12 @@ Feature: tRPC auth-context smoke checks
   BETTER_AUTH_TEST_ORG_ID provisioned in the target environment.
 
   Background:
-    * def workflowsUrl = baseUrl + '/api/trpc/workflows.list'
+    * def workflowsUrl = baseUrl + '/trpc/workflows.list'
     * def workflowsInput = '{"0":{"json":{}}}'
-    * def analyticsUrl = baseUrl + '/api/trpc/projectAnalytics.getBacklogByCustomer,projectAnalytics.getUnbilledTimeByCustomer,projectAnalytics.getUnfulfilledSalesOrdersByCustomer'
+    * def analyticsUrl = baseUrl + '/trpc/projectAnalytics.getBacklogByCustomer,projectAnalytics.getUnbilledTimeByCustomer,projectAnalytics.getUnfulfilledSalesOrdersByCustomer'
     * def analyticsInput = '{"0":{"json":null,"meta":{"values":["undefined"]}},"1":{"json":null,"meta":{"values":["undefined"]}},"2":{"json":null,"meta":{"values":["undefined"]}}}'
-    * def signInUrl = baseUrl + '/api/auth/sign-in/email'
-    * def setActiveOrgUrl = baseUrl + '/api/auth/organization/set-active'
+    * def signInUrl = baseUrl + '/auth/sign-in/email'
+    * def setActiveOrgUrl = baseUrl + '/auth/organization/set-active'
     * def noAuthHeaders = { 'Content-Type': 'application/json' }
     * def sessionHeaders = { 'Content-Type': 'application/json', 'Origin': '#(betterAuthOrigin)' }
 
