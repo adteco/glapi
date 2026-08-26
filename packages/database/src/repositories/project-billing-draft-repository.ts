@@ -31,6 +31,9 @@ export interface ProjectBillingDraftLineInput {
   projectTaskId?: string | null;
   billingRuleId: string;
   projectContractLineId?: string | null;
+  projectId?: string | null;
+  projectContractId?: string | null;
+  projectContractVersionId?: string | null;
 }
 
 export interface ProjectBillingDraftGroupInput {
@@ -318,6 +321,10 @@ export class ProjectBillingDraftRepository extends BaseRepository {
               organizationId: input.organizationId,
               invoiceId: invoice.id,
               invoiceLineItemId: createdLine.id,
+              projectId: line.projectId ?? undefined,
+              projectContractId: line.projectContractId ?? undefined,
+              projectContractVersionId: line.projectContractVersionId ?? undefined,
+              projectContractLineId: line.projectContractLineId ?? undefined,
               sourceType: line.sourceType,
               sourceId: line.sourceId,
               sourceHours: line.sourceHours ?? undefined,

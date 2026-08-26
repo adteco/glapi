@@ -484,6 +484,9 @@ export class ProjectBillingQueueService extends BaseService {
               line.sourceType === 'PROJECT_TASK' ? line.sourceId : null,
             billingRuleId: line.billingRuleId,
             projectContractLineId: line.projectContractLineId,
+            projectId: line.projectId,
+            projectContractId: line.projectContractId,
+            projectContractVersionId: line.projectContractVersionId,
           })),
         })),
       });

@@ -1,6 +1,7 @@
 import {
   ProjectRevenuePlanService,
   ProjectRevenueRecognitionRunService,
+  ProjectRevenueGlPostingService,
 } from '@glapi/api-service';
 import { uuidSchema } from '@glapi/types';
 import { z } from 'zod';
@@ -119,5 +120,51 @@ export const projectRevenueRouter = router({
         },
         idempotencyKey,
       );
+    }),
+
+  postRecognitionRun: authenticatedProcedure
+    .meta({
+      ai: createWriteAIMeta(
+        'post_project_revenue_recognition_run',
+        'Post a completed project revenue recognition run to balanced GL transactions',
+        {
+          scopes: ['project-revenue', 'accounting', 'general-ledger'],
+          permissions: ['write:revenue', 'write:gl'],
+          riskLevel: 'HIGH',
+        },
+      ),
+    })
+    .input(
+      z.object({
+        recognitionRunId: uuidSchema,
+        idempotencyKey: z.string().trim().min(1).max(255),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new ProjectRevenueGlPostingService(ctx.serviceContext, { db: ctx.db });
+      return service.postRecognitionRun(input.recognitionRunId!, input.idempotencyKey);
+    }),
+
+  postProjectInvoice: authenticatedProcedure
+    .meta({
+      ai: createWriteAIMeta(
+        'post_project_invoice_to_gl',
+        'Post an issued project invoice to AR and the contract asset or liability position',
+        {
+          scopes: ['project-billing', 'accounting', 'general-ledger'],
+          permissions: ['write:billing', 'write:gl'],
+          riskLevel: 'HIGH',
+        },
+      ),
+    })
+    .input(
+      z.object({
+        invoiceId: uuidSchema,
+        idempotencyKey: z.string().trim().min(1).max(255),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new ProjectRevenueGlPostingService(ctx.serviceContext, { db: ctx.db });
+      return service.postProjectInvoice(input.invoiceId!, input.idempotencyKey);
     }),
 });

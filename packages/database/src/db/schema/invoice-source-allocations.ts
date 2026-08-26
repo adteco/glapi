@@ -13,6 +13,12 @@ import { relations, sql } from 'drizzle-orm';
 import { organizations } from './organizations';
 import { invoices } from './invoices';
 import { invoiceLineItems } from './invoice-line-items';
+import { projects } from './projects';
+import {
+  projectContractVersions,
+  projectContractLines,
+  projectContracts,
+} from './project-contracts';
 
 export const invoiceSourceTypeEnum = pgEnum('invoice_source_type', [
   'TIME_ENTRY',
@@ -51,6 +57,12 @@ export const invoiceSourceAllocations = pgTable(
     invoiceLineItemId: uuid('invoice_line_item_id')
       .notNull()
       .references(() => invoiceLineItems.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id),
+    projectContractId: uuid('project_contract_id').references(() => projectContracts.id),
+    projectContractVersionId: uuid('project_contract_version_id').references(
+      () => projectContractVersions.id,
+    ),
+    projectContractLineId: uuid('project_contract_line_id').references(() => projectContractLines.id),
     sourceType: invoiceSourceTypeEnum('source_type').notNull(),
     sourceId: uuid('source_id').notNull(),
     sourceHours: numeric('source_hours', { precision: 10, scale: 2 }),
@@ -73,6 +85,11 @@ export const invoiceSourceAllocations = pgTable(
       table.sourceId,
     ),
     statusIdx: index('idx_invoice_source_allocations_status').on(table.organizationId, table.allocationStatus),
+    projectContractIdx: index('idx_invoice_source_allocations_project_contract').on(
+      table.organizationId,
+      table.projectContractId,
+      table.allocationStatus,
+    ),
     activeSourceUnique: uniqueIndex('ux_invoice_source_allocations_active_source')
       .on(table.organizationId, table.sourceType, table.sourceId)
       .where(sql`${table.allocationStatus} = 'active'`),

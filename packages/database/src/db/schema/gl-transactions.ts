@@ -17,6 +17,9 @@ export const glTransactions = pgTable('gl_transactions', {
   sourceSystem: text('source_system'), // 'MANUAL', 'AUTO', 'IMPORT'
   sourceTransactionId: uuid('source_transaction_id').references(() => businessTransactions.id),
   sourceTransactionType: text('source_transaction_type'),
+  sourceEventType: text('source_event_type'),
+  sourceEventId: uuid('source_event_id'),
+  idempotencyKey: text('idempotency_key'),
   description: text('description'),
   referenceNumber: text('reference_number'),
   baseCurrencyCode: text('base_currency_code').notNull(),
@@ -41,6 +44,11 @@ export const glTransactions = pgTable('gl_transactions', {
   dateAndSubIdx: uniqueIndex('idx_gl_trans_date_sub').on(table.transactionDate, table.subsidiaryId),
   periodIdx: uniqueIndex('idx_gl_trans_period').on(table.periodId, table.status),
   sourceIdx: uniqueIndex('idx_gl_trans_source').on(table.sourceTransactionId),
+  sourceEventIdx: uniqueIndex('ux_gl_transactions_source_event').on(
+    table.organizationId,
+    table.sourceEventType,
+    table.sourceEventId,
+  ),
   organizationIdx: index('idx_gl_trans_organization').on(table.organizationId),
 }));
 
@@ -105,6 +113,12 @@ export const glTransactionLines = pgTable('gl_transaction_lines', {
   reference1: text('reference_1'),
   reference2: text('reference_2'),
   projectId: uuid('project_id').references(() => projects.id),
+  customerId: uuid('customer_id'),
+  projectContractId: uuid('project_contract_id'),
+  projectContractVersionId: uuid('project_contract_version_id'),
+  performanceObligationId: uuid('performance_obligation_id'),
+  sourceEventType: text('source_event_type'),
+  sourceEventId: uuid('source_event_id'),
   createdDate: timestamp('created_date', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   transactionLineIdx: uniqueIndex('idx_gl_line_trans').on(table.transactionId, table.lineNumber),
