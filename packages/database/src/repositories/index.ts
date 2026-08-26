@@ -64,6 +64,8 @@ export * from './audit-log-repository';
 
 // Export project repositories
 export * from './project-repository';
+export * from './project-contract-repository';
+export * from './project-billing-rate-resolution';
 export * from './project-type-repository';
 export * from './project-cost-code-repository';
 export * from './project-budget-repository';

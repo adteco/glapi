@@ -17,6 +17,8 @@ import { invoiceLineItems } from './invoice-line-items';
 export const invoiceSourceTypeEnum = pgEnum('invoice_source_type', [
   'TIME_ENTRY',
   'PROJECT_TASK',
+  'PROJECT_MILESTONE',
+  'PROJECT_PROGRESS',
   'SALES_ORDER_LINE',
   'EXPENSE_ENTRY',
   'CREDIT_MEMO',

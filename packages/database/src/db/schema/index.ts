@@ -22,6 +22,7 @@ import * as auth from './auth';
 import * as projects from './projects';
 import * as projectTypes from './project-types';
 import * as projectProgress from './project-progress';
+import * as projectContractsSchemas from './project-contracts';
 import * as transactionTypes from './transaction-types';
 import * as glTransactions from './gl-transactions';
 import * as accountingPeriods from './accounting-periods';
@@ -195,6 +196,7 @@ export const schema = {
   ...projects,
   ...projectTypes,
   ...projectProgress,
+  ...projectContractsSchemas,
   ...testGl,
   // Items system schemas
   ...unitsOfMeasure,
@@ -370,6 +372,7 @@ export {
   customerPortalRoleEnum,
 } from './customer-portal-auth';
 export { externalEventReceipts, externalEventProcessingStatusEnum } from './external-event-receipts';
+export * from './project-contracts';
 
 // Re-export contract modification schemas
 export {
