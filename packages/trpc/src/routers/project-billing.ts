@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   ProjectBillingQueueService,
+  ProjectBillingTransitionService,
   type CreateProjectInvoiceDraftsInput,
 } from '@glapi/api-service';
 import { uuidSchema } from '@glapi/types';
@@ -22,6 +23,25 @@ const filtersSchema = z.object({
 });
 
 export const projectBillingRouter = router({
+  listInvoices: authenticatedProcedure
+    .meta({
+      ai: createReadOnlyAIMeta(
+        'list_project_billing_invoices',
+        'List project billing invoices with source allocation state and replacement lineage',
+        {
+          scopes: ['project-billing', 'invoices'],
+          permissions: ['read:invoices'],
+        },
+      ),
+    })
+    .input(z.object({ status: z.enum(['draft', 'billed']).optional() }))
+    .query(({ ctx, input }) => {
+      const service = new ProjectBillingTransitionService(ctx.serviceContext, {
+        db: ctx.db,
+      });
+      return service.listHistory(input.status);
+    }),
+
   listCandidates: authenticatedProcedure
     .meta({
       ai: createReadOnlyAIMeta(
@@ -114,5 +134,54 @@ export const projectBillingRouter = router({
       return service.createInvoiceDrafts(
         input as CreateProjectInvoiceDraftsInput,
       );
+    }),
+
+  transitionInvoice: authenticatedProcedure
+    .meta({
+      ai: createWriteAIMeta(
+        'transition_project_billing_invoice',
+        'Void, release, transfer, or rebill a project invoice while preserving allocation lineage',
+        {
+          scopes: ['project-billing', 'invoices'],
+          permissions: ['write:invoices'],
+          riskLevel: 'HIGH',
+          minimumRole: 'manager',
+        },
+      ),
+    })
+    .input(
+      z
+        .object({
+          invoiceId: uuidSchema,
+          action: z.enum(['void', 'release', 'transfer', 'rebill']),
+          reason: z.string().trim().min(3).max(1000),
+          idempotencyKey: z.string().trim().min(1).max(255),
+          targetInvoiceId: uuidSchema.optional(),
+          invoiceDate: z.string().date().optional(),
+          dueDate: z.string().date().optional(),
+        })
+        .superRefine((value, ctx) => {
+          if (value.action === 'transfer' && !value.targetInvoiceId) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['targetInvoiceId'],
+              message: 'Target draft invoice is required for transfer',
+            });
+          }
+        }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new ProjectBillingTransitionService(ctx.serviceContext, {
+        db: ctx.db,
+      });
+      return service.transition(input as {
+        invoiceId: string;
+        action: 'void' | 'release' | 'transfer' | 'rebill';
+        reason: string;
+        idempotencyKey: string;
+        targetInvoiceId?: string;
+        invoiceDate?: string;
+        dueDate?: string;
+      });
     }),
 });

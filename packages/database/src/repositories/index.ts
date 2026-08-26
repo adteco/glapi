@@ -68,6 +68,7 @@ export * from './project-contract-repository';
 export * from './project-billing-rate-resolution';
 export * from './project-billing-queue-repository';
 export * from './project-billing-draft-repository';
+export * from './project-billing-transition-repository';
 export * from './project-revenue-plan-repository';
 export * from './project-contract-modification-repository';
 export * from './project-revenue-recognition-run-repository';
