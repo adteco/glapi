@@ -42,6 +42,8 @@ export * from './project-billing-queue-service';
 export * from './project-revenue-plan-service';
 export * from './project-revenue-recognition-run-service';
 export * from './project-revenue-gl-posting-service';
+export * from './project-contract-modification-service';
+export * from './project-revenue-recognition-reversal-service';
 export * from './project-reporting-service';
 export * from './job-cost-posting-service';
 export * from './wip-reporting-service';

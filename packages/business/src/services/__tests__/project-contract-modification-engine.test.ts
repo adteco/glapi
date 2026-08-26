@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { calculateProjectContractModification } from '../project-contract-modification-engine';
+import {
+  calculateProjectContractModification,
+  recastProjectModificationSchedules,
+} from '../project-contract-modification-engine';
 
 describe('calculateProjectContractModification', () => {
   it('matches G-006 cumulative catch-up after a non-distinct scope change', () => {
@@ -43,5 +46,33 @@ describe('calculateProjectContractModification', () => {
         priorRecognizedAmount: '25000.00',
       }).supersedeUnrecognizedSchedules,
     ).toBe(false);
+  });
+});
+
+describe('recastProjectModificationSchedules', () => {
+  it('replaces only future schedules with the exact remaining G006 allocation', () => {
+    const calculation = calculateProjectContractModification({
+      method: 'cumulative_catch_up',
+      priorAllocatedAmount: '100000.00',
+      revisedAllocatedAmount: '110000.00',
+      priorRecognizedAmount: '25000.00',
+      progressPercentage: '20',
+    });
+    const plan = recastProjectModificationSchedules(
+      {
+        obligations: [{
+          schedules: [
+            { scheduleDate: '2026-01-31', scheduledAmount: '55000.00' },
+            { scheduleDate: '2026-12-31', scheduledAmount: '55000.00' },
+          ],
+        }],
+      },
+      calculation,
+      '2026-02-01',
+    );
+
+    expect(plan.obligations[0].schedules).toEqual([
+      { scheduleDate: '2026-12-31', scheduledAmount: '88000.00' },
+    ]);
   });
 });

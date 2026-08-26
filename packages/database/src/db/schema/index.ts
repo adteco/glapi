@@ -64,6 +64,7 @@ import * as sspEvidenceNew from './ssp-evidence';
 import * as contractSspAllocationsNew from './contract-ssp-allocations';
 import * as revenueJournalEntriesNew from './revenue-journal-entries';
 import * as revenueRecognitionRunsSchemas from './revenue-recognition-runs';
+import * as projectRevenueAdjustmentsSchemas from './project-revenue-adjustments';
 import * as kitComponents from './kit-components';
 
 // Contract modification schemas
@@ -236,6 +237,7 @@ export const schema = {
   ...contractSspAllocationsNew,
   ...revenueJournalEntriesNew,
   ...revenueRecognitionRunsSchemas,
+  ...projectRevenueAdjustmentsSchemas,
   ...kitComponents,
   // Contract modification schemas
   ...contractModifications,
@@ -358,6 +360,18 @@ export { sspEvidence } from './ssp-evidence';
 export { contractSspAllocations } from './contract-ssp-allocations';
 export { revenueJournalEntries } from './revenue-journal-entries';
 export { revenueRecognitionRuns, revenueRecognitionRunItems } from './revenue-recognition-runs';
+export {
+  projectContractModificationMethodEnum,
+  projectContractModifications,
+  projectContractModificationSchedules,
+  projectRevenueRecognitionReversals,
+  projectRevenueRecognitionReversalItems,
+} from './project-revenue-adjustments';
+export type {
+  ProjectContractModification,
+  ProjectRevenueRecognitionReversal,
+  ProjectRevenueRecognitionReversalItem,
+} from './project-revenue-adjustments';
 export { items } from './items';
 export { unitsOfMeasure } from './units-of-measure';
 export { kitComponents } from './kit-components';

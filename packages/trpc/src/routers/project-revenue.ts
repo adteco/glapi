@@ -2,6 +2,8 @@ import {
   ProjectRevenuePlanService,
   ProjectRevenueRecognitionRunService,
   ProjectRevenueGlPostingService,
+  ProjectContractModificationService,
+  ProjectRevenueRecognitionReversalService,
 } from '@glapi/api-service';
 import { uuidSchema } from '@glapi/types';
 import { z } from 'zod';
@@ -15,8 +17,66 @@ const recognitionRunInput = z.object({
   recognitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   scheduleIds: z.array(uuidSchema).optional(),
 });
+const modificationInput = z.object({
+  priorVersionId: uuidSchema,
+  revisedVersionId: uuidSchema,
+  method: z.enum(['prospective', 'cumulative_catch_up', 'separate_contract']),
+  effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  progressPercentage: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+  reason: z.string().trim().min(1).max(2000),
+});
 
 export const projectRevenueRouter = router({
+  previewContractModification: authenticatedProcedure
+    .meta({
+      ai: createReadOnlyAIMeta(
+        'preview_project_contract_modification',
+        'Classify and preview the ASC 606 catch-up and replacement schedules for a project-contract modification',
+        {
+          scopes: ['project-revenue', 'project-contracts', 'asc-606'],
+          permissions: ['read:revenue'],
+        },
+      ),
+    })
+    .input(modificationInput)
+    .query(({ ctx, input }) => {
+      const service = new ProjectContractModificationService(ctx.serviceContext, { db: ctx.db });
+      return service.previewModification({
+        priorVersionId: input.priorVersionId!,
+        revisedVersionId: input.revisedVersionId!,
+        method: input.method!,
+        effectiveDate: input.effectiveDate!,
+        progressPercentage: input.progressPercentage,
+        reason: input.reason!,
+      });
+    }),
+
+  applyContractModification: authenticatedProcedure
+    .meta({
+      ai: createWriteAIMeta(
+        'apply_project_contract_modification',
+        'Atomically supersede future schedules, approve a replacement contract version, and record the ASC 606 catch-up',
+        {
+          scopes: ['project-revenue', 'project-contracts', 'asc-606'],
+          permissions: ['write:revenue'],
+          riskLevel: 'HIGH',
+        },
+      ),
+    })
+    .input(modificationInput.extend({ idempotencyKey: z.string().trim().min(1).max(255) }))
+    .mutation(({ ctx, input }) => {
+      const { idempotencyKey, ...request } = input;
+      const service = new ProjectContractModificationService(ctx.serviceContext, { db: ctx.db });
+      return service.applyModification({
+        priorVersionId: request.priorVersionId!,
+        revisedVersionId: request.revisedVersionId!,
+        method: request.method!,
+        effectiveDate: request.effectiveDate!,
+        progressPercentage: request.progressPercentage,
+        reason: request.reason!,
+      }, idempotencyKey);
+    }),
+
   previewPlan: authenticatedProcedure
     .meta({
       ai: createReadOnlyAIMeta(
@@ -120,6 +180,38 @@ export const projectRevenueRouter = router({
         },
         idempotencyKey,
       );
+    }),
+
+  reverseRecognitionRun: authenticatedProcedure
+    .meta({
+      ai: createWriteAIMeta(
+        'reverse_project_revenue_recognition_run',
+        'Reverse a posted project revenue recognition run into an open period with exact opposite GL lines',
+        {
+          scopes: ['project-revenue', 'accounting', 'general-ledger'],
+          permissions: ['write:revenue', 'write:gl'],
+          riskLevel: 'HIGH',
+        },
+      ),
+    })
+    .input(z.object({
+      subsidiaryId: uuidSchema,
+      originalRunId: uuidSchema,
+      accountingPeriodId: uuidSchema,
+      reversalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      reason: z.string().trim().min(1).max(2000),
+      idempotencyKey: z.string().trim().min(1).max(255),
+    }))
+    .mutation(({ ctx, input }) => {
+      const { idempotencyKey, ...request } = input;
+      const service = new ProjectRevenueRecognitionReversalService(ctx.serviceContext, { db: ctx.db });
+      return service.reverseRun({
+        subsidiaryId: request.subsidiaryId!,
+        originalRunId: request.originalRunId!,
+        accountingPeriodId: request.accountingPeriodId!,
+        reversalDate: request.reversalDate!,
+        reason: request.reason!,
+      }, idempotencyKey);
     }),
 
   postRecognitionRun: authenticatedProcedure

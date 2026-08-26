@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { calculateProjectContractPositionPosting } from '../project-contract-position-posting-engine';
+import {
+  calculateProjectContractPositionPosting,
+  calculateProjectContractRevenueAdjustment,
+} from '../project-contract-position-posting-engine';
 
 describe('calculateProjectContractPositionPosting', () => {
   it('posts G-002 revenue ahead of billing to a contract asset', () => {
@@ -55,5 +58,26 @@ describe('calculateProjectContractPositionPosting', () => {
       { accountRole: 'revenue', debitAmount: '0.00', creditAmount: '5000.00' },
     ]);
     expect(result.next).toMatchObject({ contractAsset: '2000.00', contractLiability: '0.00' });
+  });
+});
+
+describe('calculateProjectContractRevenueAdjustment', () => {
+  it('posts the G006 negative catch-up against the existing contract asset', () => {
+    expect(calculateProjectContractRevenueAdjustment({
+      cumulativeRecognized: '25000.00',
+      cumulativeBilled: '0.00',
+    }, '-3000.00')).toMatchObject({
+      next: {
+        cumulativeRecognized: '22000.00',
+        contractAsset: '22000.00',
+        contractLiability: '0.00',
+      },
+      lines: [
+        { accountRole: 'contract_asset', debitAmount: '0.00', creditAmount: '3000.00' },
+        { accountRole: 'revenue', debitAmount: '3000.00', creditAmount: '0.00' },
+      ],
+      totalDebits: '3000.00',
+      totalCredits: '3000.00',
+    });
   });
 });

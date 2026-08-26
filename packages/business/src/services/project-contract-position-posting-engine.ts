@@ -50,6 +50,16 @@ function cents(value: string): bigint {
   return BigInt(whole) * 100n + BigInt(`${fraction}00`.slice(0, 2));
 }
 
+function signedCents(value: string): bigint {
+  if (!/^-?\d+(\.\d{1,2})?$/.test(value)) {
+    throw new ProjectContractPositionPostingError(`Invalid currency adjustment: ${value}`);
+  }
+  const negative = value.startsWith('-');
+  const absolute = negative ? value.slice(1) : value;
+  const amount = cents(absolute);
+  return negative ? -amount : amount;
+}
+
 function money(value: bigint): string {
   return `${value / 100n}.${(value % 100n).toString().padStart(2, '0')}`;
 }
@@ -122,6 +132,48 @@ export function calculateProjectContractPositionPosting(
       cumulativeBilled: money(nextBilled),
       ...position(nextRecognized, nextBilled),
     },
+    lines,
+    totalDebits: money(totalDebits),
+    totalCredits: money(totalCredits),
+  };
+}
+
+/** Balanced signed catch-up posting that moves the net contract position from prior R-B to revised R-B. */
+export function calculateProjectContractRevenueAdjustment(
+  state: ProjectContractPositionState,
+  adjustmentAmount: string,
+): ProjectContractPositionPosting {
+  const priorRecognized = cents(state.cumulativeRecognized);
+  const billed = cents(state.cumulativeBilled);
+  const adjustment = signedCents(adjustmentAmount);
+  if (adjustment === 0n || priorRecognized + adjustment < 0n) {
+    throw new ProjectContractPositionPostingError(
+      'Revenue adjustment must be non-zero and cannot reduce cumulative revenue below zero',
+    );
+  }
+  const nextRecognized = priorRecognized + adjustment;
+  const priorPosition = position(priorRecognized, billed);
+  const nextPosition = position(nextRecognized, billed);
+  const priorAsset = cents(priorPosition.contractAsset);
+  const nextAsset = cents(nextPosition.contractAsset);
+  const priorLiability = cents(priorPosition.contractLiability);
+  const nextLiability = cents(nextPosition.contractLiability);
+  const lines: ProjectContractPostingLine[] = [];
+  if (nextAsset > priorAsset) lines.push(line('contract_asset', nextAsset - priorAsset, 0n));
+  if (nextAsset < priorAsset) lines.push(line('contract_asset', 0n, priorAsset - nextAsset));
+  if (nextLiability > priorLiability) lines.push(line('contract_liability', 0n, nextLiability - priorLiability));
+  if (nextLiability < priorLiability) lines.push(line('contract_liability', priorLiability - nextLiability, 0n));
+  if (adjustment > 0n) lines.push(line('revenue', 0n, adjustment));
+  else lines.push(line('revenue', -adjustment, 0n));
+  const totalDebits = lines.reduce((sum, row) => sum + cents(row.debitAmount), 0n);
+  const totalCredits = lines.reduce((sum, row) => sum + cents(row.creditAmount), 0n);
+  if (totalDebits !== totalCredits) {
+    throw new ProjectContractPositionPostingError('Generated revenue adjustment is not balanced');
+  }
+  return {
+    event: { kind: 'revenue_recognition', amount: money(adjustment < 0n ? -adjustment : adjustment) },
+    prior: { cumulativeRecognized: money(priorRecognized), cumulativeBilled: money(billed), ...priorPosition },
+    next: { cumulativeRecognized: money(nextRecognized), cumulativeBilled: money(billed), ...nextPosition },
     lines,
     totalDebits: money(totalDebits),
     totalCredits: money(totalCredits),
