@@ -38,6 +38,7 @@ export * from './project-budget-service';
 export * from './project-service';
 export * from './project-type-service';
 export * from './project-billing-policy-service';
+export * from './project-billing-queue-service';
 export * from './project-reporting-service';
 export * from './job-cost-posting-service';
 export * from './wip-reporting-service';

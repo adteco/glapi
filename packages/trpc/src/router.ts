@@ -60,6 +60,7 @@ import { communicationEventsRouter } from './routers/communication-events';
 import { communicationWorkflowsRouter } from './routers/communication-workflows';
 import { entityContactsRouter } from './routers/entity-contacts';
 import { pendingDocumentsRouter } from './routers/pending-documents';
+import { projectBillingRouter } from './routers/project-billing';
 
 export const appRouter = router({
   customers: customersRouter,
@@ -122,6 +123,7 @@ export const appRouter = router({
   communicationWorkflows: communicationWorkflowsRouter,
   entityContacts: entityContactsRouter,
   pendingDocuments: pendingDocumentsRouter,
+  projectBilling: projectBillingRouter,
 });
 
 export type AppRouter = typeof appRouter;
