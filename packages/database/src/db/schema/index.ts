@@ -63,6 +63,7 @@ import * as revenueSchedulesNew from './revenue-schedules';
 import * as sspEvidenceNew from './ssp-evidence';
 import * as contractSspAllocationsNew from './contract-ssp-allocations';
 import * as revenueJournalEntriesNew from './revenue-journal-entries';
+import * as revenueRecognitionRunsSchemas from './revenue-recognition-runs';
 import * as kitComponents from './kit-components';
 
 // Contract modification schemas
@@ -234,6 +235,7 @@ export const schema = {
   ...sspEvidenceNew,
   ...contractSspAllocationsNew,
   ...revenueJournalEntriesNew,
+  ...revenueRecognitionRunsSchemas,
   ...kitComponents,
   // Contract modification schemas
   ...contractModifications,
@@ -347,6 +349,7 @@ export type { RevenueSchedule, NewRevenueSchedule } from './revenue-schedules';
 export type { SspEvidence as SSPEvidence, NewSspEvidence as NewSSPEvidence } from './ssp-evidence';
 export type { ContractSspAllocation as ContractSSPAllocation, NewContractSspAllocation as NewContractSSPAllocation } from './contract-ssp-allocations';
 export type { RevenueJournalEntry, NewRevenueJournalEntry } from './revenue-journal-entries';
+export type { RevenueRecognitionRun, RevenueRecognitionRunItem } from './revenue-recognition-runs';
 
 // Re-export tables from new schemas with correct names
 export { performanceObligations } from './performance-obligations';
@@ -354,6 +357,7 @@ export { revenueSchedules } from './revenue-schedules';
 export { sspEvidence } from './ssp-evidence';
 export { contractSspAllocations } from './contract-ssp-allocations';
 export { revenueJournalEntries } from './revenue-journal-entries';
+export { revenueRecognitionRuns, revenueRecognitionRunItems } from './revenue-recognition-runs';
 export { items } from './items';
 export { unitsOfMeasure } from './units-of-measure';
 export { kitComponents } from './kit-components';
