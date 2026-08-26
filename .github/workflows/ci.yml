@@ -137,6 +137,13 @@ jobs:
       - name: Run tests
         run: pnpm turbo test --filter='./packages/*' || echo "No tests configured yet"
 
+      - name: Project accounting conformance
+        run: |
+          pnpm --filter @glapi/business exec vitest run src/services/__tests__/project-accounting-golden-conformance.test.ts src/services/__tests__/project-revenue-plan-engine.test.ts src/services/__tests__/project-contract-position-posting-engine.test.ts src/services/__tests__/project-contract-modification-engine.test.ts
+          pnpm --filter @glapi/database exec vitest run src/repositories/__tests__/project-billing-draft-repository.test.ts src/repositories/__tests__/project-billing-queue-repository.test.ts src/repositories/__tests__/project-revenue-plan-repository.test.ts src/repositories/__tests__/project-revenue-recognition-run-repository.test.ts src/repositories/__tests__/project-revenue-gl-posting-repository.test.ts src/repositories/__tests__/project-revenue-recognition-reversal-repository.test.ts
+          pnpm --filter @glapi/api-service exec vitest run src/services/__tests__/project-billing-queue-service.test.ts src/services/__tests__/project-billing-transition-service.test.ts src/services/__tests__/project-revenue-plan-service.test.ts src/services/__tests__/project-revenue-recognition-run-service.test.ts src/services/__tests__/project-revenue-gl-posting-service.test.ts src/services/__tests__/project-contract-modification-service.test.ts src/services/__tests__/project-revenue-recognition-reversal-service.test.ts
+          pnpm --filter @glapi/api-fastify test
+
   build:
     name: Build
     runs-on: ubicloud-standard-4-arm

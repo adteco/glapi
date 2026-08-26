@@ -58,11 +58,14 @@ describe('runtime OpenAPI spec', () => {
     expect(spec.paths?.['/v1/project-billing/drafts']?.post?.parameters).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: 'Idempotency-Key', required: true })]),
     );
+    expect(spec.paths?.['/v1/project-billing/invoices']).toBeDefined();
+    expect(spec.paths?.['/v1/project-billing/invoices/{invoiceId}/transitions']).toBeDefined();
     expect(spec.paths?.['/v1/project-revenue/plans/{versionId}']).toBeDefined();
     expect(spec.paths?.['/v1/project-revenue/recognition-runs']).toBeDefined();
     expect(spec.paths?.['/v1/project-revenue/modifications']).toBeDefined();
     expect(spec.paths?.['/v1/project-revenue/recognition-reversals']).toBeDefined();
     expect(spec.components?.schemas?.ProjectContractModificationRequest).toBeDefined();
+    expect(spec.components?.schemas?.ProjectBillingTransitionRequest).toBeDefined();
     expect(spec.components?.schemas?.ProjectRecognitionReversalRequest).toBeDefined();
   });
 });

@@ -109,6 +109,23 @@ function addProjectAccountingOpenApiSpec(spec: OpenAPIV3.Document): void {
       responses: mutationResponses('Created project invoice drafts'),
     },
   };
+  spec.paths['/v1/project-billing/invoices'] = {
+    get: {
+      tags: [billingTag], operationId: 'listProjectBillingInvoices',
+      summary: 'List project invoices with allocation state and replacement lineage',
+      parameters: [{ name: 'status', in: 'query', schema: { type: 'string', enum: ['draft', 'billed'] } }],
+      responses: { '200': jsonResponse('Project invoice allocation history', 'ProjectAccountingCommandResponse') },
+    },
+  };
+  spec.paths['/v1/project-billing/invoices/{invoiceId}/transitions'] = {
+    post: {
+      tags: [billingTag], operationId: 'transitionProjectBillingInvoice',
+      summary: 'Void, release, transfer, or rebill project invoice allocations',
+      parameters: [{ ...versionParameter, name: 'invoiceId' }, idempotencyHeader],
+      requestBody: jsonRequest('ProjectBillingTransitionRequest'),
+      responses: mutationResponses('Project billing allocation transition'),
+    },
+  };
   spec.paths['/v1/project-billing/invoices/{invoiceId}/post'] = {
     post: {
       tags: [billingTag], operationId: 'postProjectInvoiceToGl', summary: 'Post an issued project invoice to the GL',
@@ -195,6 +212,14 @@ function projectAccountingSchemas() {
       properties: {
         candidateIds: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } },
         invoiceDate: date, dueDate: date, customerId: uuid, projectId: uuid, asOfDate: date,
+      },
+    },
+    ProjectBillingTransitionRequest: {
+      type: 'object', required: ['action', 'reason'],
+      properties: {
+        action: { type: 'string', enum: ['void', 'release', 'transfer', 'rebill'] },
+        reason: { type: 'string', minLength: 3, maxLength: 1000 },
+        targetInvoiceId: uuid, invoiceDate: date, dueDate: date,
       },
     },
     ProjectRecognitionRunRequest: {

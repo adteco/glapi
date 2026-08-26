@@ -5,6 +5,7 @@
 import type { ProjectAccountingCommandResponse } from '../models/ProjectAccountingCommandResponse';
 import type { ProjectBillingDraftRequest } from '../models/ProjectBillingDraftRequest';
 import type { ProjectBillingPreviewRequest } from '../models/ProjectBillingPreviewRequest';
+import type { ProjectBillingTransitionRequest } from '../models/ProjectBillingTransitionRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -83,6 +84,60 @@ export class ProjectBillingService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/v1/project-billing/drafts',
+            headers: {
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request or missing idempotency key`,
+                404: `Project accounting resource not found`,
+                409: `Accounting state, period, concurrency, or idempotency conflict`,
+                422: `Accounting calculation validation failed`,
+            },
+        });
+    }
+    /**
+     * List project invoices with allocation state and replacement lineage
+     * @returns ProjectAccountingCommandResponse Project invoice allocation history
+     * @throws ApiError
+     */
+    public static listProjectBillingInvoices({
+        status,
+    }: {
+        status?: 'draft' | 'billed',
+    }): CancelablePromise<ProjectAccountingCommandResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/project-billing/invoices',
+            query: {
+                'status': status,
+            },
+        });
+    }
+    /**
+     * Void, release, transfer, or rebill project invoice allocations
+     * @returns ProjectAccountingCommandResponse Project billing allocation transition
+     * @throws ApiError
+     */
+    public static transitionProjectBillingInvoice({
+        invoiceId,
+        idempotencyKey,
+        requestBody,
+    }: {
+        invoiceId: string,
+        /**
+         * Client-generated key. Exact replay returns the original result; changed reuse returns 409.
+         */
+        idempotencyKey: string,
+        requestBody: ProjectBillingTransitionRequest,
+    }): CancelablePromise<ProjectAccountingCommandResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/project-billing/invoices/{invoiceId}/transitions',
+            path: {
+                'invoiceId': invoiceId,
+            },
             headers: {
                 'Idempotency-Key': idempotencyKey,
             },

@@ -37,6 +37,8 @@ function serviceHarness() {
     listCandidates: vi.fn().mockResolvedValue({ data: [], total: 0 }),
     previewInvoiceDrafts: vi.fn().mockResolvedValue({ draftCount: 0 }),
     createInvoiceDrafts: vi.fn().mockResolvedValue({ invoices: [], replayed: false }),
+    listHistory: vi.fn().mockResolvedValue([]),
+    transition: vi.fn().mockResolvedValue({ action: 'rebill', replayed: false }),
     previewPlan: vi.fn().mockResolvedValue({ obligations: [] }),
     generatePlan: vi.fn().mockResolvedValue({ replayed: false }),
     getPlan: vi.fn().mockResolvedValue({ obligations: [] }),
@@ -58,6 +60,10 @@ function serviceHarness() {
       listCandidates: methods.listCandidates,
       previewInvoiceDrafts: methods.previewInvoiceDrafts,
       createInvoiceDrafts: methods.createInvoiceDrafts,
+    }),
+    billingTransitions: factory({
+      listHistory: methods.listHistory,
+      transition: methods.transition,
     }),
     plans: factory({
       previewPlan: methods.previewPlan,
@@ -155,6 +161,36 @@ describe('project accounting Fastify routes', () => {
       expect.objectContaining({ originalRunId: 'run-1' }),
       'rev-key-1',
     );
+  });
+
+  it('exposes allocation history and audited rebill on the production REST path', async () => {
+    const harness = serviceHarness();
+    const server = await serverWith(harness);
+    const history = await server.inject({
+      method: 'GET',
+      url: '/v1/project-billing/invoices?status=billed',
+    });
+    const rebill = await server.inject({
+      method: 'POST',
+      url: '/v1/project-billing/invoices/invoice-1/transitions',
+      headers: { 'idempotency-key': 'rebill-key-1' },
+      payload: {
+        action: 'rebill',
+        reason: 'Correct customer grouping',
+        invoiceDate: '2026-08-31',
+      },
+    });
+
+    expect(history.statusCode).toBe(200);
+    expect(rebill.statusCode).toBe(200);
+    expect(harness.methods.listHistory).toHaveBeenCalledWith('billed');
+    expect(harness.methods.transition).toHaveBeenCalledWith({
+      invoiceId: 'invoice-1',
+      action: 'rebill',
+      reason: 'Correct customer grouping',
+      invoiceDate: '2026-08-31',
+      idempotencyKey: 'rebill-key-1',
+    });
   });
 
   it('preserves the service error contract', async () => {

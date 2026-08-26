@@ -11,6 +11,7 @@ export type { ErrorResponse } from './models/ErrorResponse';
 export type { ProjectAccountingCommandResponse } from './models/ProjectAccountingCommandResponse';
 export type { ProjectBillingDraftRequest } from './models/ProjectBillingDraftRequest';
 export type { ProjectBillingPreviewRequest } from './models/ProjectBillingPreviewRequest';
+export type { ProjectBillingTransitionRequest } from './models/ProjectBillingTransitionRequest';
 export type { ProjectContractModificationRequest } from './models/ProjectContractModificationRequest';
 export type { ProjectRecognitionReversalRequest } from './models/ProjectRecognitionReversalRequest';
 export type { ProjectRecognitionRunRequest } from './models/ProjectRecognitionRunRequest';

@@ -256,4 +256,10 @@ jobs:
             sleep 15
           done
 
-          curl "${CONNECT_ARGS[@]}" -fsS "$OPENAPI_URL" | jq -e '.openapi and (.paths | length > 0)' >/dev/null
+          curl "${CONNECT_ARGS[@]}" -fsS "$OPENAPI_URL" | jq -e '
+            .openapi
+            and .paths["/v1/project-billing/candidates"]
+            and .paths["/v1/project-billing/invoices/{invoiceId}/transitions"]
+            and .paths["/v1/project-revenue/recognition-runs"]
+            and .paths["/v1/project-revenue/recognition-reversals"]
+          ' >/dev/null
