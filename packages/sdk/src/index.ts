@@ -6,6 +6,7 @@
 
 // Re-export generated types and services
 export * from './generated';
+export * as ProjectAccountingSdk from './project-accounting-generated';
 
 // Import for client configuration
 import { OpenAPI, type OpenAPIConfig } from './generated';

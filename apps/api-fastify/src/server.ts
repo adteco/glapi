@@ -14,6 +14,7 @@ import { AuthenticationError } from './errors';
 import { registerOntologyRoutes } from './ontology-routes';
 import { generateRuntimeOpenApiSpec } from './openapi';
 import { registerSavedSearchRoutes } from './saved-search-routes';
+import { registerProjectAccountingRoutes } from './project-accounting-routes';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -45,6 +46,7 @@ export async function buildServer(): Promise<FastifyInstance> {
       'x-api-key',
       'x-organization-id',
       'x-user-id',
+      'Idempotency-Key',
     ],
     origin(origin, callback) {
       callback(null, !origin || allowedOrigins.includes(origin));
@@ -156,6 +158,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     await protectedApi.register(registerCustomFieldRoutes);
     await protectedApi.register(registerCustomRecordRoutes);
     await protectedApi.register(registerSavedSearchRoutes);
+    await protectedApi.register(registerProjectAccountingRoutes);
 
     await protectedApi.register(fastifyTRPCPlugin, {
       prefix: '/trpc',

@@ -10,7 +10,8 @@
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "verify:openapi": "tsx scripts/verify-openapi.ts"
+    "verify:openapi": "tsx scripts/verify-openapi.ts",
+    "export:project-accounting-openapi": "tsx scripts/export-project-accounting-openapi.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
