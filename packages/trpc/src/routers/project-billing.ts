@@ -1,7 +1,10 @@
 import { z } from 'zod';
-import { ProjectBillingQueueService } from '@glapi/api-service';
+import {
+  ProjectBillingQueueService,
+  type CreateProjectInvoiceDraftsInput,
+} from '@glapi/api-service';
 import { uuidSchema } from '@glapi/types';
-import { createReadOnlyAIMeta } from '../ai-meta';
+import { createReadOnlyAIMeta, createWriteAIMeta } from '../ai-meta';
 import { authenticatedProcedure, router } from '../trpc';
 
 const sourceTypeSchema = z.enum([
@@ -37,7 +40,9 @@ export const projectBillingRouter = router({
       }),
     )
     .query(({ ctx, input }) => {
-      const service = new ProjectBillingQueueService(ctx.serviceContext, { db: ctx.db });
+      const service = new ProjectBillingQueueService(ctx.serviceContext, {
+        db: ctx.db,
+      });
       const { page, limit, ...filters } = input;
       return service.listCandidates({ page, limit }, filters);
     }),
@@ -56,13 +61,58 @@ export const projectBillingRouter = router({
     .input(
       filtersSchema.extend({
         candidateIds: z
-          .array(z.string().regex(/^(TIME_ENTRY|PROJECT_TASK|PROJECT_MILESTONE|PROJECT_PROGRESS):[0-9a-f-]{36}$/i))
+          .array(
+            z
+              .string()
+              .regex(
+                /^(TIME_ENTRY|PROJECT_TASK|PROJECT_MILESTONE|PROJECT_PROGRESS):[0-9a-f-]{36}$/i,
+              ),
+          )
           .min(1)
           .optional(),
       }),
     )
     .query(({ ctx, input }) => {
-      const service = new ProjectBillingQueueService(ctx.serviceContext, { db: ctx.db });
+      const service = new ProjectBillingQueueService(ctx.serviceContext, {
+        db: ctx.db,
+      });
       return service.previewInvoiceDrafts(input);
+    }),
+
+  createInvoiceDrafts: authenticatedProcedure
+    .meta({
+      ai: createWriteAIMeta(
+        'create_project_invoice_drafts',
+        'Create project invoice drafts transactionally from selected billing candidates',
+        {
+          scopes: ['project-billing', 'projects', 'invoices'],
+          permissions: ['write:invoices'],
+          riskLevel: 'HIGH',
+        },
+      ),
+    })
+    .input(
+      filtersSchema.extend({
+        idempotencyKey: z.string().trim().min(1).max(255),
+        candidateIds: z
+          .array(
+            z
+              .string()
+              .regex(
+                /^(TIME_ENTRY|PROJECT_TASK|PROJECT_MILESTONE|PROJECT_PROGRESS):[0-9a-f-]{36}$/i,
+              ),
+          )
+          .min(1),
+        invoiceDate: z.string().date(),
+        dueDate: z.string().date().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new ProjectBillingQueueService(ctx.serviceContext, {
+        db: ctx.db,
+      });
+      return service.createInvoiceDrafts(
+        input as CreateProjectInvoiceDraftsInput,
+      );
     }),
 });

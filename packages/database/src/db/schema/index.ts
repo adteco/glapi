@@ -54,6 +54,7 @@ import * as billingSchedulesSchemas from './billing-schedules';
 import * as invoices from './invoices';
 import * as invoiceLineItemsSchemas from './invoice-line-items';
 import * as invoiceSourceAllocationsSchemas from './invoice-source-allocations';
+import * as projectBillingRequestsSchemas from './project-billing-requests';
 import * as payments from './payments';
 import * as externalEventReceiptsSchemas from './external-event-receipts';
 import * as revenueEnums from './revenue-enums';
@@ -224,6 +225,7 @@ export const schema = {
   ...invoices,
   ...invoiceLineItemsSchemas,
   ...invoiceSourceAllocationsSchemas,
+  ...projectBillingRequestsSchemas,
   ...payments,
   ...externalEventReceiptsSchemas,
   ...revenueEnums,
