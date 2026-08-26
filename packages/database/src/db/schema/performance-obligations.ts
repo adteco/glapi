@@ -7,12 +7,19 @@ import {
   integer,
   timestamp,
   date,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { subscriptions } from "./subscriptions";
 import { items } from "./items";
 import { performanceObligationStatusEnum } from "./revenue-enums";
+import {
+  projectContractLines,
+  projectContractVersions,
+  projectContracts,
+} from './project-contracts';
 
 /**
  * performance_obligations (canonical)
@@ -39,6 +46,13 @@ export const performanceObligations = pgTable("performance_obligations", {
   endDate: date("end_date"),
   allocatedAmount: decimal("allocated_amount", { precision: 14, scale: 2 }),
 
+  // Project-contract ASC 606 lineage
+  projectContractId: uuid('project_contract_id').references(() => projectContracts.id),
+  projectContractVersionId: uuid('project_contract_version_id').references(
+    () => projectContractVersions.id,
+  ),
+  projectContractLineId: uuid('project_contract_line_id').references(() => projectContractLines.id),
+
   // Legacy contract-based fields
   contractLineItemId: uuid("contract_line_item_id"),
   name: varchar("name", { length: 255 }).notNull(),
@@ -52,7 +66,17 @@ export const performanceObligations = pgTable("performance_obligations", {
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+}, (table) => ({
+  projectVersionIdx: index('idx_performance_obligations_project_version').on(
+    table.organizationId,
+    table.projectContractVersionId,
+  ),
+  projectVersionLineUnique: uniqueIndex('ux_performance_obligations_project_version_line').on(
+    table.organizationId,
+    table.projectContractVersionId,
+    table.projectContractLineId,
+  ),
+}));
 
 export const performanceObligationsRelations = relations(performanceObligations, ({ one, many }) => ({
   organization: one(organizations, {
@@ -78,4 +102,3 @@ import { contractSspAllocations } from "./contract-ssp-allocations";
 export type PerformanceObligation = typeof performanceObligations.$inferSelect;
 export type NewPerformanceObligation = typeof performanceObligations.$inferInsert;
 export type UpdatePerformanceObligation = Partial<NewPerformanceObligation>;
-

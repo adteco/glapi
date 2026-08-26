@@ -9,6 +9,11 @@ import { organizations } from "./organizations";
 import { subscriptions } from "./subscriptions";
 import { performanceObligations } from "./performance-obligations";
 import { allocationMethodEnum } from "./revenue-enums";
+import {
+  projectContractLines,
+  projectContractVersions,
+  projectContracts,
+} from './project-contracts';
 
 /**
  * contract_ssp_allocations (canonical)
@@ -31,6 +36,12 @@ export const contractSspAllocations = pgTable("contract_ssp_allocations", {
   // Subscription-based workflow fields (nullable for legacy allocations)
   subscriptionId: uuid("subscription_id").references(() => subscriptions.id),
   performanceObligationId: uuid("performance_obligation_id").references(() => performanceObligations.id),
+
+  projectContractId: uuid('project_contract_id').references(() => projectContracts.id),
+  projectContractVersionId: uuid('project_contract_version_id').references(
+    () => projectContractVersions.id,
+  ),
+  projectContractLineId: uuid('project_contract_line_id').references(() => projectContractLines.id),
 
   // Allocation numbers
   sspAmount: decimal("ssp_amount", { precision: 14, scale: 2 }),
@@ -64,4 +75,3 @@ export const contractSspAllocationsRelations = relations(contractSspAllocations,
 export type ContractSspAllocation = typeof contractSspAllocations.$inferSelect;
 export type NewContractSspAllocation = typeof contractSspAllocations.$inferInsert;
 export type UpdateContractSspAllocation = Partial<NewContractSspAllocation>;
-

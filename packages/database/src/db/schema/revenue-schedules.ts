@@ -5,11 +5,15 @@ import {
   timestamp,
   decimal,
   text,
+  integer,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { performanceObligations } from "./performance-obligations";
 import { recognitionSourceEnum } from "./revenue-enums";
+import { projectContractVersions } from './project-contracts';
 
 /**
  * revenue_schedules (canonical)
@@ -45,9 +49,26 @@ export const revenueSchedules = pgTable("revenue_schedules", {
   recognitionPattern: text("recognition_pattern"),
   status: text("status"),
 
+  projectContractVersionId: uuid('project_contract_version_id').references(
+    () => projectContractVersions.id,
+  ),
+  scheduleVersion: integer('schedule_version').default(1).notNull(),
+  supersededByScheduleId: uuid('superseded_by_schedule_id'),
+  supersededAt: timestamp('superseded_at', { withTimezone: true }),
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+}, (table) => ({
+  projectVersionIdx: index('idx_revenue_schedules_project_version').on(
+    table.organizationId,
+    table.projectContractVersionId,
+  ),
+  obligationVersionDateUnique: uniqueIndex('ux_revenue_schedules_obligation_version_date').on(
+    table.performanceObligationId,
+    table.scheduleVersion,
+    table.scheduleDate,
+  ),
+}));
 
 export const revenueSchedulesRelations = relations(revenueSchedules, ({ one, many }) => ({
   organization: one(organizations, {
@@ -67,4 +88,3 @@ import { revenueJournalEntries } from "./revenue-journal-entries";
 export type RevenueSchedule = typeof revenueSchedules.$inferSelect;
 export type NewRevenueSchedule = typeof revenueSchedules.$inferInsert;
 export type UpdateRevenueSchedule = Partial<NewRevenueSchedule>;
-
