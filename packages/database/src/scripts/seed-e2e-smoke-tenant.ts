@@ -1,9 +1,33 @@
 import { db } from '../db';
+import { accounts } from '../db/schema/accounts';
 import { entities } from '../db/schema/entities';
 import { organizations } from '../db/schema/organizations';
 
 const TEST_ORGANIZATION_ID = 'ba3b8cdf-efc1-4a60-88be-ac203d263fe2';
 const TEST_ACTOR_ENTITY_ID = '00000000-0000-0000-0000-000000000001';
+const TEST_ACCOUNTS = [
+  {
+    id: '00000000-0000-0000-0000-000000000101',
+    accountNumber: '4000',
+    accountName: 'Smoke Test Revenue',
+    accountCategory: 'Revenue' as const,
+    normalBalance: 'CREDIT',
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000102',
+    accountNumber: '1200',
+    accountName: 'Smoke Test Inventory Asset',
+    accountCategory: 'Asset' as const,
+    normalBalance: 'DEBIT',
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000103',
+    accountNumber: '5000',
+    accountName: 'Smoke Test Cost of Goods Sold',
+    accountCategory: 'COGS' as const,
+    normalBalance: 'DEBIT',
+  },
+];
 
 async function main() {
   const betterAuthOrgId = process.env.BETTER_AUTH_TEST_ORG_ID;
@@ -55,9 +79,32 @@ async function main() {
           updatedAt: new Date(),
         },
       });
+
+    for (const account of TEST_ACCOUNTS) {
+      await tx
+        .insert(accounts)
+        .values({
+          ...account,
+          organizationId: TEST_ORGANIZATION_ID,
+        })
+        .onConflictDoUpdate({
+          target: accounts.id,
+          set: {
+            organizationId: TEST_ORGANIZATION_ID,
+            accountNumber: account.accountNumber,
+            accountName: account.accountName,
+            accountCategory: account.accountCategory,
+            normalBalance: account.normalBalance,
+            isActive: true,
+            updatedAt: new Date(),
+          },
+        });
+    }
   });
 
-  console.log(`[e2e-smoke-seed] tenant=${TEST_ORGANIZATION_ID} actor=${TEST_ACTOR_ENTITY_ID}`);
+  console.log(
+    `[e2e-smoke-seed] tenant=${TEST_ORGANIZATION_ID} actor=${TEST_ACTOR_ENTITY_ID} accounts=${TEST_ACCOUNTS.length}`,
+  );
 }
 
 main()

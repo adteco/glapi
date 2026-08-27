@@ -219,6 +219,9 @@ test.describe('Smoke Tests - Basic CRUD', () => {
       name: uniqueName,
       sku: uniqueSku,
       unitOfMeasureId: unitOfMeasure.id,
+      incomeAccountId: '00000000-0000-0000-0000-000000000101',
+      assetAccountId: '00000000-0000-0000-0000-000000000102',
+      cogsAccountId: '00000000-0000-0000-0000-000000000103',
     });
 
     expect(created).toBeDefined();
