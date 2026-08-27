@@ -8,9 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       debug:
-        description: 'Enable debug logging'
+        description: "Enable debug logging"
         required: false
-        default: 'false'
+        default: "false"
+      full_regression:
+        description: "Run the full Chromium regression suite instead of the PR smoke suite"
+        required: false
+        default: "false"
 
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.ref }}
@@ -56,8 +60,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -123,8 +127,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -160,7 +164,12 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:3031
 
       - name: Run E2E tests
-        run: pnpm playwright test --project=chromium
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.full_regression }}" == "true" ]]; then
+            pnpm playwright test --project=chromium
+          else
+            pnpm playwright test --project=smoke
+          fi
         env:
           CI: true
           SKIP_WEBSERVER: true
@@ -217,14 +226,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Setup Java (for Karate)
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
