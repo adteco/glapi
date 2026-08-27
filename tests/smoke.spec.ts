@@ -200,14 +200,22 @@ test.describe('Smoke Tests - Basic CRUD', () => {
 
   test('should create and delete an item via API', async () => {
     const client = createTestTRPCClient();
-    const uniqueName = `Smoke_Test_Item_${Date.now()}`;
-    const uniqueSku = `SKU-${Date.now()}`;
+    const uniqueSuffix = Date.now();
+    const uniqueName = `Smoke_Test_Item_${uniqueSuffix}`;
+    const uniqueSku = `SKU-${uniqueSuffix}`;
+
+    const unitOfMeasure = await client.unitsOfMeasure.create.mutate({
+      code: `SMOKE-${uniqueSuffix}`,
+      name: `Smoke Test Unit ${uniqueSuffix}`,
+      abbreviation: `S${String(uniqueSuffix).slice(-5)}`,
+    });
 
     // Create
     const created = await client.items.create.mutate({
+      itemCode: `SMOKE-ITEM-${uniqueSuffix}`,
       name: uniqueName,
       sku: uniqueSku,
-      status: 'active',
+      unitOfMeasureId: unitOfMeasure.id,
     });
 
     expect(created).toBeDefined();
@@ -217,6 +225,8 @@ test.describe('Smoke Tests - Basic CRUD', () => {
     // Delete
     const deleted = await client.items.delete.mutate({ id: created.id });
     expect(deleted.success).toBe(true);
+
+    await client.unitsOfMeasure.delete.mutate({ id: unitOfMeasure.id });
   });
 });
 
