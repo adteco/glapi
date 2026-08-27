@@ -12,6 +12,12 @@ concurrency:
   group: docs-preview-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -148,7 +154,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type check docs
-        run: pnpm --filter docs exec tsc --noEmit
+        run: |
+          pnpm --filter docs exec next typegen
+          pnpm --filter docs exec tsc --noEmit
 
       - name: Lint docs
         run: pnpm --filter docs lint
