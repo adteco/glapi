@@ -53,7 +53,7 @@ export const modificationStatusEnum = pgEnum('modification_status', [
 export const contractModifications = pgTable('contract_modifications', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
-  subscriptionId: text('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'restrict' }),
+  subscriptionId: uuid('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'restrict' }),
   
   // Modification details
   modificationNumber: text('modification_number').notNull(),
@@ -133,8 +133,8 @@ export const modificationLineItems = pgTable('modification_line_items', {
   changeType: text('change_type').notNull(), // 'add', 'remove', 'modify'
   
   // Item references
-  originalSubscriptionItemId: text('original_subscription_item_id').references(() => subscriptionItems.id, { onDelete: 'set null' }),
-  newItemId: text('new_item_id').references(() => items.id, { onDelete: 'set null' }),
+  originalSubscriptionItemId: uuid('original_subscription_item_id').references(() => subscriptionItems.id, { onDelete: 'set null' }),
+  newItemId: uuid('new_item_id').references(() => items.id, { onDelete: 'set null' }),
   
   // Original values (for modifications)
   originalQuantity: decimal('original_quantity', { precision: 10, scale: 2 }),
@@ -174,7 +174,7 @@ export const catchUpAdjustments = pgTable('catch_up_adjustments', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   modificationId: text('modification_id').notNull().references(() => contractModifications.id, { onDelete: 'cascade' }),
-  performanceObligationId: text('performance_obligation_id').references(() => performanceObligations.id, { onDelete: 'set null' }),
+  performanceObligationId: uuid('performance_obligation_id').references(() => performanceObligations.id, { onDelete: 'set null' }),
   
   // Adjustment calculation
   priorRecognizedAmount: decimal('prior_recognized_amount', { precision: 15, scale: 2 }).notNull(),
@@ -188,7 +188,7 @@ export const catchUpAdjustments = pgTable('catch_up_adjustments', {
   revisedDeferredRevenue: decimal('revised_deferred_revenue', { precision: 15, scale: 2 }).notNull(),
   
   // Journal entry reference
-  journalEntryId: text('journal_entry_id').references(() => revenueJournalEntries.id, { onDelete: 'set null' }),
+  journalEntryId: uuid('journal_entry_id').references(() => revenueJournalEntries.id, { onDelete: 'set null' }),
   
   // Period information
   adjustmentDate: timestamp('adjustment_date', { withTimezone: true }).notNull(),

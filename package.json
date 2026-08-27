@@ -11,6 +11,7 @@
     "type-check": "turbo type-check",
     "clean": "turbo clean",
     "db:migrate": "turbo run migrate --filter=database",
+    "db:push:verified": "bash scripts/push-schema-verified.sh",
     "db:generate": "turbo run generate --filter=database",
     "db:studio": "turbo run studio --filter=database",
     "dev:api": "pnpm --filter @glapi/api dev",

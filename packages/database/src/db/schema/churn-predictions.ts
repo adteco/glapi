@@ -15,7 +15,7 @@ export const churnRiskLevelEnum = pgEnum('churn_risk_level', [
 export const churnPredictions = pgTable('churn_predictions', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
-  subscriptionId: text('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+  subscriptionId: uuid('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
   
   // Prediction details
   predictionDate: timestamp('prediction_date', { withTimezone: true }).notNull(),

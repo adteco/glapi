@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, decimal, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, decimal, boolean } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { contractModifications } from './contract-modifications';
 import { performanceObligations } from './performance-obligations';
@@ -11,7 +11,7 @@ import { revenueJournalEntries } from './revenue-journal-entries';
 export const catchUpAdjustments = pgTable('catch_up_adjustments', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
   modificationId: text('modification_id').notNull().references(() => contractModifications.id, { onDelete: 'cascade' }),
-  performanceObligationId: text('performance_obligation_id').references(() => performanceObligations.id, { onDelete: 'restrict' }),
+  performanceObligationId: uuid('performance_obligation_id').references(() => performanceObligations.id, { onDelete: 'restrict' }),
   
   // Adjustment details
   adjustmentType: text('adjustment_type').notNull(), // 'revenue_increase', 'revenue_decrease', 'cost_adjustment'
@@ -23,7 +23,7 @@ export const catchUpAdjustments = pgTable('catch_up_adjustments', {
   adjustmentAmount: decimal('adjustment_amount', { precision: 15, scale: 2 }).notNull(),
   
   // GL posting
-  journalEntryId: text('journal_entry_id').references(() => revenueJournalEntries.id, { onDelete: 'restrict' }),
+  journalEntryId: uuid('journal_entry_id').references(() => revenueJournalEntries.id, { onDelete: 'restrict' }),
   posted: boolean('posted').default(false),
   postingDate: timestamp('posting_date', { withTimezone: true }),
   

@@ -84,7 +84,7 @@ export const changeRequests = pgTable(
     changeWindowStart: timestamp('change_window_start', { withTimezone: true }),
     changeWindowEnd: timestamp('change_window_end', { withTimezone: true }),
 
-    approvalInstanceId: text('approval_instance_id').references(() => approvalInstances.id, {
+    approvalInstanceId: uuid('approval_instance_id').references(() => approvalInstances.id, {
       onDelete: 'set null',
     }),
 

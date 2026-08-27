@@ -69,9 +69,8 @@ jobs:
       - name: Set test database URL
         run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
 
-      - name: Run database migrations
-        run: pnpm db:migrate
-        continue-on-error: true
+      - name: Materialize and verify disposable test schema
+        run: pnpm db:push:verified
 
       - name: Build packages
         run: pnpm turbo build --filter=@glapi/trpc --filter=@glapi/api-service --filter=@glapi/database --filter=@glapi/auth
@@ -139,12 +138,8 @@ jobs:
       - name: Set test database URL
         run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
 
-      - name: Run database migrations
-        run: pnpm db:migrate
-        continue-on-error: true
-
-      - name: Reconcile disposable test schema
-        run: pnpm --filter @glapi/database db:push --force
+      - name: Materialize and verify disposable test schema
+        run: pnpm db:push:verified
 
       - name: Build all apps
         run: pnpm build
@@ -249,8 +244,8 @@ jobs:
       - name: Set test database URL
         run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
 
-      - name: Run database migrations
-        run: pnpm db:migrate
+      - name: Materialize and verify disposable test schema
+        run: pnpm db:push:verified
 
       - name: Backfill entity roles
         run: pnpm --filter @glapi/database backfill:entity-roles -- --write

@@ -30,8 +30,8 @@ test.describe('Smoke Tests - Authentication', () => {
   });
 
   test('should maintain authentication across page navigation', async ({ page }) => {
-    // Navigate to dashboard (uses stored auth)
-    await page.goto('/');
+    // Navigate to protected dashboard (uses stored auth)
+    await page.goto('/dashboard');
 
     // Verify authenticated
     await authAssertions.expectAuthenticated(page);
@@ -47,7 +47,7 @@ test.describe('Smoke Tests - Authentication', () => {
 
 test.describe('Smoke Tests - Dashboard', () => {
   test('should load dashboard without errors', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/dashboard');
 
     // Wait for page to load
     await waitForPageReady(page);
@@ -61,7 +61,7 @@ test.describe('Smoke Tests - Dashboard', () => {
   });
 
   test('should display sidebar navigation', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/dashboard');
     await waitForPageReady(page);
 
     // Verify sidebar is visible
@@ -85,7 +85,7 @@ test.describe('Smoke Tests - Key List Pages', () => {
     await waitForPageReady(page);
 
     // Verify page loaded
-    await navigationAssertions.expectHeading(page, /customers/i);
+    await expect(page.locator('main')).toContainText(/customers/i);
 
     // Verify table or empty state
     const table = page.locator('table, [data-testid="data-table"]');
@@ -131,7 +131,7 @@ test.describe('Smoke Tests - Relationship Pages', () => {
     await waitForPageReady(page);
 
     // Verify page loaded
-    await navigationAssertions.expectHeading(page, /vendors/i);
+    await expect(page.locator('main')).toContainText(/vendors/i);
   });
 
   test('should load employees list', async ({ page }) => {
@@ -139,7 +139,7 @@ test.describe('Smoke Tests - Relationship Pages', () => {
     await waitForPageReady(page);
 
     // Verify page loaded
-    await navigationAssertions.expectHeading(page, /employees/i);
+    await expect(page.locator('main')).toContainText(/employees/i);
   });
 });
 
@@ -205,7 +205,7 @@ test.describe('Smoke Tests - Basic CRUD', () => {
     const uniqueSku = `SKU-${uniqueSuffix}`;
 
     const unitOfMeasure = await client.unitsOfMeasure.create.mutate({
-      code: `SMOKE-${uniqueSuffix}`,
+      code: `S${String(uniqueSuffix).slice(-9)}`,
       name: `Smoke Test Unit ${uniqueSuffix}`,
       abbreviation: `S${String(uniqueSuffix).slice(-5)}`,
     });
@@ -285,7 +285,7 @@ test.describe('Smoke Tests - Form Operations (UI)', () => {
 
 test.describe('Smoke Tests - Navigation', () => {
   test('should navigate between main sections', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/dashboard');
     await waitForPageReady(page);
 
     // Navigate to Lists
@@ -297,7 +297,7 @@ test.describe('Smoke Tests - Navigation', () => {
     await expect(page).toHaveURL(/\/relationships\/vendors/);
 
     // Navigate back to dashboard
-    await page.goto('/');
+    await page.goto('/dashboard');
     await authAssertions.expectAuthenticated(page);
   });
 

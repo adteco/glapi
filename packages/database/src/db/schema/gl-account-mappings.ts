@@ -29,11 +29,11 @@ export const glAccountMappings = pgTable('gl_account_mappings', {
   glAccountType: text('gl_account_type'), // 'asset', 'liability', 'revenue', 'expense', 'equity'
   
   // Mapping Dimensions (null means applies to all)
-  subsidiaryId: text('subsidiary_id').references(() => subsidiaries.id, { onDelete: 'set null' }),
-  departmentId: text('department_id').references(() => departments.id, { onDelete: 'set null' }),
-  locationId: text('location_id').references(() => locations.id, { onDelete: 'set null' }),
-  classId: text('class_id').references(() => classes.id, { onDelete: 'set null' }),
-  itemId: text('item_id').references(() => items.id, { onDelete: 'set null' }),
+  subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id, { onDelete: 'set null' }),
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
+  locationId: uuid('location_id').references(() => locations.id, { onDelete: 'set null' }),
+  classId: uuid('class_id').references(() => classes.id, { onDelete: 'set null' }),
+  itemId: uuid('item_id').references(() => items.id, { onDelete: 'set null' }),
   itemCategory: text('item_category'), // 'license', 'maintenance', 'service', 'hardware'
   
   // Priority for rule matching (higher = higher priority)

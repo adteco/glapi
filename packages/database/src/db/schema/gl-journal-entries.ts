@@ -30,8 +30,8 @@ export const glJournalEntries = pgTable('gl_journal_entries', {
   batchId: text('batch_id').references(() => journalEntryBatches.id, { onDelete: 'set null' }),
   
   // Revenue recognition reference
-  revenueScheduleId: text('revenue_schedule_id').references(() => revenueSchedules.id),
-  accountingPeriodId: text('accounting_period_id').references(() => accountingPeriods.id),
+  revenueScheduleId: uuid('revenue_schedule_id').references(() => revenueSchedules.id),
+  accountingPeriodId: uuid('accounting_period_id').references(() => accountingPeriods.id),
   
   // Journal entry details
   entryDate: date('entry_date').notNull(),
@@ -39,8 +39,8 @@ export const glJournalEntries = pgTable('gl_journal_entries', {
   journalEntryReference: text('journal_entry_reference'),
   
   // Accounts
-  debitAccount: text('debit_account').references(() => accounts.id),
-  creditAccount: text('credit_account').references(() => accounts.id),
+  debitAccount: uuid('debit_account').references(() => accounts.id),
+  creditAccount: uuid('credit_account').references(() => accounts.id),
   
   // Amounts
   deferredRevenueAmount: decimal('deferred_revenue_amount', { precision: 12, scale: 2 }),
@@ -48,12 +48,12 @@ export const glJournalEntries = pgTable('gl_journal_entries', {
   amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
   
   // Dimensions
-  subsidiaryId: text('subsidiary_id').references(() => subsidiaries.id),
-  departmentId: text('department_id').references(() => departments.id),
-  locationId: text('location_id').references(() => locations.id),
-  classId: text('class_id').references(() => classes.id),
-  entityId: text('entity_id').references(() => entities.id),
-  itemId: text('item_id').references(() => items.id),
+  subsidiaryId: uuid('subsidiary_id').references(() => subsidiaries.id),
+  departmentId: uuid('department_id').references(() => departments.id),
+  locationId: uuid('location_id').references(() => locations.id),
+  classId: uuid('class_id').references(() => classes.id),
+  entityId: uuid('entity_id').references(() => entities.id),
+  itemId: uuid('item_id').references(() => items.id),
   
   // Status and posting
   status: glJournalStatusEnum('status').notNull().default('draft'),
