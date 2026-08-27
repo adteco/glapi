@@ -53,6 +53,7 @@ jobs:
         with:
           name: docs-build
           path: apps/docs/.next
+          include-hidden-files: true
           retention-days: 7
 
       - name: Generate build summary
