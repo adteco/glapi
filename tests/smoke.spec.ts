@@ -55,9 +55,12 @@ test.describe('Smoke Tests - Dashboard', () => {
     // Verify we're authenticated
     await authAssertions.expectAuthenticated(page);
 
-    // Verify no error states
-    const errorMessages = await page.locator('[role="alert"], .error').count();
-    expect(errorMessages).toBe(0);
+    // Framework route announcers may render an empty role=alert container.
+    // Fail only for visible error elements that contain an actual message.
+    const errorMessages = await page
+      .locator('[role="alert"]:visible, .error:visible')
+      .allTextContents();
+    expect(errorMessages.filter((message) => message.trim().length > 0)).toEqual([]);
   });
 
   test('should display sidebar navigation', async ({ page }) => {

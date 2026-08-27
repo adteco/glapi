@@ -164,6 +164,9 @@ jobs:
       - name: Provision Better Auth smoke-test user
         run: pnpm test:provision-auth
 
+      - name: Seed application smoke-test tenant
+        run: pnpm --filter @glapi/database seed:e2e-smoke
+
       - name: Run E2E tests
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.full_regression }}" == "true" ]]; then

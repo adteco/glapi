@@ -18,7 +18,12 @@
  *   BETTER_AUTH_ORIGIN        - Origin header to send (must be in API's trustedOrigins);
  *                               defaults to NEXT_PUBLIC_APP_URL, then API_URL
  *   DATABASE_URL              - Database connection string
+ *
+ * In GitHub Actions, the resolved Better Auth IDs are exported through
+ * GITHUB_ENV so a following step can create the matching application tenant.
  */
+
+import { appendFileSync } from 'node:fs';
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -116,6 +121,10 @@ async function main() {
 
   const sessionData = await sessionResponse.json();
   const betterAuthUserId = sessionData.user?.id;
+  if (!betterAuthUserId) {
+    console.error('  Session did not include a Better Auth user ID');
+    process.exit(1);
+  }
   console.log(`  Better Auth User ID: ${betterAuthUserId}`);
 
   // Step 4: Create organization (or find existing)
@@ -211,10 +220,28 @@ async function main() {
   if (betterAuthOrgId) {
     console.log(`export BETTER_AUTH_TEST_ORG_ID="${betterAuthOrgId}"`);
   }
+  console.log(`export BETTER_AUTH_TEST_USER_ID="${betterAuthUserId}"`);
   console.log(`export KARATE_BETTER_AUTH_EMAIL="${TEST_EMAIL}"`);
   console.log(`export KARATE_BETTER_AUTH_PASSWORD="${TEST_PASSWORD}"`);
   if (betterAuthOrgId) {
     console.log(`export KARATE_BETTER_AUTH_ORG_ID="${betterAuthOrgId}"`);
+  }
+
+  if (process.env.GITHUB_ENV) {
+    if (!betterAuthOrgId) {
+      console.error('  Cannot export test configuration without a Better Auth organization ID');
+      process.exit(1);
+    }
+
+    appendFileSync(
+      process.env.GITHUB_ENV,
+      [
+        `BETTER_AUTH_TEST_ORG_ID=${betterAuthOrgId}`,
+        `BETTER_AUTH_TEST_USER_ID=${betterAuthUserId}`,
+        '',
+      ].join('\n'),
+    );
+    console.log('Exported Better Auth IDs to GITHUB_ENV');
   }
   console.log('');
   console.log('=== Provisioning Complete ===');
