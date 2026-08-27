@@ -273,6 +273,13 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+resource "aws_lb_listener_certificate" "additional" {
+  for_each = var.additional_certificate_arns
+
+  listener_arn    = aws_lb_listener.https.arn
+  certificate_arn = each.value
+}
+
 resource "aws_lb_listener_rule" "api_host" {
   listener_arn = aws_lb_listener.https.arn
   priority     = 10
@@ -284,7 +291,7 @@ resource "aws_lb_listener_rule" "api_host" {
 
   condition {
     host_header {
-      values = [var.api_domain_name]
+      values = concat([var.api_domain_name], var.api_alias_domain_names)
     }
   }
 }

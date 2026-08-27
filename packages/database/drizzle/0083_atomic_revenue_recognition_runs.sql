@@ -39,6 +39,51 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ux_revenue_recognition_run_items_schedule"
 CREATE UNIQUE INDEX IF NOT EXISTS "ux_revenue_recognition_run_items_run_schedule"
   ON "revenue_recognition_run_items" ("recognition_run_id", "revenue_schedule_id");
 
+DO $$ BEGIN
+  CREATE TYPE "journal_status" AS ENUM ('draft', 'posted', 'failed');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Evolve the legacy contract journal into the application journal superset.
+-- Legacy-only columns remain available, but must be nullable because automated
+-- schedule recognition records use the schedule/run lineage columns instead.
+ALTER TABLE "revenue_journal_entries"
+  ADD COLUMN IF NOT EXISTS "organization_id" uuid REFERENCES "organizations"("id"),
+  ADD COLUMN IF NOT EXISTS "revenue_schedule_id" uuid REFERENCES "revenue_schedules"("id"),
+  ADD COLUMN IF NOT EXISTS "accounting_period_id" uuid REFERENCES "accounting_periods"("id"),
+  ADD COLUMN IF NOT EXISTS "deferred_revenue_amount" numeric(12, 2),
+  ADD COLUMN IF NOT EXISTS "recognized_revenue_amount" numeric(12, 2),
+  ADD COLUMN IF NOT EXISTS "journal_entry_reference" varchar(255),
+  ADD COLUMN IF NOT EXISTS "status" journal_status NOT NULL DEFAULT 'draft';
+
+UPDATE "revenue_journal_entries" entry
+SET
+  "organization_id" = contract."organization_id",
+  "recognized_revenue_amount" = COALESCE(entry."recognized_revenue_amount", entry."amount")
+FROM "contracts" contract
+WHERE entry."contract_id" = contract."id"
+  AND (
+    entry."organization_id" IS NULL
+    OR entry."recognized_revenue_amount" IS NULL
+  );
+
+ALTER TABLE "revenue_journal_entries"
+  ALTER COLUMN "contract_id" DROP NOT NULL,
+  ALTER COLUMN "debit_account" DROP NOT NULL,
+  ALTER COLUMN "credit_account" DROP NOT NULL,
+  ALTER COLUMN "amount" DROP NOT NULL,
+  ALTER COLUMN "entry_type" DROP NOT NULL;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM "revenue_journal_entries" WHERE "organization_id" IS NULL
+  ) THEN
+    ALTER TABLE "revenue_journal_entries"
+      ALTER COLUMN "organization_id" SET NOT NULL;
+  END IF;
+END $$;
+
 ALTER TABLE "revenue_journal_entries"
   ADD COLUMN IF NOT EXISTS "recognition_run_id" uuid REFERENCES "revenue_recognition_runs"("id");
 CREATE UNIQUE INDEX IF NOT EXISTS "ux_revenue_journal_entries_automated_schedule"
