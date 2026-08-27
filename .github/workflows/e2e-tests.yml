@@ -143,6 +143,9 @@ jobs:
         run: pnpm db:migrate
         continue-on-error: true
 
+      - name: Reconcile disposable test schema
+        run: pnpm --filter @glapi/database db:push --force
+
       - name: Build all apps
         run: pnpm build
         env:
