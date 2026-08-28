@@ -643,6 +643,12 @@ const NewPageSidebar = ({ collapsed = false, onToggleCollapse, isMobileOpen = fa
                         </Link>
                       </li>
                       <li>
+                        <Link href="/projects/billing" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/projects/billing') ? activeLinkClass : inactiveLinkClass}`}>
+                          <ReceiptIcon className={`h-3 w-3 opacity-75`} />
+                          <span>Project Billing</span>
+                        </Link>
+                      </li>
+                      <li>
                         <Link href="/relationships/prospects" className={`pl-16 pr-3 py-2 rounded-md text-sm font-medium flex items-center space-x-3 ${isActive('/relationships/prospects') ? activeLinkClass : inactiveLinkClass}`}>
                           <ShieldIcon className={`h-3 w-3 opacity-75`} />
                           <span>Prospects</span>

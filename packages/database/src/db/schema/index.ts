@@ -22,6 +22,7 @@ import * as auth from './auth';
 import * as projects from './projects';
 import * as projectTypes from './project-types';
 import * as projectProgress from './project-progress';
+import * as projectContractsSchemas from './project-contracts';
 import * as transactionTypes from './transaction-types';
 import * as glTransactions from './gl-transactions';
 import * as accountingPeriods from './accounting-periods';
@@ -53,6 +54,7 @@ import * as billingSchedulesSchemas from './billing-schedules';
 import * as invoices from './invoices';
 import * as invoiceLineItemsSchemas from './invoice-line-items';
 import * as invoiceSourceAllocationsSchemas from './invoice-source-allocations';
+import * as projectBillingRequestsSchemas from './project-billing-requests';
 import * as payments from './payments';
 import * as externalEventReceiptsSchemas from './external-event-receipts';
 import * as revenueEnums from './revenue-enums';
@@ -61,6 +63,8 @@ import * as revenueSchedulesNew from './revenue-schedules';
 import * as sspEvidenceNew from './ssp-evidence';
 import * as contractSspAllocationsNew from './contract-ssp-allocations';
 import * as revenueJournalEntriesNew from './revenue-journal-entries';
+import * as revenueRecognitionRunsSchemas from './revenue-recognition-runs';
+import * as projectRevenueAdjustmentsSchemas from './project-revenue-adjustments';
 import * as kitComponents from './kit-components';
 
 // Contract modification schemas
@@ -195,6 +199,7 @@ export const schema = {
   ...projects,
   ...projectTypes,
   ...projectProgress,
+  ...projectContractsSchemas,
   ...testGl,
   // Items system schemas
   ...unitsOfMeasure,
@@ -222,6 +227,7 @@ export const schema = {
   ...invoices,
   ...invoiceLineItemsSchemas,
   ...invoiceSourceAllocationsSchemas,
+  ...projectBillingRequestsSchemas,
   ...payments,
   ...externalEventReceiptsSchemas,
   ...revenueEnums,
@@ -230,6 +236,8 @@ export const schema = {
   ...sspEvidenceNew,
   ...contractSspAllocationsNew,
   ...revenueJournalEntriesNew,
+  ...revenueRecognitionRunsSchemas,
+  ...projectRevenueAdjustmentsSchemas,
   ...kitComponents,
   // Contract modification schemas
   ...contractModifications,
@@ -343,6 +351,7 @@ export type { RevenueSchedule, NewRevenueSchedule } from './revenue-schedules';
 export type { SspEvidence as SSPEvidence, NewSspEvidence as NewSSPEvidence } from './ssp-evidence';
 export type { ContractSspAllocation as ContractSSPAllocation, NewContractSspAllocation as NewContractSSPAllocation } from './contract-ssp-allocations';
 export type { RevenueJournalEntry, NewRevenueJournalEntry } from './revenue-journal-entries';
+export type { RevenueRecognitionRun, RevenueRecognitionRunItem } from './revenue-recognition-runs';
 
 // Re-export tables from new schemas with correct names
 export { performanceObligations } from './performance-obligations';
@@ -350,6 +359,19 @@ export { revenueSchedules } from './revenue-schedules';
 export { sspEvidence } from './ssp-evidence';
 export { contractSspAllocations } from './contract-ssp-allocations';
 export { revenueJournalEntries } from './revenue-journal-entries';
+export { revenueRecognitionRuns, revenueRecognitionRunItems } from './revenue-recognition-runs';
+export {
+  projectContractModificationMethodEnum,
+  projectContractModifications,
+  projectContractModificationSchedules,
+  projectRevenueRecognitionReversals,
+  projectRevenueRecognitionReversalItems,
+} from './project-revenue-adjustments';
+export type {
+  ProjectContractModification,
+  ProjectRevenueRecognitionReversal,
+  ProjectRevenueRecognitionReversalItem,
+} from './project-revenue-adjustments';
 export { items } from './items';
 export { unitsOfMeasure } from './units-of-measure';
 export { kitComponents } from './kit-components';
@@ -370,6 +392,7 @@ export {
   customerPortalRoleEnum,
 } from './customer-portal-auth';
 export { externalEventReceipts, externalEventProcessingStatusEnum } from './external-event-receipts';
+export * from './project-contracts';
 
 // Re-export contract modification schemas
 export {

@@ -8,9 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       debug:
-        description: 'Enable debug logging'
+        description: "Enable debug logging"
         required: false
-        default: 'false'
+        default: "false"
+      full_regression:
+        description: "Run the full Chromium regression suite instead of the PR smoke suite"
+        required: false
+        default: "false"
 
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.ref }}
@@ -56,8 +60,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -65,9 +69,8 @@ jobs:
       - name: Set test database URL
         run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
 
-      - name: Run database migrations
-        run: pnpm db:migrate
-        continue-on-error: true
+      - name: Materialize and verify disposable test schema
+        run: pnpm db:push:verified
 
       - name: Build packages
         run: pnpm turbo build --filter=@glapi/trpc --filter=@glapi/api-service --filter=@glapi/database --filter=@glapi/auth
@@ -123,8 +126,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -135,9 +138,8 @@ jobs:
       - name: Set test database URL
         run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
 
-      - name: Run database migrations
-        run: pnpm db:migrate
-        continue-on-error: true
+      - name: Materialize and verify disposable test schema
+        run: pnpm db:push:verified
 
       - name: Build all apps
         run: pnpm build
@@ -159,12 +161,25 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3031
 
+      - name: Provision Better Auth smoke-test user
+        run: pnpm test:provision-auth
+
+      - name: Seed application smoke-test tenant
+        run: pnpm --filter @glapi/database seed:e2e-smoke
+
       - name: Run E2E tests
-        run: pnpm playwright test --project=chromium
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.full_regression }}" == "true" ]]; then
+            pnpm playwright test --project=chromium
+          else
+            pnpm playwright test --project=smoke
+          fi
         env:
           CI: true
           SKIP_WEBSERVER: true
           PLAYWRIGHT_BASE_URL: http://localhost:3000
+          BETTER_AUTH_TEST_EMAIL: test-admin@glapi-test.local
+          BETTER_AUTH_TEST_PASSWORD: TestPassword123!
           CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
@@ -217,14 +232,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Setup Java (for Karate)
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -232,8 +247,8 @@ jobs:
       - name: Set test database URL
         run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glapi_test" >> $GITHUB_ENV
 
-      - name: Run database migrations
-        run: pnpm db:migrate
+      - name: Materialize and verify disposable test schema
+        run: pnpm db:push:verified
 
       - name: Backfill entity roles
         run: pnpm --filter @glapi/database backfill:entity-roles -- --write

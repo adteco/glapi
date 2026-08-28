@@ -239,13 +239,15 @@ export const navigationAssertions = {
  */
 export const authAssertions = {
   /**
-   * Assert user is authenticated (user button visible)
+   * Assert user is authenticated (authenticated app shell visible)
    */
   async expectAuthenticated(page: Page): Promise<void> {
-    const userButton = page.locator(
-      '[aria-label*="user menu"], [aria-label*="user"], button:has-text("Profile"), img[alt*="Avatar"]'
-    ).first();
-    await expect(userButton).toBeVisible({ timeout: 10000 });
+    await expect(page).not.toHaveURL(/\/sign-in(?:[/?#]|$)/, {
+      timeout: 10000,
+    });
+    await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible({
+      timeout: 10000,
+    });
   },
 
   /**

@@ -8,6 +8,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@glapi/business': path.resolve(__dirname, '../business/src'),
       '@glapi/database': path.resolve(__dirname, '../database/src'),
     },
   },

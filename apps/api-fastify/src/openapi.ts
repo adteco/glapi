@@ -43,8 +43,209 @@ export function generateRuntimeOpenApiSpec(): OpenAPIV3.Document {
   addSavedSearchOpenApiSpec(spec);
   addCustomFieldOpenApiSpec(spec);
   addCustomRecordOpenApiSpec(spec);
+  addProjectAccountingOpenApiSpec(spec);
 
   return spec;
+}
+
+function addProjectAccountingOpenApiSpec(spec: OpenAPIV3.Document): void {
+  const billingTag = 'Project Billing';
+  const revenueTag = 'Project Revenue ASC 606';
+  spec.tags = [
+    ...(spec.tags ?? []).filter((tag: { name?: string }) =>
+      tag.name !== billingTag && tag.name !== revenueTag),
+    { name: billingTag, description: 'Project work eligibility, invoice drafts, and billing GL posting.' },
+    { name: revenueTag, description: 'Project ASC 606 plans, recognition, modifications, reversals, and GL posting.' },
+  ];
+  spec.components ??= {};
+  spec.components.schemas ??= {};
+  Object.assign(spec.components.schemas, projectAccountingSchemas());
+  spec.paths ??= {};
+
+  const idempotencyHeader: OpenAPIV3.ParameterObject = {
+    name: 'Idempotency-Key',
+    in: 'header',
+    required: true,
+    description: 'Client-generated key. Exact replay returns the original result; changed reuse returns 409.',
+    schema: { type: 'string', minLength: 1, maxLength: 255 },
+  };
+  const versionParameter: OpenAPIV3.ParameterObject = {
+    name: 'versionId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' },
+  };
+  const mutationResponses = (description: string) => ({
+    '200': jsonResponse(description, 'ProjectAccountingCommandResponse'),
+    '400': jsonResponse('Invalid request or missing idempotency key', 'ErrorResponse'),
+    '404': jsonResponse('Project accounting resource not found', 'ErrorResponse'),
+    '409': jsonResponse('Accounting state, period, concurrency, or idempotency conflict', 'ErrorResponse'),
+    '422': jsonResponse('Accounting calculation validation failed', 'ErrorResponse'),
+  });
+
+  spec.paths['/v1/project-billing/candidates'] = {
+    get: {
+      tags: [billingTag], operationId: 'listProjectBillingCandidates',
+      summary: 'List eligible project billing sources',
+      parameters: [
+        { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1 } },
+        { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+        { name: 'customerId', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        { name: 'projectId', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        { name: 'sourceTypes', in: 'query', schema: { type: 'string', example: 'TIME_ENTRY,PROJECT_TASK' } },
+        { name: 'asOfDate', in: 'query', schema: { type: 'string', format: 'date' } },
+      ],
+      responses: { '200': jsonResponse('Eligible billing candidates', 'ProjectAccountingCommandResponse') },
+    },
+  };
+  spec.paths['/v1/project-billing/preview'] = {
+    post: {
+      tags: [billingTag], operationId: 'previewProjectInvoiceDrafts', summary: 'Preview grouped project invoice drafts',
+      requestBody: jsonRequest('ProjectBillingPreviewRequest'),
+      responses: mutationResponses('Project invoice draft preview'),
+    },
+  };
+  spec.paths['/v1/project-billing/drafts'] = {
+    post: {
+      tags: [billingTag], operationId: 'createProjectInvoiceDrafts', summary: 'Create project invoice drafts atomically',
+      parameters: [idempotencyHeader], requestBody: jsonRequest('ProjectBillingDraftRequest'),
+      responses: mutationResponses('Created project invoice drafts'),
+    },
+  };
+  spec.paths['/v1/project-billing/invoices'] = {
+    get: {
+      tags: [billingTag], operationId: 'listProjectBillingInvoices',
+      summary: 'List project invoices with allocation state and replacement lineage',
+      parameters: [{ name: 'status', in: 'query', schema: { type: 'string', enum: ['draft', 'billed'] } }],
+      responses: { '200': jsonResponse('Project invoice allocation history', 'ProjectAccountingCommandResponse') },
+    },
+  };
+  spec.paths['/v1/project-billing/invoices/{invoiceId}/transitions'] = {
+    post: {
+      tags: [billingTag], operationId: 'transitionProjectBillingInvoice',
+      summary: 'Void, release, transfer, or rebill project invoice allocations',
+      parameters: [{ ...versionParameter, name: 'invoiceId' }, idempotencyHeader],
+      requestBody: jsonRequest('ProjectBillingTransitionRequest'),
+      responses: mutationResponses('Project billing allocation transition'),
+    },
+  };
+  spec.paths['/v1/project-billing/invoices/{invoiceId}/post'] = {
+    post: {
+      tags: [billingTag], operationId: 'postProjectInvoiceToGl', summary: 'Post an issued project invoice to the GL',
+      parameters: [{ ...versionParameter, name: 'invoiceId' }, idempotencyHeader],
+      responses: mutationResponses('Project invoice GL posting'),
+    },
+  };
+  spec.paths['/v1/project-revenue/plans/{versionId}'] = {
+    get: {
+      tags: [revenueTag], operationId: 'getProjectRevenuePlan', summary: 'Get a persisted project revenue plan',
+      parameters: [versionParameter], responses: mutationResponses('Project revenue plan'),
+    },
+    post: {
+      tags: [revenueTag], operationId: 'generateProjectRevenuePlan', summary: 'Generate a project ASC 606 revenue plan',
+      parameters: [versionParameter], responses: mutationResponses('Generated project revenue plan'),
+    },
+  };
+  spec.paths['/v1/project-revenue/plans/{versionId}/preview'] = {
+    post: {
+      tags: [revenueTag], operationId: 'previewProjectRevenuePlan', summary: 'Preview a project ASC 606 revenue plan',
+      parameters: [versionParameter], responses: mutationResponses('Project revenue plan preview'),
+    },
+  };
+  spec.paths['/v1/project-revenue/recognition-runs/preview'] = {
+    post: {
+      tags: [revenueTag], operationId: 'previewProjectRevenueRecognitionRun', summary: 'Preview an open-period recognition run',
+      requestBody: jsonRequest('ProjectRecognitionRunRequest'), responses: mutationResponses('Recognition run preview'),
+    },
+  };
+  spec.paths['/v1/project-revenue/recognition-runs'] = {
+    post: {
+      tags: [revenueTag], operationId: 'executeProjectRevenueRecognitionRun', summary: 'Execute an atomic recognition run',
+      parameters: [idempotencyHeader], requestBody: jsonRequest('ProjectRecognitionRunRequest'),
+      responses: mutationResponses('Completed recognition run'),
+    },
+  };
+  spec.paths['/v1/project-revenue/recognition-runs/{runId}/post'] = {
+    post: {
+      tags: [revenueTag], operationId: 'postProjectRevenueRecognitionRun', summary: 'Post a recognition run to the GL',
+      parameters: [{ ...versionParameter, name: 'runId' }, idempotencyHeader],
+      responses: mutationResponses('Recognition run GL posting'),
+    },
+  };
+  spec.paths['/v1/project-revenue/modifications/preview'] = {
+    post: {
+      tags: [revenueTag], operationId: 'previewProjectContractModification', summary: 'Preview an ASC 606 project-contract modification',
+      requestBody: jsonRequest('ProjectContractModificationRequest'), responses: mutationResponses('Modification preview'),
+    },
+  };
+  spec.paths['/v1/project-revenue/modifications'] = {
+    post: {
+      tags: [revenueTag], operationId: 'applyProjectContractModification', summary: 'Apply a project-contract modification and catch-up',
+      parameters: [idempotencyHeader], requestBody: jsonRequest('ProjectContractModificationRequest'),
+      responses: mutationResponses('Applied project-contract modification'),
+    },
+  };
+  spec.paths['/v1/project-revenue/recognition-reversals'] = {
+    post: {
+      tags: [revenueTag], operationId: 'reverseProjectRevenueRecognitionRun', summary: 'Reverse a posted recognition run in an open period',
+      parameters: [idempotencyHeader], requestBody: jsonRequest('ProjectRecognitionReversalRequest'),
+      responses: mutationResponses('Posted recognition reversal'),
+    },
+  };
+}
+
+function projectAccountingSchemas() {
+  const uuid = { type: 'string', format: 'uuid' };
+  const date = { type: 'string', format: 'date' };
+  return {
+    ProjectAccountingCommandResponse: {
+      type: 'object', additionalProperties: true,
+      description: 'Versioned project accounting command or query response.',
+    },
+    ProjectBillingPreviewRequest: {
+      type: 'object',
+      properties: {
+        candidateIds: { type: 'array', items: { type: 'string' } }, customerId: uuid,
+        projectId: uuid, sourceTypes: { type: 'array', items: { type: 'string', enum: ['TIME_ENTRY', 'PROJECT_TASK'] } },
+        asOfDate: date,
+      },
+    },
+    ProjectBillingDraftRequest: {
+      type: 'object', required: ['candidateIds', 'invoiceDate'],
+      properties: {
+        candidateIds: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } },
+        invoiceDate: date, dueDate: date, customerId: uuid, projectId: uuid, asOfDate: date,
+      },
+    },
+    ProjectBillingTransitionRequest: {
+      type: 'object', required: ['action', 'reason'],
+      properties: {
+        action: { type: 'string', enum: ['void', 'release', 'transfer', 'rebill'] },
+        reason: { type: 'string', minLength: 3, maxLength: 1000 },
+        targetInvoiceId: uuid, invoiceDate: date, dueDate: date,
+      },
+    },
+    ProjectRecognitionRunRequest: {
+      type: 'object', required: ['subsidiaryId', 'accountingPeriodId', 'recognitionDate'],
+      properties: {
+        subsidiaryId: uuid, accountingPeriodId: uuid, recognitionDate: date,
+        scheduleIds: { type: 'array', uniqueItems: true, items: uuid },
+      },
+    },
+    ProjectContractModificationRequest: {
+      type: 'object', required: ['priorVersionId', 'revisedVersionId', 'method', 'effectiveDate', 'reason'],
+      properties: {
+        priorVersionId: uuid, revisedVersionId: uuid,
+        method: { type: 'string', enum: ['prospective', 'cumulative_catch_up', 'separate_contract'] },
+        effectiveDate: date, progressPercentage: { type: 'string', pattern: '^\\d+(\\.\\d+)?$' },
+        reason: { type: 'string', minLength: 1, maxLength: 2000 },
+      },
+    },
+    ProjectRecognitionReversalRequest: {
+      type: 'object', required: ['subsidiaryId', 'originalRunId', 'accountingPeriodId', 'reversalDate', 'reason'],
+      properties: {
+        subsidiaryId: uuid, originalRunId: uuid, accountingPeriodId: uuid, reversalDate: date,
+        reason: { type: 'string', minLength: 1, maxLength: 2000 },
+      },
+    },
+  };
 }
 
 function addOntologyOpenApiSpec(spec: OpenAPIV3.Document): void {

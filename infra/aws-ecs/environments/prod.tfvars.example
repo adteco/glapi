@@ -12,6 +12,8 @@ public_subnet_ids = [
 ]
 
 certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/PROD_CERT_ID"
+additional_certificate_arns = []
+api_alias_domain_names      = []
 web_secret_name = "glapi/prod/web"
 api_secret_name = "glapi/prod/api"
 

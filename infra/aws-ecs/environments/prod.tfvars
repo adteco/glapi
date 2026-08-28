@@ -13,8 +13,12 @@ public_subnet_ids = [
 ]
 
 certificate_arn = "arn:aws:acm:us-east-1:340173080692:certificate/f2473b55-5ec0-4579-a12f-422e164f8968"
-web_secret_name = "glapi/prod/web"
-api_secret_name = "glapi/prod/api"
+additional_certificate_arns = [
+  "arn:aws:acm:us-east-1:340173080692:certificate/4d72eff3-93fc-49e6-821c-348f39c5ccbc",
+]
+api_alias_domain_names = ["api.glapi.net"]
+web_secret_name        = "glapi/prod/web"
+api_secret_name        = "glapi/prod/api"
 
 web_desired_count = 2
 api_desired_count = 2

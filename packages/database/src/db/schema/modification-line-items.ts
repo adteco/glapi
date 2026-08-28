@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, decimal } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import { contractModifications } from './contract-modifications';
 import { subscriptionItems } from './subscription-items';
@@ -10,7 +10,7 @@ import { subscriptionItems } from './subscription-items';
 export const modificationLineItems = pgTable('modification_line_items', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
   modificationId: text('modification_id').notNull().references(() => contractModifications.id, { onDelete: 'cascade' }),
-  subscriptionItemId: text('subscription_item_id').references(() => subscriptionItems.id, { onDelete: 'restrict' }),
+  subscriptionItemId: uuid('subscription_item_id').references(() => subscriptionItems.id, { onDelete: 'restrict' }),
   
   // Change type
   action: text('action').notNull(), // 'add', 'remove', 'modify'

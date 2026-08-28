@@ -158,7 +158,11 @@ CREATE POLICY org_isolation_delete_performance_obligations
   ON public.performance_obligations FOR DELETE
   USING (organization_id = public.get_current_organization_id());
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.performance_obligations TO glapiuser;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'glapiuser') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON public.performance_obligations TO glapiuser;
+  END IF;
+END $$;
 
 -- =============================================================================
 -- revenue_schedules
@@ -287,7 +291,11 @@ CREATE POLICY org_isolation_delete_revenue_schedules
   ON public.revenue_schedules FOR DELETE
   USING (organization_id = public.get_current_organization_id());
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.revenue_schedules TO glapiuser;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'glapiuser') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON public.revenue_schedules TO glapiuser;
+  END IF;
+END $$;
 
 -- =============================================================================
 -- contract_ssp_allocations
@@ -403,4 +411,8 @@ CREATE POLICY org_isolation_delete_contract_ssp_allocations
   ON public.contract_ssp_allocations FOR DELETE
   USING (organization_id = public.get_current_organization_id());
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.contract_ssp_allocations TO glapiuser;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'glapiuser') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON public.contract_ssp_allocations TO glapiuser;
+  END IF;
+END $$;

@@ -56,6 +56,8 @@ jobs:
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-prod-api" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-prod-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-prod-api" >> "$GITHUB_ENV"
+            echo "DATABASE_SECRET_ID=glapi/prod/api" >> "$GITHUB_ENV"
+            echo "EXPECTED_DATABASE_NAME=glapi" >> "$GITHUB_ENV"
             echo "HEALTH_URL=${ECS_API_BASE_URL}/health" >> "$GITHUB_ENV"
             echo "OPENAPI_URL=${ECS_API_BASE_URL}/openapi.json" >> "$GITHUB_ENV"
             echo "API_CURL_CONNECT_TO=glapi-api.adteco.com:443:glapi-prod-alb-515642753.us-east-1.elb.amazonaws.com:443" >> "$GITHUB_ENV"
@@ -64,6 +66,8 @@ jobs:
             echo "ECR_REPO=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/glapi-staging-api" >> "$GITHUB_ENV"
             echo "ECS_CLUSTER=glapi-staging-cluster" >> "$GITHUB_ENV"
             echo "ECS_SERVICE=glapi-staging-api" >> "$GITHUB_ENV"
+            echo "DATABASE_SECRET_ID=glapi/staging/api" >> "$GITHUB_ENV"
+            echo "EXPECTED_DATABASE_NAME=glapi_staging" >> "$GITHUB_ENV"
             echo "HEALTH_URL=https://glapi-staging-api.adteco.com/health" >> "$GITHUB_ENV"
             echo "OPENAPI_URL=https://glapi-staging-api.adteco.com/openapi.json" >> "$GITHUB_ENV"
           fi
@@ -127,6 +131,26 @@ jobs:
             --region "$AWS_REGION" \
             --query 'services[0].serviceArn' \
             --output text | grep -v None
+
+      - name: Deploy and verify project accounting schema
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+          SECRET_JSON="$(aws secretsmanager get-secret-value \
+            --secret-id "$DATABASE_SECRET_ID" \
+            --region "$AWS_REGION" \
+            --query SecretString \
+            --output text)"
+          DATABASE_URL="$(echo "$SECRET_JSON" | jq -r '.DATABASE_URL')"
+          if [ -z "$DATABASE_URL" ] || [ "$DATABASE_URL" = "null" ]; then
+            echo "::error::DATABASE_URL is missing from $DATABASE_SECRET_ID"
+            exit 1
+          fi
+          echo "::add-mask::$DATABASE_URL"
+          export DATABASE_URL EXPECTED_DATABASE_NAME
+          pnpm db:deploy:project-accounting
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -256,4 +280,10 @@ jobs:
             sleep 15
           done
 
-          curl "${CONNECT_ARGS[@]}" -fsS "$OPENAPI_URL" | jq -e '.openapi and (.paths | length > 0)' >/dev/null
+          curl "${CONNECT_ARGS[@]}" -fsS "$OPENAPI_URL" | jq -e '
+            .openapi
+            and .paths["/v1/project-billing/candidates"]
+            and .paths["/v1/project-billing/invoices/{invoiceId}/transitions"]
+            and .paths["/v1/project-revenue/recognition-runs"]
+            and .paths["/v1/project-revenue/recognition-reversals"]
+          ' >/dev/null

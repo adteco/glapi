@@ -35,6 +35,12 @@ variable "certificate_arn" {
   type        = string
 }
 
+variable "additional_certificate_arns" {
+  description = "Additional ACM certificates attached to the HTTPS listener for alias hostnames."
+  type        = set(string)
+  default     = []
+}
+
 variable "route53_zone_name" {
   description = "Optional public Route53 zone name used to create web/API alias records."
   type        = string
@@ -49,6 +55,12 @@ variable "web_domain_name" {
 variable "api_domain_name" {
   description = "Public API hostname."
   type        = string
+}
+
+variable "api_alias_domain_names" {
+  description = "Additional API hostnames routed to the API target group. DNS is managed separately."
+  type        = list(string)
+  default     = []
 }
 
 variable "web_secret_name" {

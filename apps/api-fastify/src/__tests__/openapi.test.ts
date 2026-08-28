@@ -50,4 +50,22 @@ describe('runtime OpenAPI spec', () => {
     expect(spec.components?.schemas?.CustomRecord).toBeDefined();
     expect(spec.components?.schemas?.CustomRecordValuesValidationResult).toBeDefined();
   });
+
+  it('documents the complete project billing and ASC 606 REST vertical', () => {
+    const spec = generateRuntimeOpenApiSpec();
+
+    expect(spec.paths?.['/v1/project-billing/candidates']).toBeDefined();
+    expect(spec.paths?.['/v1/project-billing/drafts']?.post?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'Idempotency-Key', required: true })]),
+    );
+    expect(spec.paths?.['/v1/project-billing/invoices']).toBeDefined();
+    expect(spec.paths?.['/v1/project-billing/invoices/{invoiceId}/transitions']).toBeDefined();
+    expect(spec.paths?.['/v1/project-revenue/plans/{versionId}']).toBeDefined();
+    expect(spec.paths?.['/v1/project-revenue/recognition-runs']).toBeDefined();
+    expect(spec.paths?.['/v1/project-revenue/modifications']).toBeDefined();
+    expect(spec.paths?.['/v1/project-revenue/recognition-reversals']).toBeDefined();
+    expect(spec.components?.schemas?.ProjectContractModificationRequest).toBeDefined();
+    expect(spec.components?.schemas?.ProjectBillingTransitionRequest).toBeDefined();
+    expect(spec.components?.schemas?.ProjectRecognitionReversalRequest).toBeDefined();
+  });
 });

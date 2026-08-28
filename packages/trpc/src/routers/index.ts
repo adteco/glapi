@@ -20,6 +20,8 @@ export * from './invoices';
 export * from './payments';
 export * from './projects';
 export * from './project-reporting';
+export * from './project-billing';
+export * from './project-revenue';
 export * from './time-entries';
 export * from './expense-entries';
 export * from './schedule-of-values';
