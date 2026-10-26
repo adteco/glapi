@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.20"
     }
   }
 
@@ -128,7 +128,7 @@ resource "aws_lambda_function" "magic_inbox_processor" {
   source_code_hash = filebase64sha256("${path.module}/../function.zip")
 
   handler = "index.handler"
-  runtime = "nodejs20.x"
+  runtime = "nodejs24.x"
 
   role        = aws_iam_role.lambda_role.arn
   memory_size = var.lambda_memory_size
